@@ -62,6 +62,7 @@ Comm:Handle("ST", function(f, sender, channel)
       Data.sentTo[pid] = true
       Comm:SendTo(sender, ns.Tracker:BuildSS(), 3)
       Comm:SendTo(sender, ns.Tracker:BuildS2(), 3)
+      Comm:SendTo(sender, ns.Tracker:BuildS3(), 3)
       ns.Tracker:SendHistory(sender)
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
@@ -112,8 +113,27 @@ Comm:Handle("S2", function(f)
   ns:MarkDirty()
 end)
 
+Comm:Handle("S3", function(f)
+  local pid = f[1]
+  if not pid or pid == ns.pid then return end
+  local p = ns:GetPerson(pid, true)
+  p.s3 = {
+    xp = num(f[2]), xpMax = num(f[3]), rested = num(f[4]) or 0, wXP = num(f[5]) or 0, tXP = num(f[6]) or 0,
+    sessXP = num(f[7]) or 0, sessSec = num(f[8]) or 0, money = num(f[9]), ilvl = num(f[10]),
+    today = num(f[11]) or 0, streak = num(f[12]) or 0, zone = (f[13] ~= "" and f[13]) or nil, at = ns.Now(),
+  }
+  ns:MarkDirty()
+end)
+
+-- Detaljstatistikk for en person (meg selv regnes ut lokalt)
+function ns:PersonS3(p)
+  if not p then return nil end
+  if p == ns.db.people[ns.pid] then return ns.Tracker:S3Data() end
+  return p.s3
+end
+
 -- Levelhistorikk (til grafen i Statistikk)
-function Data:AddHistoryPoint(pid, char, t, level)
+function Data:AddHistoryPoint(pid, char, t, level, played)
   local p = ns:GetPerson(pid, true)
   local c = p.chars[char]
   if not c then c = { name = ns.ShortName(char) } p.chars[char] = c end
@@ -121,10 +141,11 @@ function Data:AddHistoryPoint(pid, char, t, level)
   for _, h in ipairs(c.hist) do
     if h.l == level then
       if t < h.t then h.t = t end
+      if played and not h.p then h.p = played end
       return
     end
   end
-  table.insert(c.hist, { t = t, l = level })
+  table.insert(c.hist, { t = t, l = level, p = played })
   table.sort(c.hist, function(a, b) return a.l < b.l end)
   while #c.hist > 80 do table.remove(c.hist, 1) end
 end
@@ -133,8 +154,8 @@ Comm:Handle("LH", function(f)
   local pid, char = f[1], f[2]
   if not pid or pid == ns.pid or not char or char == "" then return end
   for _, part in ipairs(ns.Split(f[5] or "", ";")) do
-    local ago, lvl = part:match("^(%d+):(%d+)$")
-    if ago then Data:AddHistoryPoint(pid, char, ns.Now() - tonumber(ago), tonumber(lvl)) end
+    local ago, lvl, played = part:match("^(%d+):(%d+):?(%d*)$")
+    if ago then Data:AddHistoryPoint(pid, char, ns.Now() - tonumber(ago), tonumber(lvl), tonumber(played)) end
   end
   ns:MarkDirty()
 end)
@@ -191,8 +212,8 @@ Comm:Handle("PF", function(f)
   local p = ns:GetPerson(pid, true)
   local list = {}
   for _, part in ipairs(ns.Split(f[2] or "", ";")) do
-    local name, skill, max = part:match("^(.-):(%d+):(%d+)$")
-    if name then list[#list + 1] = { name = name, skill = tonumber(skill), max = tonumber(max) } end
+    local name, skill, max, base = part:match("^(.-):(%d+):(%d+):?(%d*)$")
+    if name then list[#list + 1] = { name = name, skill = tonumber(skill), max = tonumber(max), base = tonumber(base) } end
   end
   p.profs = list
   ns:MarkDirty()
@@ -294,6 +315,7 @@ Comm:Handle("HI", function(f, sender, channel)
   replyTo(sender, channel, ns.Tracker:BuildST(), 1)
   replyTo(sender, channel, ns.Tracker:BuildSS(), 2)
   replyTo(sender, channel, ns.Tracker:BuildS2(), 3)
+  replyTo(sender, channel, ns.Tracker:BuildS3(), 3)
   ns.Tracker:SendHistory(sender)
   if iAmGossiper() then
     local n = 0
@@ -392,7 +414,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     local lvl = num(a)
     local ch = p.chars[char]
     if ch and lvl and lvl > (ch.level or 0) then ch.level = lvl end
-    if lvl then Data:AddHistoryPoint(pid, char, t, lvl) end
+    if lvl then Data:AddHistoryPoint(pid, char, t, lvl, num(b)) end
     if lvl and FIRST_LEVELS[lvl] then item.first = setFirst("L" .. lvl, pid, char, t) end
     -- plass i gjengen til dette levelet
     local place = 0

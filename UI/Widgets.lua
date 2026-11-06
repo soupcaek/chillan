@@ -85,6 +85,53 @@ function UI.Icon(parent, name, size, color)
 end
 
 ---------------------------------------------------------------------------
+-- Flyttbare elementer: dra med venstre museknapp, posisjonen huskes
+---------------------------------------------------------------------------
+UI.movables = {}
+
+local function savePos(frame, key)
+  local point, _, rel, x, y = frame:GetPoint(1)
+  ns.db.settings.pos = ns.db.settings.pos or {}
+  ns.db.settings.pos[key] = { point = point, rel = rel, x = x, y = y }
+end
+
+function UI.RestorePos(frame)
+  local key = frame.posKey
+  local pos = ns.db.settings.pos and ns.db.settings.pos[key]
+  frame:ClearAllPoints()
+  if pos and pos.point then
+    frame:SetPoint(pos.point, UIParent, pos.rel or pos.point, pos.x or 0, pos.y or 0)
+  else
+    frame.defaultPos(frame)
+  end
+end
+
+-- target = rammen som faktisk flyttes (f.eks. et anker for en stabel med varsler)
+function UI.Movable(frame, key, defaultPos, target)
+  target = target or frame
+  target.posKey = key
+  target.defaultPos = defaultPos
+  target:SetMovable(true)
+  target:SetClampedToScreen(true)
+  frame:EnableMouse(true)
+  frame:RegisterForDrag("LeftButton")
+  frame:HookScript("OnDragStart", function() target:StartMoving() end)
+  frame:HookScript("OnDragStop", function()
+    target:StopMovingOrSizing()
+    savePos(target, key)
+    if target.OnMoved then target:OnMoved() end
+  end)
+  UI.movables[key] = target
+  UI.RestorePos(target)
+end
+
+function UI.ResetPositions()
+  ns.db.settings.pos = {}
+  ns.db.settings.minibarPos = nil
+  for _, f in pairs(UI.movables) do UI.RestorePos(f) end
+end
+
+---------------------------------------------------------------------------
 -- Knapper
 ---------------------------------------------------------------------------
 local STYLES = {

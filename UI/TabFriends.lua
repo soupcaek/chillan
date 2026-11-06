@@ -26,6 +26,8 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
   head:SetText("Venner")
   local count = UI.Text(tab, 13, nil, C.dim)
   count:SetPoint("LEFT", head, "RIGHT", 8, 0)
+  local mine = UI.Button(tab, 80, 26, "Min side", "ghost", function() ns.Window:OpenPlayer(ns.pid) end)
+  mine:SetPoint("LEFT", count, "RIGHT", 10, 0)
 
   local filterButtons = {}
   local function setFilter(key)
@@ -82,6 +84,10 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       self.panel:SetColors(C.card, C.line)
       ns.Overlays:HideProfile()
     end)
+    row:SetScript("OnClick", function(self)
+      ns.Overlays:HideProfile()
+      if self.item then tab:ToggleQuick(self, self.item) end
+    end)
     return row
   end
 
@@ -117,6 +123,79 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
   list:SetPoint("TOPLEFT", 12, -48)
   list:SetPoint("BOTTOMRIGHT", -12, 60)
   list.emptyText = "Ingen her ennå. Del gjengkoden din (se fanen Mer), så dukker vennene dine opp når de logger på."
+
+  -- Hurtigkort som dukker opp under vennen du klikker på
+  local quick = UI.Panel(tab, "202429", C.activeLine, false)
+  quick:SetHeight(112)
+  quick:SetFrameLevel(list:GetFrameLevel() + 30)
+  quick:EnableMouse(true)
+  quick:Hide()
+  quick.cells = {}
+  for i = 1, 4 do
+    local cell = CreateFrame("Frame", nil, quick)
+    cell:SetSize(130, 40)
+    cell:SetPoint("TOPLEFT", 14 + (i - 1) * 136, -12)
+    cell.v = UI.Text(cell, 15, "bold", C.text)
+    cell.v:SetPoint("TOPLEFT")
+    cell.v:SetWidth(128)
+    cell.k = UI.Text(cell, 11, nil, C.muted)
+    cell.k:SetPoint("BOTTOMLEFT")
+    cell.k:SetWidth(128)
+    quick.cells[i] = cell
+  end
+  quick.info = UI.Text(quick, 12, nil, C.text2)
+  quick.info:SetPoint("BOTTOMLEFT", 14, 16)
+  quick.info:SetPoint("RIGHT", -230, 0)
+  quick.open = UI.Button(quick, 120, 30, "Åpne spiller ›", "primary")
+  quick.open:SetPoint("BOTTOMRIGHT", -12, 10)
+  quick.wh = UI.Button(quick, 70, 30, "Hvisk", "secondary")
+  quick.wh:SetPoint("RIGHT", quick.open, "LEFT", -8, 0)
+
+  local function fillQuick(p)
+    local s3 = ns:PersonS3(p) or {}
+    local rate = ns.St:XPRate(p)
+    local eta = ns.St:ETA(p)
+    local pct = ns.Pct(s3.xp, s3.xpMax)
+    local vals = {
+      { rate and ns.Num(rate) or "–", "XP per time" },
+      { eta and ("ca. " .. ns.Duration(eta)) or "–", "til neste level" .. (pct and (" (" .. pct .. " %)") or "") },
+      { s3.today and ns.Duration(s3.today) or "–", "online i dag" },
+      { s3.streak and (s3.streak .. " d") or "–", "streak" },
+    }
+    for i, cell in ipairs(quick.cells) do
+      cell.v:SetText(vals[i][1])
+      cell.k:SetText(vals[i][2])
+    end
+    local parts = {}
+    parts[#parts + 1] = math.floor(ns:WeekStat(p, "Quests")) .. " quests denne uka"
+    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " i lomma" end
+    if s3.ilvl then parts[#parts + 1] = "ilvl " .. s3.ilvl end
+    quick.info:SetText(table.concat(parts, "  ·  "))
+    local target = (p.live and p.live.char) or p.main
+    quick.wh:SetScript("OnClick", function() ns.Whisper(target) end)
+    quick.wh:SetShown(p.pid ~= ns.pid)
+    quick.open:SetScript("OnClick", function() quick:Hide() ns.Window:OpenPlayer(p.pid) end)
+  end
+
+  function tab:ToggleQuick(row, p)
+    if quick:IsShown() and quick.pid == p.pid then quick:Hide() return end
+    quick.pid = p.pid
+    quick.row = row
+    fillQuick(p)
+    quick:ClearAllPoints()
+    quick:SetPoint("LEFT", row, "LEFT", 0, 0)
+    quick:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    -- under raden hvis det er plass, ellers over
+    local rowBottom, listBottom = row:GetBottom(), list:GetBottom()
+    if rowBottom and listBottom and (rowBottom - 118) < listBottom then
+      quick:SetPoint("BOTTOM", row, "TOP", 0, 4)
+    else
+      quick:SetPoint("TOP", row, "BOTTOM", 0, -4)
+    end
+    quick:Show()
+  end
+  list:HookScript("OnMouseWheel", function() quick:Hide() end)
+  tab:HookScript("OnHide", function() quick:Hide() end)
 
   -- Bunnlinje: egen status og SOS
   local line = UI.SolidLine(tab)
@@ -161,6 +240,13 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       return (a.lastSeen or 0) > (b.lastSeen or 0)
     end)
     list:SetData(people)
+    if quick:IsShown() then
+      if not quick.row or not quick.row.item or quick.row.item.pid ~= quick.pid then
+        quick:Hide()
+      else
+        fillQuick(quick.row.item)
+      end
+    end
     local n, total = ns.Window:OnlineCount()
     count:SetText(n .. " av " .. total .. " online")
     local st = ns.Tracker:Status()

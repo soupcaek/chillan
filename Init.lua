@@ -19,7 +19,8 @@ end)
 local started = false
 ns:On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
   if started then
-    ns.Tracker:SendStatusSoon()
+    -- ny layer/instans/sone: ta kontakt på nytt med gjengen
+    ns.Comm:OnWorldChanged()
     return
   end
   started = true

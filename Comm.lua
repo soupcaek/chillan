@@ -138,10 +138,44 @@ function Comm:Broadcast(msg, prio, logged)
   end
   local t = ns.Now()
   for char, r in pairs(ns.db.roster) do
-    if r.heard and (t - r.heard) < 150 and not (r.chan and (t - r.chan) < 150) then
+    if self:NeedsWhisper(r, t) then
       enqueue({ msg = msg, chatType = "WHISPER", target = char, logged = logged }, prio)
     end
   end
+end
+
+-- Vennen er online, men vi har ikke hørt ham på kanalen nylig (f.eks. annen layer)
+Comm.CHAN_FRESH = 45
+Comm.ONLINE_WINDOW = 300
+function Comm:NeedsWhisper(r, t)
+  t = t or ns.Now()
+  if not r.heard or (t - r.heard) > self.ONLINE_WINDOW then return false end
+  if r.offlineAt and (t - r.offlineAt) < 300 then return false end
+  return not (r.chan and (t - r.chan) < self.CHAN_FRESH)
+end
+
+-- Ny sone/layer: kanalen kan ha byttet server. Glem hvem vi når via kanalen,
+-- koble til kanalen på nytt og si hei både via kanal og whisper.
+local lastWorldChange = 0
+function Comm:OnWorldChanged()
+  if not ns.codeHash then return end
+  if (GetTime() - lastWorldChange) < 15 then return end
+  lastWorldChange = GetTime()
+  for _, r in pairs(ns.db.roster) do r.chan = nil end
+  self:RefreshChannelId()
+  if not self.chanId then self:JoinChannel() end
+  C_Timer.After(2, function()
+    local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION)
+    Comm:RefreshChannelId()
+    if Comm.chanId then enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 1) end
+    local t = ns.Now()
+    for char, r in pairs(ns.db.roster) do
+      if r.heard and (t - r.heard) < 600 and not (r.offlineAt and (t - r.offlineAt) < 300) then
+        enqueue({ msg = msg, chatType = "WHISPER", target = char }, 1)
+      end
+    end
+    ns.Tracker:SendStatus(1)
+  end)
 end
 
 -- Bare til kanalen (brukes for å tipse om venner som bare nås via whisper)
@@ -238,7 +272,13 @@ local function onAddonMessage(prefix, text, channel, sender)
   if not r then r = {} ns.db.roster[sender] = r end
   r.heard = ns.Now()
   r.offlineAt = nil
-  if channel == "WHISPER" then r.whisper = ns.Now() else r.chan = ns.Now() end
+  if channel == "WHISPER" then
+    r.whisper = ns.Now()
+    -- hvisker vennen oss, når han oss ikke via kanalen: svar også via whisper
+    if r.chan and (ns.Now() - r.chan) > 10 then r.chan = nil end
+  else
+    r.chan = ns.Now()
+  end
   local fields = {}
   for i = 4, #f do fields[#fields + 1] = f[i] end
   local h = Comm.handlers[msgType]

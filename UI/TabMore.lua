@@ -70,19 +70,16 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   end)
   saveAlias:SetPoint("LEFT", aliasBox, "RIGHT", 8, 0)
 
-  local nl = UI.Text(left, 12, nil, C.dim)
-  nl:SetPoint("TOPLEFT", aliasBox, "BOTTOMLEFT", 0, -12)
-  nl:SetText("Dukker ikke en venn opp?")
-  local addFriend = UI.Button(left, LEFT_W, 34, "Legg til venn manuelt", "ghost", function()
+  local addFriend = UI.Button(left, LEFT_W, 30, "Dukker ikke en venn opp? Legg til manuelt", "ghost", function()
     UI.Prompt("Legg til venn manuelt", {
       { label = "Karakternavn (bruk dette hvis en venn ikke dukker opp)", placeholder = "Navn eller Navn-Realm" },
     }, function(v) ns.Data:AddManual(v) end)
   end)
   addFriend.tooltip = "Send hei direkte til en karakter som ikke dukker opp automatisk"
-  addFriend:SetPoint("TOPLEFT", nl, "BOTTOMLEFT", 0, -6)
+  addFriend:SetPoint("TOPLEFT", aliasBox, "BOTTOMLEFT", 0, -8)
 
   local sh = UI.Text(left, 15, "semi", C.text)
-  sh:SetPoint("TOPLEFT", addFriend, "BOTTOMLEFT", 0, -22)
+  sh:SetPoint("TOPLEFT", addFriend, "BOTTOMLEFT", 0, -16)
   sh:SetText("Innstillinger")
   local S = ns.db.settings
   local checks = {
@@ -103,7 +100,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
       if def[3] then def[3]() end
     end)
     cb:SetPoint("TOPLEFT", sh, "BOTTOMLEFT", 0, y)
-    y = y - 26
+    y = y - 24
     checkFrames[#checkFrames + 1] = cb
   end
   local blue = UI.Check(left, "Del blå drops i feeden (ikke bare episke)",
@@ -111,6 +108,15 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
     function(v) ns.db.settings.lootMinQuality = v and 3 or 4 end)
   blue:SetPoint("TOPLEFT", sh, "BOTTOMLEFT", 0, y)
   checkFrames[#checkFrames + 1] = blue
+
+  local resetPos = UI.Button(left, 150, 26, "Tilbakestill posisjoner", "ghost", function()
+    UI.ResetPositions()
+    if ns.Overlays.placeMinimap then ns.Overlays.placeMinimap() end
+    ns.Print("Varsler, ding, SOS, oppsummering og minibar er flyttet tilbake.")
+  end)
+  resetPos.tooltip = "Alle varsler og minibaren kan dras med musa – dette setter dem tilbake"
+  resetPos:SetPoint("RIGHT", left, "RIGHT", 0, 0)
+  resetPos:SetPoint("TOP", sh, "TOP", 0, 6)
 
   local ver = UI.Text(left, 11, nil, C.dim)
   ver:SetPoint("LEFT", h, "RIGHT", 10, 0)

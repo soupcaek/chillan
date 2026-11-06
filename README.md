@@ -35,6 +35,13 @@ WowUp viser **Update** når det kommer en ny versjon. Chillan sier også fra i s
 
 Hurtigtaster for å åpne Chillan, gjengchatten og SOS kan settes under **Esc → Options → Keybindings → AddOns**.
 
+## Nytt i 0.4
+
+- Klikk på en venn for et hurtigkort (XP per time, tid til neste level, i dag, streak) og «Åpne spiller» for full statistikk
+- «Min side» med din egen statistikk
+- Varsler, ding-kort, SOS, oppsummering og minibar kan dras dit du vil (posisjonen huskes)
+- Raskere chat og ingen «avlogging» når noen bytter layer eller sone
+
 ## Nytt i 0.2
 
 - Minimap-knapp

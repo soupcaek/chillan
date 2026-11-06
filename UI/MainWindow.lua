@@ -4,8 +4,17 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local W = { tabDefs = {}, tabs = {}, navButtons = {} }
 ns.Window = W
 
-function ns:RegisterTab(key, label, icon, build)
-  table.insert(W.tabDefs, { key = key, label = label, icon = icon, build = build })
+function ns:RegisterTab(key, label, icon, build, hidden)
+  table.insert(W.tabDefs, { key = key, label = label, icon = icon, build = build, hidden = hidden })
+end
+
+-- Åpne spillersiden for en person
+function W:OpenPlayer(pid)
+  self:Create()
+  if not self.frame:IsShown() then self.frame:Show() end
+  self.returnTo = (self.current ~= "player") and self.current or (self.returnTo or "friends")
+  self.playerPid = pid
+  self:Select("player")
 end
 
 local WIDTH, HEIGHT, TITLE_H, NAV_W = 780, 500, 48, 68
@@ -98,7 +107,11 @@ function W:Create()
   line2:SetPoint("BOTTOMLEFT", nav, "BOTTOMRIGHT", 0, 0)
   line2:SetWidth(1)
 
-  for i, def in ipairs(self.tabDefs) do
+  local navIndex = 0
+  for _, def in ipairs(self.tabDefs) do
+   if not def.hidden then
+    navIndex = navIndex + 1
+    local i = navIndex
     local b = UI.Button(nav, NAV_W - 12, 54, "", "nav")
     b:SetPoint("TOP", 0, -8 - (i - 1) * 56)
     b.ic = UI.Icon(b, def.icon, 18, C.dim)
@@ -113,6 +126,7 @@ function W:Create()
       if W.current == self.key then self.panel:SetColors(C.active, nil) else self.panel:SetColors(nil, nil) end
     end)
     self.navButtons[def.key] = b
+   end
   end
 
   -- Innholdsflate

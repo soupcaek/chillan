@@ -5,7 +5,7 @@ ns.Tracker = Tracker
 
 local lastTick
 local lastMoney
-local session = { start = 0, levels = 0, quests = 0, gold = 0, deaths = 0, sos = 0, startLevel = 0 }
+local session = { start = 0, levels = 0, quests = 0, gold = 0, deaths = 0, sos = 0, startLevel = 0, xp = 0 }
 ns.session = session
 
 function Tracker:Me()
@@ -36,7 +36,7 @@ function Tracker:RefreshCharInfo()
   -- levelhistorikk til statistikkgrafen
   c.hist = c.hist or {}
   if #c.hist == 0 or c.hist[#c.hist].l < c.level then
-    table.insert(c.hist, { t = ns.Now(), l = c.level })
+    table.insert(c.hist, { t = ns.Now(), l = c.level, p = c.played })
   end
 end
 
@@ -150,6 +150,102 @@ function Tracker:BuildST()
     ns.Clean(c.name or "", 40), ns.VERSION, ns.Clean(ns.db.alias or "", 20))
 end
 
+---------------------------------------------------------------------------
+-- Detaljert statistikk til spillersiden (XP-tempo, streak, gull, item level)
+---------------------------------------------------------------------------
+local xpState = {}
+
+function Tracker:ReadXP()
+  return ns.S(UnitXP, "player"), ns.S(UnitXPMax, "player"), ns.S(GetXPExhaustion)
+end
+
+function Tracker:Streak(days)
+  days = days or {}
+  local n, t = 0, ns.Now()
+  if not days[date("%Y-%m-%d", t)] then t = t - 86400 end
+  while days[date("%Y-%m-%d", t)] do
+    n = n + 1
+    t = t - 86400
+  end
+  return n
+end
+
+local function topZone(zones)
+  local bz, bv = nil, 0
+  for z, v in pairs(zones or {}) do if v > bv then bz, bv = z, v end end
+  return bz
+end
+
+function Tracker:ItemLevel()
+  if not GetAverageItemLevel then return nil end
+  local _, equipped = ns.S(GetAverageItemLevel)
+  if equipped and equipped > 0 then return math.floor(equipped + 0.5) end
+end
+
+-- Alt spillersiden trenger om meg selv, i samme form som andre sender det
+function Tracker:S3Data()
+  local s = self:Me().stats
+  local xp, xpMax, rested = self:ReadXP()
+  return {
+    xp = xp, xpMax = xpMax, rested = rested or 0,
+    wXP = s.wk == ns.WeekKey() and (s.wXP or 0) or 0, tXP = s.tXP or 0,
+    sessXP = session.xp, sessSec = ns.Now() - session.start,
+    money = ns.S(GetMoney), ilvl = self:ItemLevel(),
+    today = (s.days or {})[date("%Y-%m-%d")] or 0, streak = self:Streak(s.days),
+    zone = topZone(s.zones), at = ns.Now(),
+  }
+end
+
+function Tracker:BuildS3()
+  local d = self:S3Data()
+  return ns.Comm:Build("S3", ns.pid, d.xp or "", d.xpMax or "", d.rested or 0, math.floor(d.wXP), math.floor(d.tXP),
+    math.floor(d.sessXP), math.floor(d.sessSec), d.money or "", d.ilvl or "", math.floor(d.today), d.streak,
+    ns.Clean(d.zone or "", 30))
+end
+
+local s3Pending = false
+function Tracker:SendS3Soon()
+  if s3Pending or not ns.codeHash then return end
+  s3Pending = true
+  C_Timer.After(30, function()
+    s3Pending = false
+    ns.Comm:Broadcast(Tracker:BuildS3(), 3)
+  end)
+end
+
+ns:On("PLAYER_XP_UPDATE", function()
+  local xp, xpMax = Tracker:ReadXP()
+  local lvl = ns.S(UnitLevel, "player")
+  if not xp or not xpMax or not lvl then return end
+  if xpState.xp then
+    local d
+    if xpState.level and lvl > xpState.level then
+      d = (xpState.max - xpState.xp) + xp
+    else
+      d = xp - xpState.xp
+    end
+    if d > 0 and d < 1000000 then
+      session.xp = session.xp + d
+      Tracker:AddStat("XP", d)
+    end
+  end
+  xpState.xp, xpState.max, xpState.level = xp, xpMax, lvl
+  Tracker:SendS3Soon()
+end)
+
+function Tracker:InitXP()
+  local xp, xpMax = self:ReadXP()
+  xpState.xp, xpState.max, xpState.level = xp, xpMax, ns.S(UnitLevel, "player")
+  -- rydd gamle dager (behold 45)
+  local s = self:Me().stats
+  if s.days then
+    local keys = {}
+    for k in pairs(s.days) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for i = 1, #keys - 45 do s.days[keys[i]] = nil end
+  end
+end
+
 -- Tilleggsstatistikk (levels, PvP-kills, lengste økt) i egen melding
 function Tracker:BuildS2()
   local s = self:Me().stats
@@ -165,7 +261,7 @@ function Tracker:SendHistory(target)
   local hist = c.hist or {}
   local parts, chunk = {}, {}
   for i, h in ipairs(hist) do
-    chunk[#chunk + 1] = math.floor(math.max(0, ns.Now() - h.t)) .. ":" .. h.l
+    chunk[#chunk + 1] = math.floor(math.max(0, ns.Now() - h.t)) .. ":" .. h.l .. ":" .. (h.p and math.floor(h.p) or "")
     if #chunk == 14 or i == #hist then
       parts[#parts + 1] = table.concat(chunk, ";")
       chunk = {}
@@ -200,6 +296,7 @@ function Tracker:SendStats(prio)
   if not ns.codeHash then return end
   ns.Comm:Broadcast(self:BuildSS(), prio or 3)
   ns.Comm:Broadcast(self:BuildS2(), 3)
+  ns.Comm:Broadcast(self:BuildS3(), 3)
 end
 
 local stPending = false
@@ -236,6 +333,13 @@ function Tracker:ScanProfessions()
       end
     end
   end)
+  -- husk skill ved ukestart, så vi kan vise fremgang denne uka
+  me.profWeek = me.profWeek or {}
+  if me.profWeek.wk ~= ns.WeekKey() then me.profWeek = { wk = ns.WeekKey(), base = {} } end
+  for _, p in ipairs(list) do
+    if not me.profWeek.base[p.name] then me.profWeek.base[p.name] = p.skill end
+    p.base = me.profWeek.base[p.name]
+  end
   me.profs = list
   return list
 end
@@ -244,7 +348,7 @@ function Tracker:SendProfessions()
   if not ns.codeHash then return end
   local parts = {}
   for _, p in ipairs(self:ScanProfessions()) do
-    parts[#parts + 1] = ns.Clean(p.name, 20):gsub("[:;]", "") .. ":" .. p.skill .. ":" .. p.max
+    parts[#parts + 1] = ns.Clean(p.name, 20):gsub("[:;]", "") .. ":" .. p.skill .. ":" .. p.max .. ":" .. (p.base or p.skill)
   end
   ns.Comm:Broadcast(ns.Comm:Build("PF", ns.pid, table.concat(parts, ";")), 3)
 end
@@ -303,6 +407,15 @@ local function tick()
       local st = Tracker:Me().stats
       local len = ns.Now() - session.start
       if len > (st.tLongest or 0) then st.tLongest = len end
+      -- tid per dag (til streak og «i dag») og per sone
+      st.days = st.days or {}
+      local day = date("%Y-%m-%d")
+      st.days[day] = (st.days[day] or 0) + dt
+      local zone = Tracker:Me().live and Tracker:Me().live.zone
+      if zone and zone ~= "" then
+        st.zones = st.zones or {}
+        st.zones[zone] = (st.zones[zone] or 0) + dt
+      end
       local c = Tracker:MyChar()
       if c.played then c.played = c.played + dt end
     end
@@ -319,9 +432,10 @@ function Tracker:Start()
   self:UpdateLive()
   rollWeek(self:Me().stats)
   self:InitKills()
+  self:InitXP()
 
   C_Timer.NewTicker(15, tick)
-  C_Timer.NewTicker(30, function() Tracker:SendStatus() end)
+  C_Timer.NewTicker(20, function() Tracker:SendStatus() end)
   C_Timer.NewTicker(120, function() Tracker:SendStats() end)
   -- husk økten løpende, slik at oppsummeringen kan vises ved neste innlogging
   C_Timer.NewTicker(20, function() Tracker:SaveSession() end)
@@ -353,7 +467,7 @@ ns:On("PLAYER_LEVEL_UP", function(level)
   local c = Tracker:MyChar()
   c.level = level
   c.hist = c.hist or {}
-  table.insert(c.hist, { t = ns.Now(), l = level })
+  table.insert(c.hist, { t = ns.Now(), l = level, p = c.played })
   while #c.hist > 80 do table.remove(c.hist, 1) end
   session.levels = session.levels + 1
   Tracker:AddStat("Levels", 1)
@@ -475,3 +589,6 @@ ns:On("PLAYER_LOGOUT", function()
   Tracker:SaveSession()
   if ns.db then ns.db.lastSessionShown = false end
 end)
+
+-- Bytte av sone kan også bety bytte av layer (annen backend): koble til på nytt
+ns:On("ZONE_CHANGED_NEW_AREA", function() ns.Comm:OnWorldChanged() end)

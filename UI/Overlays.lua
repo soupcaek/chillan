@@ -27,6 +27,9 @@ function O:CreateMinibar()
   m:SetScript("OnClick", function(_, btn)
     if btn == "RightButton" then ns.Window:Toggle("chat") else ns.Window:Toggle() end
   end)
+  m.posKey = "minibar"
+  m.defaultPos = function(f) f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -20) end
+  UI.movables.minibar = m
 
   m.panel = UI.Panel(m, C.window, C.inputLine, false, 0.92)
   m.panel:SetAllPoints()
@@ -113,11 +116,15 @@ local KIND = {
 
 local toasts, pool = {}, {}
 
+-- Usynlig anker som hele stabelen med varsler henger under (kan dras)
+local toastAnchor = CreateFrame("Frame", "ChillanToastAnchor", UIParent)
+toastAnchor:SetSize(380, 2)
+
 local function layoutToasts()
-  local y = -110
+  local y = 0
   for _, t in ipairs(toasts) do
     t:ClearAllPoints()
-    t:SetPoint("TOP", UIParent, "TOP", 0, y)
+    t:SetPoint("TOP", toastAnchor, "TOP", 0, y)
     y = y - t:GetHeight() - 8
   end
 end
@@ -138,6 +145,7 @@ local function newToast()
   t:SetSize(380, 72)
   t:SetFrameStrata("DIALOG")
   t:EnableMouse(true)
+  UI.Movable(t, "toasts", function(a) a:SetPoint("TOP", UIParent, "TOP", 0, -110) end, toastAnchor)
   t.panel = UI.Panel(t, C.window, C.activeLine, false, 0.96)
   t.panel:SetAllPoints()
   t.panel:SetFrameLevel(t:GetFrameLevel())
@@ -225,7 +233,7 @@ function O:CreateSOS()
   local s = CreateFrame("Frame", "ChillanSOS", UIParent)
   self.sos = s
   s:SetSize(320, 124)
-  s:SetPoint("TOPRIGHT", -24, -200)
+  UI.Movable(s, "sos", function(f) f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -24, -200) end)
   s:SetFrameStrata("DIALOG")
   s:EnableMouse(true)
   s:Hide()
@@ -290,7 +298,7 @@ function O:CreateSummary()
   local s = CreateFrame("Frame", "ChillanSummary", UIParent)
   self.summary = s
   s:SetSize(380, 196)
-  s:SetPoint("BOTTOM", 0, 180)
+  UI.Movable(s, "summary", function(f) f:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180) end)
   s:SetFrameStrata("DIALOG")
   s:EnableMouse(true)
   s:Hide()
@@ -445,7 +453,7 @@ function O:CreateDing()
   local d = CreateFrame("Frame", "ChillanDing", UIParent)
   self.ding = d
   d:SetSize(440, 168)
-  d:SetPoint("CENTER", 0, 170)
+  UI.Movable(d, "ding", function(f) f:SetPoint("CENTER", UIParent, "CENTER", 0, 170) end)
   d:SetFrameStrata("DIALOG")
   d:EnableMouse(true)
   d:Hide()

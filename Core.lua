@@ -330,11 +330,13 @@ end
 
 -- Person-poster
 function ns:GetPerson(pid, create)
+  if not pid then return nil end
   local p = ns.db.people[pid]
   if not p and create then
     p = { chars = {}, stats = {}, live = {}, profs = {}, recipes = {} }
     ns.db.people[pid] = p
   end
+  if p then p.pid = pid end
   return p
 end
 
