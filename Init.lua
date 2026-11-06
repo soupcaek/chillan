@@ -145,7 +145,8 @@ SlashCmdList.CHILLAN = function(msg)
     for char, r in pairs(ns.db.roster) do
       if r.heard and ns.Now() - r.heard < 300 then
         n = n + 1
-        print("   ", char, r.chan and (ns.Now() - r.chan < 150) and "kanal" or "whisper", ns.Ago(r.heard))
+        local forced = r.forceWhisper and (ns.Now() - r.forceWhisper) < 120
+        print("   ", char, r.chan and (ns.Now() - r.chan < 150) and "kanal" or "whisper", ns.Ago(r.heard), forced and "(hører ikke oss på kanalen → whisper)" or "")
       end
     end
     print("  Hørt fra siste 5 min:", n)

@@ -344,7 +344,10 @@ end
 function ns:IsOnline(p)
   if not p then return false end
   if p == ns:GetPerson(ns.pid) then return true end
-  return p.heard and (ns.Now() - p.heard) < 100 or false
+  local t = ns.Now()
+  if p.heard and (t - p.heard) < 100 then return true end
+  -- noen andre i gjengen hører ham (f.eks. han er på en annen layer enn oss)
+  return p.via and (t - p.via) < 80 or false
 end
 
 function ns:PersonChar(p)

@@ -13,6 +13,7 @@ Core.lua
 Comm.lua
 Tracker.lua
 Data.lua
+Sync.lua
 Stats.lua
 Achievements.lua
 UI\Widgets.lua

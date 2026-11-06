@@ -24,6 +24,7 @@ Comm:Handle("ST", function(f, sender, channel)
   if not pid or pid == ns.pid then return end
   local p = ns:GetPerson(pid, true)
   local wasOnline = ns:IsOnline(p)
+  local wasDirect = p.heard and (ns.Now() - p.heard) < 100
   local char = f[2] ~= "" and f[2] or sender
   local c = p.chars[char] or {}
   p.chars[char] = c
@@ -48,16 +49,18 @@ Comm:Handle("ST", function(f, sender, channel)
   p.lastSeen = ns.Now()
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
-  if not wasOnline then
-    if not quiet() then
+  if not wasOnline and not quiet() then
+    do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logget på" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Login", ns.C.green, 12) .. "  " .. ns:ShortWho(p) .. ns.Colorize(" logget på", ns.C.text2))
     end
-    if not quiet() and ns.db.settings.onlineToasts then
+    if ns.db.settings.onlineToasts then
       ns:Fire("TOAST", { kind = "online", pid = pid,
         title = ns:PersonLabel(p) .. " logget på",
         text = (c.level and ("Lvl " .. c.level .. " · ") or "") .. (L.zone or "") })
     end
+  end
+  if not wasDirect then
     -- ny venn på nett: send våre egne data og hent historikk ved behov
     Data:OnPeerOnline(pid, sender)
     if not Data.sentTo then Data.sentTo = {} end
@@ -1013,4 +1016,5 @@ function Data:Start()
   C_Timer.NewTicker(60, function() if ns.codeHash then Comm:Reconnect() end end)
   C_Timer.NewTicker(60, function() Comm:GossipWhisperPeers() end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)
+  ns.Sync:Start()
 end

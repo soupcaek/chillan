@@ -152,6 +152,8 @@ function Comm:NeedsWhisper(r, t)
   t = t or ns.Now()
   if not r.heard or (t - r.heard) > self.ONLINE_WINDOW then return false end
   if r.offlineAt and (t - r.offlineAt) < 300 then return false end
+  -- vennen har sagt fra (HR) at han ikke hører oss på kanalen
+  if r.forceWhisper and (t - r.forceWhisper) < 120 then return true end
   return not (r.chan and (t - r.chan) < self.CHAN_FRESH)
 end
 
@@ -271,6 +273,8 @@ end
 
 local function maybeRelay(msgType, f, text, channel)
   if not RELAY[msgType] then return end
+  -- gamle meldinger (synk/historikk) skal ikke ut på kanalen igjen
+  if (msgType == "CH" and (tonumber(f[7]) or 0) > 90) or (msgType == "EV" and (tonumber(f[8]) or 0) > 90) then return end
   local key = relayKey(msgType, f)
   if channel ~= "WHISPER" then
     relaySeen[key] = GetTime()
