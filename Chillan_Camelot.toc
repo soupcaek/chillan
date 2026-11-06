@@ -3,7 +3,7 @@
 ## Notes: Sosial addon for vennegjengen: venner, LFG, gjengchat, leaderboard, feed, SOS og mer.
 ## Author: Henrik
 ## Version: @project-version@
-## IconTexture: Interface\AddOns\Chillan\Media\Textures\IconFriends
+## IconTexture: Interface\AddOns\Chillan\Media\Textures\Logo
 ## AddonCompartmentFunc: Chillan_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: Chillan_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Chillan_OnAddonCompartmentLeave
