@@ -118,6 +118,7 @@ local KIND = {
   mention = { icon = "At", color = C.gold, label = "Nevnt i chatten" },
   quest = { icon = "Book", color = C.green, label = "Quest-kompis" },
   title = { icon = "Crown", color = C.gold, label = "Ny tittel" },
+  repair = { icon = "Shield", color = C.amber, label = "Holdbarhet" },
   radar = { icon = "Radar", color = C.green, label = "Kompis i nærheten" },
   note = { icon = "Map", color = C.amber, label = "Gjengnotat" },
   online = { icon = "Login", color = C.green, label = "Online" },
@@ -454,6 +455,11 @@ function O:ShowProfile(anchor, pid)
   local titles = {}
   for _, def in ipairs(ns.Titles:For(p.pid)) do titles[#titles + 1] = ns.Colorize(def.name, C.gold) end
   if #titles > 0 then rows[#rows + 1] = { "Titler", table.concat(titles, ", ") } end
+  local s3p = ns:PersonS3(p)
+  if s3p and s3p.dura then
+    local dc = s3p.dura <= 10 and C.red or (s3p.dura <= 30 and C.amber or C.text)
+    rows[#rows + 1] = { "Utstyr", ns.Colorize(s3p.dura .. " % holdbarhet", dc) }
+  end
   if p.version and p.pid ~= ns.pid then rows[#rows + 1] = { "Versjon", p.version } end
   local y = -82
   for i, r in ipairs(f.rows) do

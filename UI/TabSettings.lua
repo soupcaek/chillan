@@ -115,6 +115,7 @@ ns:RegisterTab("settings", "Oppsett", "Gear", function(tab)
   local nh = section(right, nil, "Varsler")
   local lastN = checkList(right, nh, {
     { "Lyder", "sounds" },
+    { "Varsel når utstyret er slitt (30 % og 10 %)", "duraWarn" },
     { "Popup-varsler", "toasts" },
     { "Varsel når venner logger på", "onlineToasts" },
     { "Vent med popups til etter kamp", "combatQueue", nil,

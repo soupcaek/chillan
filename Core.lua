@@ -293,7 +293,7 @@ local DEFAULTS = {
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
     accent = "grey", locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
-    radar = true, titles = true, mapNotes = true,
+    radar = true, titles = true, mapNotes = true, duraWarn = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},
@@ -435,9 +435,11 @@ function ns:IsOnline(p)
   if not p then return false end
   if p == ns:GetPerson(ns.pid) then return true end
   local t = ns.Now()
-  if p.heard and (t - p.heard) < 100 then return true end
-  -- noen andre i gjengen hører ham (f.eks. han er på en annen layer enn oss)
-  return p.via and (t - p.via) < 80 or false
+  if p.heard and (t - p.heard) < 120 then return true end
+  -- nettopp logget ut: ikke la «noen andre hører ham» holde ham online
+  if p.byeAt and (t - p.byeAt) < 90 then return false end
+  -- noen andre i gjengen hører ham (f.eks. han er på en annen layer/server enn oss)
+  return p.via and (t - p.via) < 100 or false
 end
 
 function ns:PersonChar(p)

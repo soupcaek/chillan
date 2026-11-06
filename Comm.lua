@@ -240,6 +240,28 @@ function Comm:Broadcast(msg, prio, logged)
   end
 end
 
+-- Ved utlogging: send «BY» direkte på kanalen og til de vi når direkte (maks 10)
+function Comm:SendBye()
+  if not ns.codeHash then return end
+  local msg = self:Build("BY", ns.pid)
+  self:RefreshChannelId()
+  if self.chanId then pcall(C_ChatInfo.SendAddonMessage, ns.PREFIX, msg, "CHANNEL", tostring(self.chanId)) end
+  local t, n, done = ns.Now(), 0, {}
+  for char, r in pairs(ns.db.roster) do
+    if n < 10 and r.heard and (t - r.heard) < 120 and not (r.chan and (t - r.chan) < self.CHAN_FRESH)
+      and not done[r.pid or char] then
+      done[r.pid or char] = true
+      n = n + 1
+      if char:sub(1, 3) == "bn:" then
+        local fn = (C_BattleNet and C_BattleNet.SendGameData) or BNSendGameData
+        if fn then pcall(fn, tonumber(char:sub(4)), ns.PREFIX, msg) end
+      else
+        pcall(C_ChatInfo.SendAddonMessage, ns.PREFIX, msg, "WHISPER", r.whisperAs or char)
+      end
+    end
+  end
+end
+
 -- Beste direkte vei til en venn blant flere roster-oppføringer: Battle.net først
 function Comm:BestRoute(list, t)
   t = t or ns.Now()
@@ -256,6 +278,14 @@ function Comm:BestRoute(list, t)
   return best
 end
 
+-- Navnet andre kan hviske til (Forever: «Fornavn Etternavn», uten realm)
+function ns.WhisperName(p)
+  if not p then return nil end
+  if p.whisperTo then return p.whisperTo end
+  local n = (p.live and p.live.char) or p.main
+  return n and ns.ShortName(n) or nil
+end
+
 -- Hvor sender vi direkte til en person? (Battle.net, ellers navnet spillet ga oss)
 function Comm:TargetFor(p)
   if not p then return nil end
@@ -263,7 +293,10 @@ function Comm:TargetFor(p)
   for char, r in pairs(ns.db.roster) do
     if r.pid == p.pid then table.insert(list, { char = char, r = r }) end
   end
-  return self:BestRoute(list, t) or p.whisperTo or (p.live and p.live.char) or p.main
+  -- I Forever er whisper-navnet «Fornavn Etternavn» uten realm
+  local fallback = p.whisperTo or (p.live and p.live.char) or p.main
+  if fallback and fallback:sub(1, 3) ~= "bn:" and not p.whisperTo then fallback = ns.ShortName(fallback) end
+  return self:BestRoute(list, t) or fallback
 end
 
 -- Vennen er online, men vi har ikke hørt ham på kanalen nylig (f.eks. annen layer)
@@ -285,6 +318,16 @@ end
 local lastWorldChange = 0
 function Comm:OnWorldChanged()
   if not ns.codeHash then return end
+  -- byttet vi backend-realm (f.eks. ved å gå i gruppe med noen på den andre)? Da er
+  -- gjengkanalen en annen: glem hvem vi hørte på kanalen og si fra med en gang (HR)
+  local realm = ns.S(GetNormalizedRealmName)
+  if realm and self.lastRealm and realm ~= self.lastRealm then
+    for _, r in pairs(ns.db.roster) do r.chan = nil end
+    myFull = nil
+    lastWorldChange = 0
+    C_Timer.After(4, function() if ns.Sync then ns.Sync:Send() end end)
+  end
+  if realm then self.lastRealm = realm end
   if (GetTime() - lastWorldChange) < 15 then return end
   lastWorldChange = GetTime()
   self:RefreshChannelId()
@@ -355,8 +398,10 @@ local function trySend(item)
   local fn = item.logged and C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
   if not fn then fn = C_ChatInfo.SendAddonMessage end
   if item.chatType == "WHISPER" then
-    recentWhispers[norm(item.target)] = now()
-    recentWhispers[norm(ns.ShortName(item.target))] = now()
+    recentWhispers[norm(target)] = now()
+    recentWhispers[norm(ns.ShortName(target))] = now()
+    Comm.lastTarget = Comm.lastTarget or {}
+    Comm.lastTarget[norm(ns.ShortName(target))] = item.target
   end
   local ok, result = pcall(fn, ns.PREFIX, item.msg, item.chatType, target)
   if not ok then Comm.stats.failed = Comm.stats.failed + 1 Comm.stats.lastErr = tostring(result) return false, true end
@@ -516,7 +561,7 @@ function Comm:GossipWhisperPeers()
     if r.pid and not told[r.pid] and r.heard and (t - r.heard) < 120 and r.whisper and (t - r.whisper) < 120
       and not (r.chan and (t - r.chan) < self.CHAN_FRESH) and n < 10 then
       local p = ns.db.people[r.pid]
-      local name = (not r.bn) and char or (p and (p.whisperTo or (p.live and p.live.char) or p.main))
+      local name = (not r.bn) and char or ns.WhisperName(p)
       if name and name:sub(1, 3) ~= "bn:" then
         self:SendChannel(self:Build("RO", r.pid, name), 3)
         told[r.pid] = true
@@ -551,8 +596,10 @@ end
 
 -- En venn vi hvisket til er ikke pålogget: slutt å hviske og vis ham som offline
 function Comm:MarkOffline(name)
+  -- bare oppføringen vi faktisk hvisket til (ikke en annen skrivemåte av samme navn som virker)
+  local exact = self.lastTarget and self.lastTarget[norm(ns.ShortName(name))]
   for char, r in pairs(ns.db.roster) do
-    if sameChar(char, name) then
+    if (exact and char == exact) or (not exact and sameChar(char, name)) then
       r.offlineAt = ns.Now()
       -- hører vi ham fortsatt på kanalen, er han ikke offline – det er whisper-navnet
       -- som ikke virker. Da slutter vi bare å hviske (ellers blir det spam).
@@ -566,9 +613,14 @@ function Comm:MarkOffline(name)
         end
       else
         r.heard = nil
+        -- vis ham offline bare hvis vi ikke har hørt ham på en annen vei det siste minuttet
         if r.pid then
           local p = ns.db.people[r.pid]
-          if p and p.live and p.live.char and sameChar(p.live.char, name) then
+          local alive = false
+          for c2, r2 in pairs(ns.db.roster) do
+            if c2 ~= char and r2.pid == r.pid and r2.heard and (ns.Now() - r2.heard) < 60 then alive = true end
+          end
+          if p and not alive and p.live and p.live.char and sameChar(p.live.char, name) then
             p.heard = nil
             p.via = nil
             ns:MarkDirty()

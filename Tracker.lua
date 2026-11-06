@@ -176,6 +176,41 @@ local function topZone(zones)
   return bz
 end
 
+-- Laveste holdbarhet på utstyret i prosent (nil hvis ingenting har holdbarhet)
+function ns.Durability()
+  if not GetInventoryItemDurability then return nil end
+  local low
+  for slot = 1, 18 do
+    local cur, max = ns.S(GetInventoryItemDurability, slot)
+    if cur and max and max > 0 then
+      local pct = cur / max * 100
+      if not low or pct < low then low = pct end
+    end
+  end
+  return low and math.floor(low) or nil
+end
+
+-- Varsel når utstyret begynner å bli slitt (30 %) og nesten ødelagt (10 %)
+local duraWarned = 100
+local function checkDurability()
+  local d = ns.Durability()
+  if not d then return end
+  if math.abs(d - (Tracker.lastDura or d)) >= 5 then Tracker:SendS3Soon() end
+  Tracker.lastDura = d
+  if d >= 50 then duraWarned = 100 return end
+  local level = (d <= 10 and 10) or (d <= 30 and 30) or nil
+  if level and level < duraWarned then
+    duraWarned = level
+    if ns.db.settings.duraWarn == false then return end
+    ns:Fire("TOAST", { kind = "repair",
+      title = level == 10 and ("Utstyret er nesten ødelagt (" .. d .. " %)") or ("Utstyret er slitt (" .. d .. " %)"),
+      text = "Reparer hos en smed før neste pull" })
+    ns.Sound("sos")
+  end
+end
+ns:On("UPDATE_INVENTORY_DURABILITY", function() C_Timer.After(0.5, checkDurability) end)
+ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(8, checkDurability) end)
+
 function Tracker:ItemLevel()
   if not GetAverageItemLevel then return nil end
   local _, equipped = ns.S(GetAverageItemLevel)
@@ -192,7 +227,7 @@ function Tracker:S3Data()
     sessXP = session.xp, sessSec = ns.Now() - session.start,
     money = ns.S(GetMoney), ilvl = self:ItemLevel(),
     today = (s.days or {})[date("%Y-%m-%d")] or 0, streak = self:Streak(s.days),
-    zone = topZone(s.zones), at = ns.Now(),
+    zone = topZone(s.zones), at = ns.Now(), dura = ns.Durability(),
   }
 end
 
@@ -200,7 +235,7 @@ function Tracker:BuildS3()
   local d = self:S3Data()
   return ns.Comm:Build("S3", ns.pid, d.xp or "", d.xpMax or "", d.rested or 0, math.floor(d.wXP), math.floor(d.tXP),
     math.floor(d.sessXP), math.floor(d.sessSec), d.money or "", d.ilvl or "", math.floor(d.today), d.streak,
-    ns.Clean(d.zone or "", 30))
+    ns.Clean(d.zone or "", 30), d.dura or "")
 end
 
 local s3Pending = false
@@ -426,7 +461,14 @@ local function tick()
 end
 
 function Tracker:Start()
-  session.start = ns.Now()
+  -- /reload eller rask re-innlogging fortsetter samme økt (ellers «logger vi på» på nytt)
+  local t = ns.Now()
+  if ns.db.sessionStart and ns.db.lastAliveAt and (t - ns.db.lastAliveAt) < 180 then
+    session.start = ns.db.sessionStart
+  else
+    session.start = t
+  end
+  ns.db.sessionStart = session.start
   session.startLevel = ns.S(UnitLevel, "player") or 1
   lastMoney = ns.S(GetMoney)
   lastTick = GetTime()
@@ -453,6 +495,7 @@ function Tracker:SessionSummary()
 end
 
 function Tracker:SaveSession()
+  ns.db.lastAliveAt = ns.Now()
   if (ns.Now() - session.start) < 120 then return end
   ns.db.lastSession = self:SessionSummary()
 end
@@ -627,6 +670,8 @@ end)
 
 ns:On("PLAYER_LOGOUT", function()
   Tracker:SaveSession()
+  -- si ha det direkte (køen rekker ikke å gå), så de andre ser oss offline med en gang
+  pcall(function() ns.Comm:SendBye() end)
   if ns.db then ns.db.lastSessionShown = false end
 end)
 

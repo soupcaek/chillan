@@ -12,8 +12,8 @@ local function ago2t(v) return ns.Now() - (tonumber(v) or 0) end
 local function fresh(t) return (ns.Now() - t) < 180 end
 
 local function quiet()
-  -- de første sekundene etter innlogging kommer mye på en gang: ingen popup-spam
-  return (GetTime() - loginAt) < 25
+  -- det første minuttet etter innlogging kommer mye på en gang: ingen popup-spam
+  return (GetTime() - loginAt) < 60
 end
 
 ---------------------------------------------------------------------------
@@ -51,7 +51,15 @@ Comm:Handle("ST", function(f, sender, channel)
   if r then r.pid = pid end
   -- navnet slik spillet selv oppga det er det som virker for whisper
   if sender:sub(1, 3) ~= "bn:" then p.whisperTo = sender end
-  if not wasOnline and not quiet() then
+  -- «logget på» bare når han faktisk nettopp logget på (økten hans er fersk), ikke når
+  -- vi selv logger inn eller når han dukker opp igjen etter et layer-/serverbytte.
+  -- Hver økt varsles maks én gang.
+  local sessAge = num(f[9]) or 0
+  local sessKey = math.floor((ns.Now() - sessAge) / 60)
+  local freshLogin = sessAge < 150 and p.announcedSession ~= sessKey and not quiet()
+    and (not p.announcedSession or math.abs(sessKey - p.announcedSession) > 2)
+  p.announcedSession = sessKey
+  if not wasOnline and freshLogin then
     do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logget på" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Login", ns.C.green, 12) .. "  " .. ns:ShortWho(p) .. ns.Colorize(" logget på", ns.C.text2))
@@ -83,6 +91,20 @@ Comm:Handle("ST", function(f, sender, channel)
       Comm:SendChannel(Comm:Build("RO", pid, p.whisperTo), 3)
     end
   end
+  ns:MarkDirty()
+end)
+
+-- Vennen logger ut (eller laster UI på nytt): vis ham som offline med en gang
+Comm:Handle("BY", function(f, sender)
+  local pid = f[1]
+  if not pid or pid == ns.pid then return end
+  local p = ns.db.people[pid]
+  if p then
+    p.heard, p.via, p.byeAt = nil, nil, ns.Now()
+    p.lastSeen = ns.Now()
+  end
+  local r = ns.db.roster[sender]
+  if r then r.heard = nil end
   ns:MarkDirty()
 end)
 
@@ -135,6 +157,7 @@ Comm:Handle("S3", function(f)
     xp = num(f[2]), xpMax = num(f[3]), rested = num(f[4]) or 0, wXP = num(f[5]) or 0, tXP = num(f[6]) or 0,
     sessXP = num(f[7]) or 0, sessSec = num(f[8]) or 0, money = num(f[9]), ilvl = num(f[10]),
     today = num(f[11]) or 0, streak = num(f[12]) or 0, zone = (f[13] ~= "" and f[13]) or nil, at = ns.Now(),
+    dura = num(f[14]),
   }
   ns:MarkDirty()
 end)
@@ -392,7 +415,7 @@ Comm:Handle("HI", function(f, sender, channel)
     local n = 0
     for opid, op in pairs(ns.db.people) do
       if opid ~= ns.pid and opid ~= pid and op.main and ns:IsOnline(op) and n < 15 then
-        local name = op.whisperTo or (op.live and op.live.char) or op.main
+        local name = ns.WhisperName(op)
         if name then Comm:SendTo(sender, Comm:Build("RO", opid, name), 2) end
         n = n + 1
       end

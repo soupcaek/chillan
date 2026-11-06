@@ -109,7 +109,7 @@ T.DEFS = {
     return v and tostring(math.floor(v)) or "–", "item level"
   end },
   { key = "dura", name = "Holdbarhet", get = function()
-    local low = minDurability()
+    local low = ns.Durability()
     if not low then return "–", "holdbarhet" end
     local col = low < 20 and C.red or low < 50 and C.amber or nil
     return math.floor(low) .. " %", "laveste utstyr", col

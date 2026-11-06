@@ -170,6 +170,9 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     parts[#parts + 1] = math.floor(ns:WeekStat(p, "Quests")) .. " quests denne uka"
     if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " i lomma" end
     if s3.ilvl then parts[#parts + 1] = "ilvl " .. s3.ilvl end
+    if s3.dura and s3.dura < 100 then
+      parts[#parts + 1] = ns.Colorize("utstyr " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
+    end
     quick.info:SetText(table.concat(parts, "  ·  "))
     local target = (p.live and p.live.char) or p.main
     quick.wh:SetScript("OnClick", function() ns.Whisper(target) end)

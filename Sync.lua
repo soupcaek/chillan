@@ -97,7 +97,7 @@ Comm:Handle("HR", function(f, sender)
           unknown[#unknown + 1] = epid
         end
       end
-      if p then
+      if p and not (p.byeAt and (t - p.byeAt) < 90) then
         p.via = t
         local direct = p.heard and (t - p.heard) < 100
         local char = Comm:TargetFor(p)
@@ -150,7 +150,7 @@ end)
 Comm:Handle("RQ", function(f, sender)
   for _, pid in ipairs(ns.Split(f[1] or "", ",")) do
     local p = pid ~= "" and ns.db.people[pid]
-    local name = p and (p.whisperTo or (p.live and p.live.char) or p.main)
+    local name = p and ns.WhisperName(p)
     if name and name:sub(1, 3) ~= "bn:" then Comm:SendTo(sender, Comm:Build("RO", pid, name), 2) end
   end
 end)
