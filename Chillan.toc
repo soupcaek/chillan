@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: Chillan|cffc8d1dc?|r
+## Notes: Sosial addon for vennegjengen: venner, LFG, gjengchat, leaderboard, feed, SOS og mer.
+## Author: Henrik
+## Version: @project-version@
+## IconTexture: Interface\AddOns\Chillan\Media\Textures\IconFriends
+## AddonCompartmentFunc: Chillan_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: Chillan_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: Chillan_OnAddonCompartmentLeave
+## SavedVariables: ChillanDB
+
+Core.lua
+Comm.lua
+Tracker.lua
+Data.lua
+UI\Widgets.lua
+UI\MainWindow.lua
+UI\TabFriends.lua
+UI\TabLFG.lua
+UI\TabChat.lua
+UI\TabBoard.lua
+UI\TabFeed.lua
+UI\TabMap.lua
+UI\TabMore.lua
+UI\Overlays.lua
+UI\MapPins.lua
+Init.lua
