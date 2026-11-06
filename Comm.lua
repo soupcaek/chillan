@@ -144,16 +144,32 @@ function Comm:Broadcast(msg, prio, logged)
     enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(self.chanId), logged = logged }, prio)
   end
   local t = ns.Now()
+  local done = {}
   for char, r in pairs(ns.db.roster) do
     if self:NeedsWhisper(r, t) then
       enqueue({ msg = msg, chatType = "WHISPER", target = char, logged = logged }, prio)
+      done[char] = true
+      if r.pid then done[r.pid] = true end
+    end
+  end
+  -- viktige meldinger (chat, ding, død, SOS …): send også direkte til venner vi bare vet er
+  -- online gjennom andre i gjengen (annen layer), så ingen går glipp av dem
+  if prio == 1 then
+    for pid, p in pairs(ns.db.people) do
+      local char = p.live and p.live.char or p.main
+      local r = char and ns.db.roster[char]
+      if pid ~= ns.pid and char and not done[pid] and not done[char] and p.via and (t - p.via) < 80
+        and not (p.heard and (t - p.heard) < 100 and r and r.chan and (t - r.chan) < self.CHAN_FRESH)
+        and not (r and r.offlineAt and (t - r.offlineAt) < 600) then
+        enqueue({ msg = msg, chatType = "WHISPER", target = char, logged = logged }, prio)
+      end
     end
   end
 end
 
 -- Vennen er online, men vi har ikke hørt ham på kanalen nylig (f.eks. annen layer)
 Comm.CHAN_FRESH = 45
-Comm.ONLINE_WINDOW = 300
+Comm.ONLINE_WINDOW = 120
 function Comm:NeedsWhisper(r, t)
   t = t or ns.Now()
   if not r.heard or (t - r.heard) > self.ONLINE_WINDOW then return false end
@@ -400,22 +416,36 @@ function Comm:MarkOffline(name)
   end
 end
 
-local function systemFilter(_, _, msg, ...)
-  if type(msg) ~= "string" or ns.isSecret(msg) then return false end
-  for _, pat in ipairs(notFoundPatterns) do
-    local who = msg:match(pat)
-    if who then
-      local key = ns.ShortName(who):lower()
-      local t = recentWhispers[key]
-      if t and (now() - t) < 15 then
-        Comm:MarkOffline(who)
-        return true
-      end
-      return false
-    end
+-- Er dette en av gjengens karakterer (eller noen vi nettopp hvisket til)?
+local function isOurs(who)
+  local key = ns.ShortName(who):lower()
+  local t = recentWhispers[key]
+  if t and (now() - t) < 60 then return true end
+  for char in pairs(ns.db.roster) do
+    if ns.ShortName(char):lower() == key then return true end
   end
   return false
 end
+
+local function notFoundName(msg)
+  if type(msg) ~= "string" or ns.isSecret(msg) then return nil end
+  for _, pat in ipairs(notFoundPatterns) do
+    local who = msg:match(pat)
+    if who then return who end
+  end
+end
+
+local function systemFilter(_, _, msg, ...)
+  local who = notFoundName(msg)
+  if who and isOurs(who) then return true end
+  return false
+end
+
+-- Uavhengig av filteret: merk vennen som offline så vi slutter å hviske (stopper spammen)
+ns:On("CHAT_MSG_SYSTEM", function(msg)
+  local who = notFoundName(msg)
+  if who and isOurs(who) then Comm:MarkOffline(who) end
+end)
 
 local function channelNoticeFilter(_, event, ...)
   local name = Comm:ChannelName()
@@ -472,13 +502,17 @@ end
 
 function Comm:InstallFilters()
   buildPatterns()
-  local add = (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter) or ChatFrame_AddMessageEventFilter
-  if not add then return end
-  pcall(add, "CHAT_MSG_SYSTEM", systemFilter)
-  pcall(add, "CHAT_MSG_CHANNEL_NOTICE", channelNoticeFilter)
-  pcall(add, "CHAT_MSG_CHANNEL_NOTICE_USER", channelNoticeFilter)
-  pcall(add, "CHAT_MSG_CHANNEL_JOIN", channelNoticeFilter)
-  pcall(add, "CHAT_MSG_CHANNEL_LEAVE", channelNoticeFilter)
+  -- registrer i begge filter-API-ene som finnes (navnet har flyttet seg mellom versjoner)
+  local adders = {}
+  if ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter then adders[#adders + 1] = ChatFrameUtil.AddMessageEventFilter end
+  if ChatFrame_AddMessageEventFilter and ChatFrame_AddMessageEventFilter ~= adders[1] then adders[#adders + 1] = ChatFrame_AddMessageEventFilter end
+  for _, add in ipairs(adders) do
+    pcall(add, "CHAT_MSG_SYSTEM", systemFilter)
+    pcall(add, "CHAT_MSG_CHANNEL_NOTICE", channelNoticeFilter)
+    pcall(add, "CHAT_MSG_CHANNEL_NOTICE_USER", channelNoticeFilter)
+    pcall(add, "CHAT_MSG_CHANNEL_JOIN", channelNoticeFilter)
+    pcall(add, "CHAT_MSG_CHANNEL_LEAVE", channelNoticeFilter)
+  end
 end
 
 function Comm:Init()

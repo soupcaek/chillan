@@ -91,12 +91,16 @@ Comm:Handle("HR", function(f, sender)
       if p then
         p.via = t
         local direct = p.heard and (t - p.heard) < 100
-        if not direct and p.main and not Comm:IsMe(p.main) and (not p.hiAt or (t - p.hiAt) > 90) then
+        local char = (p.live and p.live.char) or p.main
+        local rr = char and ns.db.roster[char]
+        -- ikke hvisk til en karakter som nettopp viste seg å være offline (gammel karakter / logget av)
+        local recentlyOffline = rr and rr.offlineAt and (t - rr.offlineAt) < 600
+        if not direct and char and not Comm:IsMe(char) and not recentlyOffline and (not p.hiAt or (t - p.hiAt) > 120) then
           p.hiAt = t
-          local rr = ns.db.roster[p.main] or {}
-          ns.db.roster[p.main] = rr
-          rr.pid, rr.offlineAt = epid, nil
-          Comm:SendTo(p.main, Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION), 2)
+          rr = rr or {}
+          ns.db.roster[char] = rr
+          rr.pid = epid
+          Comm:SendTo(char, Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION), 2)
         end
       end
     end
