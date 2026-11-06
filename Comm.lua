@@ -260,6 +260,37 @@ end
 Comm.handlers = {}
 function Comm:Handle(msgType, fn) self.handlers[msgType] = fn end
 
+-- Videresending: hendelser vi får via whisper fra en venn som ikke er i
+-- kanalen (f.eks. annen layer), sendes videre på kanalen så alle får dem.
+local RELAY = { EV = true, CH = true, RX = true, MT = true, PO = true, PV = true, AV = true, AR = true, EN = true }
+local relaySeen, relayDone = {}, {}
+local function relayKey(t, f)
+  if t == "RX" or t == "PV" or t == "AR" then return t .. (f[4] or "") .. (f[5] or "") end
+  return t .. (f[4] or "")
+end
+
+local function maybeRelay(msgType, f, text, channel)
+  if not RELAY[msgType] then return end
+  local key = relayKey(msgType, f)
+  if channel ~= "WHISPER" then
+    relaySeen[key] = GetTime()
+    return
+  end
+  if relaySeen[key] or relayDone[key] then return end
+  Comm:RefreshChannelId()
+  if not Comm.chanId then return end
+  relayDone[key] = true
+  -- litt tilfeldig ventetid, så bare én i gjengen trenger å videresende
+  C_Timer.After(0.4 + math.random() * 2.5, function()
+    if relaySeen[key] then return end
+    Comm:RefreshChannelId()
+    if Comm.chanId then
+      enqueue({ msg = text, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 2)
+      relaySeen[key] = GetTime()
+    end
+  end)
+end
+
 local function onAddonMessage(prefix, text, channel, sender)
   if prefix ~= ns.PREFIX then return end
   if ns.isSecret(text) or ns.isSecret(sender) then return end
@@ -286,6 +317,21 @@ local function onAddonMessage(prefix, text, channel, sender)
   if h then
     local ok, err = pcall(h, fields, sender, channel)
     if not ok and ns.debug then ns.Print("feil i", msgType, err) end
+  end
+  maybeRelay(msgType, f, text, channel)
+end
+
+-- Tips gjengen jevnlig om venner som bare nås via whisper, så alle får kontakt
+function Comm:GossipWhisperPeers()
+  self:RefreshChannelId()
+  if not self.chanId or not ns.codeHash then return end
+  local t, n = ns.Now(), 0
+  for char, r in pairs(ns.db.roster) do
+    if r.pid and r.heard and (t - r.heard) < 120 and r.whisper and (t - r.whisper) < 120
+      and not (r.chan and (t - r.chan) < self.CHAN_FRESH) and n < 10 then
+      self:SendChannel(self:Build("RO", r.pid, char), 3)
+      n = n + 1
+    end
   end
 end
 

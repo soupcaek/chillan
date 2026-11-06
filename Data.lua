@@ -1003,5 +1003,6 @@ function Data:Start()
   C_Timer.NewTicker(300, function() Data:DiscoverFriends() end)
   -- prøv å koble til gjengkanalen igjen hvis den ikke virker
   C_Timer.NewTicker(60, function() if ns.codeHash then Comm:Reconnect() end end)
+  C_Timer.NewTicker(60, function() Comm:GossipWhisperPeers() end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)
 end
