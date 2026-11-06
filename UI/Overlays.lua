@@ -568,6 +568,13 @@ function O:ShowDing(item)
     end)
   end
   d.life = 12
+  -- egne hendelser: ingen knapper (du kan ikke gratulere eller le av deg selv)
+  if item.pid == ns.pid then
+    for _, b in ipairs(d.buttons) do b:Hide() end
+    if d.sent.SetText then d.sent:SetText("Gjengen kan nå reagere – svarene dukker opp i hendelsesvinduet") end
+    d.sent:Show()
+    d.life = 6
+  end
   d:SetAlpha(1)
   d:Show()
 end
