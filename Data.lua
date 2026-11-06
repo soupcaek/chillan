@@ -609,10 +609,10 @@ end)
 ---------------------------------------------------------------------------
 -- Gratulasjoner og reaksjoner på dings
 ---------------------------------------------------------------------------
-ns.REACTIONS = { "Gratulerer!", "GZ!", "Endelig!" }
-ns.REACTIONS_DEAD = { "Hahaha!", "RIP", "Noob!", "F" }
+ns.REACTIONS = { "Gratulerer!", "GZ!", "Endelig!", "Gay" }
+ns.REACTIONS_DEAD = { "Hahaha!", "RIP", "Noob!", "F", "Gay" }
 
-ns.REACTIONS_ACH = { "Gratulerer!", "GZ!", "Imponerende!" }
+ns.REACTIONS_ACH = { "Gratulerer!", "GZ!", "Imponerende!", "Gay" }
 
 function ns.ReactionText(item, idx)
   local list = ns.REACTIONS

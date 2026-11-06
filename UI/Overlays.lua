@@ -490,7 +490,7 @@ local dingQueue = {}
 function O:CreateDing()
   local d = CreateFrame("Frame", "ChillanDing", UIParent)
   self.ding = d
-  d:SetSize(440, 168)
+  d:SetSize(500, 168)
   UI.Movable(d, "ding", function(f) f:SetPoint("CENTER", UIParent, "CENTER", 0, 170) end)
   d:SetFrameStrata("DIALOG")
   d:EnableMouse(true)
@@ -529,7 +529,7 @@ function O:CreateDing()
   d.close.style = { text = C.dim, hover = C.card }
   d.close.icon:SetVertexColor(hex(C.dim))
   d.buttons = {}
-  for i = 1, 4 do
+  for i = 1, 5 do
     d.buttons[i] = UI.Button(d, 100, 36, "", i == 1 and "primary" or "secondary")
   end
   d.sent = UI.Text(d, 13, "semi", C.green)
@@ -589,7 +589,7 @@ function O:ShowDing(item)
   -- legg ut knappene etter hvor mange reaksjoner denne typen har (ding 3, død 4)
   local list = dead and ns.REACTIONS_DEAD or (ach and ns.REACTIONS_ACH) or ns.REACTIONS
   local n = #list
-  local bw = math.floor((440 - 40 - (n - 1) * 8) / n)
+  local bw = math.floor((500 - 40 - (n - 1) * 8) / n)
   for i, b in ipairs(d.buttons) do
     if i <= n then
       b:SetWidth(bw)
