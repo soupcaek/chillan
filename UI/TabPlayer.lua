@@ -197,6 +197,25 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     }
     yL = section(xL, yL, "Økter", sessionRows)
 
+    local achN, achP = ns.Ach:Count(pid), ns.Ach:Points(pid)
+    local recent = {}
+    local list = pid == ns.pid and ns.Ach:Mine() or (p.ach or {})
+    local sorted = {}
+    for id, t in pairs(list) do
+      local d = ns.Ach.byId[id]
+      if d then sorted[#sorted + 1] = { d = d, t = type(t) == "number" and t or 0 } end
+    end
+    table.sort(sorted, function(a, b) return a.t > b.t end)
+    for i = 1, math.min(3, #sorted) do
+      local d = sorted[i].d
+      recent[#recent + 1] = ns.Colorize(d.name, ns.Ach.TIERS[d.tier].color)
+    end
+    yL = section(xL, yL, "Achievements", {
+      { "Låst opp", achN .. " av " .. #ns.Ach.defs },
+      { "Poeng", tostring(achP) },
+      { "Siste", #recent > 0 and table.concat(recent, ", ") or "ingen ennå" },
+    }, { label = "Se alle", onClick = function() ns.Window:OpenAch(pid) end })
+
     local got, gave = St:Grats(p)
     local firsts = St:Firsts(p)
     local loot = St:RecentLoot(p, 3)

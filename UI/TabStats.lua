@@ -236,6 +236,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     { key = "gold", label = "Gull", w = 62 },
     { key = "kills", label = "Kills", w = 40 },
     { key = "deaths", label = "Død", w = 34 },
+    { key = "points", label = "Poeng", w = 44 },
   }
   local seg = UI.Panel(tablePage, C.input, C.inputLine, true)
   seg:SetSize(170, 28)
@@ -296,6 +297,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
 
   local function value(p, key)
     if key == "level" then return ns:PersonMaxLevel(p) end
+    if key == "points" then return ns.Ach:Points(p.pid) end
     local map = { quests = "Quests", gold = "Gold", kills = "Kills", deaths = "Deaths" }
     local k = map[key]
     if not k then return 0 end
@@ -310,7 +312,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     row.cells = {}
     row.cells.rank = UI.Text(row, 13, "bold", C.dim)
     row.cells.name = UI.Text(row, 13, "semi", C.text)
-    for _, k in ipairs({ "level", "quests", "gold", "kills", "deaths" }) do row.cells[k] = UI.Text(row, 12, nil, C.text2) end
+    for _, k in ipairs({ "level", "quests", "gold", "kills", "deaths", "points" }) do row.cells[k] = UI.Text(row, 12, nil, C.text2) end
     layoutCols(row, row.cells)
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
@@ -329,6 +331,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     row.cells.gold:SetText(math.floor(value(p, "gold") / 10000) .. "g")
     row.cells.kills:SetText(math.floor(value(p, "kills")))
     row.cells.deaths:SetText(math.floor(value(p, "deaths")))
+    row.cells.points:SetText(ns.Ach:Points(p.pid))
   end
   local tableList = UI.List(tablePage, 36, 5, createRow, updateRow)
   tableList:SetPoint("TOPLEFT", 0, -58)

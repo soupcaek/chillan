@@ -507,8 +507,19 @@ function O:ShowDing(item)
   end
   local p = ns:GetPerson(item.pid) or {}
   local dead = item.kind == "DEAD"
+  local ach = item.kind == "ACH"
   local parts = {}
-  if dead then
+  if ach then
+    local def = ns.Ach.byId[item.a] or { name = tostring(item.a), desc = "", tier = item.b or "S" }
+    local tier = ns.Ach.TIERS[def.tier] or ns.Ach.TIERS.S
+    d.kicker:SetText("ACHIEVEMENT · " .. tier.name:upper())
+    d.kicker:SetTextColor(hex(tier.color))
+    d.icon:SetTexture(ns.TEX .. "IconTrophy")
+    d.icon:SetVertexColor(hex(tier.color))
+    d.title:SetText(ns:PersonLabel(p, item.char) .. " låste opp " .. ns.Colorize("«" .. def.name .. "»", tier.color))
+    parts[#parts + 1] = def.desc
+    parts[#parts + 1] = tier.points .. " poeng"
+  elseif dead then
     d.kicker:SetText("DØD!")
     d.kicker:SetTextColor(hex(C.red))
     d.icon:SetTexture(ns.TEX .. "IconSkull")
@@ -529,7 +540,7 @@ function O:ShowDing(item)
   end
   d.text:SetText(table.concat(parts, " · "))
   -- legg ut knappene etter hvor mange reaksjoner denne typen har (ding 3, død 4)
-  local list = dead and ns.REACTIONS_DEAD or ns.REACTIONS
+  local list = dead and ns.REACTIONS_DEAD or (ach and ns.REACTIONS_ACH) or ns.REACTIONS
   local n = #list
   local bw = math.floor((440 - 40 - (n - 1) * 8) / n)
   for i, b in ipairs(d.buttons) do

@@ -471,6 +471,14 @@ ns:On("PLAYER_LEVEL_UP", function(level)
   while #c.hist > 80 do table.remove(c.hist, 1) end
   session.levels = session.levels + 1
   Tracker:AddStat("Levels", 1)
+  -- achievement-tellere
+  local h = tonumber(date("%H"))
+  if h and h < 5 then ns.CntFlag("dingNight") end
+  if ns.S(IsInInstance) then ns.CntFlag("dingDungeon") end
+  if (ns.S(GetXPExhaustion) or 0) > 0 then ns.CntFlag("dingRested") end
+  ns.Cnt("levelsNoDeath")
+  ns.CntMax("bestLevelsNoDeath", ns.db.cnt.levelsNoDeath or 0)
+  session.lastDingAt = ns.Now()
   Tracker:Event("DING", level, Tracker:PlayedNow() or "")
   Tracker:SendStatusSoon()
 end)
@@ -484,6 +492,18 @@ ns:On("PLAYER_DEAD", function()
   me.deathAt = ns.Now()
   session.deaths = session.deaths + 1
   Tracker:AddStat("Deaths", 1)
+  -- achievement-tellere
+  ns.CntDay("deathsDay")
+  ns.CntMax("bestDayDeaths", (ns.db.cnt.deathsDay or {})[date("%Y-%m-%d")] or 0)
+  ns.db.cnt.deathsByZone = ns.db.cnt.deathsByZone or {}
+  local dz = (loc.zone ~= "" and loc.zone) or "?"
+  ns.db.cnt.deathsByZone[dz] = (ns.db.cnt.deathsByZone[dz] or 0) + 1
+  ns.CntMax("maxDeathsZone", ns.db.cnt.deathsByZone[dz])
+  if ns.Now() - session.start < 120 then ns.CntFlag("deathAfterLogin") end
+  if session.lastDingAt and ns.Now() - session.lastDingAt < 120 then ns.CntFlag("deathAfterDing") end
+  if loc.inInst then ns.CntFlag("deathDungeon") end
+  if (ns.S(UnitLevel, "player") or 0) >= 60 then ns.CntFlag("deathAt60") end
+  ns.db.cnt.levelsNoDeath = 0
   Tracker:Event("DEAD", ns.Clean(zone, 40))
   Tracker:SendStats(2)
 end)
@@ -491,6 +511,8 @@ end)
 ns:On("QUEST_TURNED_IN", function()
   session.quests = session.quests + 1
   Tracker:AddStat("Quests", 1)
+  ns.CntDay("questsDay")
+  ns.CntMax("bestDayQuests", (ns.db.cnt.questsDay or {})[date("%Y-%m-%d")] or 0)
   ns:MarkDirty()
 end)
 
@@ -528,7 +550,22 @@ end)
 
 ns:On("NEW_MOUNT_ADDED", function()
   Tracker:Event("MOUNT")
+  ns.Cnt("mounts")
+  if (ns.S(UnitLevel, "player") or 60) < 40 then ns.CntFlag("mountBefore40") end
 end)
+
+-- antall mounts du allerede har (hvis spillet gir tilgang)
+function Tracker:CountMounts()
+  if not (C_MountJournal and C_MountJournal.GetMountIDs) then return end
+  local ok, ids = pcall(C_MountJournal.GetMountIDs)
+  if not ok or type(ids) ~= "table" then return end
+  local n = 0
+  for _, id in ipairs(ids) do
+    local ok2, _, _, _, _, _, _, _, _, _, _, collected = pcall(C_MountJournal.GetMountInfoByID, id)
+    if ok2 and collected and not ns.isSecret(collected) then n = n + 1 end
+  end
+  ns.CntMax("mounts", n)
+end
 
 ns:On("SKILL_LINES_CHANGED", function()
   if not Tracker.profTimer then
@@ -574,6 +611,7 @@ ns:On("CHAT_MSG_LOOT", function(text)
       local quality = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(itemID)
       if quality and quality >= (ns.db.settings.lootMinQuality or 4) then
         Tracker:Event("LOOT", itemID, quality)
+        if quality >= 4 then ns.Cnt("epics") end
       end
       return
     end

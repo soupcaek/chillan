@@ -14,12 +14,14 @@ Comm.lua
 Tracker.lua
 Data.lua
 Stats.lua
+Achievements.lua
 UI\Widgets.lua
 UI\MainWindow.lua
 UI\TabFriends.lua
 UI\TabTavle.lua
 UI\TabChat.lua
 UI\TabStats.lua
+UI\TabAch.lua
 UI\TabFeed.lua
 UI\TabMap.lua
 UI\TabMore.lua

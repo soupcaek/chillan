@@ -39,6 +39,14 @@ function ns.FeedLine(it, withTime)
   elseif it.kind == "SOS" then
     icon, color = "SOS", C.red
     text = "sendte SOS i " .. tostring(it.a or "?")
+  elseif it.kind == "ACH" then
+    local d = ns.Ach and ns.Ach.byId[it.a]
+    local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
+    icon, color = "Trophy", tier.color
+    text = "låste opp " .. ns.Colorize("«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
+    if it.reacts and #it.reacts > 0 then
+      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
+    end
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
     text = "så fienden " .. tostring(it.a) .. " i " .. tostring(it.b or "?")

@@ -35,6 +35,14 @@ WowUp viser **Update** når det kommer en ny versjon. Chillan sier også fra i s
 
 Hurtigtaster for å åpne Chillan, gjengchatten og SOS kan settes under **Esc → Options → Keybindings → AddOns**.
 
+## Nytt i 0.5
+
+- 175 achievements i 14 kategorier (bronse, sølv, gull og legendarisk), med egen fane «Trofeer»
+- Popup med reaksjoner når noen i gjengen låser opp sølv eller bedre; bronse vises i chatten
+- Achievement-poeng i statistikktabellen og på spillersiden
+- Automatisk oppdagelse av venner via Battle.net og vennelista
+- Dødsvarsel med «Hahaha!», «RIP», «Noob!» og «F», og versjonsnummer i tittellinja
+
 ## Nytt i 0.4
 
 - Klikk på en venn for et hurtigkort (XP per time, tid til neste level, i dag, streak) og «Åpne spiller» for full statistikk

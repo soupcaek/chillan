@@ -63,6 +63,7 @@ Comm:Handle("ST", function(f, sender, channel)
       Comm:SendTo(sender, ns.Tracker:BuildSS(), 3)
       Comm:SendTo(sender, ns.Tracker:BuildS2(), 3)
       Comm:SendTo(sender, ns.Tracker:BuildS3(), 3)
+      ns.Ach:SendList(sender)
       ns.Tracker:SendHistory(sender)
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
@@ -249,6 +250,55 @@ end)
 ---------------------------------------------------------------------------
 -- Hei / oppdagelse / synkronisering
 ---------------------------------------------------------------------------
+-- Send hei via whisper til venner (Battle.net og vennelista) som er pålogget WoW.
+-- Har de Chillan og samme gjengkode, finner vi hverandre uten felles kanal.
+function Data:DiscoverFriends()
+  if not ns.codeHash then return end
+  local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION)
+  local targets, n = {}, 0
+  local myRealm = (Comm:MyFull() or ""):match("%-(.+)$")
+  local function add(name, realm)
+    if not name or name == "" or ns.isSecret(name) then return end
+    local full = name
+    if not full:find("-") then
+      realm = (realm and realm ~= "" and not ns.isSecret(realm)) and realm:gsub("%s", "") or myRealm
+      if realm then full = full .. "-" .. realm end
+    end
+    if Comm:IsMe(full) or targets[full] then return end
+    local r = ns.db.roster[full]
+    if r and r.heard and (ns.Now() - r.heard) < 120 then return end
+    targets[full] = true
+    n = n + 1
+  end
+  -- Battle.net-venner som spiller WoW nå
+  pcall(function()
+    local num = BNGetNumFriends and select(1, BNGetNumFriends()) or 0
+    for i = 1, math.min(num or 0, 100) do
+      local accounts = C_BattleNet.GetFriendNumGameAccounts(i) or 0
+      for j = 1, accounts do
+        local info = C_BattleNet.GetFriendGameAccountInfo(i, j)
+        if info and info.clientProgram == "WoW" and info.isOnline and info.characterName then
+          add(info.characterName, info.realmName)
+        end
+      end
+    end
+  end)
+  -- vanlig venneliste
+  pcall(function()
+    local num = C_FriendList.GetNumFriends() or 0
+    for i = 1, num do
+      local info = C_FriendList.GetFriendInfoByIndex(i)
+      if info and info.connected and info.name then add(info.name) end
+    end
+  end)
+  local sent = 0
+  for full in pairs(targets) do
+    if sent >= 25 then break end
+    Comm:SendTo(full, msg, 3)
+    sent = sent + 1
+  end
+end
+
 function Data:Hello()
   if not ns.codeHash then return end
   local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION)
@@ -256,6 +306,7 @@ function Data:Hello()
   if ns.S(IsInGuild) then Comm:SendScope(msg, "GUILD", 2) end
   if ns.S(IsInRaid) then Comm:SendScope(msg, "RAID", 2)
   elseif ns.S(IsInGroup) then Comm:SendScope(msg, "PARTY", 2) end
+  C_Timer.After(5, function() Data:DiscoverFriends() end)
   -- venner vi tidligere bare har nådd via whisper (annen backend-realm)
   local t, n = ns.Now(), 0
   for char, r in pairs(ns.db.roster) do
@@ -316,6 +367,7 @@ Comm:Handle("HI", function(f, sender, channel)
   replyTo(sender, channel, ns.Tracker:BuildSS(), 2)
   replyTo(sender, channel, ns.Tracker:BuildS2(), 3)
   replyTo(sender, channel, ns.Tracker:BuildS3(), 3)
+  ns.Ach:SendList(sender)
   ns.Tracker:SendHistory(sender)
   if iAmGossiper() then
     local n = 0
@@ -424,6 +476,13 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     item.place = math.max(1, place)
   elseif kind == "MOUNT" then
     item.first = setFirst("MOUNT", pid, char, t)
+  elseif kind == "LOOT" then
+    if (num(b) or 0) >= 4 then item.first = setFirst("EPIC", pid, char, t) end
+  elseif kind == "ACH" then
+    if pid ~= ns.pid then
+      p.ach = p.ach or {}
+      p.ach[a] = t
+    end
   elseif kind == "DEAD" then
     if not p.deathAt or t > p.deathAt then p.deathAt, p.deathZone = t, a end
   end
@@ -437,6 +496,12 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     elseif kind == "DEAD" then
       ns:Fire("DING", item)
       ns.Sound("dead")
+    elseif kind == "ACH" then
+      -- bronse vises bare i chatten, sølv og oppover får popup
+      if b == "S" or b == "G" or b == "L" then
+        ns:Fire("DING", item)
+        ns.Sound("ding")
+      end
     elseif kind == "SOS" then
       ns:Fire("SOS", item)
       ns.Sound("sos")
@@ -477,6 +542,9 @@ function Data:SendChat(text)
   local id = Comm:NewId()
   Comm:Seen(id)
   addChat(id, ns.pid, Comm:MyFull(), ns.Now(), text)
+  ns.Cnt("chatMsgs")
+  ns.CntDay("chatDay")
+  ns.CntMax("bestDayChat", (ns.db.cnt.chatDay or {})[date("%Y-%m-%d")] or 0)
   Comm:Broadcast(Comm:Build("CH", id, ns.pid, Comm:MyFull(), 0, text), 1, true)
 end
 
@@ -493,8 +561,12 @@ end)
 ns.REACTIONS = { "Gratulerer!", "GZ!", "Endelig!" }
 ns.REACTIONS_DEAD = { "Hahaha!", "RIP", "Noob!", "F" }
 
+ns.REACTIONS_ACH = { "Gratulerer!", "GZ!", "Imponerende!" }
+
 function ns.ReactionText(item, idx)
-  local list = (item and item.kind == "DEAD") and ns.REACTIONS_DEAD or ns.REACTIONS
+  local list = ns.REACTIONS
+  if item and item.kind == "DEAD" then list = ns.REACTIONS_DEAD
+  elseif item and item.kind == "ACH" then list = ns.REACTIONS_ACH end
   return list[idx] or list[1]
 end
 
@@ -515,6 +587,11 @@ end
 function Data:React(item, idx)
   if not item or item.pid == ns.pid then return end
   if not addReaction(item, ns.pid, Comm:MyFull(), idx) then return end
+  if item.kind == "DEAD" then
+    if idx == 4 then ns.Cnt("fGiven") elseif idx == 1 or idx == 3 then ns.Cnt("laughsGiven") end
+  else
+    ns.Cnt("gratsGiven")
+  end
   Comm:Broadcast(Comm:Build("RX", item.id, ns.pid, Comm:MyFull(), idx), 1)
   ns:MarkDirty()
 end
@@ -528,6 +605,12 @@ Comm:Handle("RX", function(f)
   local target = item.pid == ns.pid and "deg" or ns:PersonLabel(ns:GetPerson(item.pid) or {}, item.char)
   ns:Fire("ACTIVITY", ns:PersonLabel(rp, f[3]) .. " → " .. target .. ": " .. ns.Colorize(ns.ReactionText(item, idx), "B9AEDB"))
   if item.pid == ns.pid then
+    if item.kind == "DEAD" then
+      if idx == 1 or idx == 3 then ns.Cnt("laughedAt") end
+    else
+      ns.Cnt("gratsGot")
+      if item.kind == "DING" then ns.CntMax("maxGratsOneDing", #item.reacts) end
+    end
     -- samle gratulasjonene til ett varsel
     reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3])
     if #reactBuffer == 1 then
@@ -538,7 +621,12 @@ Comm:Handle("RX", function(f)
         if item.kind == "DEAD" then
           ns:Fire("TOAST", { kind = "dead", title = who .. " ler av deg", text = "Du døde i " .. tostring(item.a or "?") })
         else
-          ns:Fire("TOAST", { kind = "star", title = who .. " gratulerte deg!", text = "Med level " .. tostring(item.a) })
+          local what = "Med level " .. tostring(item.a)
+          if item.kind == "ACH" then
+            local d = ns.Ach and ns.Ach.byId[item.a]
+            what = "Med «" .. (d and d.name or "achievement") .. "»"
+          end
+          ns:Fire("TOAST", { kind = "star", title = who .. " gratulerte deg!", text = what })
         end
         ns.Sound("online")
       end)
@@ -559,6 +647,7 @@ function Data:PostMats(text, note)
   if text == "" then return false end
   local post = { id = Comm:NewId(), pid = ns.pid, char = Comm:MyFull(), t = ns.Now(), text = text, note = ns.Clean(note or "", 60) }
   ns.db.mats[post.id] = post
+  ns.Cnt("matsPosted")
   Comm:Broadcast(self:BuildMT(post), 1, true)
   ns:MarkDirty()
   return true
@@ -571,6 +660,7 @@ function Data:RemoveMats(id)
 end
 
 function Data:OfferMats(post)
+  ns.Cnt("matsOffered")
   local p = ns:GetPerson(post.pid)
   local target = (p and p.live and p.live.char) or post.char
   Comm:SendTo(target, Comm:Build("MH", ns.pid, Comm:MyFull(), post.id), 1)
@@ -629,6 +719,7 @@ function Data:CreatePoll(q, optsText)
   end
   if q == "" or #opts < 2 then return false end
   local poll = { id = Comm:NewId(), pid = ns.pid, t = ns.Now(), q = q, opts = opts, votes = {} }
+  ns.Cnt("pollsCreated")
   ns.PushCapped(ns.db.polls, poll, 5)
   Comm:Broadcast(self:BuildPO(poll), 1, true)
   ns:MarkDirty()
@@ -636,6 +727,7 @@ function Data:CreatePoll(q, optsText)
 end
 
 function Data:Vote(poll, idx)
+  if not poll.votes[ns.pid] then ns.Cnt("votes") end
   poll.votes[ns.pid] = idx
   Comm:Broadcast(Comm:Build("PV", poll.id, ns.pid, idx), 1)
   ns:MarkDirty()
@@ -680,6 +772,7 @@ function Data:CreateEvent(title, when)
   title, when = ns.Clean(title, 50), ns.Clean(when, 30)
   if title == "" then return false end
   local ev = { id = Comm:NewId(), pid = ns.pid, t = ns.Now(), title = title, when = when, rsvp = { [ns.pid] = 1 } }
+  ns.Cnt("eventsCreated")
   ns.PushCapped(ns.db.events, ev, 10)
   Comm:Broadcast(self:BuildAV(ev), 1, true)
   Comm:Broadcast(Comm:Build("AR", ev.id, ns.pid, 1), 2)
@@ -688,6 +781,7 @@ function Data:CreateEvent(title, when)
 end
 
 function Data:RSVP(ev, status)
+  if status == 1 and ev.rsvp[ns.pid] ~= 1 then ns.Cnt("rsvpYes") end
   ev.rsvp[ns.pid] = status
   Comm:Broadcast(Comm:Build("AR", ev.id, ns.pid, status), 1)
   ns:MarkDirty()
@@ -739,10 +833,14 @@ function Data:SOS()
   ns.Tracker:Event("SOS", ns.Clean(zone, 40), loc.mapID or "",
     loc.x and math.floor(loc.x * 1000) or "", loc.y and math.floor(loc.y * 1000) or "")
   ns.session.sos = (ns.session.sos or 0) + 1
+  ns.Cnt("sosSent")
+  ns.CntDay("sosDay")
+  ns.CntMax("bestDaySos", (ns.db.cnt.sosDay or {})[date("%Y-%m-%d")] or 0)
   ns.Print("SOS sendt til gjengen.")
 end
 
 function Data:AnswerSOS(item)
+  ns.Cnt("sosAnswered")
   local p = ns:GetPerson(item.pid)
   local target = (p and p.live and p.live.char) or item.char
   Comm:SendTo(target, Comm:Build("RS", ns.pid, Comm:MyFull()), 1)
@@ -763,6 +861,7 @@ function Data:AddEnemy(name, note, silent)
   local e = { id = Comm:NewId(), name = ns.ShortName(name), note = ns.Clean(note or "", 60), by = ns.pid, byChar = Comm:MyFull(), t = ns.Now() }
   ns.db.enemies[key] = e
   if not silent then
+    ns.Cnt("enemiesTagged")
     Comm:Broadcast(Comm:Build("EN", e.id, 0, e.name, e.note, e.by, e.byChar), 1, true)
   end
   ns:MarkDirty()
@@ -803,6 +902,7 @@ local function checkUnit(unit)
   if enemyAlerted[key] and ns.Now() - enemyAlerted[key] < 300 then return end
   enemyAlerted[key] = ns.Now()
   local zone = ns.S(GetRealZoneText) or ""
+  ns.Cnt("enemySeen")
   ns:Fire("TOAST", { kind = "enemy", title = "Fiende i nærheten: " .. e.name, text = e.note ~= "" and e.note or "Fra fiendeloggen" })
   ns.Sound("sos")
   ns.Tracker:Event("ENSEEN", e.name, ns.Clean(zone, 30))
@@ -900,5 +1000,6 @@ function Data:Start()
     Data:ExpireMats()
     ns:MarkDirty()
   end)
+  C_Timer.NewTicker(300, function() Data:DiscoverFriends() end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)
 end
