@@ -1,0 +1,6 @@
+package-as: Chillan
+
+ignore:
+  - README.md
+  - .github
+  - tools

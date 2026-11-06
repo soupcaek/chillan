@@ -1,0 +1,38 @@
+Chillan? – sosial addon for vennegjengen (WoW Forever)
+=======================================================
+
+INSTALLASJON (anbefalt: WowUp, da får du oppdateringer automatisk)
+1. Installer WowUp fra wowup.io og velg World of Warcraft: Forever.
+2. Get Addons -> Install from URL -> https://github.com/soupcaek/chillan
+3. Start spillet. Sjekk at Chillan? er huket av under AddOns på karaktervalget.
+
+Manuelt: pakk ut zip-filen og legg mappen "Chillan" i
+World of Warcraft\_forever_\Interface\AddOns\
+
+KOM I GANG
+- Skriv /chill i spillet.
+- Én person trykker "Lag ny gjeng" og deler koden (f.eks. CHILL-7F2A) med resten.
+- Alle andre limer inn koden og trykker "Bli med".
+- Ferdig. Alle med samme kode ser hverandre, uansett guild.
+
+KOMMANDOER
+/chill               åpne/lukk vinduet
+/cg tekst            skriv i gjengchatten
+/chill sos           send SOS (blir ganket)
+/chill kveld         oppsummering av økten
+/chill fiende notat  legg målet ditt i fiendeloggen
+/chill legg til Navn send hei til en venn som ikke dukker opp
+/chill minibar       vis/skjul minibaren
+/chill reset         nullstill posisjoner
+/chill debug         teknisk status (nyttig ved feilsøking)
+
+GODT Å VITE
+- Data deles bare mellom de som er online samtidig. Statistikk for de som er
+  offline fylles inn når noen som har den logger på.
+- WoW Forever har flere backend-realms under samme ruleset. Dukker en venn
+  ikke opp, bruk "Legg til" under fanen Mer (eller /chill legg til Navn).
+- Spillet viser "/played" i chatten én gang i døgnet per karakter. Det er
+  Chillan som henter det til leaderboardet.
+- Trial-kontoer kan ikke sende addon-meldinger.
+
+Font: Inter (SIL Open Font License, se Media\Fonts\LICENSE.txt).

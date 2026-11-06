@@ -1,0 +1,415 @@
+-- Chillan? – sporer din egen karakter: tid, level, quests, gull, dødsfall, posisjon
+local ADDON, ns = ...
+local Tracker = {}
+ns.Tracker = Tracker
+
+local lastTick
+local lastMoney
+local session = { start = 0, levels = 0, quests = 0, gold = 0, deaths = 0, sos = 0, startLevel = 0 }
+ns.session = session
+
+function Tracker:Me()
+  return ns:GetPerson(ns.pid, true)
+end
+
+function Tracker:MyChar()
+  local me = self:Me()
+  local full = ns.Comm:MyFull()
+  local c = me.chars[full]
+  if not c then
+    c = {}
+    me.chars[full] = c
+  end
+  return c, full
+end
+
+function Tracker:RefreshCharInfo()
+  local me = self:Me()
+  local c, full = self:MyChar()
+  c.name = UnitName("player")
+  local _, classFile = UnitClass("player")
+  c.class = classFile
+  c.race = UnitRace("player")
+  c.level = UnitLevel("player")
+  me.main = full
+  me.nick = ns.db.nick
+  me.heard = ns.Now()
+end
+
+local function rollWeek(stats)
+  local wk = ns.WeekKey()
+  if stats.wk ~= wk then
+    if stats.wk then
+      stats.prev = { wk = stats.wk, Online = stats.wOnline or 0, Quests = stats.wQuests or 0,
+        Gold = stats.wGold or 0, Deaths = stats.wDeaths or 0 }
+    end
+    stats.wk = wk
+    stats.wOnline, stats.wQuests, stats.wGold, stats.wDeaths = 0, 0, 0, 0
+  end
+end
+
+function Tracker:AddStat(key, amount)
+  local s = self:Me().stats
+  rollWeek(s)
+  s["w" .. key] = (s["w" .. key] or 0) + amount
+  s["t" .. key] = (s["t" .. key] or 0) + amount
+end
+
+-- /played akkurat nå (oppdateres løpende mens du er logget på)
+function Tracker:PlayedNow()
+  local c = self:MyChar()
+  return c.played
+end
+
+function Tracker:Status()
+  local o = ns.db.statusOverride
+  if o and o ~= "AUTO" then
+    if o == "HELP" and ns.db.statusOverrideAt and ns.Now() - ns.db.statusOverrideAt > 900 then
+      ns.db.statusOverride = nil
+    else
+      return o
+    end
+  end
+  if UnitIsAFK("player") then return "AFK" end
+  local inInst, kind = IsInInstance()
+  if inInst then
+    if kind == "pvp" or kind == "arena" then return "BG" end
+    return "DUNGEON"
+  end
+  return "QUEST"
+end
+
+function Tracker:SetStatus(code)
+  ns.db.statusOverride = (code ~= "AUTO") and code or nil
+  ns.db.statusOverrideAt = ns.Now()
+  self:SendStatus()
+  ns:MarkDirty()
+end
+
+function Tracker:Location()
+  local loc = {}
+  local inInst = IsInInstance()
+  loc.inInst = inInst and true or false
+  if inInst then
+    loc.zone = (GetInstanceInfo()) or GetRealZoneText() or ""
+    loc.sub = ""
+  else
+    loc.zone = GetRealZoneText() or GetZoneText() or ""
+    loc.sub = GetSubZoneText() or ""
+  end
+  local ok = pcall(function()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    if not mapID or ns.isSecret(mapID) then return end
+    local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+    if not pos then return end
+    local x, y = pos:GetXY()
+    if not x or ns.isSecret(x) or (x == 0 and y == 0) then return end
+    loc.mapID, loc.x, loc.y = mapID, x, y
+    local cont, wp = C_Map.GetWorldPosFromMapPos(mapID, pos)
+    if cont and wp then
+      local wx, wy = wp:GetXY()
+      loc.cont, loc.wx, loc.wy = cont, wx, wy
+    end
+  end)
+  return loc
+end
+
+function Tracker:UpdateLive()
+  local me = self:Me()
+  local loc = self:Location()
+  me.live = me.live or {}
+  local L = me.live
+  L.char = ns.Comm:MyFull()
+  L.zone, L.sub, L.inInst = loc.zone, loc.sub, loc.inInst
+  L.mapID, L.x, L.y, L.cont, L.wx, L.wy = loc.mapID, loc.x, loc.y, loc.cont, loc.wx, loc.wy
+  L.status = self:Status()
+  L.session = session.start
+  me.heard = ns.Now()
+  me.lastSeen = ns.Now()
+  return L
+end
+
+---------------------------------------------------------------------------
+-- Meldinger om meg selv
+---------------------------------------------------------------------------
+function Tracker:BuildST()
+  self:RefreshCharInfo()
+  local L = self:UpdateLive()
+  local c = self:MyChar()
+  return ns.Comm:Build("ST", ns.pid, L.char, c.class, c.race, c.level,
+    ns.Clean(L.zone, 32), ns.Clean(L.sub, 32), L.status, ns.Now() - session.start,
+    L.inInst, L.mapID or "", L.x and math.floor(L.x * 1000) or "", L.y and math.floor(L.y * 1000) or "",
+    L.cont or "", L.wx and math.floor(L.wx) or "", L.wy and math.floor(L.wy) or "",
+    ns.Clean(ns.db.nick or "", 16), ns.VERSION)
+end
+
+function Tracker:BuildSS()
+  local me = self:Me()
+  local s = me.stats
+  rollWeek(s)
+  local c = self:MyChar()
+  local p = s.prev or {}
+  return ns.Comm:Build("SS", ns.pid, ns.Comm:MyFull(), self:PlayedNow() or c.played or "",
+    s.wk, s.wOnline or 0, s.wQuests or 0, s.wGold or 0, s.wDeaths or 0,
+    s.tOnline or 0, s.tQuests or 0, s.tGold or 0, s.tDeaths or 0,
+    p.wk or "", p.Online or 0, p.Quests or 0, p.Gold or 0, p.Deaths or 0,
+    ns.Clean(me.deathZone or "", 30), me.deathAt and (ns.Now() - me.deathAt) or "")
+end
+
+function Tracker:SendStatus(prio)
+  if not ns.codeHash then return end
+  ns.Comm:Broadcast(self:BuildST(), prio or 2)
+  ns:MarkDirty()
+end
+
+function Tracker:SendStats(prio)
+  if not ns.codeHash then return end
+  ns.Comm:Broadcast(self:BuildSS(), prio or 3)
+end
+
+local stPending = false
+function Tracker:SendStatusSoon()
+  if stPending then return end
+  stPending = true
+  C_Timer.After(3, function()
+    stPending = false
+    Tracker:SendStatus()
+  end)
+end
+
+-- Felles hendelse (feed) fra meg
+function Tracker:Event(kind, a, b, c, d)
+  local id = ns.Comm:NewId()
+  local msg = ns.Comm:Build("EV", id, ns.pid, ns.Comm:MyFull(), kind, 0, a or "", b or "", c or "", d or "")
+  ns.Comm:Seen(id)
+  ns.Data:ApplyEvent(id, ns.pid, ns.Comm:MyFull(), kind, ns.Now(), a, b, c, d)
+  ns.Comm:Broadcast(msg, 1)
+end
+
+---------------------------------------------------------------------------
+-- Profesjoner og oppskrifter
+---------------------------------------------------------------------------
+function Tracker:ScanProfessions()
+  local me = self:Me()
+  local list = {}
+  pcall(function()
+    local a, b, c, d, e = GetProfessions()
+    for _, idx in ipairs({ a, b, c, d, e }) do
+      if idx then
+        local name, _, skill, max = GetProfessionInfo(idx)
+        if name then list[#list + 1] = { name = name, skill = skill or 0, max = max or 0 } end
+      end
+    end
+  end)
+  me.profs = list
+  return list
+end
+
+function Tracker:SendProfessions()
+  if not ns.codeHash then return end
+  local parts = {}
+  for _, p in ipairs(self:ScanProfessions()) do
+    parts[#parts + 1] = ns.Clean(p.name, 20):gsub("[:;]", "") .. ":" .. p.skill .. ":" .. p.max
+  end
+  ns.Comm:Broadcast(ns.Comm:Build("PF", ns.pid, table.concat(parts, ";")), 3)
+end
+
+function Tracker:ScanRecipes()
+  if not C_TradeSkillUI or not C_TradeSkillUI.GetAllRecipeIDs then return end
+  local ok, ids = pcall(C_TradeSkillUI.GetAllRecipeIDs)
+  if not ok or type(ids) ~= "table" then return end
+  local profName
+  pcall(function()
+    local info = C_TradeSkillUI.GetBaseProfessionInfo and C_TradeSkillUI.GetBaseProfessionInfo()
+    profName = info and info.professionName
+  end)
+  if not profName or profName == "" then return end
+  local learned = {}
+  for _, id in ipairs(ids) do
+    local ok2, info = pcall(C_TradeSkillUI.GetRecipeInfo, id)
+    if ok2 and info and info.learned then learned[#learned + 1] = id end
+  end
+  table.sort(learned)
+  local me = self:Me()
+  me.recipes = me.recipes or {}
+  local old = me.recipes[profName]
+  local changed = not old or #old ~= #learned
+  if not changed then
+    for i = 1, #learned do if old[i] ~= learned[i] then changed = true break end end
+  end
+  me.recipes[profName] = learned
+  if changed then self:SendRecipes(profName) end
+end
+
+function Tracker:SendRecipes(profName)
+  local me = self:Me()
+  local list = me.recipes and me.recipes[profName]
+  if not list or not ns.codeHash then return end
+  local chunk, part = {}, 1
+  local total = math.max(1, math.ceil(#list / 30))
+  for i, id in ipairs(list) do
+    chunk[#chunk + 1] = id
+    if #chunk == 30 or i == #list then
+      ns.Comm:Broadcast(ns.Comm:Build("PR", ns.pid, ns.Clean(profName, 20), part, total, table.concat(chunk, ",")), 3)
+      chunk, part = {}, part + 1
+    end
+  end
+end
+
+---------------------------------------------------------------------------
+-- Spillhendelser
+---------------------------------------------------------------------------
+local function tick()
+  local t = GetTime()
+  if lastTick then
+    local dt = t - lastTick
+    if dt > 0 and dt < 120 then
+      Tracker:AddStat("Online", dt)
+      local c = Tracker:MyChar()
+      if c.played then c.played = c.played + dt end
+    end
+  end
+  lastTick = t
+end
+
+function Tracker:Start()
+  session.start = ns.Now()
+  session.startLevel = UnitLevel("player")
+  lastMoney = GetMoney()
+  lastTick = GetTime()
+  self:RefreshCharInfo()
+  self:UpdateLive()
+  rollWeek(self:Me().stats)
+
+  C_Timer.NewTicker(15, tick)
+  C_Timer.NewTicker(30, function() Tracker:SendStatus() end)
+  C_Timer.NewTicker(120, function() Tracker:SendStats() end)
+  -- husk økten løpende, slik at oppsummeringen kan vises ved neste innlogging
+  C_Timer.NewTicker(20, function() Tracker:SaveSession() end)
+end
+
+function Tracker:SessionSummary()
+  local played = ns.Now() - session.start
+  return {
+    char = ns.Comm:MyFull(), at = ns.Now(), online = played,
+    levels = UnitLevel("player") - (session.startLevel or UnitLevel("player")),
+    quests = session.quests, gold = session.gold, deaths = session.deaths, sos = session.sos,
+  }
+end
+
+function Tracker:SaveSession()
+  if (ns.Now() - session.start) < 120 then return end
+  ns.db.lastSession = self:SessionSummary()
+end
+
+ns:On("TIME_PLAYED_MSG", function(total)
+  if ns.isSecret(total) then return end
+  local c = Tracker:MyChar()
+  c.played = total
+  c.playedAt = ns.Now()
+end)
+
+ns:On("PLAYER_LEVEL_UP", function(level)
+  if ns.isSecret(level) then return end
+  local c = Tracker:MyChar()
+  c.level = level
+  session.levels = session.levels + 1
+  Tracker:Event("DING", level, Tracker:PlayedNow() or "")
+  Tracker:SendStatusSoon()
+end)
+
+ns:On("PLAYER_DEAD", function()
+  local me = Tracker:Me()
+  local loc = Tracker:Location()
+  local zone = loc.zone ~= "" and loc.zone or "ukjent sted"
+  if loc.sub and loc.sub ~= "" and not loc.inInst then zone = loc.sub .. ", " .. zone end
+  me.deathZone = zone
+  me.deathAt = ns.Now()
+  session.deaths = session.deaths + 1
+  Tracker:AddStat("Deaths", 1)
+  Tracker:Event("DEAD", ns.Clean(zone, 40))
+  Tracker:SendStats(2)
+end)
+
+ns:On("QUEST_TURNED_IN", function()
+  session.quests = session.quests + 1
+  Tracker:AddStat("Quests", 1)
+  ns:MarkDirty()
+end)
+
+ns:On("PLAYER_MONEY", function()
+  local m = GetMoney()
+  if lastMoney and m > lastMoney then
+    local diff = m - lastMoney
+    session.gold = session.gold + diff
+    Tracker:AddStat("Gold", diff)
+  end
+  lastMoney = m
+end)
+
+for _, ev in ipairs({ "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "PLAYER_FLAGS_CHANGED" }) do
+  ns:On(ev, function() Tracker:SendStatusSoon() end)
+end
+
+ns:On("NEW_MOUNT_ADDED", function()
+  Tracker:Event("MOUNT")
+end)
+
+ns:On("SKILL_LINES_CHANGED", function()
+  if not Tracker.profTimer then
+    Tracker.profTimer = true
+    C_Timer.After(10, function()
+      Tracker.profTimer = nil
+      Tracker:SendProfessions()
+    end)
+  end
+end)
+
+ns:On("TRADE_SKILL_LIST_UPDATE", function()
+  if Tracker.recipeTimer then return end
+  Tracker.recipeTimer = true
+  C_Timer.After(2, function()
+    Tracker.recipeTimer = nil
+    Tracker:ScanRecipes()
+  end)
+end)
+
+-- Loot: del episke (eller blå, om valgt) ting du får
+local lootPatterns
+local function buildLootPatterns()
+  lootPatterns = {}
+  for _, key in ipairs({ "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE" }) do
+    local s = _G[key]
+    if type(s) == "string" then
+      local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%%%s", "(.+)"):gsub("%%%%d", "%%d+")
+      lootPatterns[#lootPatterns + 1] = "^" .. pat
+    end
+  end
+end
+
+ns:On("CHAT_MSG_LOOT", function(text)
+  if type(text) ~= "string" or ns.isSecret(text) then return end
+  if not lootPatterns then buildLootPatterns() end
+  for _, pat in ipairs(lootPatterns) do
+    local link = text:match(pat)
+    if link then
+      local itemID = tonumber(link:match("item:(%d+)"))
+      if not itemID then return end
+      local quality = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(itemID)
+      if quality and quality >= (ns.db.settings.lootMinQuality or 4) then
+        Tracker:Event("LOOT", itemID, quality)
+      end
+      return
+    end
+  end
+end)
+
+ns:On("PLAYER_CAMPING", function()
+  Tracker:SaveSession()
+  ns:Fire("SHOW_SUMMARY", Tracker:SessionSummary(), false)
+end)
+
+ns:On("PLAYER_LOGOUT", function()
+  Tracker:SaveSession()
+  if ns.db then ns.db.lastSessionShown = false end
+end)

@@ -1,0 +1,22 @@
+name: Release
+
+# Ny versjon: lag en tag som v0.2.0 og push den. Da bygges zip-filen
+# automatisk og legges ut som en GitHub-release som WowUp finner.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2.6.1
