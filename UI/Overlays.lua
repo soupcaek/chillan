@@ -556,10 +556,8 @@ function O:ShowDing(item)
     b:SetShown(i <= n)
     b:SetScript("OnClick", function()
       ns.Data:React(item, i)
-      for _, x in ipairs(d.buttons) do x:Hide() end
-      d.sent:SetText("Sendt: " .. ns.ReactionText(item, i))
-      d.sent:Show()
-      d.life = 2
+      -- lukk med en gang du har reagert (neste i køen vises etterpå)
+      O:NextDing()
     end)
   end
   d.life = 12
