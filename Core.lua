@@ -291,7 +291,7 @@ local DEFAULTS = {
   settings = {
     minibar = true, sounds = true, toasts = true, mapPins = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
-    chatMirror = true, activityMirror = true,
+    chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},
@@ -369,6 +369,13 @@ function ns:PersonAlias(p)
   if not p then return nil end
   if p == ns.db.people[ns.pid] then return ns.db.alias end
   return (p.alias and p.alias ~= "") and p.alias or nil
+end
+
+-- Kort navn til hendelsesfeeden: IRL-navnet i klassefarge (eller karakternavnet)
+function ns:ShortWho(p, char)
+  local c = (char and p and p.chars and p.chars[char]) or ns:PersonChar(p) or {}
+  local name = ns:PersonAlias(p) or c.name or (char and ns.ShortName(char)) or "?"
+  return ns.Colorize(name, ns.ClassHex(c.class))
 end
 
 -- "Lil Warrior" i klassefarge + " (Henrik)" dempet

@@ -2,8 +2,9 @@
 local ADDON, ns = ...
 local C = ns.C
 
-local PREFIX_CHAT = "|cff8fb8c9[Gjeng]|r "
-local PREFIX_ACT = "|cffc8d1dc[Chillan?]|r "
+-- Valgfritt (av som standard fra 0.6.0 – alt vises i hendelsesvinduet)
+local PREFIX_CHAT = ns.UI.InlineIcon("Chat", "8FB8C9", 13) .. " "
+local PREFIX_ACT = ns.UI.InlineIcon("Feed", "C8D1DC", 13) .. " "
 
 local function out(text)
   local frame = DEFAULT_CHAT_FRAME or ChatFrame1
@@ -30,4 +31,10 @@ end)
 ns:Listen("ACTIVITY", function(text)
   if not ns.db.settings.activityMirror then return end
   out(PREFIX_ACT .. text)
+end)
+
+ns:Listen("REACTION", function(item, rp, char, idx)
+  if not ns.db.settings.activityMirror or not item then return end
+  out(PREFIX_ACT .. ns:ShortWho(rp or {}, char) .. ns.Colorize(" → ", C.dim) .. ns:ShortWho(ns:GetPerson(item.pid) or {}, item.char)
+    .. ": " .. ns.Colorize(ns.ReactionText(item, idx), C.purple))
 end)

@@ -58,6 +58,29 @@ function ns.FeedLine(it, withTime)
   return line
 end
 
+-- Kort variant til hendelsesfeeden på skjermen
+function ns.FeedShort(it)
+  local p = ns:GetPerson(it.pid) or {}
+  local who = ns:ShortWho(p, it.char)
+  local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
+  if it.kind == "DING" then return I("Up", C.green) .. who .. ns.Colorize(" · level " .. tostring(it.a), C.text2) end
+  if it.kind == "DEAD" then return I("Skull", C.red) .. who .. ns.Colorize(" døde · " .. tostring(it.a or "?"), C.text2) end
+  if it.kind == "ACH" then
+    local d = ns.Ach and ns.Ach.byId[it.a]
+    local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
+    return I("Trophy", tier.color) .. who .. " · " .. ns.Colorize(d and d.name or tostring(it.a), tier.color)
+  end
+  if it.kind == "LOOT" then
+    local id = tonumber(it.a)
+    local name = id and C_Item.GetItemInfo and (C_Item.GetItemInfo(id))
+    return I("Star", C.purple) .. who .. " · " .. ns.Colorize(name or "episk drop", "A335EE")
+  end
+  if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
+  if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" fikk mount", C.text2) end
+  if it.kind == "ENSEEN" then return I("Target", C.red) .. "Fiende " .. tostring(it.a) .. ns.Colorize(" sett av ", C.text2) .. who end
+  return I("Star", C.accent) .. who .. " · " .. tostring(it.kind)
+end
+
 function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}

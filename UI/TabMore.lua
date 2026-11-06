@@ -83,8 +83,10 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   sh:SetText("Innstillinger")
   local S = ns.db.settings
   local checks = {
-    { "Gjengchat i vanlig chat", "chatMirror" },
-    { "Aktivitet (dings, gratulasjoner m.m.) i chat", "activityMirror" },
+    { "Hendelsesvindu på skjermen", "eventFeed", function() ns.EventWindow:Apply() end },
+    { "Gjengchat i hendelsesvinduet", "feedChat", function() ns.EventWindow:Redraw() end },
+    { "Ton ned vinduet når det er stille", "evFade" },
+    { "Også i vanlig WoW-chat", "chatMirror", function(v) ns.db.settings.activityMirror = v end },
     { "Vis minibar på skjermen", "minibar", function() ns:Fire("MINIBAR") end },
     { "Vis knapp ved minikartet", "minimapButton", function() ns:Fire("MINIBAR") end },
     { "Lyder", "sounds" },
@@ -97,10 +99,10 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   for _, def in ipairs(checks) do
     local cb = UI.Check(left, def[1], function() return ns.db.settings[def[2]] end, function(v)
       ns.db.settings[def[2]] = v
-      if def[3] then def[3]() end
+      if def[3] then def[3](v) end
     end)
     cb:SetPoint("TOPLEFT", sh, "BOTTOMLEFT", 0, y)
-    y = y - 24
+    y = y - 22
     checkFrames[#checkFrames + 1] = cb
   end
   local blue = UI.Check(left, "Del blå drops i feeden (ikke bare episke)",

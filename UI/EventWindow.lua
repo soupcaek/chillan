@@ -1,0 +1,266 @@
+-- Chillan? – eget hendelsesvindu på skjermen: alt som skjer i gjengen,
+-- gjengchat, reaksjoner (samlet) og et felt for å skrive til gjengen.
+local ADDON, ns = ...
+local UI, C = ns.UI, ns.C
+local hex = ns.hex
+
+local E = {}
+ns.EventWindow = E
+
+local MAX_KEEP = 200
+local FILTERS = { { "all", "Alt" }, { "ev", "Hendelser" }, { "chat", "Chat" } }
+
+E.entries = {}
+E.pendingRx = {}
+
+local function stamp(t)
+  return ns.Colorize(date("%H:%M", t or time()), "6E747B") .. "  "
+end
+
+local function visible(kind)
+  local f = ns.db.settings.evFilter or "all"
+  if f == "all" then return kind ~= "chat" or ns.db.settings.feedChat end
+  if f == "ev" then return kind == "ev" or kind == "rx" end
+  return kind == "chat"
+end
+
+function E:Add(kind, text, t)
+  local e = { kind = kind, text = stamp(t) .. text, t = t or time() }
+  ns.PushCapped(self.entries, e, MAX_KEEP)
+  if self.msg and visible(kind) then
+    self.msg:AddMessage(e.text)
+    if self.frame and not self.frame:IsMouseOver() then self:Flash() end
+  end
+end
+
+function E:Redraw()
+  if not self.msg then return end
+  self.msg:Clear()
+  for _, e in ipairs(self.entries) do
+    if visible(e.kind) then self.msg:AddMessage(e.text) end
+  end
+  for key, btn in pairs(self.filterBtns or {}) do
+    local on = (ns.db.settings.evFilter or "all") == key
+    btn.text:SetTextColor(hex(on and C.text or C.dim))
+    btn.line:SetShown(on)
+  end
+end
+
+-- Gjengchat: klikkbart navn (åpner spillersiden)
+local function chatText(item)
+  local p = ns:GetPerson(item.pid) or {}
+  local name = "|Hchillan:" .. tostring(item.pid) .. "|h" .. ns:ShortWho(p, item.char) .. "|h"
+  return UI.InlineIcon("Chat", "8FB8C9", 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", "D9F0F7")
+end
+
+-- Reaksjoner samles i ~5 sek per hendelse: "↳ Henrik, Adrian → Kenny: Hahaha! ×2 · F"
+function E:QueueReaction(item, rp, char, idx)
+  if not item or not item.id then return end
+  local q = self.pendingRx[item.id]
+  if not q then
+    q = { item = item, counts = {}, order = {}, names = {}, seen = {} }
+    self.pendingRx[item.id] = q
+    C_Timer.After(5, function() E:FlushReaction(item.id) end)
+  end
+  local label = ns.ReactionText(item, idx)
+  if not q.counts[label] then q.order[#q.order + 1] = label end
+  q.counts[label] = (q.counts[label] or 0) + 1
+  local who = rp and ns:ShortWho(rp, char) or "?"
+  if not q.seen[who] then q.seen[who] = true q.names[#q.names + 1] = who end
+end
+
+function E:FlushReaction(id)
+  local q = self.pendingRx[id]
+  self.pendingRx[id] = nil
+  if not q then return end
+  local parts = {}
+  for _, label in ipairs(q.order) do
+    local n = q.counts[label]
+    parts[#parts + 1] = ns.Colorize(label, C.purple) .. (n > 1 and ns.Colorize(" ×" .. n, C.muted) or "")
+  end
+  local names = {}
+  for i = 1, math.min(3, #q.names) do names[i] = q.names[i] end
+  local who = table.concat(names, ns.Colorize(", ", C.dim))
+  if #q.names > 3 then who = who .. ns.Colorize(" +" .. (#q.names - 3), C.dim) end
+  local target = ns:ShortWho(ns:GetPerson(q.item.pid) or {}, q.item.char)
+  self:Add("rx", ns.Colorize("   ↳ ", C.dim) .. who .. ns.Colorize(" → ", C.dim) .. target .. ns.Colorize(": ", C.dim)
+    .. table.concat(parts, ns.Colorize("  ·  ", C.dim)))
+end
+
+function E:Flash()
+  if not self.frame or not self.frame:IsShown() then return end
+  self.frame:SetAlpha(1)
+  self.idleAt = GetTime()
+end
+
+function E:Create()
+  local S = ns.db.settings
+  local f = UI.Panel(UIParent, C.window, C.line, false)
+  f:SetColors(C.window, C.line, 0.88)
+  f:SetFrameStrata("MEDIUM")
+  local sz = S.evSize or { w = 380, h = 210 }
+  f:SetSize(sz.w, sz.h)
+  f:SetResizable(true)
+  if f.SetResizeBounds then f:SetResizeBounds(280, 130, 800, 600) end
+  self.frame = f
+
+  -- Topplinje (dra her for å flytte)
+  local head = CreateFrame("Frame", nil, f)
+  head:SetPoint("TOPLEFT", 0, 0)
+  head:SetPoint("TOPRIGHT", 0, 0)
+  head:SetHeight(28)
+  UI.Movable(head, "eventwin", function(fr) fr:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 40, 260) end, f)
+
+  local logo = UI.Icon(head, "Feed", 14, C.accent)
+  logo:SetPoint("LEFT", 10, 0)
+  local title = UI.Text(head, 12, "semi", C.text)
+  title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
+  title:SetText("Chillan?")
+  self.count = UI.Text(head, 11, nil, C.muted)
+  self.count:SetPoint("LEFT", title, "RIGHT", 6, 0)
+
+  local close = UI.IconButton(head, 20, "Close", "Skjul (/chill hendelser viser igjen)", function()
+    ns.db.settings.eventFeed = false
+    E:Apply()
+  end)
+  close:SetPoint("RIGHT", -6, 0)
+
+  -- Filtre
+  self.filterBtns = {}
+  local prev
+  for i = #FILTERS, 1, -1 do
+    local key, label = FILTERS[i][1], FILTERS[i][2]
+    local b = CreateFrame("Button", nil, head)
+    b.text = UI.Text(b, 11, "semi", C.dim)
+    b.text:SetPoint("CENTER")
+    b.text:SetText(label)
+    b:SetSize(b.text:GetStringWidth() + 12, 22)
+    b.line = b:CreateTexture(nil, "ARTWORK")
+    b.line:SetColorTexture(hex(C.accent))
+    b.line:SetHeight(1)
+    b.line:SetPoint("BOTTOMLEFT", 6, 2)
+    b.line:SetPoint("BOTTOMRIGHT", -6, 2)
+    if prev then b:SetPoint("RIGHT", prev, "LEFT", 0, 0) else b:SetPoint("RIGHT", close, "LEFT", -4, 0) end
+    b:SetScript("OnClick", function() ns.db.settings.evFilter = key E:Redraw() end)
+    self.filterBtns[key] = b
+    prev = b
+  end
+
+  local sep = f:CreateTexture(nil, "ARTWORK")
+  sep:SetColorTexture(hex(C.line))
+  sep:SetHeight(1)
+  sep:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 8, 0)
+  sep:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT", -8, 0)
+
+  -- Skrivefelt
+  local input = UI.EditBox(f, 100, 26, "Skriv til gjengen …  (Enter)", function(eb)
+    local txt = eb:GetText()
+    if txt and txt ~= "" then ns.Data:SendChat(txt) end
+    eb:SetText("")
+    eb:ClearFocus()
+  end)
+  input:SetPoint("BOTTOMLEFT", 8, 8)
+  input:SetPoint("BOTTOMRIGHT", -22, 8)
+  self.input = input
+
+  -- Meldinger
+  local m = UI.MessageFrame(f, 12)
+  m:SetSpacing(3)
+  m:SetPoint("TOPLEFT", sep, "BOTTOMLEFT", 2, -6)
+  m:SetPoint("BOTTOMRIGHT", input, "TOPRIGHT", 12, 6)
+  m:SetScript("OnHyperlinkClick", function(_, link)
+    local pid = type(link) == "string" and link:match("^chillan:(.+)$")
+    if pid and ns.Window and ns.Window.OpenPlayer then ns.Window:OpenPlayer(pid) end
+  end)
+  self.msg = m
+
+  -- Hjørne for å endre størrelse
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(14, 14)
+  grip:SetPoint("BOTTOMRIGHT", -3, 3)
+  local gt = grip:CreateTexture(nil, "OVERLAY")
+  gt:SetAllPoints()
+  gt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  gt:SetVertexColor(hex(C.muted))
+  grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    f:StopMovingOrSizing()
+    ns.db.settings.evSize = { w = math.floor(f:GetWidth()), h = math.floor(f:GetHeight()) }
+    UI.RestorePos(f)
+    E:Redraw()
+  end)
+
+  -- Toner seg ned når ingenting skjer, kommer fram ved musepeker/nye linjer
+  self.idleAt = GetTime()
+  f:SetScript("OnUpdate", function(self, el)
+    self.acc = (self.acc or 0) + el
+    if self.acc < 0.1 then return end
+    self.acc = 0
+    local active = self:IsMouseOver() or input.edit:HasFocus()
+    if active then E.idleAt = GetTime() end
+    local target = 1
+    if not active and ns.db.settings.evFade and (GetTime() - E.idleAt) > 20 then target = 0.45 end
+    local a = self:GetAlpha() or 1
+    if math.abs(a - target) > 0.01 then self:SetAlpha(a + (target - a) * 0.25) end
+  end)
+
+  self:Redraw()
+end
+
+function E:UpdateCount()
+  if not self.count then return end
+  local n = ns.Window and ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
+  self.count:SetText(ns.Colorize("· ", C.dim) .. ns.Colorize(n .. " online", n > 0 and C.green or C.muted))
+end
+
+function E:Apply()
+  if not self.frame then return end
+  self.frame:SetShown(ns.db.settings.eventFeed and ns.codeHash ~= nil)
+end
+
+function E:Toggle()
+  ns.db.settings.eventFeed = not ns.db.settings.eventFeed
+  self:Apply()
+end
+
+-- Litt historikk ved innlogging så vinduet ikke er tomt
+function E:Backfill()
+  local items = {}
+  for _, it in ipairs(ns.db.feed or {}) do items[#items + 1] = { t = it.t, kind = "ev", it = it } end
+  for _, it in ipairs(ns.db.chat or {}) do items[#items + 1] = { t = it.t, kind = "chat", it = it } end
+  table.sort(items, function(a, b) return a.t < b.t end)
+  local cutoff = time() - 6 * 3600
+  for i = math.max(1, #items - 30), #items do
+    local x = items[i]
+    if x.t >= cutoff then
+      local ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it)
+      if ok and text then
+        ns.PushCapped(self.entries, { kind = x.kind, text = stamp(x.t) .. text, t = x.t }, MAX_KEEP)
+      end
+    end
+  end
+end
+
+function E:Init()
+  local S = ns.db.settings
+  -- 0.6.0: hendelser flyttes fra vanlig chat til eget vindu
+  if not ns.db.migr060 then
+    S.chatMirror, S.activityMirror = false, false
+    S.eventFeed, S.feedChat = true, true
+    ns.db.migr060 = true
+  end
+  if S.evFade == nil then S.evFade = true end
+  self:Backfill()
+  self:Create()
+  self:UpdateCount()
+  self:Apply()
+
+  ns:Listen("FEEDEVENT", function(text) E:Add("ev", text) end)
+  ns:Listen("CHAT", function(item)
+    if (ns.Now() - (item.t or 0)) > 120 then return end
+    E:Add("chat", chatText(item), item.t)
+  end)
+  ns:Listen("REACTION", function(item, rp, char, idx) E:QueueReaction(item, rp, char, idx) end)
+  ns:Listen("CODE_CHANGED", function() E:Apply() end)
+  C_Timer.NewTicker(10, function() E:UpdateCount() end)
+end
