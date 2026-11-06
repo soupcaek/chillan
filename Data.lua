@@ -49,6 +49,8 @@ Comm:Handle("ST", function(f, sender, channel)
   p.lastSeen = ns.Now()
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
+  -- navnet slik spillet selv oppga det er det som virker for whisper
+  if sender:sub(1, 3) ~= "bn:" then p.whisperTo = sender end
   if not wasOnline and not quiet() then
     do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logget på" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
@@ -77,8 +79,8 @@ Comm:Handle("ST", function(f, sender, channel)
       ns.Extras:SendNotes(sender)
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
-    if channel == "WHISPER" then
-      Comm:SendChannel(Comm:Build("RO", pid, sender), 3)
+    if channel == "WHISPER" and p.whisperTo then
+      Comm:SendChannel(Comm:Build("RO", pid, p.whisperTo), 3)
     end
   end
   ns:MarkDirty()
@@ -281,15 +283,23 @@ function Data:DiscoverFriends()
     targets[full] = true
     n = n + 1
   end
-  -- Battle.net-venner som spiller WoW nå
+  -- Battle.net-venner som spiller WoW nå: hils via Battle.net (virker på tvers av realm/layer)
+  local bnSent = 0
   pcall(function()
     local num = BNGetNumFriends and select(1, BNGetNumFriends()) or 0
     for i = 1, math.min(num or 0, 100) do
       local accounts = C_BattleNet.GetFriendNumGameAccounts(i) or 0
       for j = 1, accounts do
         local info = C_BattleNet.GetFriendGameAccountInfo(i, j)
-        if info and info.clientProgram == "WoW" and info.isOnline and info.characterName then
-          add(info.characterName, info.realmName)
+        if info and info.clientProgram == "WoW" and info.isOnline and info.gameAccountID
+          and not ns.isSecret(info.gameAccountID)
+          and (not info.wowProjectID or not WOW_PROJECT_ID or info.wowProjectID == WOW_PROJECT_ID) then
+          local key = "bn:" .. info.gameAccountID
+          local r = ns.db.roster[key]
+          if not (r and r.heard and (ns.Now() - r.heard) < 120) and bnSent < 30 then
+            Comm:SendTo(key, msg, 3)
+            bnSent = bnSent + 1
+          end
         end
       end
     end
@@ -321,7 +331,7 @@ function Data:Hello()
   -- venner vi tidligere bare har nådd via whisper (annen backend-realm)
   local t, n = ns.Now(), 0
   for char, r in pairs(ns.db.roster) do
-    if r.whisper and (t - r.whisper) < 14 * 86400 and not (r.chan and r.chan > r.whisper) and n < 20 then
+    if char:sub(1, 3) ~= "bn:" and r.whisper and (t - r.whisper) < 14 * 86400 and not (r.chan and r.chan > r.whisper) and n < 20 then
       Comm:SendTo(char, msg, 3)
       n = n + 1
     end
@@ -382,7 +392,8 @@ Comm:Handle("HI", function(f, sender, channel)
     local n = 0
     for opid, op in pairs(ns.db.people) do
       if opid ~= ns.pid and opid ~= pid and op.main and ns:IsOnline(op) and n < 15 then
-        Comm:SendTo(sender, Comm:Build("RO", opid, (op.live and op.live.char) or op.main), 2)
+        local name = op.whisperTo or (op.live and op.live.char) or op.main
+        if name then Comm:SendTo(sender, Comm:Build("RO", opid, name), 2) end
         n = n + 1
       end
     end
@@ -1049,13 +1060,17 @@ end
 ---------------------------------------------------------------------------
 function Data:Start()
   loginAt = GetTime()
+  -- Battle.net-IDer gjelder bare én økt: glem gamle
+  for key in pairs(ns.db.roster) do
+    if key:sub(1, 3) == "bn:" then ns.db.roster[key] = nil end
+  end
   self:ExpireMats()
   self:ExpireEvents()
   C_Timer.NewTicker(60, function()
     Data:ExpireMats()
     ns:MarkDirty()
   end)
-  C_Timer.NewTicker(300, function() Data:DiscoverFriends() end)
+  C_Timer.NewTicker(120, function() Data:DiscoverFriends() end)
   -- prøv å koble til gjengkanalen igjen hvis den ikke virker
   C_Timer.NewTicker(15, function() if ns.codeHash then Comm:Reconnect() end end)
   -- straks kanalen er klar: si hei der, så gjengen ser oss med en gang

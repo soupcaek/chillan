@@ -7,6 +7,7 @@ ns.Comm = Comm
 
 local SEP = "~"
 local queue = { {}, {}, {} } -- prioritet 1 (høy), 2 (normal), 3 (lav)
+Comm._queue = queue
 local tokens = 5
 local MAX_TOKENS = 8
 local TOKEN_EVERY = 1.0
@@ -137,8 +138,48 @@ function Comm:Build(msgType, ...)
   return msg
 end
 
+-- Tilstandsmeldinger (status, statistikk, lister) erstatter en eldre kopi som fortsatt
+-- står i køen til samme mottaker i stedet for å legge seg bakerst. Ellers hoper det seg
+-- opp mange like meldinger ved oppstart, og chat og «jeg er online» må vente lenge.
+local COALESCE = { ST = 2, SS = 2, S2 = 2, S3 = 2, HR = 2, QL = 2, HI = 2, PF = 2, SC = 3,
+  LH = 5, AL = 4, PR = 4 } -- tall = hvor mange felt (fra starten) som utgjør nøkkelen
+local function coalesceKey(item)
+  local parts = {}
+  local i = 0
+  for field in (item.msg .. "~"):gmatch("([^~]*)~") do
+    i = i + 1
+    parts[i] = field
+    if i >= 8 then break end
+  end
+  local n = COALESCE[parts[3] or ""]
+  if not n then return nil end
+  -- PROTO~kode~TYPE~felt…  →  TYPE + de første feltene + kanaltype + mottaker
+  local key = { parts[3], item.chatType, tostring(item.target or "") }
+  for j = 4, 2 + n do key[#key + 1] = parts[j] or "" end
+  return table.concat(key, "|")
+end
+
 local function enqueue(item, prio)
-  table.insert(queue[prio or 2], item)
+  prio = prio or 2
+  local key = coalesceKey(item)
+  if key then
+    item.ckey = key
+    for p = 1, 3 do
+      local q = queue[p]
+      for i = 1, #q do
+        if q[i].ckey == key then
+          if p <= prio then
+            q[i].msg = item.msg -- nyeste innhold, samme plass i køen
+          else
+            table.remove(q, i)
+            table.insert(queue[prio], item) -- flytt opp til høyere prioritet
+          end
+          return
+        end
+      end
+    end
+  end
+  table.insert(queue[prio], item)
 end
 
 -- Send til én mottaker (whisper)
@@ -148,6 +189,11 @@ function Comm:SendTo(target, msg, prio, logged)
 end
 
 -- Send til hele gjengen: kanalen + whisper til venner kanalen ikke når
+-- Send til hele gjengen. Gjengkanalen virker bare innenfor én «backend-realm» i
+-- Forever (det finnes flere per ruleset), så for hver venn velger vi én vei:
+--   1) kanalen, hvis han hører oss der (HR-hjerteslaget i Sync.lua sier fra)
+--   2) Battle.net, hvis han er Battle.net-venn (virker på tvers av realm og layer)
+--   3) whisper til navnet slik spillet selv oppga det
 function Comm:Broadcast(msg, prio, logged)
   if not ns.codeHash then return end
   self:RefreshChannelId()
@@ -155,27 +201,69 @@ function Comm:Broadcast(msg, prio, logged)
     enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(self.chanId), logged = logged }, prio)
   end
   local t = ns.Now()
-  local done = {}
+  local groups = {}
   for char, r in pairs(ns.db.roster) do
-    if self:NeedsWhisper(r, t) then
-      enqueue({ msg = msg, chatType = "WHISPER", target = char, logged = logged }, prio)
-      done[char] = true
-      if r.pid then done[r.pid] = true end
+    if r.heard and (t - r.heard) <= self.ONLINE_WINDOW and not (r.offlineAt and (t - r.offlineAt) < 300)
+      and not (r.pid and r.pid == ns.pid) then
+      local key = r.pid or char
+      groups[key] = groups[key] or {}
+      table.insert(groups[key], { char = char, r = r })
+    end
+  end
+  local covered = {}
+  for key, list in pairs(groups) do
+    covered[key] = true
+    local p = ns.db.people[key]
+    local forced = p and p.forceWhisper and (t - p.forceWhisper) < 120
+    local chanOK = false
+    for _, e in ipairs(list) do
+      if e.r.forceWhisper and (t - e.r.forceWhisper) < 120 then forced = true end
+      if not e.r.bn and e.r.chan and (t - e.r.chan) < self.CHAN_FRESH then chanOK = true end
+    end
+    if forced or not chanOK then
+      local target = self:BestRoute(list, t)
+      if target then enqueue({ msg = msg, chatType = "WHISPER", target = target, logged = logged }, prio) end
     end
   end
   -- viktige meldinger (chat, ding, død, SOS …): send også direkte til venner vi bare vet er
-  -- online gjennom andre i gjengen (annen layer), så ingen går glipp av dem
+  -- online gjennom andre i gjengen (annen layer/realm), så ingen går glipp av dem
   if prio == 1 then
     for pid, p in pairs(ns.db.people) do
-      local char = p.live and p.live.char or p.main
-      local r = char and ns.db.roster[char]
-      if pid ~= ns.pid and char and not done[pid] and not done[char] and p.via and (t - p.via) < 80
-        and not (p.heard and (t - p.heard) < 100 and r and r.chan and (t - r.chan) < self.CHAN_FRESH)
-        and not (r and r.offlineAt and (t - r.offlineAt) < 600) then
-        enqueue({ msg = msg, chatType = "WHISPER", target = char, logged = logged }, prio)
+      if pid ~= ns.pid and not covered[pid] and p.via and (t - p.via) < 80 then
+        local target = self:TargetFor(p)
+        local r = target and ns.db.roster[target]
+        if target and not (r and r.offlineAt and (t - r.offlineAt) < 600) then
+          enqueue({ msg = msg, chatType = "WHISPER", target = target, logged = logged }, prio)
+        end
       end
     end
   end
+end
+
+-- Beste direkte vei til en venn blant flere roster-oppføringer: Battle.net først
+function Comm:BestRoute(list, t)
+  t = t or ns.Now()
+  local best, bestT
+  for _, e in ipairs(list) do
+    if e.r.bn and e.r.heard and (t - e.r.heard) < 150 then return e.char end
+  end
+  for _, e in ipairs(list) do
+    if not e.r.bn and not (e.r.noWhisper and (t - e.r.noWhisper) < 600) then
+      local h = e.r.heard or 0
+      if not bestT or h > bestT then best, bestT = e.char, h end
+    end
+  end
+  return best
+end
+
+-- Hvor sender vi direkte til en person? (Battle.net, ellers navnet spillet ga oss)
+function Comm:TargetFor(p)
+  if not p then return nil end
+  local list, t = {}, ns.Now()
+  for char, r in pairs(ns.db.roster) do
+    if r.pid == p.pid then table.insert(list, { char = char, r = r }) end
+  end
+  return self:BestRoute(list, t) or p.whisperTo or (p.live and p.live.char) or p.main
 end
 
 -- Vennen er online, men vi har ikke hørt ham på kanalen nylig (f.eks. annen layer)
@@ -233,7 +321,27 @@ function Comm:SendScope(msg, scope, prio)
   enqueue({ msg = msg, chatType = scope }, prio)
 end
 
+-- Battle.net-melding (virker mellom Battle.net-venner uansett realm og layer)
+local function sendBN(id, msg)
+  local fn = (C_BattleNet and C_BattleNet.SendGameData) or BNSendGameData
+  if not fn or not id then return false, true end
+  local ok, result = pcall(fn, id, ns.PREFIX, msg)
+  if not ok then Comm.stats.failed = Comm.stats.failed + 1 Comm.stats.lastErr = "BN: " .. tostring(result) return false, true end
+  if result == nil or result == 0 or result == true then
+    Comm.stats.sent = Comm.stats.sent + 1
+    Comm.stats.sentBN = (Comm.stats.sentBN or 0) + 1
+    return true
+  end
+  if result == 3 or result == 8 then return false, false end -- struping: prøv igjen
+  Comm.stats.failed = Comm.stats.failed + 1
+  Comm.stats.lastErr = "BN: " .. tostring(result)
+  return false, true
+end
+
 local function trySend(item)
+  if item.chatType == "WHISPER" and type(item.target) == "string" and item.target:sub(1, 3) == "bn:" then
+    return sendBN(tonumber(item.target:sub(4)), item.msg)
+  end
   -- ikke hvisk til noen som nettopp viste seg å være offline (de sier hei selv når de logger på)
   local target = item.target
   if item.chatType == "WHISPER" then
@@ -357,7 +465,7 @@ end
 -- Tellere til /chill debug: viser om vi får meldinger i det hele tatt, og om de er fra en annen kode
 Comm.stats = { recv = 0, recvChan = 0, recvWhisper = 0, otherCode = 0, otherProto = 0, sent = 0, failed = 0 }
 
-local function onAddonMessage(prefix, text, channel, sender)
+local function onAddonMessage(prefix, text, channel, sender, isBN)
   if prefix ~= ns.PREFIX then return end
   if ns.isSecret(text) or ns.isSecret(sender) then return end
   if type(text) ~= "string" or type(sender) ~= "string" then return end
@@ -378,6 +486,10 @@ local function onAddonMessage(prefix, text, channel, sender)
   if not r then r = {} ns.db.roster[sender] = r end
   r.heard = ns.Now()
   r.offlineAt = nil
+  if isBN then
+    r.bn = true
+    st.recvBN = (st.recvBN or 0) + 1
+  end
   if channel == "WHISPER" then
     r.whisper = ns.Now()
     -- (om vennen hører oss på kanalen avgjøres av HR-hjerteslaget i Sync.lua –
@@ -399,17 +511,26 @@ end
 function Comm:GossipWhisperPeers()
   self:RefreshChannelId()
   if not self.chanId or not ns.codeHash then return end
-  local t, n = ns.Now(), 0
+  local t, n, told = ns.Now(), 0, {}
   for char, r in pairs(ns.db.roster) do
-    if r.pid and r.heard and (t - r.heard) < 120 and r.whisper and (t - r.whisper) < 120
+    if r.pid and not told[r.pid] and r.heard and (t - r.heard) < 120 and r.whisper and (t - r.whisper) < 120
       and not (r.chan and (t - r.chan) < self.CHAN_FRESH) and n < 10 then
-      self:SendChannel(self:Build("RO", r.pid, char), 3)
-      n = n + 1
+      local p = ns.db.people[r.pid]
+      local name = (not r.bn) and char or (p and (p.whisperTo or (p.live and p.live.char) or p.main))
+      if name and name:sub(1, 3) ~= "bn:" then
+        self:SendChannel(self:Build("RO", r.pid, name), 3)
+        told[r.pid] = true
+        n = n + 1
+      end
     end
   end
 end
 
 ns:On("CHAT_MSG_ADDON", onAddonMessage)
+ns:On("BN_CHAT_MSG_ADDON", function(prefix, text, _, senderID)
+  if ns.isSecret(senderID) or type(senderID) ~= "number" then return end
+  onAddonMessage(prefix, text, "WHISPER", "bn:" .. senderID, true)
+end)
 ns:On("CHAT_MSG_ADDON_LOGGED", onAddonMessage)
 
 ---------------------------------------------------------------------------

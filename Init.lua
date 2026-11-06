@@ -174,7 +174,7 @@ SlashCmdList.CHILLAN = function(msg)
     print("  Versjon:", ns.VERSION, " kø:", ns.Comm:QueueSize(), " meg:", ns.Comm:MyFull(), " pid:", ns.pid)
     print("  Kode-ID:", ns.codeHash or "-", "(skal være lik hos alle i gjengen)")
     local st = ns.Comm.stats
-    print("  Meldinger mottatt:", st.recv, "(kanal " .. st.recvChan .. ", whisper " .. st.recvWhisper .. ")",
+    print("  Meldinger mottatt:", st.recv, "(kanal " .. st.recvChan .. ", whisper " .. (st.recvWhisper - (st.recvBN or 0)) .. ", battle.net " .. (st.recvBN or 0) .. ")",
       " sendt:", st.sent, " feilet:", st.failed, st.lastErr and ("(siste feil: " .. st.lastErr .. ")") or "")
     if st.otherCode > 0 then
       ns.Print("|cffF2777AFikk " .. st.otherCode .. " meldinger fra en ANNEN gjengkode|r (bl.a. " .. tostring(st.otherCodeFrom) .. "). Sjekk at koden er helt lik – O og 0 er ikke det samme.")
@@ -191,7 +191,13 @@ SlashCmdList.CHILLAN = function(msg)
       if r.heard and ns.Now() - r.heard < 300 then
         n = n + 1
         local forced = r.forceWhisper and (ns.Now() - r.forceWhisper) < 120
-        print("   ", char, r.chan and (ns.Now() - r.chan < 150) and "kanal" or "whisper", ns.Ago(r.heard), forced and "(hører ikke oss på kanalen - bruker whisper)" or "")
+        local who = char
+        if r.bn and r.pid then
+          local p = ns.db.people[r.pid]
+          who = "Battle.net: " .. ((p and (ns:PersonAlias(p) or ns:PersonName(p))) or char)
+        end
+        local via = r.bn and "battle.net" or ((r.chan and (ns.Now() - r.chan < 150)) and "kanal" or "whisper")
+        print("   ", who, via, ns.Ago(r.heard), forced and "(hører ikke oss på kanalen - sender direkte)" or "")
       end
     end
     print("  Hørt fra siste 5 min:", n)

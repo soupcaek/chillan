@@ -81,6 +81,7 @@ Comm:Handle("HR", function(f, sender)
 
   -- 1) Hører han meg – og hvordan?
   local mine
+  local unknown = {}
   for _, e in ipairs(ns.Split(f[2] or "", ",")) do
     local epid, star = e:match("^([^%*]+)(%*?)$")
     if epid == ns.pid then
@@ -88,10 +89,18 @@ Comm:Handle("HR", function(f, sender)
     elseif epid and epid ~= "" then
       -- 2) Venner han hører regnes som online hos meg også
       local p = ns.db.people[epid]
+      if not (p and p.main) then
+        -- ukjent for oss: be om å bli introdusert (navnet hans), så vi kan ta kontakt
+        Sync.asked = Sync.asked or {}
+        if not Sync.asked[epid] or (t - Sync.asked[epid]) > 120 then
+          Sync.asked[epid] = t
+          unknown[#unknown + 1] = epid
+        end
+      end
       if p then
         p.via = t
         local direct = p.heard and (t - p.heard) < 100
-        local char = (p.live and p.live.char) or p.main
+        local char = Comm:TargetFor(p)
         local rr = char and ns.db.roster[char]
         -- ikke hvisk til en karakter som nettopp viste seg å være offline (gammel karakter / logget av)
         local recentlyOffline = rr and rr.offlineAt and (t - rr.offlineAt) < 600
@@ -106,13 +115,18 @@ Comm:Handle("HR", function(f, sender)
     end
   end
   if r then
+    local p = ns:GetPerson(pid, true)
     if mine == "chan" then
       r.forceWhisper = nil
+      p.forceWhisper = nil
     elseif (GetTime() - startAt) > 40 then
-      -- han hører meg ikke på kanalen (annen layer/server): hvisk alt til ham
+      -- han hører meg ikke på kanalen (annen realm/layer): send alt direkte til ham
       r.forceWhisper = t
+      p.forceWhisper = t
     end
   end
+
+  if #unknown > 0 then Comm:SendTo(sender, Comm:Build("RQ", table.concat(unknown, ",")), 2) end
 
   -- 3) Mangler jeg meldinger han har?
   local theirs, own = f[3] or "", Sync:Digest()
@@ -130,6 +144,15 @@ Comm:Handle("HR", function(f, sender)
     end
   end
   ns:MarkDirty()
+end)
+
+-- Noen spør hvem disse er: svar med navnene vi bruker for å nå dem
+Comm:Handle("RQ", function(f, sender)
+  for _, pid in ipairs(ns.Split(f[1] or "", ",")) do
+    local p = pid ~= "" and ns.db.people[pid]
+    local name = p and (p.whisperTo or (p.live and p.live.char) or p.main)
+    if name and name:sub(1, 3) ~= "bn:" then Comm:SendTo(sender, Comm:Build("RO", pid, name), 2) end
+  end
 end)
 
 -- Send chat og hendelser i bøttene som ble etterspurt
@@ -150,6 +173,7 @@ end)
 
 function Sync:Start()
   startAt = GetTime()
-  C_Timer.After(8, function() Sync:Send() end)
-  C_Timer.NewTicker(30, function() Sync:Send() end)
+  -- tett de første minuttene (rask oppkobling), deretter hvert 30. sekund
+  for _, d in ipairs({ 6, 14, 24, 36, 50, 65, 80, 100 }) do C_Timer.After(d, function() Sync:Send() end) end
+  C_Timer.After(100, function() C_Timer.NewTicker(30, function() Sync:Send() end) end)
 end
