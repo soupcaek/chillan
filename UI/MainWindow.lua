@@ -77,6 +77,12 @@ function W:Create()
   chip.text:SetPoint("CENTER")
   self.chip = chip
 
+  -- versjon synlig i tittellinja, så det er lett å sjekke etter oppdatering
+  local ver = UI.Text(title, 11, nil, C.dim)
+  ver:SetPoint("LEFT", chip, "RIGHT", 10, 0)
+  ver:SetText("v" .. ns.VERSION)
+  ver:SetTextColor(hex(C.muted))
+
   local close = UI.IconButton(title, 32, "Close", nil, function() f:Hide() end)
   close:SetPoint("RIGHT", -10, 0)
   close.panel:SetColors(nil, nil)
