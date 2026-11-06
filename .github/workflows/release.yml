@@ -16,27 +16,47 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Lag tag fra VERSION
-        id: tag
+      - name: Les versjon
+        id: v
         run: |
           VERSION="v$(tr -d '[:space:]' < VERSION)"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION finnes allerede – hopper over."
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION finnes allerede – hopper over."
             echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            git config user.name "github-actions"
-            git config user.email "github-actions@users.noreply.github.com"
-            git tag -a "$VERSION" -m "Chillan? $VERSION"
-            git push origin "$VERSION"
           fi
 
-      - name: Bygg og publiser
-        if: steps.tag.outputs.skip != 'true'
-        uses: BigWigsMods/packager@v2.6.1
+      - name: Bygg zip
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          mkdir -p .release/Chillan
+          rsync -a --exclude '.git*' --exclude '.github' --exclude '.release' \
+            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' ./ .release/Chillan/
+          sed -i "s/@project-version@/${TAG#v}/" .release/Chillan/*.toc
+          cd .release
+          ZIP="Chillan-${TAG}-forever.zip"
+          zip -r -q "$ZIP" Chillan
+          cat > release.json <<JSON
+          {"releases":[{"name":"Chillan","version":"${TAG}","filename":"${ZIP}","nolib":false,
+            "metadata":[{"flavor":"forever","interface":16001}]}]}
+          JSON
+          ls -la
+
+      - name: Publiser release
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+          gh release create "$TAG" .release/Chillan-${TAG}-forever.zip .release/release.json \
+            --title "Chillan? ${TAG}" --notes "Oppdater i WowUp, eller last ned zip-filen og legg mappen Chillan i _forever_\\Interface\\AddOns." \
+            --verify-tag
