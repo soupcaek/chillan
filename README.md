@@ -1,6 +1,6 @@
 # Chillan?
 
-Sosial addon for vennegjengen i **WoW Forever**: hvem er online og hvor, felles LFG, gjengchat, leaderboard, feed, SOS, fiendelogg og mer – på tvers av guilds.
+Sosial addon for vennegjengen i **WoW Forever**: hvem er online og hvor, gjengchat, statistikk og race til 60, ding med gratulasjoner, mats-tavle, avstemning og avtaler, feed, SOS, fiendelogg og mer – på tvers av guilds.
 
 ## Installer (én gang)
 
@@ -32,6 +32,18 @@ WowUp viser **Update** når det kommer en ny versjon. Chillan sier også fra i s
 | `/chill legg til Navn` | Send hei til en venn som ikke dukker opp |
 | `/chill minibar` | Vis/skjul minibaren |
 | `/chill debug` | Teknisk status |
+
+Hurtigtaster for å åpne Chillan, gjengchatten og SOS kan settes under **Esc → Options → Keybindings → AddOns**.
+
+## Nytt i 0.2
+
+- Minimap-knapp
+- Ding midt på skjermen med «Gratulerer!», «GZ!» og «Endelig!»
+- Statistikk: race til 60, level over tid, tabell og morsomme fakta
+- Tavle: mats-tavle, avstemning og avtaler (LFG er fjernet)
+- Ukens utfordring roterer mellom levels, quests, gull og PvP-kills
+- Karakternavn hentes automatisk (kallenavn er fjernet)
+- Mer lesbart profilkort
 
 ## For utvikler: ny versjon
 

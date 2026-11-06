@@ -78,6 +78,17 @@ local function help()
   print("  /cg tekst – skriv i gjengchatten")
 end
 
+-- Hurtigtast (Taster → AddOns)
+BINDING_HEADER_CHILLAN = "Chillan?"
+BINDING_NAME_CHILLAN_TOGGLE = "Åpne/lukk Chillan?"
+BINDING_NAME_CHILLAN_CHAT = "Åpne gjengchatten"
+BINDING_NAME_CHILLAN_SOS = "Send SOS"
+function Chillan_ToggleBinding(key)
+  if key == "chat" then ns.Window:Toggle("chat")
+  elseif key == "sos" then ns.Data:SOS()
+  else ns.Window:Toggle() end
+end
+
 SLASH_CHILLAN1 = "/chill"
 SLASH_CHILLAN2 = "/chillan"
 SlashCmdList.CHILLAN = function(msg)

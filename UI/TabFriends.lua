@@ -92,9 +92,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     local status = online and (L.status or "QUEST") or "OFFLINE"
     local st = ns.STATUS[status] or ns.STATUS.QUEST
     row.avatar:Set(c.name, c.class, online and (status == "AFK" and C.amber or C.green) or nil)
-    local name = ns.Colorize(c.name or "?", ns.ClassHex(c.class))
-    if p.nick and p.nick ~= "" and p.nick ~= c.name then name = name .. ns.Colorize("  " .. p.nick, C.dim) end
-    row.name:SetText(name)
+    row.name:SetText(ns.Colorize(c.name or "?", ns.ClassHex(c.class)))
     row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""))
     if online then
       local z = L.zone or ""
@@ -153,7 +151,8 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       local on = ns:IsOnline(p)
       if filter == "online" then return on end
       if filter == "zone" then return on and p.live and p.live.zone == myZone end
-      return true
+      -- skjul de som ikke har vært innom på over 30 dager
+      return on or (ns.Now() - (p.lastSeen or 0)) < 30 * 86400
     end)
     table.sort(people, function(a, b)
       local ao, bo = ns:IsOnline(a), ns:IsOnline(b)

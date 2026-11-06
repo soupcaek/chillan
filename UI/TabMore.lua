@@ -48,29 +48,22 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
 
   local nl = UI.Text(left, 12, nil, C.dim)
   nl:SetPoint("TOPLEFT", code, "BOTTOMLEFT", 0, -12)
-  nl:SetText("Kallenavn")
-  local nick = UI.EditBox(left, LEFT_W - 96, 34, "Vises i stedet for karakternavn", function(self)
-    ns.db.nick = ns.Clean(self:GetText(), 16)
-    if ns.db.nick == "" then ns.db.nick = nil end
-    self:ClearFocus()
-    ns.Tracker:SendStatus(1)
-    ns.Print("Kallenavn lagret.")
-  end)
-  nick:SetPoint("TOPLEFT", nl, "BOTTOMLEFT", 0, -6)
-  local addFriend = UI.Button(left, 88, 34, "Legg til", "ghost", function()
+  nl:SetText("Dukker ikke en venn opp?")
+  local addFriend = UI.Button(left, LEFT_W, 34, "Legg til venn manuelt", "ghost", function()
     UI.Prompt("Legg til venn manuelt", {
       { label = "Karakternavn (bruk dette hvis en venn ikke dukker opp)", placeholder = "Navn eller Navn-Realm" },
     }, function(v) ns.Data:AddManual(v) end)
   end)
   addFriend.tooltip = "Send hei direkte til en karakter som ikke dukker opp automatisk"
-  addFriend:SetPoint("LEFT", nick, "RIGHT", 8, 0)
+  addFriend:SetPoint("TOPLEFT", nl, "BOTTOMLEFT", 0, -6)
 
   local sh = UI.Text(left, 15, "semi", C.text)
-  sh:SetPoint("TOPLEFT", nick, "BOTTOMLEFT", 0, -22)
+  sh:SetPoint("TOPLEFT", addFriend, "BOTTOMLEFT", 0, -22)
   sh:SetText("Innstillinger")
   local S = ns.db.settings
   local checks = {
     { "Vis minibar på skjermen", "minibar", function() ns:Fire("MINIBAR") end },
+    { "Vis knapp ved minikartet", "minimapButton", function() ns:Fire("MINIBAR") end },
     { "Lyder", "sounds" },
     { "Popup-varsler", "toasts" },
     { "Varsel når venner logger på", "onlineToasts" },
@@ -92,6 +85,10 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
     function(v) ns.db.settings.lootMinQuality = v and 3 or 4 end)
   blue:SetPoint("TOPLEFT", sh, "BOTTOMLEFT", 0, y)
   checkFrames[#checkFrames + 1] = blue
+
+  local ver = UI.Text(left, 11, nil, C.dim)
+  ver:SetPoint("BOTTOMLEFT", 0, 0)
+  ver:SetText("Chillan? " .. ns.VERSION .. " · hurtigtast kan settes under Taster → AddOns")
 
   -- Høyre: fiendelogg og "kan lage"
   local right = CreateFrame("Frame", nil, tab)
@@ -164,7 +161,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
     row.what:SetText(it.what)
     local p = ns:GetPerson(it.pid) or {}
     local c = ns:PersonChar(p) or {}
-    row.who:SetText(ns.Colorize(ns:PersonName(p), ns.ClassHex(c.class)) .. " · " .. it.detail)
+    row.who:SetText(ns.Colorize(ns:PersonFirst(p), ns.ClassHex(c.class)) .. " · " .. it.detail)
     if it.pid == ns.pid then row.ask:Hide() else
       row.ask:Show()
       row.ask:SetScript("OnClick", function() ns.Data:RequestCraft(it.pid, it.what) end)
@@ -182,7 +179,6 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
 
   function tab:Refresh()
     code:SetText(ns.db.code or "")
-    if not nick.edit:HasFocus() then nick:SetText(ns.db.nick or "") end
     for _, cb in ipairs(checkFrames) do cb:Refresh() end
 
     local es = {}

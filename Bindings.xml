@@ -1,0 +1,11 @@
+<Bindings>
+  <Binding name="CHILLAN_TOGGLE" header="CHILLAN" category="ADDONS">
+    Chillan_ToggleBinding()
+  </Binding>
+  <Binding name="CHILLAN_CHAT" category="ADDONS">
+    Chillan_ToggleBinding("chat")
+  </Binding>
+  <Binding name="CHILLAN_SOS" category="ADDONS">
+    Chillan_ToggleBinding("sos")
+  </Binding>
+</Bindings>

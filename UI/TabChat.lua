@@ -6,7 +6,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  local who = ns.Colorize(ns.ShortName(it.char), ns.ClassHex(c.class))
+  local who = ns.Colorize(ns.FirstName(c.name or it.char), ns.ClassHex(c.class))
   local icon, color, text = "Star", C.purple, ""
   if it.kind == "DING" then
     icon, color = "Up", C.green
@@ -15,6 +15,9 @@ function ns.FeedLine(it, withTime)
     if played then text = text .. " · /played " .. ns.Duration(played) end
     if it.first then text = text .. ns.Colorize(" · først i gjengen!", C.gold)
     elseif it.place and tonumber(it.a) and tonumber(it.a) % 10 == 0 then text = text .. " · nr. " .. it.place .. " i gjengen" end
+    if it.reacts and #it.reacts > 0 then
+      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
+    end
   elseif it.kind == "DEAD" then
     icon, color = "Skull", C.dim
     text = "døde i " .. tostring(it.a or "?")
@@ -47,7 +50,7 @@ end
 function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  return ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns.Colorize(ns.ShortName(it.char), ns.ClassHex(c.class))
+  return ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns.Colorize(ns.FirstName(c.name or it.char), ns.ClassHex(c.class))
     .. "  " .. ns.Colorize(it.text, "D4D7DB")
 end
 

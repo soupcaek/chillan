@@ -32,8 +32,12 @@ function Tracker:RefreshCharInfo()
   c.race = UnitRace("player")
   c.level = UnitLevel("player")
   me.main = full
-  me.nick = ns.db.nick
   me.heard = ns.Now()
+  -- levelhistorikk til statistikkgrafen
+  c.hist = c.hist or {}
+  if #c.hist == 0 or c.hist[#c.hist].l < c.level then
+    table.insert(c.hist, { t = ns.Now(), l = c.level })
+  end
 end
 
 local function rollWeek(stats)
@@ -41,10 +45,11 @@ local function rollWeek(stats)
   if stats.wk ~= wk then
     if stats.wk then
       stats.prev = { wk = stats.wk, Online = stats.wOnline or 0, Quests = stats.wQuests or 0,
-        Gold = stats.wGold or 0, Deaths = stats.wDeaths or 0 }
+        Gold = stats.wGold or 0, Deaths = stats.wDeaths or 0, Levels = stats.wLevels or 0, Kills = stats.wKills or 0 }
     end
     stats.wk = wk
     stats.wOnline, stats.wQuests, stats.wGold, stats.wDeaths = 0, 0, 0, 0
+    stats.wLevels, stats.wKills = 0, 0
   end
 end
 
@@ -140,7 +145,34 @@ function Tracker:BuildST()
     ns.Clean(L.zone, 32), ns.Clean(L.sub, 32), L.status, ns.Now() - session.start,
     L.inInst, L.mapID or "", L.x and math.floor(L.x * 1000) or "", L.y and math.floor(L.y * 1000) or "",
     L.cont or "", L.wx and math.floor(L.wx) or "", L.wy and math.floor(L.wy) or "",
-    ns.Clean(ns.db.nick or "", 16), ns.VERSION)
+    ns.Clean(c.name or "", 40), ns.VERSION)
+end
+
+-- Tilleggsstatistikk (levels, PvP-kills, lengste økt) i egen melding
+function Tracker:BuildS2()
+  local s = self:Me().stats
+  rollWeek(s)
+  local p = s.prev or {}
+  return ns.Comm:Build("S2", ns.pid, s.wk, s.wLevels or 0, s.wKills or 0, s.tLevels or 0, s.tKills or 0,
+    math.floor(s.tLongest or 0), p.wk or "", p.Levels or 0, p.Kills or 0)
+end
+
+-- Levelhistorikk for gjeldende karakter, i biter
+function Tracker:SendHistory(target)
+  local c, full = self:MyChar()
+  local hist = c.hist or {}
+  local parts, chunk = {}, {}
+  for i, h in ipairs(hist) do
+    chunk[#chunk + 1] = math.floor(math.max(0, ns.Now() - h.t)) .. ":" .. h.l
+    if #chunk == 14 or i == #hist then
+      parts[#parts + 1] = table.concat(chunk, ";")
+      chunk = {}
+    end
+  end
+  for i, part in ipairs(parts) do
+    local msg = ns.Comm:Build("LH", ns.pid, full, i, #parts, part)
+    if target then ns.Comm:SendTo(target, msg, 3) else ns.Comm:Broadcast(msg, 3) end
+  end
 end
 
 function Tracker:BuildSS()
@@ -165,6 +197,7 @@ end
 function Tracker:SendStats(prio)
   if not ns.codeHash then return end
   ns.Comm:Broadcast(self:BuildSS(), prio or 3)
+  ns.Comm:Broadcast(self:BuildS2(), 3)
 end
 
 local stPending = false
@@ -265,6 +298,9 @@ local function tick()
     local dt = t - lastTick
     if dt > 0 and dt < 120 then
       Tracker:AddStat("Online", dt)
+      local st = Tracker:Me().stats
+      local len = ns.Now() - session.start
+      if len > (st.tLongest or 0) then st.tLongest = len end
       local c = Tracker:MyChar()
       if c.played then c.played = c.played + dt end
     end
@@ -280,6 +316,7 @@ function Tracker:Start()
   self:RefreshCharInfo()
   self:UpdateLive()
   rollWeek(self:Me().stats)
+  self:InitKills()
 
   C_Timer.NewTicker(15, tick)
   C_Timer.NewTicker(30, function() Tracker:SendStatus() end)
@@ -313,7 +350,11 @@ ns:On("PLAYER_LEVEL_UP", function(level)
   if ns.isSecret(level) then return end
   local c = Tracker:MyChar()
   c.level = level
+  c.hist = c.hist or {}
+  table.insert(c.hist, { t = ns.Now(), l = level })
+  while #c.hist > 80 do table.remove(c.hist, 1) end
   session.levels = session.levels + 1
+  Tracker:AddStat("Levels", 1)
   Tracker:Event("DING", level, Tracker:PlayedNow() or "")
   Tracker:SendStatusSoon()
 end)
@@ -350,6 +391,23 @@ end)
 for _, ev in ipairs({ "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "PLAYER_FLAGS_CHANGED" }) do
   ns:On(ev, function() Tracker:SendStatusSoon() end)
 end
+
+-- PvP-kills (honorable kills), hvis spillet gir addons tilgang
+local lastHK
+local function readHK()
+  if not GetPVPLifetimeStats then return nil end
+  local ok, hk = pcall(GetPVPLifetimeStats)
+  if ok and type(hk) == "number" and not ns.isSecret(hk) then return hk end
+end
+function Tracker:InitKills() lastHK = readHK() end
+ns:On("PLAYER_PVP_KILLS_CHANGED", function()
+  local hk = readHK()
+  if hk and lastHK and hk > lastHK then
+    Tracker:AddStat("Kills", hk - lastHK)
+    ns:MarkDirty()
+  end
+  if hk then lastHK = hk end
+end)
 
 ns:On("NEW_MOUNT_ADDED", function()
   Tracker:Event("MOUNT")

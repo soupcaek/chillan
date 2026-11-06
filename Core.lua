@@ -133,6 +133,12 @@ function ns.ShortName(full)
   return (full:match("^([^%-]+)")) or full
 end
 
+-- Forever-navn har to ord ("Fornavn Etternavn"). Fornavn brukes der det er trangt.
+function ns.FirstName(name)
+  name = ns.ShortName(name)
+  return (name:match("^(%S+)")) or name
+end
+
 function ns.Clean(text, maxLen)
   if type(text) ~= "string" then return "" end
   text = text:gsub("[~|\r\n\t]", " "):gsub("^%s+", ""):gsub("%s+$", "")
@@ -257,9 +263,9 @@ local DEFAULTS = {
   version = 1,
   settings = {
     minibar = true, sounds = true, toasts = true, mapPins = true,
-    onlineToasts = true, lootMinQuality = 4,
+    onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
   },
-  people = {}, roster = {}, feed = {}, chat = {}, lfg = {}, polls = {}, events = {},
+  people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},
 }
 
@@ -316,11 +322,16 @@ function ns:PersonChar(p)
   return p.main and p.chars[p.main] or nil
 end
 
+-- Fullt karakternavn (begge navnene) på personens aktive karakter
 function ns:PersonName(p)
   if not p then return "?" end
   local c = ns:PersonChar(p)
-  if p.nick and p.nick ~= "" then return p.nick end
   return c and c.name or "?"
+end
+
+-- Bare fornavnet, for lister og varsler
+function ns:PersonFirst(p)
+  return ns.FirstName(ns:PersonName(p))
 end
 
 function ns:PersonMaxLevel(p)

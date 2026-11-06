@@ -211,7 +211,7 @@ function W:BuildSetup()
   self.setup = s
 
   local card = UI.Panel(s, C.card, C.line, false)
-  card:SetSize(440, 340)
+  card:SetSize(440, 280)
   card:SetPoint("CENTER")
 
   local h = UI.Text(card, 20, "bold", C.text)
@@ -223,21 +223,13 @@ function W:BuildSetup()
   p:SetWordWrap(true)
   p:SetText("Lag en ny gjeng og del koden med vennene dine, eller skriv inn koden du har fått. Alle med samme kode ser hverandre, uansett guild.")
 
-  local nl = UI.Text(card, 12, nil, C.dim)
-  nl:SetPoint("TOPLEFT", p, "BOTTOMLEFT", 0, -18)
-  nl:SetText("Kallenavn (valgfritt, vises i stedet for karakternavn)")
-  local nick = UI.EditBox(card, 392, 34, "f.eks. Henrik")
-  nick:SetPoint("TOPLEFT", nl, "BOTTOMLEFT", 0, -6)
-
   local cl = UI.Text(card, 12, nil, C.dim)
-  cl:SetPoint("TOPLEFT", nick, "BOTTOMLEFT", 0, -16)
+  cl:SetPoint("TOPLEFT", p, "BOTTOMLEFT", 0, -22)
   cl:SetText("Har du fått en kode?")
   local code = UI.EditBox(card, 282, 34, "CHILL-XXXX")
   code:SetPoint("TOPLEFT", cl, "BOTTOMLEFT", 0, -6)
 
   local function apply(c)
-    local n = ns.Clean(nick:GetText(), 16)
-    if n ~= "" then ns.db.nick = n end
     if ns:SetCode(c) then
       ns.Print("Du er med i gjengen " .. ns.db.code .. ". Del koden med vennene dine!")
     end

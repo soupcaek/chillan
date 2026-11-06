@@ -16,9 +16,9 @@ Data.lua
 UI\Widgets.lua
 UI\MainWindow.lua
 UI\TabFriends.lua
-UI\TabLFG.lua
+UI\TabTavle.lua
 UI\TabChat.lua
-UI\TabBoard.lua
+UI\TabStats.lua
 UI\TabFeed.lua
 UI\TabMap.lua
 UI\TabMore.lua

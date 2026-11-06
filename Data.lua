@@ -40,7 +40,8 @@ Comm:Handle("ST", function(f, sender, channel)
   L.x = num(f[12]) and num(f[12]) / 1000 or nil
   L.y = num(f[13]) and num(f[13]) / 1000 or nil
   L.cont, L.wx, L.wy = num(f[14]), num(f[15]), num(f[16])
-  if f[17] and f[17] ~= "" then p.nick = f[17] end
+  -- fullt karakternavn (Forever: fornavn + etternavn) fra eldre klienter kan mangle
+  if f[17] and f[17] ~= "" and (f[18] and f[18] ~= "") then c.name = f[17] end
   if f[18] and f[18] ~= "" then p.version = f[18] Data:CheckVersion(f[18], pid) end
   p.heard = ns.Now()
   p.lastSeen = ns.Now()
@@ -49,11 +50,18 @@ Comm:Handle("ST", function(f, sender, channel)
   if not wasOnline then
     if not quiet() and ns.db.settings.onlineToasts then
       ns:Fire("TOAST", { kind = "online", pid = pid,
-        title = ns:PersonName(p) .. " logget på",
+        title = ns:PersonFirst(p) .. " logget på",
         text = (c.level and ("Lvl " .. c.level .. " · ") or "") .. (L.zone or "") })
     end
     -- ny venn på nett: send våre egne data og hent historikk ved behov
     Data:OnPeerOnline(pid, sender)
+    if not Data.sentTo then Data.sentTo = {} end
+    if not Data.sentTo[pid] then
+      Data.sentTo[pid] = true
+      Comm:SendTo(sender, ns.Tracker:BuildSS(), 3)
+      Comm:SendTo(sender, ns.Tracker:BuildS2(), 3)
+      ns.Tracker:SendHistory(sender)
+    end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
     if channel == "WHISPER" then
       Comm:SendChannel(Comm:Build("RO", pid, sender), 3)
@@ -85,12 +93,56 @@ Comm:Handle("SS", function(f, sender)
   ns:MarkDirty()
 end)
 
+Comm:Handle("S2", function(f)
+  local pid = f[1]
+  if not pid or pid == ns.pid then return end
+  local p = ns:GetPerson(pid, true)
+  local s = p.stats or {}
+  p.stats = s
+  if f[2] and f[2] ~= "" then s.wk = f[2] end
+  s.wLevels, s.wKills = num(f[3]) or 0, num(f[4]) or 0
+  s.tLevels, s.tKills = num(f[5]) or 0, num(f[6]) or 0
+  s.tLongest = num(f[7]) or s.tLongest
+  if f[8] and f[8] ~= "" then
+    s.prev = s.prev or { wk = f[8] }
+    if s.prev.wk == f[8] then s.prev.Levels, s.prev.Kills = num(f[9]) or 0, num(f[10]) or 0 end
+  end
+  ns:MarkDirty()
+end)
+
+-- Levelhistorikk (til grafen i Statistikk)
+function Data:AddHistoryPoint(pid, char, t, level)
+  local p = ns:GetPerson(pid, true)
+  local c = p.chars[char]
+  if not c then c = { name = ns.ShortName(char) } p.chars[char] = c end
+  c.hist = c.hist or {}
+  for _, h in ipairs(c.hist) do
+    if h.l == level then
+      if t < h.t then h.t = t end
+      return
+    end
+  end
+  table.insert(c.hist, { t = t, l = level })
+  table.sort(c.hist, function(a, b) return a.l < b.l end)
+  while #c.hist > 80 do table.remove(c.hist, 1) end
+end
+
+Comm:Handle("LH", function(f)
+  local pid, char = f[1], f[2]
+  if not pid or pid == ns.pid or not char or char == "" then return end
+  for _, part in ipairs(ns.Split(f[5] or "", ";")) do
+    local ago, lvl = part:match("^(%d+):(%d+)$")
+    if ago then Data:AddHistoryPoint(pid, char, ns.Now() - tonumber(ago), tonumber(lvl)) end
+  end
+  ns:MarkDirty()
+end)
+
 -- Bufret data om en annen person (for de som er offline nå)
 local function buildSC(pid, p)
   local c = ns:PersonChar(p) or {}
   local s = p.stats or {}
   local pv = s.prev or {}
-  return Comm:Build("SC", pid, ns.Clean(p.nick or "", 16), p.main or "", c.class or "", c.race or "",
+  return Comm:Build("SC", pid, "", p.main or "", c.class or "", c.race or "",
     c.level or 0, ns:PersonPlayed(p), ns.Now() - (p.lastSeen or ns.Now()),
     s.wk or "", s.wOnline or 0, s.wQuests or 0, s.wGold or 0, s.wDeaths or 0,
     s.tOnline or 0, s.tQuests or 0, s.tGold or 0, s.tDeaths or 0,
@@ -104,7 +156,6 @@ Comm:Handle("SC", function(f)
   local p = ns:GetPerson(pid, true)
   if p.lastSeen and p.lastSeen >= lastSeen - 5 then return end
   if ns:IsOnline(p) then return end
-  if f[2] ~= "" then p.nick = f[2] end
   local char = f[3]
   if char and char ~= "" then
     local c = p.chars[char] or {}
@@ -226,7 +277,7 @@ function Data:CheckVersion(theirVersion, pid)
     local p = ns:GetPerson(pid)
     ns.Print("Ny versjon tilgjengelig: " .. theirVersion .. " (du har " .. ns.VERSION .. "). Oppdater i WowUp.")
     ns:Fire("TOAST", { kind = "info", sticky = true, title = "Ny versjon av Chillan? (" .. theirVersion .. ")",
-      text = (p and (ns:PersonName(p) .. " har den allerede · ") or "") .. "oppdater i WowUp" })
+      text = (p and (ns:PersonFirst(p) .. " har den allerede · ") or "") .. "oppdater i WowUp" })
   end
 end
 
@@ -239,6 +290,8 @@ Comm:Handle("HI", function(f, sender, channel)
   if channel == "GUILD" or channel == "PARTY" or channel == "RAID" then channel = "WHISPER" end
   replyTo(sender, channel, ns.Tracker:BuildST(), 1)
   replyTo(sender, channel, ns.Tracker:BuildSS(), 2)
+  replyTo(sender, channel, ns.Tracker:BuildS2(), 3)
+  ns.Tracker:SendHistory(sender)
   if iAmGossiper() then
     local n = 0
     for opid, p in pairs(ns.db.people) do
@@ -288,8 +341,8 @@ Comm:Handle("SQ", function(f, sender)
   for _, it in ipairs(after(ns.db.feed, 25)) do
     Comm:SendTo(sender, Comm:Build("EV", it.id, it.pid, it.char, it.kind, ns.Now() - it.t, it.a or "", it.b or "", it.c or "", it.d or ""), 3)
   end
-  for _, post in pairs(ns.db.lfg) do
-    Comm:SendTo(sender, Data:BuildLF(post), 3, true)
+  for _, post in pairs(ns.db.mats) do
+    Comm:SendTo(sender, Data:BuildMT(post), 3, true)
   end
   for _, poll in ipairs(ns.db.polls) do
     if ns.Now() - poll.t < 86400 then
@@ -336,6 +389,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     local lvl = num(a)
     local ch = p.chars[char]
     if ch and lvl and lvl > (ch.level or 0) then ch.level = lvl end
+    if lvl then Data:AddHistoryPoint(pid, char, t, lvl) end
     if lvl and FIRST_LEVELS[lvl] then item.first = setFirst("L" .. lvl, pid, char, t) end
     -- plass i gjengen til dette levelet
     local place = 0
@@ -352,7 +406,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   table.sort(ns.db.feed, function(x, y) return x.t < y.t end)
   if pid ~= ns.pid and fresh(t) then
     if kind == "DING" then
-      ns:Fire("TOAST", { kind = "ding", pid = pid, item = item })
+      ns:Fire("DING", item)
       ns.Sound("ding")
     elseif kind == "SOS" then
       ns:Fire("SOS", item)
@@ -360,9 +414,9 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     elseif kind == "ENSEEN" then
       ns:Fire("TOAST", { kind = "enemy", pid = pid,
         title = "Fiende spottet: " .. tostring(a),
-        text = ns:PersonName(p) .. " ser vedkommende i " .. tostring(b) })
+        text = ns:PersonFirst(p) .. " ser vedkommende i " .. tostring(b) })
     elseif kind == "MOUNT" and item.first then
-      ns:Fire("TOAST", { kind = "star", pid = pid, title = ns:PersonName(p) .. " fikk mount!", text = "Først i gjengen" })
+      ns:Fire("TOAST", { kind = "star", pid = pid, title = ns:PersonFirst(p) .. " fikk mount!", text = "Først i gjengen" })
     end
   end
   ns:MarkDirty()
@@ -405,86 +459,114 @@ Comm:Handle("CH", function(f)
 end)
 
 ---------------------------------------------------------------------------
--- LFG
+-- Gratulasjoner og reaksjoner på dings
 ---------------------------------------------------------------------------
-function Data:BuildLF(post)
-  return Comm:Build("LF", post.id, post.pid, post.char, ns.Now() - post.t, ns.Clean(post.activity, 40),
-    post.need or "", post.slots or 5, post.size or 1, ns.Clean(post.msg or "", 80))
+ns.REACTIONS = { "Gratulerer!", "GZ!", "Endelig!" }
+
+local function findFeed(id)
+  for i = #ns.db.feed, 1, -1 do
+    if ns.db.feed[i].id == id then return ns.db.feed[i] end
+  end
 end
 
-function Data:PostLFG(activity, need, slots, msg)
-  activity = ns.Clean(activity, 40)
-  if activity == "" then return false end
-  local post = { id = Comm:NewId(), pid = ns.pid, char = Comm:MyFull(), t = ns.Now(), activity = activity,
-    need = need, slots = tonumber(slots) or 5, size = math.max(1, GetNumGroupMembers()), msg = ns.Clean(msg, 80) }
-  ns.db.lfg[post.id] = post
-  Comm:Broadcast(self:BuildLF(post), 1, true)
-  ns:MarkDirty()
+local reactBuffer = {}
+local function addReaction(item, pid, char, idx)
+  item.reacts = item.reacts or {}
+  for _, r in ipairs(item.reacts) do if r.pid == pid then return false end end
+  table.insert(item.reacts, { pid = pid, char = char, idx = idx })
   return true
 end
 
-function Data:RemoveLFG(id)
-  ns.db.lfg[id] = nil
-  Comm:Broadcast(Comm:Build("LX", id), 1)
+function Data:React(item, idx)
+  if not item or item.pid == ns.pid then return end
+  if not addReaction(item, ns.pid, Comm:MyFull(), idx) then return end
+  Comm:Broadcast(Comm:Build("RX", item.id, ns.pid, Comm:MyFull(), idx), 1)
   ns:MarkDirty()
 end
 
-function Data:JoinLFG(post)
-  local p = ns:GetPerson(post.pid)
-  local target = post.char
-  if p and p.live and p.live.char then target = p.live.char end
-  Comm:SendTo(target, Comm:Build("LJ", ns.pid, Comm:MyFull(), post.id), 1)
-  ns.Print("Spurte om å bli med i " .. post.activity .. ".")
-end
-
-Comm:Handle("LF", function(f)
-  local id = f[1]
-  if not id or id == "" then return end
-  local post = ns.db.lfg[id] or {}
-  post.id, post.pid, post.char, post.t = id, f[2], f[3], ago2t(f[4])
-  post.activity, post.need, post.slots, post.size, post.msg = f[5], f[6], num(f[7]) or 5, num(f[8]) or 1, f[9]
-  local isNew = ns.db.lfg[id] == nil
-  ns.db.lfg[id] = post
-  if isNew and fresh(post.t) and not quiet() then
-    local p = ns:GetPerson(post.pid)
-    ns:Fire("TOAST", { kind = "lfg", pid = post.pid, title = ns:PersonName(p) .. " søker gruppe",
-      text = post.activity .. (post.need ~= "" and (" · trenger " .. post.need) or "") })
-  end
-  ns:MarkDirty()
-end)
-
-Comm:Handle("LX", function(f)
-  ns.db.lfg[f[1] or ""] = nil
-  ns:MarkDirty()
-end)
-
-Comm:Handle("LJ", function(f, sender)
-  local post = ns.db.lfg[f[3] or ""]
-  local p = ns:GetPerson(f[1], true)
-  ns:Fire("TOAST", { kind = "join", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
-    title = ns:PersonName(p) .. " vil bli med",
-    text = post and post.activity or "gruppen din" })
-  ns.Sound("online")
-end)
-
-function Data:ExpireLFG()
-  for id, post in pairs(ns.db.lfg) do
-    if ns.Now() - post.t > 45 * 60 then ns.db.lfg[id] = nil end
-  end
-end
-
-ns:On("GROUP_ROSTER_UPDATE", function()
-  for _, post in pairs(ns.db.lfg) do
-    if post.pid == ns.pid then
-      local size = math.max(1, GetNumGroupMembers())
-      if size ~= post.size then
-        post.size = size
-        Comm:Broadcast(Data:BuildLF(post), 2, true)
-      end
+Comm:Handle("RX", function(f)
+  local item = findFeed(f[1] or "")
+  if not item then return end
+  local idx = num(f[4]) or 1
+  if not addReaction(item, f[2], f[3], idx) then return end
+  if item.pid == ns.pid then
+    -- samle gratulasjonene til ett varsel
+    reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3])
+    if #reactBuffer == 1 then
+      C_Timer.After(4, function()
+        local names = reactBuffer
+        reactBuffer = {}
+        local title
+        if #names == 1 then title = names[1] .. " gratulerte deg!"
+        else title = names[1] .. " og " .. (#names - 1) .. " andre gratulerte deg!" end
+        ns:Fire("TOAST", { kind = "star", title = title, text = "Med level " .. tostring(item.a) })
+        ns.Sound("online")
+      end)
     end
   end
   ns:MarkDirty()
 end)
+
+---------------------------------------------------------------------------
+-- Mats-tavle ("trenger 20 Copper Bar")
+---------------------------------------------------------------------------
+function Data:BuildMT(post)
+  return Comm:Build("MT", post.id, post.pid, post.char, ns.Now() - post.t, ns.Clean(post.text, 60), ns.Clean(post.note or "", 60))
+end
+
+function Data:PostMats(text, note)
+  text = ns.Clean(text, 60)
+  if text == "" then return false end
+  local post = { id = Comm:NewId(), pid = ns.pid, char = Comm:MyFull(), t = ns.Now(), text = text, note = ns.Clean(note or "", 60) }
+  ns.db.mats[post.id] = post
+  Comm:Broadcast(self:BuildMT(post), 1, true)
+  ns:MarkDirty()
+  return true
+end
+
+function Data:RemoveMats(id)
+  ns.db.mats[id] = nil
+  Comm:Broadcast(Comm:Build("MX", id), 1)
+  ns:MarkDirty()
+end
+
+function Data:OfferMats(post)
+  local p = ns:GetPerson(post.pid)
+  local target = (p and p.live and p.live.char) or post.char
+  Comm:SendTo(target, Comm:Build("MH", ns.pid, Comm:MyFull(), post.id), 1)
+  ns.Print("Sa fra til " .. ns.FirstName(post.char) .. " at du har " .. post.text .. ".")
+end
+
+Comm:Handle("MT", function(f)
+  local id = f[1]
+  if not id or id == "" then return end
+  local isNew = ns.db.mats[id] == nil
+  ns.db.mats[id] = { id = id, pid = f[2], char = f[3], t = ago2t(f[4]), text = f[5] or "", note = f[6] or "" }
+  if isNew and fresh(ns.db.mats[id].t) and not quiet() then
+    ns:Fire("TOAST", { kind = "mats", pid = f[2], title = ns.FirstName(f[3]) .. " trenger " .. (f[5] or "noe"),
+      text = (f[6] and f[6] ~= "") and f[6] or "Har du? Svar i Tavle-fanen" })
+  end
+  ns:MarkDirty()
+end)
+
+Comm:Handle("MX", function(f)
+  ns.db.mats[f[1] or ""] = nil
+  ns:MarkDirty()
+end)
+
+Comm:Handle("MH", function(f, sender)
+  local post = ns.db.mats[f[3] or ""]
+  ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
+    title = ns.FirstName(f[2] ~= "" and f[2] or sender) .. " har det du trenger",
+    text = post and post.text or "Mats" })
+  ns.Sound("online")
+end)
+
+function Data:ExpireMats()
+  for id, post in pairs(ns.db.mats) do
+    if ns.Now() - post.t > 7 * 86400 then ns.db.mats[id] = nil end
+  end
+end
 
 ---------------------------------------------------------------------------
 -- Avstemninger
@@ -621,7 +703,7 @@ end
 
 Comm:Handle("RS", function(f)
   local p = ns:GetPerson(f[1], true)
-  ns:Fire("TOAST", { kind = "sos", pid = f[1], title = ns:PersonName(p) .. " er på vei!", text = "Hold ut litt til" })
+  ns:Fire("TOAST", { kind = "sos", pid = f[1], title = ns:PersonFirst(p) .. " er på vei!", text = "Hold ut litt til" })
 end)
 
 ---------------------------------------------------------------------------
@@ -694,13 +776,13 @@ function Data:RequestCraft(pid, text)
   local target = (p.live and p.live.char) or p.main
   if not target then return end
   Comm:SendTo(target, Comm:Build("CR", ns.pid, Comm:MyFull(), ns.Clean(text or "", 80)), 1, true)
-  ns.Print("Forespørsel sendt til " .. ns:PersonName(p) .. ".")
+  ns.Print("Forespørsel sendt til " .. ns:PersonFirst(p) .. ".")
 end
 
 Comm:Handle("CR", function(f, sender)
   local p = ns:GetPerson(f[1], true)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
-    title = ns:PersonName(p) .. " ber om craft", text = (f[3] and f[3] ~= "") and f[3] or "Ta kontakt i spillet" })
+    title = ns:PersonFirst(p) .. " ber om craft", text = (f[3] and f[3] ~= "") and f[3] or "Ta kontakt i spillet" })
   ns.Sound("online")
 end)
 
@@ -708,14 +790,25 @@ end)
 -- Ukens utfordring og vinner
 ---------------------------------------------------------------------------
 ns.CHALLENGES = {
+  { key = "Levels", label = "Flest levels", fmt = function(v) return tostring(math.floor(v)) .. " levels" end },
   { key = "Quests", label = "Flest quests", fmt = function(v) return tostring(math.floor(v)) .. " quests" end },
   { key = "Gold", label = "Mest gull tjent", fmt = function(v) return ns.Money(v) end },
-  { key = "Online", label = "Lengst online", fmt = function(v) return ns.Duration(v) end },
+  { key = "Kills", label = "Flest PvP-kills", fmt = function(v) return tostring(math.floor(v)) .. " kills" end },
 }
+
+-- Har noen i gjengen PvP-kills registrert? (ellers byttes den uka ut med levels)
+local function anyKills()
+  for _, p in pairs(ns.db.people) do
+    if ((p.stats or {}).tKills or 0) > 0 then return true end
+  end
+  return false
+end
 
 function Data:ChallengeFor(weekKey)
   local wn = tonumber((weekKey or ns.WeekKey()):match("%-(%d+)$")) or 0
-  return ns.CHALLENGES[(wn % #ns.CHALLENGES) + 1]
+  local ch = ns.CHALLENGES[(wn % #ns.CHALLENGES) + 1]
+  if ch.key == "Kills" and not anyKills() then ch = ns.CHALLENGES[1] end
+  return ch
 end
 
 function Data:CurrentLeader()
@@ -747,7 +840,7 @@ function Data:AnnounceWinner()
   if not best or ns.db.announced[pwk] then return end
   ns.db.announced[pwk] = true
   ns:Fire("TOAST", { kind = "trophy", pid = best.pid, sticky = true,
-    title = "Forrige ukes vinner: " .. ns:PersonName(best),
+    title = "Forrige ukes vinner: " .. ns:PersonFirst(best),
     text = ch.label .. " – " .. ch.fmt(v) })
 end
 
@@ -756,10 +849,10 @@ end
 ---------------------------------------------------------------------------
 function Data:Start()
   loginAt = GetTime()
-  self:ExpireLFG()
+  self:ExpireMats()
   self:ExpireEvents()
   C_Timer.NewTicker(60, function()
-    Data:ExpireLFG()
+    Data:ExpireMats()
     ns:MarkDirty()
   end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)

@@ -99,7 +99,7 @@ ns:RegisterTab("map", "Kart", "Map", function(tab)
     table.sort(people, function(a, b)
       local za, zb = (a.live and a.live.zone) or "", (b.live and b.live.zone) or ""
       if za ~= zb then return za < zb end
-      return ns:PersonName(a) < ns:PersonName(b)
+      return ns:PersonFirst(a) < ns:PersonFirst(b)
     end)
     list:SetData(people)
     pins:Refresh()
