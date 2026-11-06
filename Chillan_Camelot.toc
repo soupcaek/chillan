@@ -28,6 +28,7 @@ UI\TabMap.lua
 UI\TabMore.lua
 UI\TabPlayer.lua
 UI\Overlays.lua
+UI\Tiles.lua
 UI\EventWindow.lua
 UI\Mirror.lua
 UI\MapPins.lua

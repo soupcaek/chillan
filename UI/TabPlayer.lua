@@ -43,6 +43,31 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     t.k = UI.Text(t, 11, nil, C.muted)
     t.k:SetPoint("BOTTOMLEFT", 12, 10)
     t.k:SetPoint("RIGHT", -8, 0)
+    -- på Min side: klikk for å feste rubrikken under Chillan?-baren
+    t.pinKey = ({ "level", "xph", "eta", "played" })[i]
+    t.pin = UI.Icon(t, "Plus", 12, C.dim)
+    t.pin:SetPoint("TOPRIGHT", -8, -8)
+    t:EnableMouse(true)
+    t:SetScript("OnMouseUp", function(self)
+      if not self.isMe then return end
+      local on = ns.Tiles:Toggle(self.pinKey)
+      ns.Print(on and "Festet under Chillan?-baren." or "Fjernet fra Chillan?-baren.")
+      self:RefreshPin()
+    end)
+    function t:RefreshPin()
+      self.pin:SetShown(self.isMe and true or false)
+      local on = ns.Tiles:IsPinned(self.pinKey)
+      self.pin:SetTexture(ns.TEX .. "Icon" .. (on and "Check" or "Plus"))
+      self.pin:SetVertexColor(hex(on and C.green or C.dim))
+    end
+    t:SetScript("OnEnter", function(self)
+      if not self.isMe then return end
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine(ns.Tiles:IsPinned(self.pinKey) and "Klikk: fjern fra Chillan?-baren" or "Klikk: fest under Chillan?-baren", 1, 1, 1)
+      GameTooltip:AddLine("Flere rubrikker: «+» på baren", 0.52, 0.55, 0.57)
+      GameTooltip:Show()
+    end)
+    t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     tiles[i] = t
   end
 
@@ -152,6 +177,7 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     whisper:SetShown(not me) invite:SetShown(not me and online)
 
     -- store tall
+    for _, t in ipairs(tiles) do t.isMe = me t:RefreshPin() end
     local pct = ns.Pct(s3.xp, s3.xpMax)
     tiles[1].v:SetText(c.level or "?")
     tiles[1].k:SetText(pct and (pct .. " % til neste" .. ((s3.rested or 0) > 0 and " · rested" or "")) or "level")

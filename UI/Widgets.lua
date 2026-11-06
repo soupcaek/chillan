@@ -445,7 +445,7 @@ end
 -- Enkel nedtrekksmeny
 ---------------------------------------------------------------------------
 local menu
-function UI.Menu(anchor, items)
+function UI.Menu(anchor, items, below)
   if not menu then
     menu = UI.Panel(UIParent, C.card, C.activeLine, false)
     menu:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -479,7 +479,12 @@ function UI.Menu(anchor, items)
   end
   menu:SetSize(w, #items * 30 + 10)
   menu:ClearAllPoints()
-  menu:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 4)
+  if below then
+    menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
+  else
+    menu:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 4)
+  end
+  menu:SetClampedToScreen(true)
   menu.closer:Show()
   menu:Show()
 end

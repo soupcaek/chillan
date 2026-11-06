@@ -95,7 +95,14 @@ function O:UpdateMinibar()
   m.count:ClearAllPoints()
   m.count:SetPoint("LEFT", x, 0)
   m.count:SetText(#online .. " online")
-  m:SetWidth(x + m.count:GetStringWidth() + 14)
+  local w = x + m.count:GetStringWidth() + 14
+  if m.plus then
+    m.plus:ClearAllPoints()
+    m.plus:SetPoint("LEFT", w - 6, 0)
+    w = w + 22
+  end
+  m:SetWidth(w)
+  if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() end
 end
 
 ---------------------------------------------------------------------------
