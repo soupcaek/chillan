@@ -24,8 +24,35 @@ local function visible(kind)
   return kind == "chat"
 end
 
-function E:Add(kind, text, t)
-  local e = { kind = kind, text = stamp(t) .. text, t = t or time() }
+-- Reaksjoner som «brikker» bak hendelsen: Hahaha! 2   F   RIP
+-- (hold musa over en brikke for å se hvem). Linja oppdaterer seg selv.
+local function chips(item)
+  if not item or not item.reacts or #item.reacts == 0 then return "" end
+  local order, counts = {}, {}
+  for _, r in ipairs(item.reacts) do
+    local label = ns.ReactionText(item, r.idx)
+    if not counts[label] then
+      counts[label] = 0
+      order[#order + 1] = { label = label, idx = r.idx }
+    end
+    counts[label] = counts[label] + 1
+  end
+  local parts = {}
+  for _, o in ipairs(order) do
+    local n = counts[o.label]
+    parts[#parts + 1] = "|Hchillanrx:" .. tostring(item.id) .. ":" .. tostring(o.idx) .. "|h"
+      .. ns.Colorize(o.label, C.purple) .. (n > 1 and ns.Colorize(" " .. n, C.muted) or "") .. "|h"
+  end
+  return "     " .. table.concat(parts, "    ")
+end
+
+local function render(e)
+  return stamp(e.t) .. e.base .. chips(e.item)
+end
+
+function E:Add(kind, text, t, item)
+  local e = { kind = kind, base = text, t = t or time(), item = item }
+  e.text = render(e)
   ns.PushCapped(self.entries, e, MAX_KEEP)
   if self.msg and visible(kind) then
     self.msg:AddMessage(e.text)
@@ -35,10 +62,13 @@ end
 
 function E:Redraw()
   if not self.msg then return end
+  local off = self.msg.GetScrollOffset and self.msg:GetScrollOffset() or 0
   self.msg:Clear()
   for _, e in ipairs(self.entries) do
+    if e.base then e.text = render(e) end
     if visible(e.kind) then self.msg:AddMessage(e.text) end
   end
+  if off > 0 and self.msg.SetScrollOffset then pcall(self.msg.SetScrollOffset, self.msg, off) end
   for key, btn in pairs(self.filterBtns or {}) do
     local on = (ns.db.settings.evFilter or "all") == key
     btn.text:SetTextColor(hex(on and C.text or C.dim))
@@ -85,6 +115,24 @@ local function whatText(it)
     return ns.Colorize("døde", C.red)
   end
   return ns.Colorize(tostring(it.kind):lower(), C.text2)
+end
+
+function E:OnReaction(item, rp, char, idx)
+  if not item or not item.id then return end
+  for i = #self.entries, 1, -1 do
+    local e = self.entries[i]
+    if e.item and e.item.id == item.id then
+      e.item = item
+      if not self.redrawPending then
+        self.redrawPending = true
+        C_Timer.After(0.3, function() E.redrawPending = false E:Redraw() end)
+      end
+      if self.frame and not self.frame:IsMouseOver() then self:Flash() end
+      return
+    end
+  end
+  -- hendelsen er for gammel til å stå i vinduet: vis reaksjonen samlet på én linje
+  self:QueueReaction(item, rp, char, idx)
 end
 
 function E:FlushReaction(id)
@@ -260,7 +308,9 @@ function E:Backfill()
     if x.t >= cutoff then
       local ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it)
       if ok and text then
-        ns.PushCapped(self.entries, { kind = x.kind, text = stamp(x.t) .. text, t = x.t }, MAX_KEEP)
+        local e = { kind = x.kind, base = text, t = x.t, item = x.kind == "ev" and x.it or nil }
+        e.text = render(e)
+        ns.PushCapped(self.entries, e, MAX_KEEP)
       end
     end
   end
@@ -280,12 +330,12 @@ function E:Init()
   self:UpdateCount()
   self:Apply()
 
-  ns:Listen("FEEDEVENT", function(text) E:Add("ev", text) end)
+  ns:Listen("FEEDEVENT", function(text, item) E:Add("ev", text, nil, item) end)
   ns:Listen("CHAT", function(item)
     if (ns.Now() - (item.t or 0)) > 120 then return end
     E:Add("chat", chatText(item), item.t)
   end)
-  ns:Listen("REACTION", function(item, rp, char, idx) E:QueueReaction(item, rp, char, idx) end)
+  ns:Listen("REACTION", function(item, rp, char, idx) E:OnReaction(item, rp, char, idx) end)
   ns:Listen("CODE_CHANGED", function() E:Apply() end)
   C_Timer.NewTicker(10, function() E:UpdateCount() end)
 end

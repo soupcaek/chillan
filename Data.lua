@@ -542,7 +542,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   table.sort(ns.db.feed, function(x, y) return x.t < y.t end)
   if fresh(t) then
     if pid ~= ns.pid then ns:Fire("ACTIVITY", ns.FeedLine(item, false)) end
-    ns:Fire("FEEDEVENT", ns.FeedShort(item))
+    ns:Fire("FEEDEVENT", ns.FeedShort(item), item)
     -- egne dings og dødsfall får ingen popup hos deg selv (bare achievements)
     if kind == "DING" and pid ~= ns.pid then
       ns:Fire("DING", item)

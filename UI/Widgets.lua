@@ -465,6 +465,22 @@ function UI.MessageFrame(parent, size)
       GameTooltip:Show()
     elseif link:find("^chillanach:") then
       UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
+    elseif link:find("^chillanrx:") then
+      local id, idx = link:match("^chillanrx:([^:]+):(%d+)$")
+      local item
+      for i = #(ns.db.feed or {}), 1, -1 do if ns.db.feed[i].id == id then item = ns.db.feed[i] break end end
+      if not item then return end
+      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+      GameTooltip:AddLine(ns.ReactionText(item, tonumber(idx)), hex(C.purple))
+      for _, r in ipairs(item.reacts or {}) do
+        if r.idx == tonumber(idx) then
+          local p = ns:GetPerson(r.pid) or {}
+          local c = (p.chars and p.chars[r.char]) or ns:PersonChar(p) or {}
+          local cr, cg, cb = ns.ClassColor(c.class)
+          GameTooltip:AddLine(ns:PersonAlias(p) or c.name or ns.ShortName(r.char or "?"), cr, cg, cb)
+        end
+      end
+      GameTooltip:Show()
     end
   end)
   m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
