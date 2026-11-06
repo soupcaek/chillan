@@ -85,6 +85,7 @@ local function help()
   print("  /chill legg til Navn – send hei til en venn som ikke dukker opp")
   print("  /chill minibar – vis/skjul minibaren")
   print("  /chill debug – vis teknisk status")
+  print("  /chill kanal – koble til gjengkanalen på nytt")
   print("  /cg tekst – skriv i gjengchatten")
 end
 
@@ -117,6 +118,11 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Data:AddManual((rest or ""):gsub("^til%s+", ""))
   elseif cmd == "add" then
     ns.Data:AddManual(rest)
+  elseif cmd == "kanal" then
+    local old = ns.Comm:ChannelName()
+    ns.Comm:LeaveChannel(old)
+    C_Timer.After(1, function() ns.Comm:JoinChannel() end)
+    C_Timer.After(4, function() ns.Print("Kanal: " .. ns.Comm:ChannelStatusText()) end)
   elseif cmd == "minibar" then
     ns.db.settings.minibar = not ns.db.settings.minibar
     ns:Fire("MINIBAR")
@@ -128,7 +134,8 @@ SlashCmdList.CHILLAN = function(msg)
     ns.debug = not ns.debug
     ns.Print("Debug " .. (ns.debug and "på" or "av"))
     ns.Comm:RefreshChannelId()
-    print("  Gjeng:", ns.db.code or "ingen", " kanal:", ns.Comm:ChannelName() or "-", " id:", ns.Comm.chanId or "ikke koblet")
+    print("  Gjeng:", ns.db.code or "ingen", " kanal:", ns.Comm:ChannelName() or "-")
+    print("  Kanalstatus:", ns.Comm:ChannelStatusText())
     print("  Versjon:", ns.VERSION, " kø:", ns.Comm:QueueSize(), " meg:", ns.Comm:MyFull(), " pid:", ns.pid)
     local n = 0
     for char, r in pairs(ns.db.roster) do

@@ -72,6 +72,7 @@ function Comm:JoinChannel()
     removeFromChatFrames(name)
     return
   end
+  self.joinAttemptAt = GetTime()
   if JoinTemporaryChannel then
     pcall(JoinTemporaryChannel, name, ns.db.code)
   elseif JoinChannelByName then
@@ -342,14 +343,57 @@ local function systemFilter(_, _, msg, ...)
   return false
 end
 
-local function channelNoticeFilter(_, _, ...)
+local function channelNoticeFilter(_, event, ...)
   local name = Comm:ChannelName()
   if not name then return false end
   for i = 1, select("#", ...) do
     local v = select(i, ...)
-    if type(v) == "string" and not ns.isSecret(v) and v:lower():find(name, 1, true) then return true end
+    if type(v) == "string" and not ns.isSecret(v) and v:lower():find(name, 1, true) then
+      -- husk hva serveren svarte, så /chill debug kan si hvorfor kanalen ikke virker
+      local notice = select(1, ...)
+      if event == "CHAT_MSG_CHANNEL_NOTICE" and type(notice) == "string" and not ns.isSecret(notice) then
+        Comm.lastNotice = notice
+        Comm.lastNoticeAt = ns.Now()
+      end
+      return true
+    end
   end
   return false
+end
+
+-- Antall chat-kanaler du er med i (WoW har en grense på 10)
+function Comm:ChannelCount()
+  if not GetChannelList then return nil end
+  local list = { GetChannelList() }
+  return math.floor(#list / 3)
+end
+
+local NOTICE_TEXT = {
+  YOU_JOINED = "koblet til", YOU_CHANGED = "koblet til",
+  WRONG_PASSWORD = "feil passord – sjekk at gjengkoden er helt lik",
+  BANNED = "utestengt fra kanalen", NOT_MEMBER = "ikke medlem",
+  TRIAL_RESTRICTED = "prøvekonto kan ikke bruke chat-kanaler",
+  INVALID_NAME = "ugyldig kanalnavn", THROTTLED = "for mange forsøk – vent litt",
+  YOU_LEFT = "forlot kanalen", SUSPENDED = "kanalen er midlertidig utilgjengelig",
+}
+function Comm:ChannelStatusText()
+  self:RefreshChannelId()
+  if self.chanId then return "koblet til (id " .. self.chanId .. ")" end
+  local parts = { "ikke koblet" }
+  if self.lastNotice then parts[#parts + 1] = "serveren svarte: " .. (NOTICE_TEXT[self.lastNotice] or self.lastNotice) end
+  local n = self:ChannelCount()
+  if n and n >= 10 then parts[#parts + 1] = "du er med i " .. n .. " kanaler (maks 10) – forlat én" end
+  if not self.lastNotice and not (n and n >= 10) then parts[#parts + 1] = "ingen svar fra serveren – prøv /chill kanal" end
+  return table.concat(parts, " · ")
+end
+
+-- Koble til på nytt (brukes av /chill kanal og automatisk hvert minutt)
+function Comm:Reconnect()
+  local name = self:ChannelName()
+  if not name then return end
+  self:RefreshChannelId()
+  if self.chanId then return end
+  self:JoinChannel()
 end
 
 function Comm:InstallFilters()
