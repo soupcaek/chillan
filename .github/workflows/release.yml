@@ -1,11 +1,13 @@
 name: Release
 
-# Ny versjon: lag en tag som v0.2.0 og push den. Da bygges zip-filen
-# automatisk og legges ut som en GitHub-release som WowUp finner.
+# Ny versjon: endre tallet i VERSION-fila (f.eks. 0.2.0) og push til main.
+# Da lages taggen v0.2.0, zip-filen bygges, og den legges ut som en
+# GitHub-release som WowUp finner automatisk.
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,4 +21,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: BigWigsMods/packager@v2.6.1
+
+      - name: Lag tag fra VERSION
+        id: tag
+        run: |
+          VERSION="v$(tr -d '[:space:]' < VERSION)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION finnes allerede – hopper over."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git tag -a "$VERSION" -m "Chillan? $VERSION"
+            git push origin "$VERSION"
+          fi
+
+      - name: Bygg og publiser
+        if: steps.tag.outputs.skip != 'true'
+        uses: BigWigsMods/packager@v2.6.1

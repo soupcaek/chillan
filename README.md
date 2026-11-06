@@ -35,11 +35,6 @@ WowUp viser **Update** når det kommer en ny versjon. Chillan sier også fra i s
 
 ## For utvikler: ny versjon
 
-```
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-GitHub Actions bygger zip-filen med BigWigs-packageren og legger den ut som release.
+Endre tallet i `VERSION` (f.eks. `0.2.0`) og push til `main`. GitHub Actions lager taggen `v0.2.0`, bygger zip-filen med BigWigs-packageren og legger den ut som release.
 
 Font: Inter (SIL Open Font License).
