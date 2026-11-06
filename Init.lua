@@ -19,6 +19,19 @@ ns:On("PLAYER_LOGIN", function()
   ns.Overlays:UpdateMinibar()
   ns.MapPins:Init()
   ns:Listen("CODE_CHANGED", function() ns.Overlays:UpdateMinibar() end)
+  -- Automatisk feilsøk etter et par minutter hvis vi ikke hører noen
+  C_Timer.After(90, function()
+    if not ns.db.code then return end
+    local st = ns.Comm.stats
+    local trial = (IsTrialAccount and IsTrialAccount()) or (IsVeteranTrialAccount and IsVeteranTrialAccount())
+    if trial then
+      ns.Print("|cffF2777APrøvekonto oppdaget:|r WoW lar ikke prøvekontoer sende addon-meldinger, så gjengen kan ikke se deg før kontoen er oppgradert.")
+    elseif st.recv == 0 and st.otherCode > 0 then
+      ns.Print("|cffF2777AVi hører Chillan? fra en annen gjengkode, men ingen fra din.|r Sjekk at koden (" .. ns.db.code .. ") er helt lik den de andre har.")
+    elseif st.recv == 0 then
+      ns.Print("Vi har ikke hørt fra noen i gjengen ennå. Skriv /chill debug og send skjermbilde til gjengen, eller be en kompis skrive /chill legg til " .. (ns.Comm:MyFull() or "navnet ditt") .. ".")
+    end
+  end)
 end)
 
 local started = false
@@ -159,6 +172,20 @@ SlashCmdList.CHILLAN = function(msg)
     print("  Gjeng:", ns.db.code or "ingen", " kanal:", ns.Comm:ChannelName() or "-")
     print("  Kanalstatus:", ns.Comm:ChannelStatusText())
     print("  Versjon:", ns.VERSION, " kø:", ns.Comm:QueueSize(), " meg:", ns.Comm:MyFull(), " pid:", ns.pid)
+    print("  Kode-ID:", ns.codeHash or "-", "(skal være lik hos alle i gjengen)")
+    local st = ns.Comm.stats
+    print("  Meldinger mottatt:", st.recv, "(kanal " .. st.recvChan .. ", whisper " .. st.recvWhisper .. ")",
+      " sendt:", st.sent, " feilet:", st.failed, st.lastErr and ("(siste feil: " .. st.lastErr .. ")") or "")
+    if st.otherCode > 0 then
+      ns.Print("|cffF2777AFikk " .. st.otherCode .. " meldinger fra en ANNEN gjengkode|r (bl.a. " .. tostring(st.otherCodeFrom) .. "). Sjekk at koden er helt lik – O og 0 er ikke det samme.")
+    end
+    local trial = (IsTrialAccount and IsTrialAccount()) or (IsVeteranTrialAccount and IsVeteranTrialAccount())
+    if trial then
+      ns.Print("|cffF2777ADette er en prøvekonto.|r WoW lar ikke prøvekontoer sende addon-meldinger eller bruke chatkanaler, så Chillan? kan ikke koble til.")
+    end
+    if st.recv == 0 and st.sent > 0 then
+      print("  Ingen meldinger mottatt ennå. Be en i gjengen skrive /chill legg til " .. (ns.Comm:MyFull() or "<ditt navn>"))
+    end
     local n = 0
     for char, r in pairs(ns.db.roster) do
       if r.heard and ns.Now() - r.heard < 300 then

@@ -16,6 +16,17 @@ local myFull
 
 local function now() return GetTime() end
 
+-- Navn kan skrives "Navn-Realm", "Navn Realm" eller bare "Navn" i ulike meldinger.
+-- Sammenlign uten store bokstaver, mellomrom og bindestrek.
+local function norm(s) return (tostring(s or ""):lower():gsub("[%s%-']", "")) end
+local function sameChar(a, b)
+  local na, nb = norm(a), norm(b)
+  if na == nb then return true end
+  local sa, sb = norm(ns.ShortName(a)), norm(ns.ShortName(b))
+  return sa == nb or sb == na or sa == sb
+end
+Comm.SameChar = sameChar
+
 function Comm:MyFull()
   if myFull then return myFull end
   local name, realm = ns.S(UnitFullName, "player")
@@ -224,18 +235,26 @@ end
 
 local function trySend(item)
   -- ikke hvisk til noen som nettopp viste seg å være offline (de sier hei selv når de logger på)
+  local target = item.target
   if item.chatType == "WHISPER" then
     local r = ns.db.roster[item.target]
     if r and r.offlineAt and (ns.Now() - r.offlineAt) < 300 and not item.hello then return false, true end
+    -- whisper-navnet virker ikke for denne karakteren (vi hører ham bare på kanalen)
+    if r and r.noWhisper and (ns.Now() - r.noWhisper) < 600 then return false, true end
+    -- prøv navnet uten realm hvis det fullstendige navnet ikke ble funnet
+    if r and r.whisperAs then target = r.whisperAs end
   end
   local fn = item.logged and C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
   if not fn then fn = C_ChatInfo.SendAddonMessage end
   if item.chatType == "WHISPER" then
-    recentWhispers[ns.ShortName(item.target):lower()] = now()
+    recentWhispers[norm(item.target)] = now()
+    recentWhispers[norm(ns.ShortName(item.target))] = now()
   end
-  local ok, result = pcall(fn, ns.PREFIX, item.msg, item.chatType, item.target)
-  if not ok then return false, true end
-  if result == nil or result == true or result == 0 then return true end
+  local ok, result = pcall(fn, ns.PREFIX, item.msg, item.chatType, target)
+  if not ok then Comm.stats.failed = Comm.stats.failed + 1 Comm.stats.lastErr = tostring(result) return false, true end
+  if result == nil or result == true or result == 0 then Comm.stats.sent = Comm.stats.sent + 1 return true end
+  Comm.stats.failed = Comm.stats.failed + 1
+  Comm.stats.lastErr = tostring(result)
   if Enum and Enum.SendAddonMessageResult then
     local R = Enum.SendAddonMessageResult
     if result == R.Success then return true end
@@ -335,13 +354,24 @@ local function maybeRelay(msgType, f, text, channel)
   end)
 end
 
+-- Tellere til /chill debug: viser om vi får meldinger i det hele tatt, og om de er fra en annen kode
+Comm.stats = { recv = 0, recvChan = 0, recvWhisper = 0, otherCode = 0, otherProto = 0, sent = 0, failed = 0 }
+
 local function onAddonMessage(prefix, text, channel, sender)
   if prefix ~= ns.PREFIX then return end
   if ns.isSecret(text) or ns.isSecret(sender) then return end
   if type(text) ~= "string" or type(sender) ~= "string" then return end
   if Comm:IsMe(sender) then return end
   local f = ns.Split(text, SEP)
-  if f[1] ~= ns.PROTO or not ns.codeHash or f[2] ~= ns.codeHash then return end
+  local st = Comm.stats
+  if f[1] ~= ns.PROTO then st.otherProto = st.otherProto + 1 return end
+  if not ns.codeHash or f[2] ~= ns.codeHash then
+    st.otherCode = st.otherCode + 1
+    st.otherCodeFrom = sender
+    return
+  end
+  st.recv = st.recv + 1
+  if channel == "WHISPER" then st.recvWhisper = st.recvWhisper + 1 else st.recvChan = st.recvChan + 1 end
   local msgType = f[3]
   -- husk hvordan vi når denne karakteren
   local r = ns.db.roster[sender]
@@ -350,8 +380,8 @@ local function onAddonMessage(prefix, text, channel, sender)
   r.offlineAt = nil
   if channel == "WHISPER" then
     r.whisper = ns.Now()
-    -- hvisker vennen oss, når han oss ikke via kanalen: svar også via whisper
-    if r.chan and (ns.Now() - r.chan) > 10 then r.chan = nil end
+    -- (om vennen hører oss på kanalen avgjøres av HR-hjerteslaget i Sync.lua –
+    -- å nullstille r.chan her fikk to venner til å hviske til hverandre for alltid)
   else
     r.chan = ns.Now()
   end
@@ -400,16 +430,28 @@ end
 
 -- En venn vi hvisket til er ikke pålogget: slutt å hviske og vis ham som offline
 function Comm:MarkOffline(name)
-  local short = ns.ShortName(name):lower()
   for char, r in pairs(ns.db.roster) do
-    if ns.ShortName(char):lower() == short then
-      r.heard = nil
+    if sameChar(char, name) then
       r.offlineAt = ns.Now()
-      if r.pid then
-        local p = ns.db.people[r.pid]
-        if p and p.live and p.live.char and ns.ShortName(p.live.char):lower() == short then
-          p.heard = nil
-          ns:MarkDirty()
+      -- hører vi ham fortsatt på kanalen, er han ikke offline – det er whisper-navnet
+      -- som ikke virker. Da slutter vi bare å hviske (ellers blir det spam).
+      if r.chan and (ns.Now() - r.chan) < 60 then
+        local short = ns.ShortName(char)
+        if not r.whisperAs and short ~= char then
+          r.whisperAs = short
+          r.offlineAt = nil
+        else
+          r.noWhisper = ns.Now()
+        end
+      else
+        r.heard = nil
+        if r.pid then
+          local p = ns.db.people[r.pid]
+          if p and p.live and p.live.char and sameChar(p.live.char, name) then
+            p.heard = nil
+            p.via = nil
+            ns:MarkDirty()
+          end
         end
       end
     end
@@ -418,11 +460,10 @@ end
 
 -- Er dette en av gjengens karakterer (eller noen vi nettopp hvisket til)?
 local function isOurs(who)
-  local key = ns.ShortName(who):lower()
-  local t = recentWhispers[key]
+  local t = recentWhispers[norm(who)] or recentWhispers[norm(ns.ShortName(who))]
   if t and (now() - t) < 60 then return true end
   for char in pairs(ns.db.roster) do
-    if ns.ShortName(char):lower() == key then return true end
+    if sameChar(char, who) then return true end
   end
   return false
 end
