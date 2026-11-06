@@ -9,9 +9,9 @@ function ns.ChangeCode(code)
 end
 
 function ns.TagTarget(note)
-  local name = UnitName("target")
-  if not name or ns.isSecret(name) then ns.Print("Velg en fiendtlig spiller som mål først.") return end
-  if not (UnitIsPlayer("target") and UnitIsEnemy("player", "target")) then
+  local name = ns.S(UnitName, "target")
+  if not name then ns.Print("Velg en fiendtlig spiller som mål først.") return end
+  if not (ns.S(UnitIsPlayer, "target") and ns.S(UnitIsEnemy, "player", "target")) then
     ns.Print("Målet ditt er ikke en fiendtlig spiller.")
     return
   end
@@ -99,7 +99,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   eh:SetPoint("TOPLEFT")
   eh:SetText("Fiendelogg")
   local tag = UI.Button(right, 130, 28, "Tagg målet ditt", "secondary", function()
-    if not UnitExists("target") then ns.Print("Velg en fiendtlig spiller som mål først.") return end
+    if not ns.S(UnitExists, "target") then ns.Print("Velg en fiendtlig spiller som mål først.") return end
     UI.Prompt("Legg i fiendeloggen", { { label = "Notat (valgfritt)", placeholder = "f.eks. ganker lowbies i STV" } },
       function(note) ns.TagTarget(note) end)
   end)

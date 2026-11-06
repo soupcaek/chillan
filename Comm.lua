@@ -18,8 +18,8 @@ local function now() return GetTime() end
 
 function Comm:MyFull()
   if myFull then return myFull end
-  local name, realm = UnitFullName("player")
-  if not realm or realm == "" then realm = GetNormalizedRealmName and GetNormalizedRealmName() end
+  local name, realm = ns.S(UnitFullName, "player")
+  if not realm or realm == "" then realm = ns.S(GetNormalizedRealmName) end
   if name and realm and realm ~= "" then
     myFull = name .. "-" .. realm
     return myFull

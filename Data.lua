@@ -229,9 +229,9 @@ function Data:Hello()
   if not ns.codeHash then return end
   local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION)
   Comm:Broadcast(msg, 1)
-  if IsInGuild() then Comm:SendScope(msg, "GUILD", 2) end
-  if IsInRaid() then Comm:SendScope(msg, "RAID", 2)
-  elseif IsInGroup() then Comm:SendScope(msg, "PARTY", 2) end
+  if ns.S(IsInGuild) then Comm:SendScope(msg, "GUILD", 2) end
+  if ns.S(IsInRaid) then Comm:SendScope(msg, "RAID", 2)
+  elseif ns.S(IsInGroup) then Comm:SendScope(msg, "PARTY", 2) end
   -- venner vi tidligere bare har nådd via whisper (annen backend-realm)
   local t, n = ns.Now(), 0
   for char, r in pairs(ns.db.roster) do
@@ -746,18 +746,16 @@ end)
 local enemyAlerted = {}
 local function checkUnit(unit)
   if not ns.codeHash or not next(ns.db.enemies) then return end
-  local ok, isPlayer = pcall(UnitIsPlayer, unit)
-  if not ok or not isPlayer or ns.isSecret(isPlayer) then return end
-  local ok2, enemy = pcall(UnitIsEnemy, "player", unit)
-  if not ok2 or not enemy or ns.isSecret(enemy) then return end
-  local name = UnitName(unit)
-  if not name or ns.isSecret(name) then return end
+  if not ns.S(UnitIsPlayer, unit) then return end
+  if not ns.S(UnitIsEnemy, "player", unit) then return end
+  local name = ns.S(UnitName, unit)
+  if not name then return end
   local key = name:lower()
   local e = ns.db.enemies[key]
   if not e then return end
   if enemyAlerted[key] and ns.Now() - enemyAlerted[key] < 300 then return end
   enemyAlerted[key] = ns.Now()
-  local zone = GetRealZoneText() or ""
+  local zone = ns.S(GetRealZoneText) or ""
   ns:Fire("TOAST", { kind = "enemy", title = "Fiende i nærheten: " .. e.name, text = e.note ~= "" and e.note or "Fra fiendeloggen" })
   ns.Sound("sos")
   ns.Tracker:Event("ENSEEN", e.name, ns.Clean(zone, 30))

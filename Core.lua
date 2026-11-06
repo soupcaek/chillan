@@ -126,6 +126,21 @@ function ns.isSecret(v)
   return issecretvalue and issecretvalue(v) or false
 end
 
+-- Kall en spill-API trygt: hemmelige verdier (Midnight/Forever) blir nil i stedet for å krasje
+local function cleanResults(ok, ...)
+  if not ok then return end
+  local n = select("#", ...)
+  local out = { ... }
+  for i = 1, n do
+    if ns.isSecret(out[i]) then out[i] = nil end
+  end
+  return unpack(out, 1, n)
+end
+function ns.S(fn, ...)
+  if type(fn) ~= "function" then return end
+  return cleanResults(pcall(fn, ...))
+end
+
 function ns.Now() return time() end
 
 function ns.ShortName(full)

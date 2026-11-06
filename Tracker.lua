@@ -26,11 +26,11 @@ end
 function Tracker:RefreshCharInfo()
   local me = self:Me()
   local c, full = self:MyChar()
-  c.name = UnitName("player")
-  local _, classFile = UnitClass("player")
-  c.class = classFile
-  c.race = UnitRace("player")
-  c.level = UnitLevel("player")
+  c.name = ns.S(UnitName, "player") or c.name
+  local _, classFile = ns.S(UnitClass, "player")
+  c.class = classFile or c.class
+  c.race = ns.S(UnitRace, "player") or c.race
+  c.level = ns.S(UnitLevel, "player") or c.level or 1
   me.main = full
   me.heard = ns.Now()
   -- levelhistorikk til statistikkgrafen
@@ -75,8 +75,8 @@ function Tracker:Status()
       return o
     end
   end
-  if UnitIsAFK("player") then return "AFK" end
-  local inInst, kind = IsInInstance()
+  if ns.S(UnitIsAFK, "player") then return "AFK" end
+  local inInst, kind = ns.S(IsInInstance)
   if inInst then
     if kind == "pvp" or kind == "arena" then return "BG" end
     return "DUNGEON"
@@ -93,14 +93,14 @@ end
 
 function Tracker:Location()
   local loc = {}
-  local inInst = IsInInstance()
+  local inInst = ns.S(IsInInstance)
   loc.inInst = inInst and true or false
   if inInst then
-    loc.zone = (GetInstanceInfo()) or GetRealZoneText() or ""
+    loc.zone = (ns.S(GetInstanceInfo)) or ns.S(GetRealZoneText) or ""
     loc.sub = ""
   else
-    loc.zone = GetRealZoneText() or GetZoneText() or ""
-    loc.sub = GetSubZoneText() or ""
+    loc.zone = ns.S(GetRealZoneText) or ns.S(GetZoneText) or ""
+    loc.sub = ns.S(GetSubZoneText) or ""
   end
   local ok = pcall(function()
     local mapID = C_Map.GetBestMapForUnit("player")
@@ -108,12 +108,14 @@ function Tracker:Location()
     local pos = C_Map.GetPlayerMapPosition(mapID, "player")
     if not pos then return end
     local x, y = pos:GetXY()
-    if not x or ns.isSecret(x) or (x == 0 and y == 0) then return end
+    if not x or ns.isSecret(x) or ns.isSecret(y) or (x == 0 and y == 0) then return end
     loc.mapID, loc.x, loc.y = mapID, x, y
     local cont, wp = C_Map.GetWorldPosFromMapPos(mapID, pos)
-    if cont and wp then
+    if cont and wp and not ns.isSecret(cont) then
       local wx, wy = wp:GetXY()
-      loc.cont, loc.wx, loc.wy = cont, wx, wy
+      if not ns.isSecret(wx) and not ns.isSecret(wy) then
+        loc.cont, loc.wx, loc.wy = cont, wx, wy
+      end
     end
   end)
   return loc
@@ -310,8 +312,8 @@ end
 
 function Tracker:Start()
   session.start = ns.Now()
-  session.startLevel = UnitLevel("player")
-  lastMoney = GetMoney()
+  session.startLevel = ns.S(UnitLevel, "player") or 1
+  lastMoney = ns.S(GetMoney)
   lastTick = GetTime()
   self:RefreshCharInfo()
   self:UpdateLive()
@@ -329,7 +331,7 @@ function Tracker:SessionSummary()
   local played = ns.Now() - session.start
   return {
     char = ns.Comm:MyFull(), at = ns.Now(), online = played,
-    levels = UnitLevel("player") - (session.startLevel or UnitLevel("player")),
+    levels = math.max(0, (ns.S(UnitLevel, "player") or session.startLevel or 1) - (session.startLevel or 1)),
     quests = session.quests, gold = session.gold, deaths = session.deaths, sos = session.sos,
   }
 end
@@ -379,7 +381,8 @@ ns:On("QUEST_TURNED_IN", function()
 end)
 
 ns:On("PLAYER_MONEY", function()
-  local m = GetMoney()
+  local m = ns.S(GetMoney)
+  if not m then return end
   if lastMoney and m > lastMoney then
     local diff = m - lastMoney
     session.gold = session.gold + diff
