@@ -84,7 +84,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     local lvl = ns:PersonMaxLevel(p)
     row.rank:SetText(idx)
     row.rank:SetTextColor(hex(medal[idx] or C.dim))
-    row.name:SetText(ns.Colorize(ns:PersonName(p), ns.ClassHex(c.class)))
+    row.name:SetText(ns:PersonLabel(p))
     local played = ns:PersonPlayed(p)
     row.sub:SetText((played > 0 and ("/played " .. ns.Duration(played)) or "/played ukjent") .. (p.pid == ns.pid and "  ·  deg" or ""))
     row.lvl:SetText(lvl)
@@ -219,7 +219,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       lg:ClearAllPoints()
       local col, row = (si - 1) % 4, math.floor((si - 1) / 4)
       lg:SetPoint("BOTTOMLEFT", graphPage, "BOTTOMLEFT", col * 112, 20 - row * 18)
-      lg:SetText(ns.Colorize("— " .. ns:PersonFirst(s.p), ns.ClassHex(s.c.class)))
+      lg:SetText(ns.Colorize("— " .. (ns:PersonAlias(s.p) or ns:PersonFirst(s.p)), ns.ClassHex(s.c.class)))
       lg:Show()
     end
   end
@@ -323,7 +323,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     local c = ns:PersonChar(p) or {}
     row.cells.rank:SetText(idx)
     row.cells.rank:SetTextColor(hex(medal[idx] or C.dim))
-    row.cells.name:SetText(ns.Colorize(ns:PersonFirst(p), ns.ClassHex(c.class)))
+    row.cells.name:SetText(ns:PersonLabel(p))
     row.cells.level:SetText(ns:PersonMaxLevel(p))
     row.cells.quests:SetText(math.floor(value(p, "quests")))
     row.cells.gold:SetText(math.floor(value(p, "gold") / 10000) .. "g")
@@ -348,7 +348,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
 
   local function nameOf(p)
     local c = ns:PersonChar(p) or {}
-    return ns.Colorize(ns:PersonFirst(p), ns.ClassHex(c.class))
+    return ns:PersonLabel(p)
   end
   local function fact(icon, color, label, text)
     facts:AddMessage(UI.InlineIcon(icon, color, 14) .. "  " .. ns.Colorize(label, C.dim) .. "   " .. text)
@@ -507,7 +507,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     if daysLeft == 0 then daysLeft = 7 end
     if leader then
       local lc = ns:PersonChar(leader) or {}
-      ch.sub:SetText("Leder: " .. ns.Colorize(ns:PersonFirst(leader), ns.ClassHex(lc.class)) .. " – " .. chal.fmt(v))
+      ch.sub:SetText("Leder: " .. ns:PersonLabel(leader) .. " – " .. chal.fmt(v))
     else
       ch.sub:SetText("Ingen poeng ennå")
     end
@@ -527,7 +527,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     if worst then
       local wc = ns:PersonChar(worst) or {}
       shame.big:SetText(math.floor(wv))
-      shame.who:SetText("dødsfall · " .. ns.Colorize(ns:PersonFirst(worst), ns.ClassHex(wc.class)))
+      shame.who:SetText("dødsfall · " .. ns:PersonLabel(worst))
       shame.last:SetText(worst.deathZone and ("Sist: " .. worst.deathZone .. ", " .. ns.Ago(worst.deathAt)) or "")
     else
       shame.big:SetText("0")

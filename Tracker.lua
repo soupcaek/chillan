@@ -26,7 +26,7 @@ end
 function Tracker:RefreshCharInfo()
   local me = self:Me()
   local c, full = self:MyChar()
-  c.name = ns.S(UnitName, "player") or c.name
+  c.name = ns.MyDisplayName() or c.name
   local _, classFile = ns.S(UnitClass, "player")
   c.class = classFile or c.class
   c.race = ns.S(UnitRace, "player") or c.race
@@ -147,7 +147,7 @@ function Tracker:BuildST()
     ns.Clean(L.zone, 32), ns.Clean(L.sub, 32), L.status, ns.Now() - session.start,
     L.inInst, L.mapID or "", L.x and math.floor(L.x * 1000) or "", L.y and math.floor(L.y * 1000) or "",
     L.cont or "", L.wx and math.floor(L.wx) or "", L.wy and math.floor(L.wy) or "",
-    ns.Clean(c.name or "", 40), ns.VERSION)
+    ns.Clean(c.name or "", 40), ns.VERSION, ns.Clean(ns.db.alias or "", 20))
 end
 
 -- Tilleggsstatistikk (levels, PvP-kills, lengste økt) i egen melding

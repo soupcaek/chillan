@@ -51,7 +51,7 @@ function O:CreateMinibar()
       if pid ~= ns.pid and p.main and ns:IsOnline(p) then
         local c = ns:PersonChar(p) or {}
         local r, g, b = ns.ClassColor(c.class)
-        GameTooltip:AddDoubleLine(ns.FirstName(c.name or "?") .. "  " .. (c.level or ""), (p.live and p.live.zone) or "", r, g, b, 0.6, 0.63, 0.66)
+        GameTooltip:AddDoubleLine((c.name or "?") .. (ns:PersonAlias(p) and (" (" .. ns:PersonAlias(p) .. ")") or "") .. "  " .. (c.level or ""), (p.live and p.live.zone) or "", r, g, b, 0.6, 0.63, 0.66)
         any = true
       end
     end
@@ -387,11 +387,12 @@ function O:ShowProfile(anchor, pid)
   local c = ns:PersonChar(p) or {}
   local online = ns:IsOnline(p)
   f.avatar:Set(c.name, c.class, online and C.green or nil, "1B1E22")
-  f.name:SetText(ns.Colorize(c.name or "?", ns.ClassHex(c.class)))
+  f.name:SetText(ns:PersonLabel(p))
   local where = (p.live and p.live.zone) or ""
   f.sub:SetText(online and ("Online" .. (where ~= "" and (" · " .. where) or "")) or ("Offline · sist sett " .. ns.Ago(p.lastSeen)))
   local rows = {}
   local className = c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""
+  if ns:PersonAlias(p) then rows[#rows + 1] = { "Spiller", ns:PersonAlias(p) } end
   rows[#rows + 1] = { "Karakter", string.format("Level %s %s %s", c.level or "?", c.race or "", className) }
   local alts = {}
   for full, ch in pairs(p.chars) do
@@ -500,7 +501,7 @@ function O:ShowDing(item)
   end
   local p = ns:GetPerson(item.pid) or {}
   local c = (p.chars and p.chars[item.char]) or {}
-  d.title:SetText(ns.Colorize(ns.FirstName(item.char), ns.ClassHex(c.class)) .. " nådde level " .. tostring(item.a))
+  d.title:SetText(ns:PersonLabel(p, item.char) .. " nådde level " .. tostring(item.a))
   local parts = {}
   if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
   if item.first then parts[#parts + 1] = ns.Colorize("først i gjengen!", C.gold)

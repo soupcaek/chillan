@@ -56,7 +56,7 @@ ns:RegisterTab("tavle", "Tavle", "Calendar", function(tab)
     local p = ns:GetPerson(it.pid) or {}
     local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
     row.what:SetText(it.text)
-    row.who:SetText(ns.Colorize(ns.FirstName(it.char), ns.ClassHex(c.class)) .. "  ·  " .. ns.Ago(it.t)
+    row.who:SetText(ns:PersonLabel(p, it.char) .. "  ·  " .. ns.Ago(it.t)
       .. ((it.note and it.note ~= "") and ("  ·  " .. it.note) or ""))
     if it.pid == ns.pid then
       row.btn:SetStyle("ghost") row.btn:SetLabel("Fjern")

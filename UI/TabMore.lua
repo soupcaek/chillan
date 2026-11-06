@@ -8,6 +8,16 @@ function ns.ChangeCode(code)
   return ns:SetCode(code) -- CODE_CHANGED kobler til ny kanal og sier hei
 end
 
+function ns.SetAlias(text)
+  local a = ns.Clean(text or "", 20)
+  if a == "" then ns.Print("Skriv inn navnet ditt.") return false end
+  ns.db.alias = a
+  ns.Tracker:SendStatus(1)
+  ns:MarkDirty()
+  ns.Print("Navnet ditt er lagret: " .. a)
+  return true
+end
+
 function ns.TagTarget(note)
   local name = ns.S(UnitName, "target")
   if not name then ns.Print("Velg en fiendtlig spiller som mål først.") return end
@@ -46,8 +56,22 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   end)
   change:SetPoint("LEFT", code, "RIGHT", 8, 0)
 
+  local al = UI.Text(left, 12, nil, C.dim)
+  al:SetPoint("TOPLEFT", code, "BOTTOMLEFT", 0, -12)
+  al:SetText("Ditt navn (IRL) – vises ved alle karakterene dine")
+  local aliasBox = UI.EditBox(left, LEFT_W - 96, 34, "f.eks. Henrik", function(self)
+    ns.SetAlias(self:GetText())
+    self:ClearFocus()
+  end)
+  aliasBox:SetPoint("TOPLEFT", al, "BOTTOMLEFT", 0, -6)
+  local saveAlias = UI.Button(left, 88, 34, "Lagre", "secondary", function()
+    ns.SetAlias(aliasBox:GetText())
+    aliasBox.edit:ClearFocus()
+  end)
+  saveAlias:SetPoint("LEFT", aliasBox, "RIGHT", 8, 0)
+
   local nl = UI.Text(left, 12, nil, C.dim)
-  nl:SetPoint("TOPLEFT", code, "BOTTOMLEFT", 0, -12)
+  nl:SetPoint("TOPLEFT", aliasBox, "BOTTOMLEFT", 0, -12)
   nl:SetText("Dukker ikke en venn opp?")
   local addFriend = UI.Button(left, LEFT_W, 34, "Legg til venn manuelt", "ghost", function()
     UI.Prompt("Legg til venn manuelt", {
@@ -62,12 +86,14 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   sh:SetText("Innstillinger")
   local S = ns.db.settings
   local checks = {
+    { "Gjengchat i vanlig chat", "chatMirror" },
+    { "Aktivitet (dings, gratulasjoner m.m.) i chat", "activityMirror" },
     { "Vis minibar på skjermen", "minibar", function() ns:Fire("MINIBAR") end },
     { "Vis knapp ved minikartet", "minimapButton", function() ns:Fire("MINIBAR") end },
     { "Lyder", "sounds" },
     { "Popup-varsler", "toasts" },
     { "Varsel når venner logger på", "onlineToasts" },
-    { "Venner på verdenskartet", "mapPins", function() ns:Fire("MAP_PINS") end },
+
   }
   local y = -10
   local checkFrames = {}
@@ -77,7 +103,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
       if def[3] then def[3]() end
     end)
     cb:SetPoint("TOPLEFT", sh, "BOTTOMLEFT", 0, y)
-    y = y - 28
+    y = y - 26
     checkFrames[#checkFrames + 1] = cb
   end
   local blue = UI.Check(left, "Del blå drops i feeden (ikke bare episke)",
@@ -87,8 +113,8 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
   checkFrames[#checkFrames + 1] = blue
 
   local ver = UI.Text(left, 11, nil, C.dim)
-  ver:SetPoint("BOTTOMLEFT", 0, 0)
-  ver:SetText("Chillan? " .. ns.VERSION .. " · hurtigtast kan settes under Taster → AddOns")
+  ver:SetPoint("LEFT", h, "RIGHT", 10, 0)
+  ver:SetText("versjon " .. ns.VERSION)
 
   -- Høyre: fiendelogg og "kan lage"
   local right = CreateFrame("Frame", nil, tab)
@@ -161,7 +187,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
     row.what:SetText(it.what)
     local p = ns:GetPerson(it.pid) or {}
     local c = ns:PersonChar(p) or {}
-    row.who:SetText(ns.Colorize(ns:PersonFirst(p), ns.ClassHex(c.class)) .. " · " .. it.detail)
+    row.who:SetText(ns:PersonLabel(p) .. " · " .. it.detail)
     if it.pid == ns.pid then row.ask:Hide() else
       row.ask:Show()
       row.ask:SetScript("OnClick", function() ns.Data:RequestCraft(it.pid, it.what) end)
@@ -179,6 +205,7 @@ ns:RegisterTab("more", "Mer", "More", function(tab)
 
   function tab:Refresh()
     code:SetText(ns.db.code or "")
+    if not aliasBox.edit:HasFocus() then aliasBox:SetText(ns.db.alias or "") end
     for _, cb in ipairs(checkFrames) do cb:Refresh() end
 
     local es = {}

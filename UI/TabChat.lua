@@ -6,7 +6,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  local who = ns.Colorize(ns.FirstName(c.name or it.char), ns.ClassHex(c.class))
+  local who = ns:PersonLabel(p, it.char)
   local icon, color, text = "Star", C.purple, ""
   if it.kind == "DING" then
     icon, color = "Up", C.green
@@ -50,7 +50,7 @@ end
 function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  return ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns.Colorize(ns.FirstName(c.name or it.char), ns.ClassHex(c.class))
+  return ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLabel(p, it.char)
     .. "  " .. ns.Colorize(it.text, "D4D7DB")
 end
 

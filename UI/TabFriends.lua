@@ -58,7 +58,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     row.avatar:SetPoint("LEFT", 10, 0)
     row.name = UI.Text(row, 14, "semi", C.text)
     row.name:SetPoint("TOPLEFT", row.avatar, "TOPRIGHT", 12, 0)
-    row.name:SetWidth(170)
+    row.name:SetWidth(186)
     row.sub = UI.Text(row, 12, nil, C.dim)
     row.sub:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 12, 0)
     row.sub:SetWidth(170)
@@ -92,7 +92,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     local status = online and (L.status or "QUEST") or "OFFLINE"
     local st = ns.STATUS[status] or ns.STATUS.QUEST
     row.avatar:Set(c.name, c.class, online and (status == "AFK" and C.amber or C.green) or nil)
-    row.name:SetText(ns.Colorize(c.name or "?", ns.ClassHex(c.class)))
+    row.name:SetText(ns:PersonLabel(p))
     row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""))
     if online then
       local z = L.zone or ""

@@ -148,10 +148,21 @@ function ns.ShortName(full)
   return (full:match("^([^%-]+)")) or full
 end
 
--- Forever-navn har to ord ("Fornavn Etternavn"). Fornavn brukes der det er trangt.
+-- Forever-navn har to ord ("Lil Warrior"). Vi viser alltid hele navnet (uten realm).
 function ns.FirstName(name)
-  name = ns.ShortName(name)
-  return (name:match("^(%S+)")) or name
+  return ns.ShortName(name)
+end
+
+-- Hele karakternavnet til spilleren selv, også om spillet gir etternavnet separat
+function ns.MyDisplayName()
+  local n = ns.S(UnitName, "player") or "?"
+  if n:find(" ") then return n end
+  local _, second = ns.S(UnitFullName, "player")
+  local realm = ns.S(GetNormalizedRealmName)
+  if second and second ~= "" and second ~= realm and not second:find("%d") and not second:find("Classic") then
+    return n .. " " .. second
+  end
+  return n
 end
 
 function ns.Clean(text, maxLen)
@@ -279,6 +290,7 @@ local DEFAULTS = {
   settings = {
     minibar = true, sounds = true, toasts = true, mapPins = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
+    chatMirror = true, activityMirror = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},
@@ -344,9 +356,25 @@ function ns:PersonName(p)
   return c and c.name or "?"
 end
 
--- Bare fornavnet, for lister og varsler
+-- Kortnavn (= hele karakternavnet) for lister og varsler
 function ns:PersonFirst(p)
-  return ns.FirstName(ns:PersonName(p))
+  return ns:PersonName(p)
+end
+
+-- IRL-navnet personen har skrevet inn (gjelder alle karakterene deres)
+function ns:PersonAlias(p)
+  if not p then return nil end
+  if p == ns.db.people[ns.pid] then return ns.db.alias end
+  return (p.alias and p.alias ~= "") and p.alias or nil
+end
+
+-- "Lil Warrior" i klassefarge + " (Henrik)" dempet
+function ns:PersonLabel(p, char)
+  local c = (char and p and p.chars and p.chars[char]) or ns:PersonChar(p) or {}
+  local name = ns.Colorize(c.name or (char and ns.ShortName(char)) or "?", ns.ClassHex(c.class))
+  local alias = ns:PersonAlias(p)
+  if alias then name = name .. ns.Colorize(" (" .. alias .. ")", "9BA1A8") end
+  return name
 end
 
 function ns:PersonMaxLevel(p)

@@ -23,5 +23,6 @@ UI\TabFeed.lua
 UI\TabMap.lua
 UI\TabMore.lua
 UI\Overlays.lua
+UI\Mirror.lua
 UI\MapPins.lua
 Init.lua

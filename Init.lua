@@ -45,6 +45,13 @@ ns:On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
         ns:Fire("SHOW_SUMMARY", last, true)
       end
     end)
+    C_Timer.After(12, function()
+      if ns.db.code and not ns.db.alias then
+        ns.UI.Prompt("Hva heter du?", {
+          { label = "Navnet ditt – vises ved alle karakterene dine", placeholder = "f.eks. Henrik" },
+        }, function(v) if not ns.SetAlias(v) then return true end end)
+      end
+    end)
     if not ns.db.code then
       C_Timer.After(10, function()
         ns.Print("Velkommen! Skriv |cffc8d1dc/chill|r for å lage eller bli med i en gjeng.")

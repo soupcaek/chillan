@@ -43,14 +43,16 @@ Comm:Handle("ST", function(f, sender, channel)
   -- fullt karakternavn (Forever: fornavn + etternavn) fra eldre klienter kan mangle
   if f[17] and f[17] ~= "" and (f[18] and f[18] ~= "") then c.name = f[17] end
   if f[18] and f[18] ~= "" then p.version = f[18] Data:CheckVersion(f[18], pid) end
+  if f[19] and f[19] ~= "" then p.alias = f[19] end
   p.heard = ns.Now()
   p.lastSeen = ns.Now()
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
   if not wasOnline then
+    if not quiet() then ns:Fire("ACTIVITY", ns:PersonLabel(p) .. " logget på" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or "")) end
     if not quiet() and ns.db.settings.onlineToasts then
       ns:Fire("TOAST", { kind = "online", pid = pid,
-        title = ns:PersonFirst(p) .. " logget på",
+        title = ns:PersonLabel(p) .. " logget på",
         text = (c.level and ("Lvl " .. c.level .. " · ") or "") .. (L.zone or "") })
     end
     -- ny venn på nett: send våre egne data og hent historikk ved behov
@@ -142,7 +144,7 @@ local function buildSC(pid, p)
   local c = ns:PersonChar(p) or {}
   local s = p.stats or {}
   local pv = s.prev or {}
-  return Comm:Build("SC", pid, "", p.main or "", c.class or "", c.race or "",
+  return Comm:Build("SC", pid, ns.Clean(p.alias or "", 20), p.main or "", c.class or "", c.race or "",
     c.level or 0, ns:PersonPlayed(p), ns.Now() - (p.lastSeen or ns.Now()),
     s.wk or "", s.wOnline or 0, s.wQuests or 0, s.wGold or 0, s.wDeaths or 0,
     s.tOnline or 0, s.tQuests or 0, s.tGold or 0, s.tDeaths or 0,
@@ -156,6 +158,7 @@ Comm:Handle("SC", function(f)
   local p = ns:GetPerson(pid, true)
   if p.lastSeen and p.lastSeen >= lastSeen - 5 then return end
   if ns:IsOnline(p) then return end
+  if f[2] and f[2] ~= "" then p.alias = f[2] end
   local char = f[3]
   if char and char ~= "" then
     local c = p.chars[char] or {}
@@ -405,6 +408,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   ns.PushCapped(ns.db.feed, item, 150)
   table.sort(ns.db.feed, function(x, y) return x.t < y.t end)
   if pid ~= ns.pid and fresh(t) then
+    ns:Fire("ACTIVITY", ns.FeedLine(item, false))
     if kind == "DING" then
       ns:Fire("DING", item)
       ns.Sound("ding")
@@ -414,9 +418,9 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     elseif kind == "ENSEEN" then
       ns:Fire("TOAST", { kind = "enemy", pid = pid,
         title = "Fiende spottet: " .. tostring(a),
-        text = ns:PersonFirst(p) .. " ser vedkommende i " .. tostring(b) })
+        text = ns:PersonLabel(p) .. " ser vedkommende i " .. tostring(b) })
     elseif kind == "MOUNT" and item.first then
-      ns:Fire("TOAST", { kind = "star", pid = pid, title = ns:PersonFirst(p) .. " fikk mount!", text = "Først i gjengen" })
+      ns:Fire("TOAST", { kind = "star", pid = pid, title = ns:PersonLabel(p) .. " fikk mount!", text = "Først i gjengen" })
     end
   end
   ns:MarkDirty()
@@ -489,6 +493,9 @@ Comm:Handle("RX", function(f)
   if not item then return end
   local idx = num(f[4]) or 1
   if not addReaction(item, f[2], f[3], idx) then return end
+  local rp = ns:GetPerson(f[2], true)
+  local target = item.pid == ns.pid and "deg" or ns:PersonLabel(ns:GetPerson(item.pid) or {}, item.char)
+  ns:Fire("ACTIVITY", ns:PersonLabel(rp, f[3]) .. " → " .. target .. ": " .. ns.Colorize(ns.REACTIONS[idx] or "Gratulerer!", "B9AEDB"))
   if item.pid == ns.pid then
     -- samle gratulasjonene til ett varsel
     reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3])
@@ -543,7 +550,8 @@ Comm:Handle("MT", function(f)
   local isNew = ns.db.mats[id] == nil
   ns.db.mats[id] = { id = id, pid = f[2], char = f[3], t = ago2t(f[4]), text = f[5] or "", note = f[6] or "" }
   if isNew and fresh(ns.db.mats[id].t) and not quiet() then
-    ns:Fire("TOAST", { kind = "mats", pid = f[2], title = ns.FirstName(f[3]) .. " trenger " .. (f[5] or "noe"),
+    ns:Fire("ACTIVITY", ns:PersonLabel(ns:GetPerson(f[2], true), f[3]) .. " trenger " .. ns.Colorize(f[5] or "noe", "E0B04F") .. " – svar i Tavle-fanen")
+    ns:Fire("TOAST", { kind = "mats", pid = f[2], title = ns:PersonLabel(ns:GetPerson(f[2], true), f[3]) .. " trenger " .. (f[5] or "noe"),
       text = (f[6] and f[6] ~= "") and f[6] or "Har du? Svar i Tavle-fanen" })
   end
   ns:MarkDirty()
@@ -557,7 +565,7 @@ end)
 Comm:Handle("MH", function(f, sender)
   local post = ns.db.mats[f[3] or ""]
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
-    title = ns.FirstName(f[2] ~= "" and f[2] or sender) .. " har det du trenger",
+    title = ns:PersonLabel(ns:GetPerson(f[1], true), f[2]) .. " har det du trenger",
     text = post and post.text or "Mats" })
   ns.Sound("online")
 end)
@@ -613,6 +621,9 @@ Comm:Handle("PO", function(f)
   local opts = {}
   for _, o in ipairs(ns.Split(f[5] or "", ";")) do if o ~= "" then opts[#opts + 1] = o end end
   ns.PushCapped(ns.db.polls, { id = f[1], pid = f[2], t = ago2t(f[3]), q = f[4], opts = opts, votes = {} }, 5)
+  if fresh(ago2t(f[3])) and not quiet() then
+    ns:Fire("ACTIVITY", "Ny avstemning: " .. ns.Colorize(f[4] or "", "E8EAED") .. " – stem i Tavle-fanen")
+  end
   ns:MarkDirty()
 end)
 
@@ -660,6 +671,9 @@ end
 Comm:Handle("AV", function(f)
   if findEvent(f[1]) then return end
   ns.PushCapped(ns.db.events, { id = f[1], pid = f[2], t = ago2t(f[3]), title = f[4], when = f[5], rsvp = {} }, 10)
+  if fresh(ago2t(f[3])) and not quiet() then
+    ns:Fire("ACTIVITY", "Ny avtale: " .. ns.Colorize((f[4] or "") .. ((f[5] and f[5] ~= "") and (" – " .. f[5]) or ""), "E8EAED") .. " – svar i Tavle-fanen")
+  end
   ns:MarkDirty()
 end)
 
@@ -703,7 +717,7 @@ end
 
 Comm:Handle("RS", function(f)
   local p = ns:GetPerson(f[1], true)
-  ns:Fire("TOAST", { kind = "sos", pid = f[1], title = ns:PersonFirst(p) .. " er på vei!", text = "Hold ut litt til" })
+  ns:Fire("TOAST", { kind = "sos", pid = f[1], title = ns:PersonLabel(p) .. " er på vei!", text = "Hold ut litt til" })
 end)
 
 ---------------------------------------------------------------------------
@@ -780,7 +794,7 @@ end
 Comm:Handle("CR", function(f, sender)
   local p = ns:GetPerson(f[1], true)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
-    title = ns:PersonFirst(p) .. " ber om craft", text = (f[3] and f[3] ~= "") and f[3] or "Ta kontakt i spillet" })
+    title = ns:PersonLabel(p) .. " ber om craft", text = (f[3] and f[3] ~= "") and f[3] or "Ta kontakt i spillet" })
   ns.Sound("online")
 end)
 
@@ -838,7 +852,7 @@ function Data:AnnounceWinner()
   if not best or ns.db.announced[pwk] then return end
   ns.db.announced[pwk] = true
   ns:Fire("TOAST", { kind = "trophy", pid = best.pid, sticky = true,
-    title = "Forrige ukes vinner: " .. ns:PersonFirst(best),
+    title = "Forrige ukes vinner: " .. ns:PersonLabel(best),
     text = ch.label .. " – " .. ch.fmt(v) })
 end
 

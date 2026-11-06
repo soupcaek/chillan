@@ -1,0 +1,33 @@
+-- Chillan? – gjengchat og aktivitet speiles i den vanlige chatten
+local ADDON, ns = ...
+local C = ns.C
+
+local PREFIX_CHAT = "|cff8fb8c9[Gjeng]|r "
+local PREFIX_ACT = "|cffc8d1dc[Chillan?]|r "
+
+local function out(text)
+  local frame = DEFAULT_CHAT_FRAME or ChatFrame1
+  if frame and frame.AddMessage then frame:AddMessage(text) end
+end
+
+-- Klikkbart navn i chatten (venstreklikk = hvisk, høyreklikk = meny)
+local function playerLink(p, char)
+  local c = (p and p.chars and p.chars[char]) or ns:PersonChar(p) or {}
+  local shown = c.name or ns.ShortName(char)
+  local link = "|Hplayer:" .. (char or shown) .. "|h" .. ns.Colorize(shown, ns.ClassHex(c.class)) .. "|h"
+  local alias = ns:PersonAlias(p)
+  if alias then link = link .. ns.Colorize(" (" .. alias .. ")", "9BA1A8") end
+  return link
+end
+
+ns:Listen("CHAT", function(item)
+  if not ns.db.settings.chatMirror then return end
+  if (ns.Now() - (item.t or 0)) > 120 then return end -- ikke gammel historikk
+  local p = ns:GetPerson(item.pid) or {}
+  out(PREFIX_CHAT .. playerLink(p, item.char) .. ": " .. ns.Colorize(item.text, "D9F0F7"))
+end)
+
+ns:Listen("ACTIVITY", function(text)
+  if not ns.db.settings.activityMirror then return end
+  out(PREFIX_ACT .. text)
+end)
