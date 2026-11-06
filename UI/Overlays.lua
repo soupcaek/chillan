@@ -109,6 +109,7 @@ local KIND = {
   join = { icon = "Friends", color = C.accent, label = "Vil bli med" },
   craft = { icon = "Mail", color = C.purple, label = "Craft" },
   star = { icon = "Star", color = C.amber, label = "Milepæl" },
+  dead = { icon = "Skull", color = C.red, label = "Ha ha" },
   sos = { icon = "SOS", color = C.red, label = "SOS" },
   trophy = { icon = "Trophy", color = C.gold, label = "Ukens vinner" },
   info = { icon = "Star", color = C.accent, label = "Chillan?" },
@@ -485,11 +486,8 @@ function O:CreateDing()
   d.close.style = { text = C.dim, hover = C.card }
   d.close.icon:SetVertexColor(hex(C.dim))
   d.buttons = {}
-  local bw = math.floor((440 - 40 - 16) / 3)
-  for i, label in ipairs(ns.REACTIONS) do
-    local b = UI.Button(d, bw, 36, label, i == 1 and "primary" or "secondary")
-    b:SetPoint("BOTTOMLEFT", 20 + (i - 1) * (bw + 8), 20)
-    d.buttons[i] = b
+  for i = 1, 4 do
+    d.buttons[i] = UI.Button(d, 100, 36, "", i == 1 and "primary" or "secondary")
   end
   d.sent = UI.Text(d, 13, "semi", C.green)
   d.sent:SetPoint("BOTTOM", 0, 30)
@@ -508,20 +506,47 @@ function O:ShowDing(item)
     return
   end
   local p = ns:GetPerson(item.pid) or {}
-  local c = (p.chars and p.chars[item.char]) or {}
-  d.title:SetText(ns:PersonLabel(p, item.char) .. " nådde level " .. tostring(item.a))
+  local dead = item.kind == "DEAD"
   local parts = {}
-  if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
-  if item.first then parts[#parts + 1] = ns.Colorize("først i gjengen!", C.gold)
-  elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "nr. " .. item.place .. " i gjengen" end
+  if dead then
+    d.kicker:SetText("DØD!")
+    d.kicker:SetTextColor(hex(C.red))
+    d.icon:SetTexture(ns.TEX .. "IconSkull")
+    d.icon:SetVertexColor(hex(C.red))
+    d.title:SetText(ns:PersonLabel(p, item.char) .. " døde")
+    parts[#parts + 1] = "i " .. tostring(item.a or "ukjent sted")
+    local total = ns:TotalStat(p, "Deaths")
+    if total > 0 then parts[#parts + 1] = "dødsfall nr. " .. math.floor(total + 1) end
+  else
+    d.kicker:SetText("DING!")
+    d.kicker:SetTextColor(hex(C.green))
+    d.icon:SetTexture(ns.TEX .. "IconUp")
+    d.icon:SetVertexColor(hex(C.green))
+    d.title:SetText(ns:PersonLabel(p, item.char) .. " nådde level " .. tostring(item.a))
+    if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
+    if item.first then parts[#parts + 1] = ns.Colorize("først i gjengen!", C.gold)
+    elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "nr. " .. item.place .. " i gjengen" end
+  end
   d.text:SetText(table.concat(parts, " · "))
+  -- legg ut knappene etter hvor mange reaksjoner denne typen har (ding 3, død 4)
+  local list = dead and ns.REACTIONS_DEAD or ns.REACTIONS
+  local n = #list
+  local bw = math.floor((440 - 40 - (n - 1) * 8) / n)
+  for i, b in ipairs(d.buttons) do
+    if i <= n then
+      b:SetWidth(bw)
+      b:ClearAllPoints()
+      b:SetPoint("BOTTOMLEFT", 20 + (i - 1) * (bw + 8), 20)
+      b:SetLabel(list[i])
+    end
+  end
   d.sent:Hide()
   for i, b in ipairs(d.buttons) do
-    b:Show()
+    b:SetShown(i <= n)
     b:SetScript("OnClick", function()
       ns.Data:React(item, i)
       for _, x in ipairs(d.buttons) do x:Hide() end
-      d.sent:SetText("Sendt: " .. ns.REACTIONS[i])
+      d.sent:SetText("Sendt: " .. ns.ReactionText(item, i))
       d.sent:Show()
       d.life = 2
     end)

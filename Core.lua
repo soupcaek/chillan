@@ -278,6 +278,7 @@ function ns.Sound(kind)
   if kind == "ding" then id = kit.UI_LEVELUP_GENERIC or 888
   elseif kind == "sos" then id = kit.RAID_WARNING or 8959
   elseif kind == "online" then id = kit.UI_CHAT_SOUND_NOTIFY or kit.TELL_MESSAGE or 3081
+  elseif kind == "dead" then id = kit.UI_BATTLEGROUND_COUNTDOWN_FINISHED or kit.IG_QUEST_FAILED or 847
   else id = kit.IG_MAINMENU_OPTION_CHECKBOX_ON or 856 end
   pcall(PlaySound, id, "Master")
 end

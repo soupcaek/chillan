@@ -21,6 +21,9 @@ function ns.FeedLine(it, withTime)
   elseif it.kind == "DEAD" then
     icon, color = "Skull", C.dim
     text = "døde i " .. tostring(it.a or "?")
+    if it.reacts and #it.reacts > 0 then
+      text = text .. ns.Colorize(" · " .. #it.reacts .. " ler", C.red)
+    end
   elseif it.kind == "LOOT" then
     icon, color = "Star", C.purple
     local id = tonumber(it.a)

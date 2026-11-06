@@ -434,6 +434,9 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if kind == "DING" then
       ns:Fire("DING", item)
       ns.Sound("ding")
+    elseif kind == "DEAD" then
+      ns:Fire("DING", item)
+      ns.Sound("dead")
     elseif kind == "SOS" then
       ns:Fire("SOS", item)
       ns.Sound("sos")
@@ -488,6 +491,12 @@ end)
 -- Gratulasjoner og reaksjoner på dings
 ---------------------------------------------------------------------------
 ns.REACTIONS = { "Gratulerer!", "GZ!", "Endelig!" }
+ns.REACTIONS_DEAD = { "Hahaha!", "RIP", "Noob!", "F" }
+
+function ns.ReactionText(item, idx)
+  local list = (item and item.kind == "DEAD") and ns.REACTIONS_DEAD or ns.REACTIONS
+  return list[idx] or list[1]
+end
 
 local function findFeed(id)
   for i = #ns.db.feed, 1, -1 do
@@ -517,7 +526,7 @@ Comm:Handle("RX", function(f)
   if not addReaction(item, f[2], f[3], idx) then return end
   local rp = ns:GetPerson(f[2], true)
   local target = item.pid == ns.pid and "deg" or ns:PersonLabel(ns:GetPerson(item.pid) or {}, item.char)
-  ns:Fire("ACTIVITY", ns:PersonLabel(rp, f[3]) .. " → " .. target .. ": " .. ns.Colorize(ns.REACTIONS[idx] or "Gratulerer!", "B9AEDB"))
+  ns:Fire("ACTIVITY", ns:PersonLabel(rp, f[3]) .. " → " .. target .. ": " .. ns.Colorize(ns.ReactionText(item, idx), "B9AEDB"))
   if item.pid == ns.pid then
     -- samle gratulasjonene til ett varsel
     reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3])
@@ -525,10 +534,12 @@ Comm:Handle("RX", function(f)
       C_Timer.After(4, function()
         local names = reactBuffer
         reactBuffer = {}
-        local title
-        if #names == 1 then title = names[1] .. " gratulerte deg!"
-        else title = names[1] .. " og " .. (#names - 1) .. " andre gratulerte deg!" end
-        ns:Fire("TOAST", { kind = "star", title = title, text = "Med level " .. tostring(item.a) })
+        local who = #names == 1 and names[1] or (names[1] .. " og " .. (#names - 1) .. " andre")
+        if item.kind == "DEAD" then
+          ns:Fire("TOAST", { kind = "dead", title = who .. " ler av deg", text = "Du døde i " .. tostring(item.a or "?") })
+        else
+          ns:Fire("TOAST", { kind = "star", title = who .. " gratulerte deg!", text = "Med level " .. tostring(item.a) })
+        end
         ns.Sound("online")
       end)
     end
