@@ -98,7 +98,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     local status = online and (L.status or "QUEST") or "OFFLINE"
     local st = ns.STATUS[status] or ns.STATUS.QUEST
     row.avatar:Set(c.name, c.class, online and (status == "AFK" and C.amber or C.green) or nil)
-    row.name:SetText(ns:PersonLabel(p))
+    row.name:SetText(ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid))
     row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""))
     if online then
       local z = L.zone or ""
@@ -222,6 +222,10 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
   local sos = UI.Button(tab, 170, 36, "SOS – blir ganket", "danger", function() ns.Data:SOS() end)
   sos:SetIcon("SOS", 15)
   sos:SetPoint("BOTTOMRIGHT", -16, 8)
+  local ready = UI.Button(tab, 112, 36, "Klar-sjekk", "secondary", function() ns.Extras:StartReadyCheck() end)
+  ready:SetIcon("Check", 14)
+  ready:SetPoint("RIGHT", sos, "LEFT", -8, 0)
+  ready.tooltip = "Bag-plasser, holdbarhet og mat/drikke for alle i gruppa – fint før en dungeon"
 
   function tab:Refresh()
     local myZone = ns.Tracker:Me().live and ns.Tracker:Me().live.zone

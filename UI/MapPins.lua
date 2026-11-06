@@ -43,12 +43,14 @@ function P:Update()
   local canvas = map.ScrollContainer and map.ScrollContainer.Child
   if not canvas then return end
   for _, pin in ipairs(self.pins) do pin:Hide() end
-  if not ns.db.settings.mapPins or not ns.db.code then return end
+  if not ns.db.code then return end
   local mapID = map:GetMapID()
   if not mapID then return end
   local w, h = canvas:GetWidth(), canvas:GetHeight()
   local scale = canvas:GetEffectiveScale()
   local inv = scale > 0 and (UIParent:GetEffectiveScale() / scale) or 1
+  self:UpdateNotes(canvas, mapID, inv)
+  if not ns.db.settings.mapPins then return end
   local n = 0
   for pid, p in pairs(ns.db.people) do
     local L = p.live
@@ -78,6 +80,84 @@ function P:Update()
   end
 end
 
+---------------------------------------------------------------------------
+-- Gjeng-notater (Alt + høyreklikk på kartet for å lage)
+---------------------------------------------------------------------------
+P.notePins = {}
+local function createNotePin(canvas)
+  local pin = CreateFrame("Button", nil, canvas)
+  pin:SetSize(18, 18)
+  pin:SetFrameStrata("HIGH")
+  pin:RegisterForClicks("RightButtonUp")
+  pin.bg = pin:CreateTexture(nil, "ARTWORK")
+  pin.bg:SetTexture(ns.TEX .. "Circle")
+  pin.bg:SetAllPoints()
+  pin.bg:SetVertexColor(hex(C.window))
+  pin.icon = pin:CreateTexture(nil, "OVERLAY")
+  pin.icon:SetPoint("TOPLEFT", 3, -3)
+  pin.icon:SetPoint("BOTTOMRIGHT", -3, 3)
+  pin:SetScript("OnEnter", function(self)
+    local n = self.note
+    if not n then return end
+    local k = ns.Extras.noteKind[n.kind] or ns.Extras.noteKind.text
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(k.name, hex(k.color))
+    if n.text and n.text ~= "" then GameTooltip:AddLine(n.text, 1, 1, 1, true) end
+    local p = ns:GetPerson(n.pid) or {}
+    GameTooltip:AddLine("av " .. (ns:PersonAlias(p) or ns.ShortName(n.char or "?")) .. " · utløper om " .. ns.Duration((n.exp or 0) - ns.Now()), 0.6, 0.63, 0.66)
+    if n.pid == ns.pid then GameTooltip:AddLine("Høyreklikk: fjern", 0.52, 0.55, 0.57) end
+    GameTooltip:Show()
+  end)
+  pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  pin:SetScript("OnClick", function(self)
+    if self.note and self.note.pid == ns.pid then ns.Extras:RemoveNote(self.note.id) GameTooltip:Hide() end
+  end)
+  return pin
+end
+
+function P:UpdateNotes(canvas, mapID, inv)
+  for _, pin in ipairs(self.notePins) do pin:Hide() end
+  if ns.db.settings.mapNotes == false then return end
+  local w, h = canvas:GetWidth(), canvas:GetHeight()
+  local n = 0
+  for _, note in pairs(ns.db.notes or {}) do
+    if note.mapID == mapID and (note.exp or 0) > ns.Now() then
+      n = n + 1
+      local pin = self.notePins[n]
+      if not pin then pin = createNotePin(canvas) self.notePins[n] = pin end
+      local k = ns.Extras.noteKind[note.kind] or ns.Extras.noteKind.text
+      pin.note = note
+      pin.icon:SetTexture(ns.TEX .. "Icon" .. k.icon)
+      pin.icon:SetVertexColor(hex(k.color))
+      pin:SetScale(inv * 1.1)
+      pin:ClearAllPoints()
+      pin:SetPoint("CENTER", canvas, "TOPLEFT", (note.x * w) / (inv * 1.1), (-note.y * h) / (inv * 1.1))
+      pin:Show()
+    end
+  end
+end
+
+local function noteMenu(mapID, x, y)
+  local items = {}
+  for _, k in ipairs(ns.Extras.NOTE_KINDS) do
+    items[#items + 1] = { text = k.name, color = k.color, func = function()
+      UI.Prompt("Gjengnotat: " .. k.name, {
+        { label = "Tekst (valgfritt)", placeholder = k.key == "gank" and "f.eks. rogue lvl 40 campet her" or "" },
+        { label = "Hvor mange dager skal det ligge? (1, 3 eller 7)", value = "3" },
+      }, function(text, days) ns.Extras:AddNote(mapID, x, y, k.key, text, days) end)
+    end }
+  end
+  -- usynlig anker ved musepekeren, så menyen dukker opp der du klikket
+  P.cursorAnchor = P.cursorAnchor or CreateFrame("Frame", nil, UIParent)
+  local a = P.cursorAnchor
+  local cx, cy = GetCursorPosition()
+  local sc = UIParent:GetEffectiveScale()
+  a:SetSize(1, 1)
+  a:ClearAllPoints()
+  a:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cx / sc, cy / sc)
+  UI.Menu(a, items, true)
+end
+
 function P:Init()
   if not WorldMapFrame then return end
   local ticker
@@ -93,4 +173,15 @@ function P:Init()
     hooksecurefunc(WorldMapFrame, "OnMapChanged", function() P:Update() end)
   end
   ns:Listen("MAP_PINS", function() P:Update() end)
+  -- Alt + høyreklikk på kartet: lag gjengnotat der
+  local sc = WorldMapFrame.ScrollContainer
+  if sc then
+    sc:HookScript("OnMouseUp", function(self, button)
+      if button ~= "RightButton" or not IsAltKeyDown() or not ns.db.code then return end
+      if ns.db.settings.mapNotes == false then return end
+      local x, y = self:GetNormalizedCursorPosition()
+      local mapID = WorldMapFrame:GetMapID()
+      if mapID and x and y and x >= 0 and x <= 1 and y >= 0 and y <= 1 then noteMenu(mapID, x, y) end
+    end)
+  end
 end

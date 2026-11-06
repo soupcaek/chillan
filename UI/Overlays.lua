@@ -117,6 +117,9 @@ end
 local KIND = {
   mention = { icon = "At", color = C.gold, label = "Nevnt i chatten" },
   quest = { icon = "Book", color = C.green, label = "Quest-kompis" },
+  title = { icon = "Crown", color = C.gold, label = "Ny tittel" },
+  radar = { icon = "Radar", color = C.green, label = "Kompis i nærheten" },
+  note = { icon = "Map", color = C.amber, label = "Gjengnotat" },
   online = { icon = "Login", color = C.green, label = "Online" },
   ding = { icon = "Up", color = C.green, label = "Ding!" },
   enemy = { icon = "Target", color = C.red, label = "Fiendelogg" },
@@ -216,14 +219,14 @@ function O:Toast(info)
   end
   t.title:SetText(title or "")
   t.text:SetText(text or "")
-  t.title:SetPoint("RIGHT", -16, 0)
-  t.text:SetPoint("RIGHT", -16, 0)
+  t.title:SetPoint("RIGHT", -34, 0)
+  t.text:SetPoint("RIGHT", -34, 0)
   t.btn:Hide()
   if info.kind == "join" and info.char then
     t.btn:SetLabel("Inviter")
     t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
     t.btn:Show()
-  elseif info.kind == "quest" and info.char then
+  elseif (info.kind == "quest" or info.kind == "radar") and info.char then
     t.btn:SetLabel("Inviter")
     t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
     t.btn:Show()
@@ -448,6 +451,9 @@ function O:ShowProfile(anchor, pid)
   if played > 0 then rows[#rows + 1] = { "/played", ns.Duration(played) } end
   rows[#rows + 1] = { "Denne uka", math.floor(ns:WeekStat(p, "Levels")) .. " levels · " .. math.floor(ns:WeekStat(p, "Quests")) .. " quests · " .. ns.Duration(ns:WeekStat(p, "Online")) }
   if p.deathZone then rows[#rows + 1] = { "Sist død", p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")" } end
+  local titles = {}
+  for _, def in ipairs(ns.Titles:For(p.pid)) do titles[#titles + 1] = ns.Colorize(def.name, C.gold) end
+  if #titles > 0 then rows[#rows + 1] = { "Titler", table.concat(titles, ", ") } end
   if p.version and p.pid ~= ns.pid then rows[#rows + 1] = { "Versjon", p.version } end
   local y = -82
   for i, r in ipairs(f.rows) do
@@ -504,13 +510,19 @@ function O:CreateDing()
   d.icon:SetPoint("CENTER")
   d.kicker = UI.Text(d, 11, "semi", C.green)
   d.kicker:SetPoint("TOPLEFT", d.tile, "TOPRIGHT", 16, -2)
+  d.kicker:SetPoint("RIGHT", -40, 0)
   d.kicker:SetText("DING!")
-  d.title = UI.Text(d, 18, "bold", C.text)
-  d.title:SetPoint("LEFT", d.tile, "RIGHT", 16, -2)
+  -- tittelen kan bryte over to linjer (lange achievement-navn), popupen vokser
+  d.title = UI.Text(d, 17, "bold", C.text)
+  d.title:SetPoint("TOPLEFT", d.kicker, "BOTTOMLEFT", 0, -5)
   d.title:SetPoint("RIGHT", -20, 0)
+  d.title:SetWordWrap(true)
+  if d.title.SetMaxLines then d.title:SetMaxLines(2) end
   d.text = UI.Text(d, 12, nil, C.text2)
-  d.text:SetPoint("BOTTOMLEFT", d.tile, "BOTTOMRIGHT", 16, 0)
+  d.text:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -5)
   d.text:SetPoint("RIGHT", -20, 0)
+  d.text:SetWordWrap(true)
+  if d.text.SetMaxLines then d.text:SetMaxLines(2) end
   d.close = UI.IconButton(d, 24, "Close", nil, function() O:NextDing() end)
   d.close:SetPoint("TOPRIGHT", -8, -8)
   d.close.panel:SetColors(nil, nil)
@@ -547,7 +559,7 @@ function O:ShowDing(item)
     d.kicker:SetTextColor(hex(tier.color))
     d.icon:SetTexture(ns.TEX .. "IconTrophy")
     d.icon:SetVertexColor(hex(tier.color))
-    d.title:SetText(ns:PersonLabel(p, item.char) .. " låste opp " .. ns.Colorize("«" .. def.name .. "»", tier.color))
+    d.title:SetText(ns:ShortWho(p, item.char) .. " låste opp " .. ns.Colorize("«" .. def.name .. "»", tier.color))
     parts[#parts + 1] = def.desc
     parts[#parts + 1] = tier.points .. " poeng"
   elseif dead then
@@ -570,6 +582,10 @@ function O:ShowDing(item)
     elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "nr. " .. item.place .. " i gjengen" end
   end
   d.text:SetText(table.concat(parts, " · "))
+  -- høyde: topp + kicker + tittel + tekst + luft + knapper
+  local th = math.max(20, d.title:GetStringHeight() or 20)
+  local xh = math.max(14, d.text:GetStringHeight() or 14)
+  d:SetHeight(math.max(168, 20 + 15 + 5 + th + 5 + xh + 24 + 36 + 20))
   -- legg ut knappene etter hvor mange reaksjoner denne typen har (ding 3, død 4)
   local list = dead and ns.REACTIONS_DEAD or (ach and ns.REACTIONS_ACH) or ns.REACTIONS
   local n = #list
@@ -736,6 +752,101 @@ function O:FlushCombatQueue()
       if e.kind == "ding" then O:ShowDing(e.payload) else O:Toast(e.payload) end
     end
   end
+end
+
+---------------------------------------------------------------------------
+-- Klar-sjekk (/chill klar): bag-plasser, holdbarhet og mat/drikke for gruppa
+---------------------------------------------------------------------------
+function O:CreateReady()
+  local r = CreateFrame("Frame", "ChillanReady", UIParent)
+  self.readyFrame = r
+  r:SetSize(380, 80)
+  UI.Movable(r, "ready", function(f) f:SetPoint("CENTER", UIParent, "CENTER", 0, -60) end)
+  r:SetFrameStrata("DIALOG")
+  r:EnableMouse(true)
+  r:Hide()
+  r.panel = UI.Panel(r, C.window, C.activeLine, false, 0.97)
+  r.panel:SetAllPoints()
+  r.panel:SetFrameLevel(r:GetFrameLevel())
+  r.icon = UI.Icon(r, "Check", 16, C.green)
+  r.icon:SetPoint("TOPLEFT", 16, -16)
+  r.title = UI.Text(r, 14, "semi", C.text)
+  r.title:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
+  r.title:SetText("Klar-sjekk")
+  r.sub = UI.Text(r, 11, nil, C.dim)
+  r.sub:SetPoint("LEFT", r.title, "RIGHT", 8, 0)
+  local close = UI.IconButton(r, 24, "Close", nil, function() r:Hide() end)
+  close:SetPoint("TOPRIGHT", -8, -8)
+  close.panel:SetColors(nil, nil)
+  close.style = { text = C.dim, hover = C.card }
+  close.icon:SetVertexColor(hex(C.dim))
+  local heads = { { "Spiller", 16 }, { "Bags", 186 }, { "Utstyr", 250 }, { "Mat/drikke", 310 } }
+  for _, hd in ipairs(heads) do
+    local t = UI.Text(r, 10, "semi", C.dim)
+    t:SetPoint("TOPLEFT", hd[2], -46)
+    t:SetText(hd[1]:upper())
+  end
+  r.rows = {}
+  for i = 1, 10 do
+    local row = {}
+    row.name = UI.Text(r, 13, "semi", C.text)
+    row.name:SetWidth(164)
+    row.bags = UI.Text(r, 13, nil, C.text)
+    row.dur = UI.Text(r, 13, nil, C.text)
+    row.food = UI.Text(r, 13, nil, C.text)
+    local y = -64 - (i - 1) * 22
+    row.name:SetPoint("TOPLEFT", 16, y)
+    row.bags:SetPoint("TOPLEFT", 186, y)
+    row.dur:SetPoint("TOPLEFT", 250, y)
+    row.food:SetPoint("TOPLEFT", 310, y)
+    r.rows[i] = row
+  end
+  r:SetScript("OnUpdate", function(self, dt)
+    self.life = (self.life or 0) - dt
+    if self.life <= 0 then self:Hide() end
+  end)
+  ns:Listen("READY_UPDATE", function() if r:IsShown() then O:FillReady() end end)
+end
+
+local function col(v, warn, bad, higherIsBetter)
+  if higherIsBetter then
+    if v <= bad then return C.red elseif v <= warn then return C.amber end
+    return C.green
+  end
+  return C.text
+end
+
+function O:FillReady()
+  local r = self.readyFrame
+  local list = {}
+  for pid, data in pairs(ns.Extras.ready or {}) do list[#list + 1] = { pid = pid, d = data } end
+  table.sort(list, function(a, b) return a.pid == ns.pid or (b.pid ~= ns.pid and a.pid < b.pid) end)
+  for i, row in ipairs(r.rows) do
+    local e = list[i]
+    if e then
+      local p = ns:GetPerson(e.pid) or {}
+      row.name:SetText(ns:ShortWho(p))
+      row.bags:SetText(e.d.free .. "/" .. e.d.total)
+      row.bags:SetTextColor(hex(col(e.d.free, 8, 3, true)))
+      row.dur:SetText(e.d.dur .. " %")
+      row.dur:SetTextColor(hex(col(e.d.dur, 50, 20, true)))
+      row.food:SetText(tostring(e.d.food))
+      row.food:SetTextColor(hex(col(e.d.food, 10, 0, true)))
+      row.name:Show() row.bags:Show() row.dur:Show() row.food:Show()
+    else
+      row.name:Hide() row.bags:Hide() row.dur:Hide() row.food:Hide()
+    end
+  end
+  r.sub:SetText(ns.Extras.readyGroup and "gruppa di" or "alle online (du er ikke i gruppe)")
+  r:SetHeight(76 + math.max(1, #list) * 22)
+end
+
+function O:ShowReady()
+  if not self.readyFrame then self:CreateReady() end
+  self.readyFrame.life = 45
+  self:FillReady()
+  self.readyFrame:SetAlpha(1)
+  self.readyFrame:Show()
 end
 
 function O:Init()

@@ -128,6 +128,9 @@ ns:RegisterTab("settings", "Oppsett", "Gear", function(tab)
   local mh = section(right, lastN, "Moduler")
   checkList(right, mh, {
     { "Quest-kompis", "questBuddy", nil, "Varsel når du plukker opp en quest en kompis også har (ikke når dere er i gruppe)." },
+    { "Gruppe-radar", "radar", nil, "Varsel når en kompis innen ±3 level er i samme sone og dere ikke er i gruppe (maks én gang per halvtime)." },
+    { "Ukentlige titler", "titles", function() ns:MarkDirty() end, "Varsel når en tittel som «Gulvinspektør» bytter eier." },
+    { "Gjeng-notater på kartet", "mapNotes", function() ns:Fire("MAP_PINS") end, "Alt + høyreklikk på verdenskartet for å legge til. Høyreklikk ditt eget notat for å fjerne det." },
     { "Del blå drops i feeden (ikke bare episke)", "blueLoot", function(v) S().lootMinQuality = v and 3 or 4 end },
   })
 

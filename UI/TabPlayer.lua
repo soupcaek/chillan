@@ -27,6 +27,9 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
   invite:SetPoint("TOPRIGHT", -16, -62)
   local whisper = UI.Button(tab, 80, 30, "Hvisk", "secondary")
   whisper:SetPoint("RIGHT", invite, "LEFT", -8, 0)
+  local compare = UI.Button(tab, 110, 30, "Sammenlign", "ghost")
+  compare:SetIcon("Compare", 14)
+  compare:SetPoint("RIGHT", whisper, "LEFT", -8, 0)
 
   -------------------------------------------------------------------------
   -- Fire store tall
@@ -39,7 +42,7 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     t:SetPoint("TOPLEFT", 16 + (i - 1) * (tileW + 8), -110)
     t.v = UI.Text(t, 20, "bold", C.text)
     t.v:SetPoint("TOPLEFT", 12, -10)
-    t.v:SetPoint("RIGHT", -8, 0)
+    t.v:SetPoint("RIGHT", -26, 0)
     t.k = UI.Text(t, 11, nil, C.muted)
     t.k:SetPoint("BOTTOMLEFT", 12, 10)
     t.k:SetPoint("RIGHT", -8, 0)
@@ -175,6 +178,11 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     whisper:SetScript("OnClick", function() ns.Whisper(target) end)
     invite:SetScript("OnClick", function() ns.Invite(target) end)
     whisper:SetShown(not me) invite:SetShown(not me and online)
+    compare:SetShown(not me)
+    compare:SetScript("OnClick", function() ns.Window:OpenCompare(p.pid) end)
+    local tl = {}
+    for _, def in ipairs(ns.Titles:For(p.pid)) do tl[#tl + 1] = def.name end
+    if #tl > 0 then name:SetText(ns:PersonLabel(p) .. "  " .. ns.Titles:Badge(p.pid) .. " " .. ns.Colorize(table.concat(tl, ", "), C.gold)) end
 
     -- store tall
     for _, t in ipairs(tiles) do t.isMe = me t:RefreshPin() end

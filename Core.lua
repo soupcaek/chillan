@@ -293,6 +293,7 @@ local DEFAULTS = {
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
     accent = "grey", locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
+    radar = true, titles = true, mapNotes = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},

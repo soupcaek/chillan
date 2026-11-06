@@ -126,12 +126,12 @@ function W:Create()
    if not def.hidden then
     navIndex = navIndex + 1
     local i = navIndex
-    local b = UI.Button(nav, NAV_W - 12, 46, "", "nav")
-    b:SetPoint("TOP", 0, -5 - (i - 1) * 48)
+    local b = UI.Button(nav, NAV_W - 12, 42, "", "nav")
+    b:SetPoint("TOP", 0, -4 - (i - 1) * 44)
     b.ic = UI.Icon(b, def.icon, 18, C.dim)
-    b.ic:SetPoint("TOP", 0, -7)
+    b.ic:SetPoint("TOP", 0, -6)
     b.label:ClearAllPoints()
-    b.label:SetPoint("BOTTOM", 0, 6)
+    b.label:SetPoint("BOTTOM", 0, 5)
     b.label:SetFont(ns.FONT_SEMI, 10, "")
     b:SetLabel(def.label)
     b.key = def.key

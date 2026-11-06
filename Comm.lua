@@ -8,8 +8,8 @@ ns.Comm = Comm
 local SEP = "~"
 local queue = { {}, {}, {} } -- prioritet 1 (høy), 2 (normal), 3 (lav)
 local tokens = 5
-local MAX_TOKENS = 5
-local TOKEN_EVERY = 1.1
+local MAX_TOKENS = 8
+local TOKEN_EVERY = 1.0
 local recentWhispers = {}
 local seenIds = {}
 local myFull
@@ -78,14 +78,20 @@ function Comm:JoinChannel()
   elseif JoinChannelByName then
     pcall(JoinChannelByName, name, ns.db.code)
   end
-  C_Timer.After(1.5, function()
+  -- serveren kan bruke noen sekunder på å slippe oss inn: sjekk hvert sekund i 20 sek
+  local tries = 0
+  local function check()
+    tries = tries + 1
     local cid = GetChannelName(name)
     if cid and cid > 0 then
       self.chanId = cid
       removeFromChatFrames(name)
       ns:Fire("CHANNEL_READY")
+    elseif tries < 20 and self:ChannelName() == name then
+      C_Timer.After(1, check)
     end
-  end)
+  end
+  C_Timer.After(1, check)
 end
 
 function Comm:LeaveChannel(oldName)
@@ -157,24 +163,30 @@ function Comm:NeedsWhisper(r, t)
   return not (r.chan and (t - r.chan) < self.CHAN_FRESH)
 end
 
--- Ny sone/layer: kanalen kan ha byttet server. Glem hvem vi når via kanalen,
--- koble til kanalen på nytt og si hei både via kanal og whisper.
+-- Ny sone/layer: sjekk at vi fortsatt er i kanalen og si et kort hei.
+-- (HR-hjerteslaget i Sync.lua oppdager selv om noen ikke hører oss lenger,
+-- så vi trenger ikke hviske til alle ved hvert sonebytte – det ga mye trafikk
+-- og forsinket chatten.)
 local lastWorldChange = 0
 function Comm:OnWorldChanged()
   if not ns.codeHash then return end
   if (GetTime() - lastWorldChange) < 15 then return end
   lastWorldChange = GetTime()
-  for _, r in pairs(ns.db.roster) do r.chan = nil end
   self:RefreshChannelId()
   if not self.chanId then self:JoinChannel() end
   C_Timer.After(2, function()
-    local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION)
+    -- 0 = bare ny sone/layer: de andre trenger ikke sende all statistikk på nytt
+    local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 0, ns.VERSION)
     Comm:RefreshChannelId()
-    if Comm.chanId then enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 1) end
-    local t = ns.Now()
-    for char, r in pairs(ns.db.roster) do
-      if r.heard and (t - r.heard) < 600 and not (r.offlineAt and (t - r.offlineAt) < 300) then
-        enqueue({ msg = msg, chatType = "WHISPER", target = char }, 1)
+    if Comm.chanId then
+      enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 1)
+    else
+      -- uten kanal: hvisk til de vi har hørt nylig
+      local t = ns.Now()
+      for char, r in pairs(ns.db.roster) do
+        if r.heard and (t - r.heard) < 600 and not (r.offlineAt and (t - r.offlineAt) < 300) then
+          enqueue({ msg = msg, chatType = "WHISPER", target = char }, 1)
+        end
       end
     end
     ns.Tracker:SendStatus(1)
@@ -221,6 +233,8 @@ end
 
 local ticker = CreateFrame("Frame")
 local elapsedTok, elapsedSend = 0, 0
+-- Sender det første som er klart, i prioritert rekkefølge. Et element som venter
+-- på nytt forsøk (struping/feil) blokkerer ikke resten av køen.
 ticker:SetScript("OnUpdate", function(_, dt)
   elapsedTok = elapsedTok + dt
   if elapsedTok >= TOKEN_EVERY then
@@ -228,28 +242,38 @@ ticker:SetScript("OnUpdate", function(_, dt)
     if tokens < MAX_TOKENS then tokens = tokens + 1 end
   end
   elapsedSend = elapsedSend + dt
-  if elapsedSend < 0.15 or tokens <= 0 then return end
+  if elapsedSend < 0.1 or tokens <= 0 then return end
   elapsedSend = 0
+  local t = now()
   for p = 1, 3 do
-    local item = queue[p][1]
-    if item then
-      if item.notBefore and item.notBefore > now() then return end
-      local sent, drop = trySend(item)
-      if sent or drop then
-        table.remove(queue[p], 1)
-        tokens = tokens - 1
-      else
-        item.tries = (item.tries or 0) + 1
-        if item.tries > 4 then
-          table.remove(queue[p], 1)
+    local q = queue[p]
+    for i = 1, #q do
+      local item = q[i]
+      if not item.notBefore or item.notBefore <= t then
+        local sent, drop = trySend(item)
+        if sent or drop then
+          table.remove(q, i)
+          if sent then tokens = tokens - 1 end
         else
-          item.notBefore = now() + 2 * item.tries
-          tokens = 0
+          item.tries = (item.tries or 0) + 1
+          if item.tries > 4 then
+            table.remove(q, i)
+          else
+            item.notBefore = t + 2 * item.tries
+            tokens = 0
+          end
         end
+        return
       end
-      return
     end
   end
+end)
+
+-- Rydd gamle meldings-IDer (de trengs bare for å hindre dobbel visning)
+C_Timer.NewTicker(600, function()
+  local cutoff = ns.Now() - 3600
+  for id, at in pairs(seenIds) do if at < cutoff then seenIds[id] = nil end end
+  for k, at in pairs(recentWhispers) do if now() - at > 60 then recentWhispers[k] = nil end end
 end)
 
 function Comm:QueueSize()

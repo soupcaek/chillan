@@ -99,7 +99,14 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
     row.others = UI.Text(row, 10, nil, C.dim)
     row.others:SetPoint("BOTTOMRIGHT", -12, 6)
     row.others:SetJustifyH("RIGHT")
-    row.others:SetWidth(200)
+    row.others:SetWidth(96) -- holdes innenfor høyre kolonne så den ikke legger seg over fremdriftsstolpen
+    row:EnableMouse(true)
+    row:SetScript("OnEnter", function(self)
+      self.panel:SetColors(C.cardHover, C.line)
+      local d = self.item
+      if d and not (d.secret and not A:Has(ns.Window.achPid or ns.pid, d.id)) then UI.AchTooltip(self, d.id) end
+    end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) GameTooltip:Hide() end)
     return row
   end
 

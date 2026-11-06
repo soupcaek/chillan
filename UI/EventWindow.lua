@@ -56,20 +56,35 @@ local function chatText(item)
   return UI.InlineIcon("Chat", "8FB8C9", 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", "D9F0F7")
 end
 
--- Reaksjoner samles i ~5 sek per hendelse: "↳ Henrik, Adrian → Kenny: Hahaha! ×2 · F"
+-- Reaksjoner samles i ~5 sek per hendelse, gruppert per reaksjon med hvem som ga den:
+-- "★ Adee · «Populær»   Hahaha! Svenna, Olav  ·  GZ! Kenny"
 function E:QueueReaction(item, rp, char, idx)
   if not item or not item.id then return end
   local q = self.pendingRx[item.id]
   if not q then
-    q = { item = item, counts = {}, order = {}, names = {}, seen = {} }
+    q = { item = item, order = {}, by = {}, seen = {} }
     self.pendingRx[item.id] = q
     C_Timer.After(5, function() E:FlushReaction(item.id) end)
   end
   local label = ns.ReactionText(item, idx)
-  if not q.counts[label] then q.order[#q.order + 1] = label end
-  q.counts[label] = (q.counts[label] or 0) + 1
-  local who = rp and ns:ShortWho(rp, char) or "?"
-  if not q.seen[who] then q.seen[who] = true q.names[#q.names + 1] = who end
+  if not q.by[label] then q.by[label] = {} q.order[#q.order + 1] = label end
+  local key = (rp and rp.pid or "?") .. label
+  if q.seen[key] then return end
+  q.seen[key] = true
+  table.insert(q.by[label], rp and ns:ShortWho(rp, char) or "?")
+end
+
+local function whatText(it)
+  if it.kind == "ACH" then
+    local d = ns.Ach and ns.Ach.byId[it.a]
+    local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
+    return ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color)
+  elseif it.kind == "DING" then
+    return ns.Colorize("level " .. tostring(it.a), C.green)
+  elseif it.kind == "DEAD" then
+    return ns.Colorize("døde", C.red)
+  end
+  return ns.Colorize(tostring(it.kind):lower(), C.text2)
 end
 
 function E:FlushReaction(id)
@@ -78,16 +93,15 @@ function E:FlushReaction(id)
   if not q then return end
   local parts = {}
   for _, label in ipairs(q.order) do
-    local n = q.counts[label]
-    parts[#parts + 1] = ns.Colorize(label, C.purple) .. (n > 1 and ns.Colorize(" ×" .. n, C.muted) or "")
+    local names = q.by[label]
+    local shown = {}
+    for i = 1, math.min(4, #names) do shown[i] = names[i] end
+    local more = #names > 4 and ns.Colorize(" +" .. (#names - 4), C.dim) or ""
+    parts[#parts + 1] = ns.Colorize(label, C.purple) .. " " .. table.concat(shown, ns.Colorize(", ", C.dim)) .. more
   end
-  local names = {}
-  for i = 1, math.min(3, #q.names) do names[i] = q.names[i] end
-  local who = table.concat(names, ns.Colorize(", ", C.dim))
-  if #q.names > 3 then who = who .. ns.Colorize(" +" .. (#q.names - 3), C.dim) end
   local target = ns:ShortWho(ns:GetPerson(q.item.pid) or {}, q.item.char)
-  self:Add("rx", ns.Colorize("   ↳ ", C.dim) .. who .. ns.Colorize(" → ", C.dim) .. target .. ns.Colorize(": ", C.dim)
-    .. table.concat(parts, ns.Colorize("  ·  ", C.dim)))
+  self:Add("rx", UI.InlineIcon("Star", C.purple, 11) .. "  " .. target .. ns.Colorize(" · ", C.dim) .. whatText(q.item)
+    .. "     " .. table.concat(parts, ns.Colorize("   ·   ", C.dim)))
 end
 
 function E:Flash()

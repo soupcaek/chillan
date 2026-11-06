@@ -61,7 +61,9 @@ Comm:Handle("ST", function(f, sender, channel)
     end
   end
   if not wasDirect then
-    -- ny venn på nett: send våre egne data og hent historikk ved behov
+    -- ny venn på nett: svar med vår status med en gang, så han ser oss også
+    Comm:SendTo(sender, ns.Tracker:BuildST(), 1)
+    -- send våre egne data og hent historikk ved behov
     Data:OnPeerOnline(pid, sender)
     if not Data.sentTo then Data.sentTo = {} end
     if not Data.sentTo[pid] then
@@ -72,6 +74,7 @@ Comm:Handle("ST", function(f, sender, channel)
       ns.Ach:SendList(sender)
       ns.Tracker:SendHistory(sender)
       ns.Quests:SendTo(sender)
+      ns.Extras:SendNotes(sender)
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
     if channel == "WHISPER" then
@@ -114,6 +117,7 @@ Comm:Handle("S2", function(f)
   s.wLevels, s.wKills = num(f[3]) or 0, num(f[4]) or 0
   s.tLevels, s.tKills = num(f[5]) or 0, num(f[6]) or 0
   s.tLongest = num(f[7]) or s.tLongest
+  if f[11] and f[11] ~= "" then s.wNight = num(f[11]) or 0 end
   if f[8] and f[8] ~= "" then
     s.prev = s.prev or { wk = f[8] }
     if s.prev.wk == f[8] then s.prev.Levels, s.prev.Kills = num(f[9]) or 0, num(f[10]) or 0 end
@@ -345,8 +349,9 @@ local function iAmGossiper()
   return true
 end
 
+-- Svar samme vei som spørsmålet kom (kanal-svar går bare på kanalen, ikke ut til alle via whisper)
 local function replyTo(sender, channel, msg, prio)
-  if channel == "WHISPER" then Comm:SendTo(sender, msg, prio) else Comm:Broadcast(msg, prio) end
+  if channel == "WHISPER" then Comm:SendTo(sender, msg, prio) else Comm:SendChannel(msg, prio) end
 end
 
 -- Si fra én gang per økt hvis en venn har nyere versjon av Chillan?
@@ -366,11 +371,31 @@ end
 Comm:Handle("HI", function(f, sender, channel)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
+  local known = ns.db.people[pid]
+  local wasOnline = known and ns:IsOnline(known)
+  -- ny eller nettopp pålogget: svar også direkte, i tilfelle han ikke hører kanalen ennå
+  if not wasOnline and channel ~= "WHISPER" then
+    Comm:SendTo(sender, ns.Tracker:BuildST(), 1)
+  end
+  -- og fortell ham hvem andre som er online, så han kan hilse på dem direkte
+  if not wasOnline and iAmGossiper() then
+    local n = 0
+    for opid, op in pairs(ns.db.people) do
+      if opid ~= ns.pid and opid ~= pid and op.main and ns:IsOnline(op) and n < 15 then
+        Comm:SendTo(sender, Comm:Build("RO", opid, (op.live and op.live.char) or op.main), 2)
+        n = n + 1
+      end
+    end
+  end
   Data:CheckVersion(f[4], pid)
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
   if channel == "GUILD" or channel == "PARTY" or channel == "RAID" then channel = "WHISPER" end
   replyTo(sender, channel, ns.Tracker:BuildST(), 1)
+  -- ny sone/layer hos en vi allerede har utvekslet alt med: status holder
+  Data.sentTo = Data.sentTo or {}
+  if f[3] == "0" and Data.sentTo[pid] then return end
+  Data.sentTo[pid] = true
   replyTo(sender, channel, ns.Tracker:BuildSS(), 2)
   replyTo(sender, channel, ns.Tracker:BuildS2(), 3)
   replyTo(sender, channel, ns.Tracker:BuildS3(), 3)
@@ -485,10 +510,19 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     item.first = setFirst("MOUNT", pid, char, t)
   elseif kind == "LOOT" then
     if (num(b) or 0) >= 4 then item.first = setFirst("EPIC", pid, char, t) end
+  elseif kind == "DUNGEON" then
+    if a and a ~= "" then item.first = setFirst("DG:" .. a, pid, char, t) end
   elseif kind == "ACH" then
     if pid ~= ns.pid then
       p.ach = p.ach or {}
       p.ach[a] = t
+    end
+    -- gull og legendariske achievements havner i krøniken
+    if b == "G" or b == "L" then
+      local def = ns.Ach and ns.Ach.byId[a]
+      ns.Extras:AddChronicle("ACH:" .. tostring(a) .. ":" .. tostring(pid), t, pid, char,
+        "låste opp «" .. (def and def.name or tostring(a)) .. "» (" .. (b == "L" and "legendarisk" or "gull") .. ")",
+        "Trophy", b == "L" and "F0A8D0" or "E0C068")
     end
   elseif kind == "DEAD" then
     if not p.deathAt or t > p.deathAt then p.deathAt, p.deathZone = t, a end
@@ -1023,9 +1057,16 @@ function Data:Start()
   end)
   C_Timer.NewTicker(300, function() Data:DiscoverFriends() end)
   -- prøv å koble til gjengkanalen igjen hvis den ikke virker
-  C_Timer.NewTicker(60, function() if ns.codeHash then Comm:Reconnect() end end)
+  C_Timer.NewTicker(15, function() if ns.codeHash then Comm:Reconnect() end end)
+  -- straks kanalen er klar: si hei der, så gjengen ser oss med en gang
+  ns:Listen("CHANNEL_READY", function()
+    Comm:SendChannel(Comm:Build("HI", ns.pid, Comm:MyFull(), 1, ns.VERSION), 1)
+    ns.Tracker:SendStatus(1)
+  end)
   C_Timer.NewTicker(60, function() Comm:GossipWhisperPeers() end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)
   ns.Sync:Start()
   ns.Quests:Start()
+  ns.Titles:Start()
+  ns.Extras:Start()
 end

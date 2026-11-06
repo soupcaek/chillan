@@ -88,6 +88,8 @@ local function help()
   print("  /chill legg til Navn – send hei til en venn som ikke dukker opp")
   print("  /chill hendelser – vis/skjul hendelsesvinduet")
   print("  /chill lås – lås/lås opp posisjonene på skjermen")
+  print("  /chill klar – klar-sjekk før dungeon")
+  print("  /chill notat tekst – gjengnotat på kartet der du står (eller Alt+høyreklikk på kartet)")
   print("  /chill oppsett – åpne innstillingene")
   print("  /chill minibar – vis/skjul minibaren")
   print("  /chill debug – vis teknisk status")
@@ -135,6 +137,12 @@ SlashCmdList.CHILLAN = function(msg)
     ns.db.settings.locked = not ns.db.settings.locked
     ns:Fire("LOCK_CHANGED", ns.db.settings.locked)
     ns.Print(ns.db.settings.locked and "Posisjonene er låst." or "Posisjonene er låst opp – dra det du vil flytte.")
+  elseif cmd == "klar" or cmd == "ready" then
+    ns.Extras:StartReadyCheck()
+  elseif cmd == "notat" or cmd == "note" then
+    local L = ns.Tracker:UpdateLive()
+    if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
+    else ns.Print("Fant ikke posisjonen din her.") end
   elseif cmd == "oppsett" or cmd == "settings" then
     ns.Window:Toggle("settings")
   elseif cmd == "minibar" then
@@ -156,7 +164,7 @@ SlashCmdList.CHILLAN = function(msg)
       if r.heard and ns.Now() - r.heard < 300 then
         n = n + 1
         local forced = r.forceWhisper and (ns.Now() - r.forceWhisper) < 120
-        print("   ", char, r.chan and (ns.Now() - r.chan < 150) and "kanal" or "whisper", ns.Ago(r.heard), forced and "(hører ikke oss på kanalen → whisper)" or "")
+        print("   ", char, r.chan and (ns.Now() - r.chan < 150) and "kanal" or "whisper", ns.Ago(r.heard), forced and "(hører ikke oss på kanalen - bruker whisper)" or "")
       end
     end
     print("  Hørt fra siste 5 min:", n)

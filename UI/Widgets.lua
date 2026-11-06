@@ -419,6 +419,29 @@ end
 ---------------------------------------------------------------------------
 -- Rullende meldingsfelt (chat og feed)
 ---------------------------------------------------------------------------
+-- Tooltip for en Chillan?-achievement: navn, nivå, poeng og hva du må gjøre
+function UI.AchTooltip(owner, id)
+  local d = ns.Ach and ns.Ach.byId[id]
+  if not d then return end
+  local tier = ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
+  GameTooltip:SetOwner(owner, "ANCHOR_CURSOR")
+  GameTooltip:AddLine(d.name, hex(tier.color))
+  GameTooltip:AddLine(tier.name .. " · " .. tier.points .. " poeng", 0.6, 0.63, 0.66)
+  GameTooltip:AddLine(d.desc or "", 1, 1, 1, true)
+  if ns.Ach.Has and ns.Ach:Has(ns.pid, id) then
+    GameTooltip:AddLine("Du har denne", 0.37, 0.82, 0.55)
+  end
+  GameTooltip:Show()
+end
+
+-- Achievement-navn som kan holdes musa over i meldingsfeltene
+function ns.AchLink(id, text, colorHex)
+  return "|Hchillanach:" .. tostring(id) .. "|h" .. ns.Colorize(text, colorHex) .. "|h"
+end
+
+-- Kvalitetsfarger for items (2 = grønn, 3 = blå, 4 = episk, 5 = legendarisk)
+ns.QUALITY_HEX = { [0] = "9D9D9D", [1] = "FFFFFF", [2] = "1EFF00", [3] = "0070DD", [4] = "A335EE", [5] = "FF8000" }
+
 function UI.MessageFrame(parent, size)
   local m = CreateFrame("ScrollingMessageFrame", nil, parent)
   m:SetFont(ns.FONT, size or 13, "")
@@ -435,10 +458,13 @@ function UI.MessageFrame(parent, size)
   end)
   if m.SetHyperlinksEnabled then m:SetHyperlinksEnabled(true) end
   m:SetScript("OnHyperlinkEnter", function(self, link)
-    if type(link) == "string" and link:find("^item:") then
+    if type(link) ~= "string" then return end
+    if link:find("^item:") then
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
       pcall(GameTooltip.SetHyperlink, GameTooltip, link)
       GameTooltip:Show()
+    elseif link:find("^chillanach:") then
+      UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
     end
   end)
   m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)

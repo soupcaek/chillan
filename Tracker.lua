@@ -49,7 +49,7 @@ local function rollWeek(stats)
     end
     stats.wk = wk
     stats.wOnline, stats.wQuests, stats.wGold, stats.wDeaths = 0, 0, 0, 0
-    stats.wLevels, stats.wKills = 0, 0
+    stats.wLevels, stats.wKills, stats.wNight = 0, 0, 0
   end
 end
 
@@ -252,7 +252,7 @@ function Tracker:BuildS2()
   rollWeek(s)
   local p = s.prev or {}
   return ns.Comm:Build("S2", ns.pid, s.wk, s.wLevels or 0, s.wKills or 0, s.tLevels or 0, s.tKills or 0,
-    math.floor(s.tLongest or 0), p.wk or "", p.Levels or 0, p.Kills or 0)
+    math.floor(s.tLongest or 0), p.wk or "", p.Levels or 0, p.Kills or 0, math.floor(s.wNight or 0))
 end
 
 -- Levelhistorikk for gjeldende karakter, i biter
@@ -404,6 +404,8 @@ local function tick()
     local dt = t - lastTick
     if dt > 0 and dt < 120 then
       Tracker:AddStat("Online", dt)
+      -- nattugle: tid mellom midnatt og 05
+      if tonumber(date("%H")) < 5 then Tracker:AddStat("Night", dt) end
       local st = Tracker:Me().stats
       local len = ns.Now() - session.start
       if len > (st.tLongest or 0) then st.tLongest = len end

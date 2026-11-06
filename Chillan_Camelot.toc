@@ -15,6 +15,8 @@ Tracker.lua
 Data.lua
 Sync.lua
 Quests.lua
+Titles.lua
+Extras.lua
 Stats.lua
 Achievements.lua
 UI\Widgets.lua
@@ -24,11 +26,13 @@ UI\TabQuests.lua
 UI\TabChat.lua
 UI\TabTavle.lua
 UI\TabStats.lua
+UI\TabChronicle.lua
 UI\TabAch.lua
 UI\TabMap.lua
 UI\TabMore.lua
 UI\TabSettings.lua
 UI\TabPlayer.lua
+UI\TabCompare.lua
 UI\Overlays.lua
 UI\Tiles.lua
 UI\EventWindow.lua

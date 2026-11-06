@@ -7,6 +7,7 @@ local PREFIX_CHAT = ns.UI.InlineIcon("Chat", "8FB8C9", 13) .. " "
 local PREFIX_ACT = ns.UI.InlineIcon("Feed", "C8D1DC", 13) .. " "
 
 local function out(text)
+  text = tostring(text):gsub("|Hchillan[^|]*|h(.-)|h", "%1")
   local frame = DEFAULT_CHAT_FRAME or ChatFrame1
   if frame and frame.AddMessage then frame:AddMessage(text) end
 end
@@ -35,6 +36,6 @@ end)
 
 ns:Listen("REACTION", function(item, rp, char, idx)
   if not ns.db.settings.activityMirror or not item then return end
-  out(PREFIX_ACT .. ns:ShortWho(rp or {}, char) .. ns.Colorize(" → ", C.dim) .. ns:ShortWho(ns:GetPerson(item.pid) or {}, item.char)
+  out(PREFIX_ACT .. ns:ShortWho(rp or {}, char) .. ns.Colorize(" til ", C.dim) .. ns:ShortWho(ns:GetPerson(item.pid) or {}, item.char)
     .. ": " .. ns.Colorize(ns.ReactionText(item, idx), C.purple))
 end)

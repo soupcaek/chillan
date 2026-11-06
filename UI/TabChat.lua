@@ -25,7 +25,7 @@ function ns.FeedLine(it, withTime)
       text = text .. ns.Colorize(" · " .. #it.reacts .. " ler", C.red)
     end
   elseif it.kind == "LOOT" then
-    icon, color = "Star", C.purple
+    icon, color = "Star", ns.QUALITY_HEX[tonumber(it.b) or 4] or C.purple
     local id = tonumber(it.a)
     local link = id and select(2, C_Item.GetItemInfo(id))
     if not link and id then
@@ -43,13 +43,25 @@ function ns.FeedLine(it, withTime)
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
     icon, color = "Trophy", tier.color
-    text = "låste opp " .. ns.Colorize("«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
+    text = "låste opp " .. ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
     end
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
     text = "så fienden " .. tostring(it.a) .. " i " .. tostring(it.b or "?")
+  elseif it.kind == "DUNGEON" then
+    icon, color = "Shield", "8FB8E8"
+    local members = ns.Extras:RunMembers(it)
+    if #members > 1 then
+      local names = {}
+      for _, mp in ipairs(members) do names[#names + 1] = ns:ShortWho(mp) end
+      who = table.concat(names, ns.Colorize(", ", C.dim))
+    end
+    local bosses = tostring(it.d or ""):match("^(%d+)")
+    text = "fullførte " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+      .. " · " .. (tonumber(it.c) or 0) .. " dødsfall" .. (bosses and (" · " .. bosses .. " bosser") or "")
+    if it.first then text = text .. ns.Colorize(" · første i gjengen!", C.gold) end
   else
     text = tostring(it.kind)
   end
@@ -68,16 +80,26 @@ function ns.FeedShort(it)
   if it.kind == "ACH" then
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
-    return I("Trophy", tier.color) .. who .. " · " .. ns.Colorize(d and d.name or tostring(it.a), tier.color)
+    return I("Trophy", tier.color) .. who .. " · " .. ns.AchLink(it.a, d and d.name or tostring(it.a), tier.color)
   end
   if it.kind == "LOOT" then
+    -- ekte item-lenke (riktig kvalitetsfarge + tooltip når du holder musa over)
     local id = tonumber(it.a)
-    local name = id and C_Item.GetItemInfo and (C_Item.GetItemInfo(id))
-    return I("Star", C.purple) .. who .. " · " .. ns.Colorize(name or "episk drop", "A335EE")
+    local q = tonumber(it.b) or 4
+    local qhex = ns.QUALITY_HEX[q] or ns.QUALITY_HEX[4]
+    local link = id and C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(id))
+    if not link and id then
+      if C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+      link = "|Hitem:" .. id .. "|h" .. ns.Colorize("[item " .. id .. "]", qhex) .. "|h"
+    end
+    return I("Star", qhex) .. who .. " · " .. (link or ns.Colorize("fin drop", qhex))
   end
   if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
   if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" fikk mount", C.text2) end
   if it.kind == "ENSEEN" then return I("Target", C.red) .. "Fiende " .. tostring(it.a) .. ns.Colorize(" sett av ", C.text2) .. who end
+  if it.kind == "DUNGEON" then
+    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" · " .. tostring(it.a) .. " på " .. ns.Duration(tonumber(it.b) or 0), C.text2)
+  end
   return I("Star", C.accent) .. who .. " · " .. tostring(it.kind)
 end
 

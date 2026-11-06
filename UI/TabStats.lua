@@ -14,7 +14,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
 
   -- Underfaner
   local pageBtns = {}
-  local PAGES = { { "race", "Race til 60" }, { "graph", "Level over tid" }, { "table", "Tabell" }, { "facts", "Fakta" } }
+  local PAGES = { { "race", "Race til 60" }, { "graph", "Level over tid" }, { "table", "Tabell" }, { "facts", "Fakta" }, { "titles", "Titler" } }
   local pages = {}
   local function paintPages()
     for k, b in pairs(pageBtns) do
@@ -338,6 +338,63 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   tableList:SetPoint("BOTTOMRIGHT", 6, 0)
 
   -------------------------------------------------------------------------
+  -- 5) Titler denne uka
+  -------------------------------------------------------------------------
+  local titlesPage = newPage("titles")
+  local function createTitle(list)
+    local row = CreateFrame("Button", nil, list)
+    row.panel = UI.Panel(row, C.card, C.line, false)
+    row.panel:SetAllPoints()
+    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.tile = UI.Panel(row, C.active, nil, false)
+    row.tile:SetSize(30, 30)
+    row.tile:SetPoint("LEFT", 8, 0)
+    row.icon = UI.Icon(row.tile, "Crown", 16, C.gold)
+    row.icon:SetPoint("CENTER")
+    row.name = UI.Text(row, 13, "semi", C.text)
+    row.name:SetPoint("TOPLEFT", 48, -7)
+    row.name:SetPoint("RIGHT", -170, 0)
+    row.desc = UI.Text(row, 11, nil, C.muted)
+    row.desc:SetPoint("BOTTOMLEFT", 48, 7)
+    row.desc:SetPoint("RIGHT", -170, 0)
+    row.who = UI.Text(row, 13, "semi", C.text)
+    row.who:SetPoint("TOPRIGHT", -12, -7)
+    row.who:SetJustifyH("RIGHT")
+    row.who:SetWidth(156)
+    row.val = UI.Text(row, 11, nil, C.muted)
+    row.val:SetPoint("BOTTOMRIGHT", -12, 7)
+    row.val:SetJustifyH("RIGHT")
+    row.val:SetWidth(156)
+    row:SetScript("OnEnter", function(self)
+      self.panel:SetColors(C.cardHover, C.line)
+      if self.item and self.item.holder then ns.Overlays:ShowProfile(self, self.item.holder.pid) end
+    end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() end)
+    return row
+  end
+  local function updateTitle(row, e)
+    local def = e.def
+    row.icon:SetTexture(ns.TEX .. "Icon" .. def.icon)
+    row.icon:SetVertexColor(hex(def.color))
+    row.name:SetText(def.name)
+    row.name:SetTextColor(hex(e.holder and C.gold or C.dim))
+    row.desc:SetText(def.desc)
+    if e.holder then
+      local p = ns:GetPerson(e.holder.pid) or {}
+      row.who:SetText(ns:ShortWho(p))
+      local lead = e.holder.value - (e.holder.second or 0)
+      row.val:SetText(ns.Titles:Format(def, e.holder.value) .. (lead > 0 and e.holder.second and e.holder.second > 0 and (" · leder med " .. ns.Titles:Format(def, lead)) or ""))
+      row:SetAlpha(1)
+    else
+      row.who:SetText(ns.Colorize("ledig", C.dim))
+      row.val:SetText("")
+      row:SetAlpha(0.6)
+    end
+  end
+  local titleList = UI.List(titlesPage, 44, 6, createTitle, updateTitle)
+  titleList:SetAllPoints()
+
+  -------------------------------------------------------------------------
   -- 4) Morsomme fakta
   -------------------------------------------------------------------------
   local factsPage = newPage("facts")
@@ -500,6 +557,11 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       for key, t in pairs(headerTexts) do t:SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
     elseif page == "facts" then
       drawFacts()
+    elseif page == "titles" then
+      local cur = ns.Titles:Current()
+      local data = {}
+      for _, def in ipairs(ns.Titles.DEFS) do data[#data + 1] = { def = def, holder = cur[def.key] } end
+      titleList:SetData(data)
     end
 
     -- Utfordring
