@@ -158,6 +158,11 @@ function Comm:SendScope(msg, scope, prio)
 end
 
 local function trySend(item)
+  -- ikke hvisk til noen som nettopp viste seg å være offline (de sier hei selv når de logger på)
+  if item.chatType == "WHISPER" then
+    local r = ns.db.roster[item.target]
+    if r and r.offlineAt and (ns.Now() - r.offlineAt) < 300 and not item.hello then return false, true end
+  end
   local fn = item.logged and C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
   if not fn then fn = C_ChatInfo.SendAddonMessage end
   if item.chatType == "WHISPER" then
@@ -232,6 +237,7 @@ local function onAddonMessage(prefix, text, channel, sender)
   local r = ns.db.roster[sender]
   if not r then r = {} ns.db.roster[sender] = r end
   r.heard = ns.Now()
+  r.offlineAt = nil
   if channel == "WHISPER" then r.whisper = ns.Now() else r.chan = ns.Now() end
   local fields = {}
   for i = 4, #f do fields[#fields + 1] = f[i] end
@@ -253,8 +259,28 @@ local function buildPatterns()
   for _, key in ipairs({ "ERR_CHAT_PLAYER_NOT_FOUND_S", "ERR_FRIEND_NOT_FOUND" }) do
     local s = _G[key]
     if type(s) == "string" then
-      local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%%%s", "(.+)")
+      local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%s", "(.+)")
       notFoundPatterns[#notFoundPatterns + 1] = "^" .. pat .. "$"
+    end
+  end
+  -- reserve hvis spillet har en annen tekst enn vi forventer
+  notFoundPatterns[#notFoundPatterns + 1] = "^No player named '(.+)' is currently playing%.?$"
+end
+
+-- En venn vi hvisket til er ikke pålogget: slutt å hviske og vis ham som offline
+function Comm:MarkOffline(name)
+  local short = ns.ShortName(name):lower()
+  for char, r in pairs(ns.db.roster) do
+    if ns.ShortName(char):lower() == short then
+      r.heard = nil
+      r.offlineAt = ns.Now()
+      if r.pid then
+        local p = ns.db.people[r.pid]
+        if p and p.live and p.live.char and ns.ShortName(p.live.char):lower() == short then
+          p.heard = nil
+          ns:MarkDirty()
+        end
+      end
     end
   end
 end
@@ -264,13 +290,13 @@ local function systemFilter(_, _, msg, ...)
   for _, pat in ipairs(notFoundPatterns) do
     local who = msg:match(pat)
     if who then
-      local t = recentWhispers[ns.ShortName(who):lower()]
-      if t and (now() - t) < 8 then return true end
-    end
-  end
-  if msg:lower():find("offline") then
-    for name, t in pairs(recentWhispers) do
-      if (now() - t) < 5 and msg:lower():find(name, 1, true) then return true end
+      local key = ns.ShortName(who):lower()
+      local t = recentWhispers[key]
+      if t and (now() - t) < 15 then
+        Comm:MarkOffline(who)
+        return true
+      end
+      return false
     end
   end
   return false

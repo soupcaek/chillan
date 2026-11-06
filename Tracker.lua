@@ -439,7 +439,8 @@ local function buildLootPatterns()
   for _, key in ipairs({ "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE" }) do
     local s = _G[key]
     if type(s) == "string" then
-      local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%%%s", "(.+)"):gsub("%%%%d", "%%d+")
+      -- "%s" i Blizzards tekst blir til (.+), "%d" til tall
+      local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%s", "(.+)"):gsub("%%d", "%%d+")
       lootPatterns[#lootPatterns + 1] = "^" .. pat
     end
   end
