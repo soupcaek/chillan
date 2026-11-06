@@ -71,6 +71,7 @@ Comm:Handle("ST", function(f, sender, channel)
       Comm:SendTo(sender, ns.Tracker:BuildS3(), 3)
       ns.Ach:SendList(sender)
       ns.Tracker:SendHistory(sender)
+      ns.Quests:SendTo(sender)
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
     if channel == "WHISPER" then
@@ -497,10 +498,11 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   if fresh(t) then
     if pid ~= ns.pid then ns:Fire("ACTIVITY", ns.FeedLine(item, false)) end
     ns:Fire("FEEDEVENT", ns.FeedShort(item))
-    if kind == "DING" then
+    -- egne dings og dødsfall får ingen popup hos deg selv (bare achievements)
+    if kind == "DING" and pid ~= ns.pid then
       ns:Fire("DING", item)
       ns.Sound("ding")
-    elseif kind == "DEAD" then
+    elseif kind == "DEAD" and pid ~= ns.pid then
       ns:Fire("DING", item)
       ns.Sound("dead")
     elseif kind == "ACH" then
@@ -537,9 +539,17 @@ local function addChat(id, pid, char, t, text)
     if ns.db.chat[i].id == id then return end
   end
   local item = { id = id, pid = pid, char = char, t = t, text = text }
+  if pid ~= ns.pid and ns.MentionsMe(text) then item.mention = true end
   ns.PushCapped(ns.db.chat, item, 300)
   table.sort(ns.db.chat, function(x, y) return x.t < y.t end)
+  ns.chatRev = (ns.chatRev or 0) + 1
   ns:Fire("CHAT", item)
+  if item.mention and fresh(t) and not quiet() then
+    local p = ns:GetPerson(pid) or {}
+    if ns.db.settings.mentionSound then ns.Sound("online") end
+    ns:Fire("TOAST", { kind = "mention", pid = pid, char = char,
+      title = ns:PersonLabel(p, char) .. " nevnte deg", text = ns.Clean(text, 90) })
+  end
   ns:MarkDirty()
 end
 
@@ -1017,4 +1027,5 @@ function Data:Start()
   C_Timer.NewTicker(60, function() Comm:GossipWhisperPeers() end)
   C_Timer.After(75, function() Data:AnnounceWinner() end)
   ns.Sync:Start()
+  ns.Quests:Start()
 end

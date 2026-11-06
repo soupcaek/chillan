@@ -60,7 +60,7 @@ ns:On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
     end)
     if not ns.db.code then
       C_Timer.After(10, function()
-        ns.Print("Velkommen! Skriv |cffc8d1dc/chill|r for å lage eller bli med i en gjeng.")
+        ns.Print("Velkommen! Skriv |cff" .. ns.C.accent .. "/chill|r for å lage eller bli med i en gjeng.")
       end)
     end
   end
@@ -87,6 +87,8 @@ local function help()
   print("  /chill fiende [notat] – legg målet ditt i fiendeloggen")
   print("  /chill legg til Navn – send hei til en venn som ikke dukker opp")
   print("  /chill hendelser – vis/skjul hendelsesvinduet")
+  print("  /chill lås – lås/lås opp posisjonene på skjermen")
+  print("  /chill oppsett – åpne innstillingene")
   print("  /chill minibar – vis/skjul minibaren")
   print("  /chill debug – vis teknisk status")
   print("  /chill kanal – koble til gjengkanalen på nytt")
@@ -129,6 +131,12 @@ SlashCmdList.CHILLAN = function(msg)
     C_Timer.After(4, function() ns.Print("Kanal: " .. ns.Comm:ChannelStatusText()) end)
   elseif cmd == "hendelser" or cmd == "feed" or cmd == "events" then
     ns.EventWindow:Toggle()
+  elseif cmd == "lås" or cmd == "las" or cmd == "lock" then
+    ns.db.settings.locked = not ns.db.settings.locked
+    ns:Fire("LOCK_CHANGED", ns.db.settings.locked)
+    ns.Print(ns.db.settings.locked and "Posisjonene er låst." or "Posisjonene er låst opp – dra det du vil flytte.")
+  elseif cmd == "oppsett" or cmd == "settings" then
+    ns.Window:Toggle("settings")
   elseif cmd == "minibar" then
     ns.db.settings.minibar = not ns.db.settings.minibar
     ns:Fire("MINIBAR")

@@ -126,12 +126,12 @@ function W:Create()
    if not def.hidden then
     navIndex = navIndex + 1
     local i = navIndex
-    local b = UI.Button(nav, NAV_W - 12, 50, "", "nav")
-    b:SetPoint("TOP", 0, -6 - (i - 1) * 52)
+    local b = UI.Button(nav, NAV_W - 12, 46, "", "nav")
+    b:SetPoint("TOP", 0, -5 - (i - 1) * 48)
     b.ic = UI.Icon(b, def.icon, 18, C.dim)
-    b.ic:SetPoint("TOP", 0, -9)
+    b.ic:SetPoint("TOP", 0, -7)
     b.label:ClearAllPoints()
-    b.label:SetPoint("BOTTOM", 0, 8)
+    b.label:SetPoint("BOTTOM", 0, 6)
     b.label:SetFont(ns.FONT_SEMI, 10, "")
     b:SetLabel(def.label)
     b.key = def.key
@@ -244,7 +244,7 @@ function W:BuildSetup()
 
   local h = UI.Text(card, 20, "bold", C.text)
   h:SetPoint("TOPLEFT", 24, -24)
-  h:SetText("Velkommen til Chillan|cffc8d1dc?|r")
+  h:SetText("Velkommen til " .. ns.Logo())
   local p = UI.Text(card, 13, nil, C.muted)
   p:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -8)
   p:SetWidth(392)

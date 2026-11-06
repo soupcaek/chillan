@@ -18,8 +18,14 @@ function O:CreateMinibar()
   m:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   local pos = ns.db.settings.minibarPos
   if pos then m:SetPoint(pos.point, UIParent, pos.point, pos.x, pos.y) else m:SetPoint("TOPLEFT", 20, -20) end
-  m:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  m:SetScript("OnDragStart", function(self)
+    if UI.IsLocked() then return end
+    self.isMoving = true
+    self:StartMoving()
+  end)
   m:SetScript("OnDragStop", function(self)
+    if not self.isMoving then return end
+    self.isMoving = nil
     self:StopMovingOrSizing()
     local point, _, _, x, y = self:GetPoint(1)
     ns.db.settings.minibarPos = { point = point, x = x, y = y }
@@ -36,7 +42,7 @@ function O:CreateMinibar()
   m.panel:SetFrameLevel(m:GetFrameLevel())
   m.logo = UI.Text(m, 14, "bold", C.text)
   m.logo:SetPoint("LEFT", 12, 0)
-  m.logo:SetText("Chillan|cffc8d1dc?|r")
+  m.logo:SetText(ns.Logo())
   m.avatars = {}
   for i = 1, 8 do
     local a = UI.Avatar(m, 24)
@@ -109,6 +115,8 @@ end
 -- Popup-varsler
 ---------------------------------------------------------------------------
 local KIND = {
+  mention = { icon = "At", color = C.gold, label = "Nevnt i chatten" },
+  quest = { icon = "Book", color = C.green, label = "Quest-kompis" },
   online = { icon = "Login", color = C.green, label = "Online" },
   ding = { icon = "Up", color = C.green, label = "Ding!" },
   enemy = { icon = "Target", color = C.red, label = "Fiendelogg" },
@@ -121,6 +129,7 @@ local KIND = {
   trophy = { icon = "Trophy", color = C.gold, label = "Ukens vinner" },
   info = { icon = "Star", color = C.accent, label = "Chillan?" },
 }
+O.KIND = KIND
 
 local toasts, pool = {}, {}
 
@@ -213,6 +222,21 @@ function O:Toast(info)
   if info.kind == "join" and info.char then
     t.btn:SetLabel("Inviter")
     t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
+    t.btn:Show()
+  elseif info.kind == "quest" and info.char then
+    t.btn:SetLabel("Inviter")
+    t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
+    t.btn:Show()
+  elseif info.kind == "mention" then
+    t.btn:SetLabel("Svar")
+    t.btn:SetScript("OnClick", function()
+      removeToast(t)
+      if ns.db.settings.eventFeed and ns.EventWindow.input then
+        ns.EventWindow.input.edit:SetFocus()
+      else
+        ns.Window:Create() ns.Window.frame:Show() ns.Window:Select("chat")
+      end
+    end)
     t.btn:Show()
   elseif info.kind == "craft" and info.char then
     t.btn:SetLabel("Hvisk")
@@ -626,6 +650,7 @@ function O:CreateMinimapButton()
   end
   self.placeMinimap = place
   b:SetScript("OnDragStart", function(self)
+    if UI.IsLocked() then return end
     self:SetScript("OnUpdate", function()
       local mx, my = Minimap:GetCenter()
       local cx, cy = GetCursorPosition()
@@ -665,6 +690,54 @@ function O:UpdateMinimapButton()
   b.dot:SetShown(n > 0)
 end
 
+---------------------------------------------------------------------------
+-- Kø i kamp: popups og varsler venter til du er ute av kamp (SOS vises alltid)
+---------------------------------------------------------------------------
+local combatQ = {}
+local function inCombat()
+  if InCombatLockdown and InCombatLockdown() then return true end
+  return ns.S(UnitAffectingCombat, "player") and true or false
+end
+
+local function shouldQueue()
+  return ns.db.settings.combatQueue ~= false and inCombat()
+end
+
+function O:QueueOr(kind, payload)
+  if shouldQueue() then
+    combatQ[#combatQ + 1] = { kind = kind, payload = payload, at = GetTime() }
+    return true
+  end
+  return false
+end
+
+function O:FlushCombatQueue()
+  if inCombat() or #combatQ == 0 then return end
+  local q = combatQ
+  combatQ = {}
+  local old, counts = {}, {}
+  for _, e in ipairs(q) do
+    if GetTime() - e.at > 120 then
+      old[#old + 1] = e
+      local k = e.kind == "ding" and (e.payload.kind or "DING") or "TOAST"
+      counts[k] = (counts[k] or 0) + 1
+    end
+  end
+  if #old > 0 then
+    local parts = {}
+    if counts.DING then parts[#parts + 1] = counts.DING .. " ding" end
+    if counts.DEAD then parts[#parts + 1] = counts.DEAD .. (counts.DEAD == 1 and " dødsfall" or " dødsfall") end
+    if counts.ACH then parts[#parts + 1] = counts.ACH .. " achievements" end
+    if counts.TOAST then parts[#parts + 1] = counts.TOAST .. " varsler" end
+    O:Toast({ kind = "info", title = "Mens du var i kamp", text = table.concat(parts, " · ") .. " – se hendelsesvinduet" })
+  end
+  for _, e in ipairs(q) do
+    if GetTime() - e.at <= 120 then
+      if e.kind == "ding" then O:ShowDing(e.payload) else O:Toast(e.payload) end
+    end
+  end
+end
+
 function O:Init()
   self:CreateMinibar()
   self:CreateSOS()
@@ -672,8 +745,11 @@ function O:Init()
   self:CreateProfile()
   self:CreateDing()
   self:CreateMinimapButton()
-  ns:Listen("DING", function(item) O:ShowDing(item) end)
-  ns:Listen("TOAST", function(info) O:Toast(info) end)
+  ns:Listen("DING", function(item) if not O:QueueOr("ding", item) then O:ShowDing(item) end end)
+  ns:Listen("TOAST", function(info)
+    if info.kind == "sos" or not O:QueueOr("toast", info) then O:Toast(info) end
+  end)
+  ns:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(1.5, function() O:FlushCombatQueue() end) end)
   ns:Listen("SOS", function(item) O:ShowSOS(item) end)
   ns:Listen("SHOW_SUMMARY", function(sum, previous) O:ShowSummary(sum, previous) end)
 end

@@ -50,6 +50,9 @@ end
 local function chatText(item)
   local p = ns:GetPerson(item.pid) or {}
   local name = "|Hchillan:" .. tostring(item.pid) .. "|h" .. ns:ShortWho(p, item.char) .. "|h"
+  if item.mention then
+    return UI.InlineIcon("At", C.gold, 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", C.gold)
+  end
   return UI.InlineIcon("Chat", "8FB8C9", 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", "D9F0F7")
 end
 
@@ -182,8 +185,16 @@ function E:Create()
   gt:SetAllPoints()
   gt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
   gt:SetVertexColor(hex(C.muted))
-  grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+  grip:SetShown(not UI.IsLocked())
+  ns:Listen("LOCK_CHANGED", function(v) grip:SetShown(not v) end)
+  grip:SetScript("OnMouseDown", function()
+    if UI.IsLocked() then return end
+    f.sizing = true
+    f:StartSizing("BOTTOMRIGHT")
+  end)
   grip:SetScript("OnMouseUp", function()
+    if not f.sizing then return end
+    f.sizing = nil
     f:StopMovingOrSizing()
     ns.db.settings.evSize = { w = math.floor(f:GetWidth()), h = math.floor(f:GetHeight()) }
     UI.RestorePos(f)

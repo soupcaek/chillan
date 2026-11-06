@@ -106,6 +106,9 @@ function UI.RestorePos(frame)
   end
 end
 
+-- Låst? (Innstillinger → Lås posisjoner, eller /chill lås)
+function UI.IsLocked() return ns.db and ns.db.settings.locked end
+
 -- target = rammen som faktisk flyttes (f.eks. et anker for en stabel med varsler)
 function UI.Movable(frame, key, defaultPos, target)
   target = target or frame
@@ -115,8 +118,14 @@ function UI.Movable(frame, key, defaultPos, target)
   target:SetClampedToScreen(true)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
-  frame:HookScript("OnDragStart", function() target:StartMoving() end)
+  frame:HookScript("OnDragStart", function()
+    if UI.IsLocked() then return end
+    target.isMoving = true
+    target:StartMoving()
+  end)
   frame:HookScript("OnDragStop", function()
+    if not target.isMoving then return end
+    target.isMoving = nil
     target:StopMovingOrSizing()
     savePos(target, key)
     if target.OnMoved then target:OnMoved() end
@@ -141,6 +150,8 @@ local STYLES = {
   danger = { fill = C.sosBg, line = C.sosLine, text = C.sosText, hover = "4A2427", weight = "semi" },
   nav = { fill = nil, line = nil, text = C.dim, hover = C.card, weight = nil },
 }
+
+UI.STYLES = STYLES
 
 function UI.Button(parent, w, h, label, style, onClick)
   local b = CreateFrame("Button", nil, parent)

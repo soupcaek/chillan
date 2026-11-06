@@ -84,8 +84,10 @@ end
 function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  return ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLabel(p, it.char)
-    .. "  " .. ns.Colorize(it.text, "D4D7DB")
+  local line = ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLabel(p, it.char)
+    .. "  " .. ns.Colorize(it.text, it.mention and C.gold or "D4D7DB")
+  if it.mention then line = UI.InlineIcon("At", C.gold, 13) .. " " .. line end
+  return line
 end
 
 ns:RegisterTab("chat", "Chat", "Chat", function(tab)
@@ -129,8 +131,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
 
   local lastChatKey
   function tab:Refresh()
-    local last = ns.db.chat[#ns.db.chat]
-    local key = #ns.db.chat .. (last and last.id or "")
+    local key = ns.chatRev or 0
     if key ~= lastChatKey then
       lastChatKey = key
       msgs:Clear()

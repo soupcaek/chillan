@@ -268,7 +268,7 @@ function ns.NewerVersion(a, b)
 end
 
 function ns.Print(...)
-  print("|cffc8d1dcChillan?|r", ...)
+  print("|cff" .. ns.C.accent .. "Chillan?|r", ...)
 end
 
 function ns.Sound(kind)
@@ -292,6 +292,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
+    accent = "grey", locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},
@@ -313,6 +314,94 @@ function ns:InitDB()
   if not ChillanDB.pid then ChillanDB.pid = ns.RandomId(8) end
   ns.db = ChillanDB
   ns.pid = ChillanDB.pid
+  ns:ApplyAccent()
+end
+
+---------------------------------------------------------------------------
+-- Aksentfarge (velges i Innstillinger, gjelder etter /reload)
+---------------------------------------------------------------------------
+ns.ACCENTS = {
+  { key = "grey", name = "Grå", hex = "C8D1DC" },
+  { key = "blue", name = "Blå", hex = "8FB8E8" },
+  { key = "green", name = "Grønn", hex = "7FD6A0" },
+  { key = "purple", name = "Lilla", hex = "B9AEDB" },
+  { key = "gold", name = "Gull", hex = "E0C068" },
+  { key = "red", name = "Rød", hex = "F2999B" },
+  { key = "pink", name = "Rosa", hex = "F0A8D0" },
+  { key = "teal", name = "Turkis", hex = "7ED6D1" },
+  { key = "class", name = "Klassefarge", hex = nil },
+}
+
+local function lighten(h, f)
+  local r, g, b = tonumber(h:sub(1, 2), 16), tonumber(h:sub(3, 4), 16), tonumber(h:sub(5, 6), 16)
+  local function l(v) return math.min(255, math.floor(v + (255 - v) * f)) end
+  return string.format("%02X%02X%02X", l(r), l(g), l(b))
+end
+
+function ns.AccentHex(key)
+  for _, a in ipairs(ns.ACCENTS) do
+    if a.key == key then
+      if a.hex then return a.hex end
+      local _, class = UnitClass("player")
+      return CLASS_HEX[class or ""] or "C8D1DC"
+    end
+  end
+  return "C8D1DC"
+end
+
+function ns:ApplyAccent()
+  local h = ns.AccentHex(ns.db.settings.accent or "grey")
+  ns.C.accent = h
+  ns.C.accentHover = lighten(h, 0.35)
+  if ns.UI and ns.UI.STYLES then
+    ns.UI.STYLES.primary.fill = h
+    ns.UI.STYLES.primary.hover = ns.C.accentHover
+  end
+  if ns.Overlays and ns.Overlays.KIND then
+    ns.Overlays.KIND.join.color = h
+    ns.Overlays.KIND.info.color = h
+  end
+end
+
+-- "Chillan?" med spørsmålstegnet i aksentfarge
+function ns.Logo()
+  return "Chillan|cff" .. ns.C.accent .. "?|r"
+end
+
+---------------------------------------------------------------------------
+-- @navn i gjengchatten
+---------------------------------------------------------------------------
+local function lowerTrim(s) return (s or ""):lower():gsub("^%s+", ""):gsub("%s+$", "") end
+
+function ns.MyMentionNames()
+  local names = {}
+  if ns.db.alias and ns.db.alias ~= "" then names[#names + 1] = lowerTrim(ns.db.alias) end
+  local me = ns.db.people[ns.pid]
+  for _, c in pairs(me and me.chars or {}) do
+    if c.name then
+      names[#names + 1] = lowerTrim(c.name)
+      local first = c.name:match("^(%S+)")
+      if first and #first >= 3 then names[#names + 1] = lowerTrim(first) end
+    end
+  end
+  return names
+end
+
+-- Nevner teksten meg? (@alias, @karakternavn, @fornavn eller @alle)
+function ns.MentionsMe(text)
+  local t = (text or ""):lower()
+  if not t:find("@", 1, true) then return false end
+  if t:find("@alle", 1, true) or t:find("@all%f[%W]") then return true end
+  for _, n in ipairs(ns.MyMentionNames()) do
+    if n ~= "" then
+      local s, e = t:find("@" .. n, 1, true)
+      if s then
+        local nextc = t:sub(e + 1, e + 1)
+        if nextc == "" or not nextc:match("[%w]") then return true end
+      end
+    end
+  end
+  return false
 end
 
 function ns:SetCode(code)
