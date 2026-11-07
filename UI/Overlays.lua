@@ -593,22 +593,24 @@ function O:ShowDing(item)
   local xh = math.max(14, d.text:GetStringHeight() or 14)
   d:SetHeight(math.max(168, 20 + 15 + 5 + th + 5 + xh + 24 + 36 + 20))
   -- legg ut knappene etter hvor mange reaksjoner denne typen har (ding 3, død 4)
-  local list = dead and ns.REACTIONS_DEAD or (ach and ns.REACTIONS_ACH) or ns.REACTIONS
-  local n = #list
+  -- 4 random reactions from the big pool, new ones every time
+  local list = ns.ReactionList(item)
+  local picks = ns.PickReactions(item, 4)
+  local n = #picks
   local bw = math.floor((500 - 40 - (n - 1) * 8) / n)
   for i, b in ipairs(d.buttons) do
     if i <= n then
       b:SetWidth(bw)
       b:ClearAllPoints()
       b:SetPoint("BOTTOMLEFT", 20 + (i - 1) * (bw + 8), 20)
-      b:SetLabel(list[i])
+      b:SetLabel(list[picks[i]])
     end
   end
   d.sent:Hide()
   for i, b in ipairs(d.buttons) do
     b:SetShown(i <= n)
     b:SetScript("OnClick", function()
-      ns.Data:React(item, i)
+      ns.Data:React(item, picks[i])
       -- lukk med en gang du har reagert (neste i køen vises etterpå)
       O:NextDing()
     end)

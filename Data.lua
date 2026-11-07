@@ -648,16 +648,50 @@ end)
 ---------------------------------------------------------------------------
 -- Gratulasjoner og reaksjoner på dings
 ---------------------------------------------------------------------------
-ns.REACTIONS = { "Grats!", "GZ!", "Finally!", "Gay" }
-ns.REACTIONS_DEAD = { "Hahaha!", "RIP", "Noob!", "F", "Gay" }
+-- big pools: the popup shows 4 random ones each time. The first entries are the old
+-- fixed buttons, so reactions from older versions still show the right text.
+ns.REACTIONS = {
+  "Grats!", "GZ!", "Finally!", "Gay", "Ding dong!", "Big ding!", "Absolute unit", "Levelled up!", "About time", "Speedrun?", "Show-off", "Sheesh!", "W", "Massive W", "Huge!", "Leveling god", "Go go go!", "Nice one!", "Keep it up!", "Unstoppable", "XP vacuum", "No-lifer", "Touch grass", "Hell yeah!", "Lets gooo!", "Banger", "Proud of you", "Clean", "Too fast!", "Wait for me!", "Slow down!", "Respect", "Built diff", "Getting old", "Happy ding!", "Yippie!", "Skål!", "Nais!", "Gratulerer!", "Rått!", "Konge!", "Damn!", "Ding ding", "Insane", "Tryhard", "Who asked?", "Cake time", "Grats, nerd", "Big brain", "Glow up",
+}
+-- tag: "laugh" counts as laughing at a death, "f" as paying respect
+ns.REACTIONS_DEAD = {
+  "Hahaha!", "RIP", "Noob!", "F", "Gay", "LOL", "KEKW", "Skill issue", "Git gud", "Bruh", "Oof", "o7", "Unlucky", "Classic", "Corpse run!", "Walk it off", "Was it lag?", "Blame tank", "Blame healer", "Floor tank", "Not again", "Again?!", "Res pls", "Pathetic", "Sad", "Tragic", "Big oof", "Nice try", "Deserved", "Get rekt", "Who did it?", "Cry about it", "Smooth", "Pain", "Rest easy", "Gone too soon", "Ripperoni", "Ded", "Dirt nap", "Ouch!", "Omegalul", "Fall damage?", "Huh?", "Carry harder", "Avenge me!", "Floor is cozy", "Spirit buddy", "Durability!", "Chalk outline", "Pepega",
+}
+ns.REACTIONS_DEAD_TAG = {
+  "laugh", "", "laugh", "f", "laugh", "laugh", "laugh", "laugh", "laugh", "", "", "f", "", "laugh", "laugh", "", "", "", "", "laugh", "laugh", "laugh", "", "laugh", "f", "f", "", "", "laugh", "laugh", "", "laugh", "laugh", "f", "f", "f", "", "", "laugh", "", "laugh", "laugh", "", "", "f", "laugh", "", "laugh", "laugh", "laugh",
+}
+ns.REACTIONS_ACH = {
+  "Grats!", "GZ!", "Impressive!", "Gay", "Nice!", "Tryhard", "Achiever", "Collector", "Big brain", "Completionist", "Sweaty", "Nerd!", "Clean!", "Legend", "Respect", "W", "Noted", "Pog", "Poggers", "Insane", "Show-off", "Ok, flex", "Hall of fame", "Wow", "Shiny!", "Stonks", "Goals", "Unreal", "Iconic", "Earned", "Big W", "GG", "Well played", "Chad move", "Neat", "Wholesome", "Trophy hunter", "Slay", "Proud", "Bravo!", "Mesterlig", "Konge!", "Rått!", "Nais!", "Sheesh!", "Gratz!", "Sick!", "Gamer", "Flawless", "Main char",
+}
 
-ns.REACTIONS_ACH = { "Grats!", "GZ!", "Impressive!", "Gay" }
+function ns.ReactionList(item)
+  if item and item.kind == "DEAD" then return ns.REACTIONS_DEAD end
+  if item and item.kind == "ACH" then return ns.REACTIONS_ACH end
+  return ns.REACTIONS
+end
+
+-- n random, distinct indexes into the pool for this event
+function ns.PickReactions(item, n)
+  local list = ns.ReactionList(item)
+  local idx = {}
+  for i = 1, #list do idx[i] = i end
+  for i = #idx, 2, -1 do
+    local j = math.random(i)
+    idx[i], idx[j] = idx[j], idx[i]
+  end
+  local out = {}
+  for i = 1, math.min(n or 4, #idx) do out[i] = idx[i] end
+  return out
+end
+
+function ns.ReactionTag(item, idx)
+  if item and item.kind == "DEAD" then return ns.REACTIONS_DEAD_TAG[idx] or "" end
+  return "grats"
+end
 
 function ns.ReactionText(item, idx)
-  local list = ns.REACTIONS
-  if item and item.kind == "DEAD" then list = ns.REACTIONS_DEAD
-  elseif item and item.kind == "ACH" then list = ns.REACTIONS_ACH end
-  return list[idx] or list[1]
+  local list = ns.ReactionList(item)
+  return list[tonumber(idx) or 1] or list[1]
 end
 
 local function findFeed(id)
@@ -678,7 +712,8 @@ function Data:React(item, idx)
   if not item or item.pid == ns.pid then return end
   if not addReaction(item, ns.pid, Comm:MyFull(), idx) then return end
   if item.kind == "DEAD" then
-    if idx == 4 then ns.Cnt("fGiven") elseif idx == 1 or idx == 3 then ns.Cnt("laughsGiven") end
+    local tag = ns.ReactionTag(item, idx)
+    if tag == "f" then ns.Cnt("fGiven") elseif tag == "laugh" then ns.Cnt("laughsGiven") end
   else
     ns.Cnt("gratsGiven")
   end
@@ -697,20 +732,20 @@ Comm:Handle("RX", function(f)
   ns:Fire("REACTION", item, rp, f[3], idx)
   if item.pid == ns.pid then
     if item.kind == "DEAD" then
-      if idx == 1 or idx == 3 then ns.Cnt("laughedAt") end
+      if ns.ReactionTag(item, idx) == "laugh" then ns.Cnt("laughedAt") end
     else
       ns.Cnt("gratsGot")
       if item.kind == "DING" then ns.CntMax("maxGratsOneDing", #item.reacts) end
     end
     -- samle gratulasjonene til ett varsel
-    reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3])
+    reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3]) .. " (" .. ns.ReactionText(item, idx) .. ")"
     if #reactBuffer == 1 then
       C_Timer.After(4, function()
         local names = reactBuffer
         reactBuffer = {}
         local who = #names == 1 and names[1] or (names[1] .. " and " .. (#names - 1) .. " others")
         if item.kind == "DEAD" then
-          ns:Fire("TOAST", { kind = "dead", title = who .. " laughed at you", text = "You died in " .. tostring(item.a or "?") })
+          ns:Fire("TOAST", { kind = "dead", title = who .. " reacted to your death", text = "You died in " .. tostring(item.a or "?") })
         else
           local what = "On level " .. tostring(item.a)
           if item.kind == "ACH" then

@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.2", date = "07.11", items = {
+    "Reactions are random: 50 options each for dings, deaths and achievements, 4 new ones every popup",
+    "Death toast now shows what people reacted with instead of always \"laughed at you\"",
+  } },
   { v = "0.14.1", date = "07.11", items = {
     "Titles are hoverable: what they mean, who holds them and the top 5 this week (click opens the Titles page)",
     "Title announcements only when someone actually overtakes – not when their numbers arrive at login",
