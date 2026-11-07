@@ -369,8 +369,11 @@ function A:Check()
   else
     for _, d in ipairs(newOnes) do
       ns.Tracker:Event("ACH", d.id, d.tier)
-      ns:Fire("TOAST", { kind = "trophy", sticky = false,
-        title = "Achievement: " .. d.name, text = d.desc .. " · " .. self.TIERS[d.tier].name .. " (" .. self.TIERS[d.tier].points .. " p)" })
+      -- sølv/gull/legendarisk får den store popupen; bronse bare et lite varsel (ikke begge)
+      if d.tier == "B" then
+        ns:Fire("TOAST", { kind = "trophy", sticky = false,
+          title = "Achievement: " .. d.name, text = d.desc .. " · " .. self.TIERS[d.tier].name .. " (" .. self.TIERS[d.tier].points .. " p)" })
+      end
     end
   end
   ns:MarkDirty()

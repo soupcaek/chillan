@@ -60,29 +60,31 @@ function T:Format(def, v)
   return ns.Num(v)
 end
 
--- Regn ut hvem som har hver tittel nå: { key = { pid, value, second } }
+-- Regn ut hvem som leder hver tittel nå: { key = { pid, value, second, values } }
 function T:Compute()
   local out = {}
-  local prev = ns.db.titles or {}
   for _, def in ipairs(self.DEFS) do
     local counts = def.count and def.count() or nil
-    local best, bestV, second = nil, 0, 0
+    local values, best, bestV, second = {}, nil, 0, 0
     for pid, p in pairs(ns.db.people) do
       if p.main and (pid == ns.pid or (ns.Now() - (p.lastSeen or 0)) < 14 * 86400) then
         local v = counts and (counts[pid] or 0) or (def.val(p) or 0)
-        if v > bestV or (v == bestV and v > 0 and prev[def.key] == pid) then
-          if best ~= pid then second = bestV end
-          best, bestV = pid, v
-        elseif v > second then
-          second = v
-        end
+        values[pid] = v
+        if v > bestV then second, best, bestV = bestV, pid, v elseif v > second then second = v end
       end
     end
     if best and bestV > (def.min or 0) then
-      out[def.key] = { pid = best, value = bestV, second = second }
+      out[def.key] = { pid = best, value = bestV, second = second, values = values }
     end
   end
   return out
+end
+
+-- Hvor mye må en utfordrer lede med for å ta tittelen? (unngår at den hopper fram og
+-- tilbake når to er nesten like, eller når statistikk fra andre kommer litt forsinket)
+local MARGIN = { n = 1, t = 900, g = 5000 }
+local function beats(def, challenger, holder)
+  return challenger > holder * 1.10 + (MARGIN[def.fmt] or 1)
 end
 
 function T:Current() return self.cur or {} end
@@ -110,20 +112,55 @@ function T:Badge(pid, withName)
 end
 
 local started = false
+local startedAt = GetTime()
+T.pending = {}
 function T:Update()
-  local cur = self:Compute()
-  self.cur = cur
+  local raw = self:Compute()
   local prev = ns.db.titles or {}
   local wkKey = ns.WeekKey()
-  local announce = started and ns.db.titlesWeek == wkKey and ns.db.settings.titles ~= false
-  local shown = 0
+  if ns.db.titlesWeek ~= wkKey then prev = {} end
+  ns.db.titleAnnouncedAt = ns.db.titleAnnouncedAt or {}
+  local cur, changes = {}, {}
   for _, def in ipairs(self.DEFS) do
-    local now = cur[def.key] and cur[def.key].pid
-    if now and prev[def.key] ~= now and announce and shown < 2 then
+    local r = raw[def.key]
+    local holder = prev[def.key]
+    if r then
+      local holderV = holder and r.values[holder]
+      if not holder or holderV == nil or holderV <= (def.min or 0) then
+        cur[def.key] = { pid = r.pid, value = r.value, second = r.second }
+        if holder ~= r.pid then changes[#changes + 1] = { def = def, pid = r.pid, lost = holder } end
+      elseif r.pid ~= holder and beats(def, r.value, holderV) then
+        -- utfordreren må lede tydelig i to runder på rad (2 min) før tittelen bytter eier
+        local pend = self.pending[def.key]
+        if pend and pend.pid == r.pid then pend.n = pend.n + 1 else pend = { pid = r.pid, n = 1 } self.pending[def.key] = pend end
+        if pend.n >= 2 then
+          self.pending[def.key] = nil
+          cur[def.key] = { pid = r.pid, value = r.value, second = holderV }
+          changes[#changes + 1] = { def = def, pid = r.pid, lost = holder }
+        else
+          cur[def.key] = { pid = holder, value = holderV, second = r.value }
+        end
+      else
+        self.pending[def.key] = nil
+        cur[def.key] = { pid = holder, value = holderV, second = (r.pid ~= holder) and r.value or r.second }
+      end
+    end
+  end
+  self.cur = cur
+
+  -- varsle: ikke første 5 min etter innlogging, maks én gang per tittel per 4 timer, maks 2 om gangen
+  local announce = started and ns.db.titlesWeek == wkKey and ns.db.settings.titles ~= false
+    and (GetTime() - startedAt) > 300
+  local shown = 0
+  for _, ch in ipairs(changes) do
+    local last = ns.db.titleAnnouncedAt[ch.def.key]
+    if announce and shown < 2 and ch.lost and (not last or (ns.Now() - last) > 4 * 3600) then
       shown = shown + 1
-      local p = ns:GetPerson(now) or {}
-      local lost = prev[def.key] and ns:GetPerson(prev[def.key])
-      ns:Fire("TOAST", { kind = "title", pid = now,
+      ns.db.titleAnnouncedAt[ch.def.key] = ns.Now()
+      local def = ch.def
+      local p = ns:GetPerson(ch.pid) or {}
+      local lost = ns:GetPerson(ch.lost)
+      ns:Fire("TOAST", { kind = "title", pid = ch.pid,
         title = ns:ShortWho(p) .. " er ny " .. ns.Colorize(def.name, "E0C068"),
         text = def.desc .. (lost and (" – tok den fra " .. (ns:PersonAlias(lost) or ns:PersonName(lost))) or "") })
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Crown", "E0C068", 12) .. "  " .. ns:ShortWho(p) .. " er ny " .. ns.Colorize(def.name, "E0C068"))

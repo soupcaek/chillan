@@ -18,6 +18,7 @@ local function stamp(t)
 end
 
 local function visible(kind)
+  if kind == "sep" then return true end
   local f = ns.db.settings.evFilter or "all"
   if f == "all" then return kind ~= "chat" or ns.db.settings.feedChat end
   if f == "ev" then return kind == "ev" or kind == "rx" end
@@ -302,17 +303,23 @@ function E:Backfill()
   for _, it in ipairs(ns.db.feed or {}) do items[#items + 1] = { t = it.t, kind = "ev", it = it } end
   for _, it in ipairs(ns.db.chat or {}) do items[#items + 1] = { t = it.t, kind = "chat", it = it } end
   table.sort(items, function(a, b) return a.t < b.t end)
-  local cutoff = time() - 6 * 3600
-  for i = math.max(1, #items - 30), #items do
+  local cutoff = time() - 2 * 3600
+  local added = 0
+  for i = math.max(1, #items - 20), #items do
     local x = items[i]
     if x.t >= cutoff then
       local ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it)
       if ok and text then
-        local e = { kind = x.kind, base = text, t = x.t, item = x.kind == "ev" and x.it or nil }
+        -- tidligere hendelser vises dempet, så de ikke ser ut som nye
+        local e = { kind = x.kind, base = ns.Colorize(text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""), "7A8088"), t = x.t, item = x.kind == "ev" and x.it or nil, old = true }
         e.text = render(e)
         ns.PushCapped(self.entries, e, MAX_KEEP)
+        added = added + 1
       end
     end
+  end
+  if added > 0 then
+    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("- - -  tidligere i dag (nytt kommer under)  - - -", "5A6067"), t = time() }, MAX_KEEP)
   end
 end
 
