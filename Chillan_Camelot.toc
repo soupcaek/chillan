@@ -24,7 +24,6 @@ UI\MainWindow.lua
 UI\TabFriends.lua
 UI\TabQuests.lua
 UI\TabChat.lua
-UI\TabTavle.lua
 UI\TabStats.lua
 UI\TabChronicle.lua
 UI\TabAch.lua

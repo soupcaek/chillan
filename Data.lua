@@ -758,12 +758,6 @@ Comm:Handle("MT", function(f)
   if not id or id == "" then return end
   local isNew = ns.db.mats[id] == nil
   ns.db.mats[id] = { id = id, pid = f[2], char = f[3], t = ago2t(f[4]), text = f[5] or "", note = f[6] or "" }
-  if isNew and fresh(ns.db.mats[id].t) and not quiet() then
-    ns:Fire("ACTIVITY", ns.UI.InlineIcon("Mail", ns.C.amber, 13) .. "  " .. ns:PersonLabel(ns:GetPerson(f[2], true), f[3]) .. " trenger " .. ns.Colorize(f[5] or "noe", "E0B04F") .. " – svar i Tavle-fanen")
-    ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Mail", ns.C.amber, 12) .. "  " .. ns:ShortWho(ns:GetPerson(f[2], true), f[3]) .. " trenger " .. ns.Colorize(f[5] or "noe", "E0B04F"))
-    ns:Fire("TOAST", { kind = "mats", pid = f[2], title = ns:PersonLabel(ns:GetPerson(f[2], true), f[3]) .. " trenger " .. (f[5] or "noe"),
-      text = (f[6] and f[6] ~= "") and f[6] or "Har du? Svar i Tavle-fanen" })
-  end
   ns:MarkDirty()
 end)
 
@@ -833,10 +827,6 @@ Comm:Handle("PO", function(f)
   local opts = {}
   for _, o in ipairs(ns.Split(f[5] or "", ";")) do if o ~= "" then opts[#opts + 1] = o end end
   ns.PushCapped(ns.db.polls, { id = f[1], pid = f[2], t = ago2t(f[3]), q = f[4], opts = opts, votes = {} }, 5)
-  if fresh(ago2t(f[3])) and not quiet() then
-    ns:Fire("ACTIVITY", ns.UI.InlineIcon("Board", ns.C.accent, 13) .. "  Ny avstemning: " .. ns.Colorize(f[4] or "", "E8EAED") .. " – stem i Tavle-fanen")
-    ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Board", ns.C.accent, 12) .. "  Avstemning: " .. ns.Colorize(f[4] or "", "E8EAED"))
-  end
   ns:MarkDirty()
 end)
 
@@ -886,10 +876,6 @@ end
 Comm:Handle("AV", function(f)
   if findEvent(f[1]) then return end
   ns.PushCapped(ns.db.events, { id = f[1], pid = f[2], t = ago2t(f[3]), title = f[4], when = f[5], rsvp = {} }, 10)
-  if fresh(ago2t(f[3])) and not quiet() then
-    ns:Fire("ACTIVITY", ns.UI.InlineIcon("Calendar", ns.C.accent, 13) .. "  Ny avtale: " .. ns.Colorize((f[4] or "") .. ((f[5] and f[5] ~= "") and (" – " .. f[5]) or ""), "E8EAED") .. " – svar i Tavle-fanen")
-    ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Calendar", ns.C.accent, 12) .. "  Avtale: " .. ns.Colorize(f[4] or "", "E8EAED"))
-  end
   ns:MarkDirty()
 end)
 

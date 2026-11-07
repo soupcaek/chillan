@@ -125,11 +125,6 @@ T.DEFS = {
     local n = s3().streak or 0
     return n .. (n == 1 and " dag" or " dager"), "på rad"
   end },
-  { key = "event", name = "Neste avtale", get = function()
-    local ev = ns.db.events and ns.db.events[#ns.db.events]
-    if not ev then return "–", "ingen avtaler" end
-    return ev.title or "Avtale", (ev.when and ev.when ~= "") and ev.when or "avtale"
-  end },
 }
 T.byKey = {}
 for _, d in ipairs(T.DEFS) do T.byKey[d.key] = d end
