@@ -41,10 +41,13 @@ local function chips(item)
   local parts = {}
   for _, o in ipairs(order) do
     local n = counts[o.label]
+    -- [ Grats! 2 ] – brackets in a dim colour so each reaction stands apart
+    local br = ns.C.activeLine
     parts[#parts + 1] = "|Hchillanrx:" .. tostring(item.id) .. ":" .. tostring(o.idx) .. "|h"
-      .. ns.Colorize(o.label, C.purple) .. (n > 1 and ns.Colorize(" " .. n, C.muted) or "") .. "|h"
+      .. ns.Colorize("[ ", br) .. ns.Colorize(o.label, C.purple) .. (n > 1 and ns.Colorize(" " .. n, C.muted) or "")
+      .. ns.Colorize(" ]", br) .. "|h"
   end
-  return "     " .. table.concat(parts, "    ")
+  return "    " .. table.concat(parts, " ")
 end
 
 local function render(e)
