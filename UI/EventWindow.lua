@@ -60,6 +60,10 @@ function E:Add(kind, text, t, item)
   ns.PushCapped(self.entries, e, MAX_KEEP)
   if self.msg and visible(kind) then
     self.msg:AddMessage(e.text)
+    if ns.db.settings.evMin and kind ~= "sep" then
+      self.missed = (self.missed or 0) + 1
+      self:UpdateCount()
+    end
     if self.frame and not self.frame:IsMouseOver() then self:Flash() end
   end
 end
@@ -187,11 +191,41 @@ function E:Create()
   self.count = UI.Text(head, 11, nil, C.muted)
   self.count:SetPoint("LEFT", title, "RIGHT", 6, 0)
 
-  local close = UI.IconButton(head, 20, "Close", "Hide (/chill events shows it again)", function()
+  local close = UI.IconButton(head, 20, "Close", "Hide – right-click the Chillan? bar or minimap button (or /chill events) to bring it back", function()
     ns.db.settings.eventFeed = false
     E:Apply()
+    ns.Print("Event window hidden. Right-click the Chillan? bar or the minimap button to bring it back.")
   end)
   close:SetPoint("RIGHT", -6, 0)
+  -- "–" folds the window down to just the header
+  local mini = CreateFrame("Button", nil, head)
+  mini:SetSize(20, 20)
+  mini:SetPoint("RIGHT", close, "LEFT", -2, 0)
+  mini.bar = mini:CreateTexture(nil, "OVERLAY")
+  mini.bar:SetSize(10, 2)
+  mini.bar:SetPoint("CENTER", 0, 0)
+  mini.bar:SetColorTexture(hex(C.muted))
+  mini:SetScript("OnEnter", function(self)
+    self.bar:SetColorTexture(hex(C.text))
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(ns.db.settings.evMin and "Expand" or "Minimize to header")
+    GameTooltip:Show()
+  end)
+  mini:SetScript("OnLeave", function(self) self.bar:SetColorTexture(hex(C.muted)) GameTooltip:Hide() end)
+  mini:SetScript("OnClick", function() E:SetMinimized(not ns.db.settings.evMin) end)
+  self.miniBtn = mini
+  -- double-click the header does the same
+  head:SetScript("OnMouseUp", function(_, btn)
+    if btn ~= "LeftButton" then return end
+    local now = GetTime()
+    if E.lastHeadClick and now - E.lastHeadClick < 0.35 then
+      E.lastHeadClick = nil
+      E:SetMinimized(not ns.db.settings.evMin)
+    else
+      E.lastHeadClick = now
+    end
+  end)
+  self.missed = 0
 
   -- Filtre
   self.filterBtns = {}
@@ -208,13 +242,14 @@ function E:Create()
     b.line:SetHeight(1)
     b.line:SetPoint("BOTTOMLEFT", 6, 2)
     b.line:SetPoint("BOTTOMRIGHT", -6, 2)
-    if prev then b:SetPoint("RIGHT", prev, "LEFT", 0, 0) else b:SetPoint("RIGHT", close, "LEFT", -4, 0) end
+    if prev then b:SetPoint("RIGHT", prev, "LEFT", 0, 0) else b:SetPoint("RIGHT", mini, "LEFT", -4, 0) end
     b:SetScript("OnClick", function() ns.db.settings.evFilter = key E:Redraw() end)
     self.filterBtns[key] = b
     prev = b
   end
 
   local sep = f:CreateTexture(nil, "ARTWORK")
+  self.sep = sep
   sep:SetColorTexture(hex(C.line))
   sep:SetHeight(1)
   sep:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 8, 0)
@@ -251,14 +286,15 @@ function E:Create()
 
   -- Hjørne for å endre størrelse
   local grip = CreateFrame("Button", nil, f)
+  self.grip = grip
   grip:SetSize(14, 14)
   grip:SetPoint("BOTTOMRIGHT", -3, 3)
   local gt = grip:CreateTexture(nil, "OVERLAY")
   gt:SetAllPoints()
   gt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
   gt:SetVertexColor(hex(C.muted))
-  grip:SetShown(not UI.IsLocked())
-  ns:Listen("LOCK_CHANGED", function(v) grip:SetShown(not v) end)
+  grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin)
+  ns:Listen("LOCK_CHANGED", function(v) grip:SetShown(not v and not ns.db.settings.evMin) end)
   grip:SetScript("OnMouseDown", function()
     if UI.IsLocked() then return end
     f.sizing = true
@@ -288,17 +324,68 @@ function E:Create()
   end)
 
   self:Redraw()
+  if ns.db.settings.evMin then self:SetMinimized(true, true) end
+end
+
+-- Fold to header / unfold. Keeps the header where it is on screen.
+function E:SetMinimized(on, silent)
+  local f = self.frame
+  if not f then return end
+  local S = ns.db.settings
+  S.evMin = on and true or nil
+  local top, left = f:GetTop(), f:GetLeft()
+  local sz = S.evSize or { w = 380, h = 210 }
+  for _, r in ipairs({ self.msg, self.input, self.sep, self.grip }) do
+    if r then r:SetShown(not on) end
+  end
+  if self.grip and not on then self.grip:SetShown(not UI.IsLocked()) end
+  for _, b in pairs(self.filterBtns or {}) do b:SetShown(not on) end
+  f:SetHeight(on and 28 or sz.h)
+  if top and left and not silent then
+    -- re-anchor by the top-left corner so the header doesn't jump
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    S.pos = S.pos or {}
+    S.pos.eventwin = { point = "TOPLEFT", rel = "BOTTOMLEFT", x = math.floor(left + 0.5), y = math.floor(top + 0.5) }
+  end
+  if self.miniBtn then
+    self.miniBtn.bar:SetSize(on and 8 or 10, on and 8 or 2)
+  end
+  if not on then
+    self.missed = 0
+    self:Redraw()
+  end
+  self:UpdateCount()
 end
 
 function E:UpdateCount()
   if not self.count then return end
   local n = ns.Window and ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
-  self.count:SetText(ns.Colorize("· ", C.dim) .. ns.Colorize(n .. " online", n > 0 and C.green or C.muted))
+  local txt = ns.Colorize("· ", C.dim) .. ns.Colorize(n .. " online", n > 0 and C.green or C.muted)
+  if ns.db.settings.evMin and (self.missed or 0) > 0 then
+    txt = txt .. ns.Colorize("  · ", C.dim) .. ns.Colorize(self.missed .. " new", C.accent)
+  end
+  self.count:SetText(txt)
 end
 
 function E:Apply()
   if not self.frame then return end
   self.frame:SetShown(ns.db.settings.eventFeed and ns.codeHash ~= nil)
+end
+
+-- right-click on the bar / minimap button: bring it back if hidden or folded, otherwise hide it
+function E:ShowOrToggle()
+  local S = ns.db.settings
+  if not S.eventFeed then
+    S.eventFeed = true
+    self:Apply()
+    if S.evMin then self:SetMinimized(false) end
+  elseif S.evMin then
+    self:SetMinimized(false)
+  else
+    S.eventFeed = false
+    self:Apply()
+  end
 end
 
 function E:Toggle()

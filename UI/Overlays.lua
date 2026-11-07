@@ -31,7 +31,7 @@ function O:CreateMinibar()
     ns.db.settings.minibarPos = { point = point, x = x, y = y }
   end)
   m:SetScript("OnClick", function(_, btn)
-    if btn == "RightButton" then ns.Window:Toggle("chat") else ns.Window:Toggle() end
+    if btn == "RightButton" then ns.EventWindow:ShowOrToggle() else ns.Window:Toggle() end
   end)
   m.posKey = "minibar"
   m.defaultPos = function(f) f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -20) end
@@ -66,7 +66,7 @@ function O:CreateMinibar()
     end
     if not any then GameTooltip:AddLine("Nobody else online", 0.6, 0.63, 0.66) end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Left-click: open  ·  Right-click: chat  ·  Drag: move", 0.52, 0.55, 0.57)
+    GameTooltip:AddLine("Left-click: open  ·  Right-click: event window  ·  Drag: move", 0.52, 0.55, 0.57)
     GameTooltip:Show()
   end)
   m:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -685,7 +685,7 @@ function O:CreateMinimapButton()
   end)
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnClick", function(_, btn)
-    if btn == "RightButton" then ns.Window:Toggle("chat") else ns.Window:Toggle() end
+    if btn == "RightButton" then ns.EventWindow:ShowOrToggle() else ns.Window:Toggle() end
   end)
   b:SetScript("OnEnter", function(self)
     self.ring:SetVertexColor(hex(C.accent))
@@ -693,7 +693,7 @@ function O:CreateMinimapButton()
     GameTooltip:AddLine("Chillan?", 1, 1, 1)
     local n = ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
     GameTooltip:AddLine(n .. " friends online", 0.79, 0.8, 0.82)
-    GameTooltip:AddLine("Click: open · Right-click: chat · Drag: move", 0.6, 0.63, 0.66)
+    GameTooltip:AddLine("Click: open · Right-click: event window · Drag: move", 0.6, 0.63, 0.66)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function(self)

@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.4", date = "07.11", items = {
+    "Event window has a \"–\" button (or double-click the header) that folds it down to just the header, with a count of new lines",
+    "Right-click the Chillan? bar or minimap button to bring the event window back after closing it with X",
+  } },
   { v = "0.14.3", date = "07.11", items = {
     "What's new reads top-down with a line between each version",
     "\"NEW\" only marks versions you haven't seen before",
