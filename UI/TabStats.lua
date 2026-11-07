@@ -387,9 +387,9 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     row.val:SetWidth(156)
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
-      if self.item and self.item.holder then ns.Overlays:ShowProfile(self, self.item.holder.pid) end
+      if self.item then ns.Titles:Tooltip(self, self.item.def.key) end
     end)
-    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) GameTooltip:Hide() end)
     return row
   end
   local function updateTitle(row, e)

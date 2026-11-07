@@ -524,6 +524,8 @@ function UI.MessageFrame(parent, size)
       GameTooltip:Show()
     elseif link:find("^chillanach:") then
       UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
+    elseif link:find("^chillantitle:") then
+      ns.Titles:Tooltip(self, link:match("^chillantitle:(.+)$"))
     elseif link:find("^chillanrx:") then
       local id, idx = link:match("^chillanrx:([^:]+):(%d+)$")
       local item

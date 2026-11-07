@@ -239,6 +239,13 @@ function E:Create()
   m:SetScript("OnHyperlinkClick", function(_, link)
     local pid = type(link) == "string" and link:match("^chillan:(.+)$")
     if pid and ns.Window and ns.Window.OpenPlayer then ns.Window:OpenPlayer(pid) end
+    if type(link) == "string" and link:find("^chillantitle:") and ns.Window then
+      ns.Window:Create()
+      ns.Window.frame:Show()
+      ns.Window:Select("stats")
+      local st = ns.Window.tabs.stats
+      if st and st.SetPage then st:SetPage("titles") end
+    end
   end)
   self.msg = m
 

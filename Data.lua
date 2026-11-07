@@ -138,7 +138,11 @@ Comm:Handle("S2", function(f)
   local p = ns:GetPerson(pid, true)
   local s = p.stats or {}
   p.stats = s
-  if f[2] and f[2] ~= "" then s.wk = f[2] end
+  if f[2] and f[2] ~= "" and f[2] ~= s.wk then
+    -- new week from this person: old weekly numbers must not be read as this week's
+    s.wk = f[2]
+    s.wOnline, s.wQuests, s.wGold, s.wDeaths, s.wNight = 0, 0, 0, 0, 0
+  end
   s.wLevels, s.wKills = num(f[3]) or 0, num(f[4]) or 0
   s.tLevels, s.tKills = num(f[5]) or 0, num(f[6]) or 0
   s.tLongest = num(f[7]) or s.tLongest
@@ -158,7 +162,7 @@ Comm:Handle("S3", function(f)
     xp = num(f[2]), xpMax = num(f[3]), rested = num(f[4]) or 0, wXP = num(f[5]) or 0, tXP = num(f[6]) or 0,
     sessXP = num(f[7]) or 0, sessSec = num(f[8]) or 0, money = num(f[9]), ilvl = num(f[10]),
     today = num(f[11]) or 0, streak = num(f[12]) or 0, zone = (f[13] ~= "" and f[13]) or nil, at = ns.Now(),
-    dura = num(f[14]),
+    dura = num(f[14]), wk = ns.WeekKey(),
   }
   ns:MarkDirty()
 end)

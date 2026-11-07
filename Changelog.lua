@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.1", date = "07.11", items = {
+    "Titles are hoverable: what they mean, who holds them and the top 5 this week (click opens the Titles page)",
+    "Title announcements only when someone actually overtakes – not when their numbers arrive at login",
+    "Several titles to the same person become one line",
+    "Titles need a minimum to be held (e.g. 30 min online, 3 quests), so Monday mornings aren't a title storm",
+    "Fixes: old XP from last week counted as this week, unknown loot counted as epic, ties gave different holders",
+  } },
   { v = "0.14.0", date = "07.11", items = {
     "Idea box has its own tab with an unread badge",
     "New \"What's new\" tab (this one) with a badge when there's a new version",
