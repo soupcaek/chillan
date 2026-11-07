@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.3", date = "07.11", items = {
+    "What's new reads top-down with a line between each version",
+    "\"NEW\" only marks versions you haven't seen before",
+  } },
   { v = "0.14.2", date = "07.11", items = {
     "Reactions are random: 50 options each for dings, deaths and achievements, 4 new ones every popup",
     "Death toast now shows what people reacted with instead of always \"laughed at you\"",

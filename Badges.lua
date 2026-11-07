@@ -33,7 +33,10 @@ end
 function B:MarkSeen(key)
   local s = seen()
   local before = self:Count(key)
-  if key == "changelog" then s.changelog = ns.VERSION else s[key] = ns.Now() end
+  if key == "changelog" then
+    if s.changelog ~= ns.VERSION then s.changelogPrev = s.changelog or "0" end
+    s.changelog = ns.VERSION
+  else s[key] = ns.Now() end
   if before > 0 then ns:Fire("BADGES") end
 end
 
