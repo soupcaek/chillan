@@ -18,6 +18,8 @@ Quests.lua
 Titles.lua
 Extras.lua
 Ideas.lua
+Badges.lua
+Changelog.lua
 Stats.lua
 Achievements.lua
 UI\Widgets.lua
@@ -27,9 +29,11 @@ UI\TabQuests.lua
 UI\TabChat.lua
 UI\TabStats.lua
 UI\TabAch.lua
+UI\TabIdeas.lua
 UI\TabMap.lua
 UI\TabMore.lua
 UI\TabSettings.lua
+UI\TabChangelog.lua
 UI\TabPlayer.lua
 UI\TabCompare.lua
 UI\Overlays.lua

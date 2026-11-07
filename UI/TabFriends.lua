@@ -60,22 +60,23 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row.avatar:SetPoint("LEFT", 10, 0)
     row.name = UI.Text(row, 14, "semi", C.text)
     row.name:SetPoint("TOPLEFT", row.avatar, "TOPRIGHT", 12, 0)
-    row.name:SetWidth(186)
+    row.name:SetWordWrap(false)
     row.sub = UI.Text(row, 12, nil, C.dim)
     row.sub:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 12, 0)
-    row.sub:SetWidth(170)
+    row.sub:SetWordWrap(false)
     row.zone = UI.Text(row, 13, nil, C.text2)
-    row.zone:SetPoint("TOPLEFT", row.avatar, "TOPRIGHT", 196, 0)
-    row.zone:SetWidth(170)
+    row.zone:SetJustifyH("LEFT")
+    row.zone:SetWordWrap(false)
     row.time = UI.Text(row, 12, nil, C.dim)
-    row.time:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 196, 0)
-    row.time:SetWidth(170)
+    row.time:SetJustifyH("LEFT")
+    row.time:SetWordWrap(false)
     row.invite = UI.Button(row, 66, 30, "Invite", "primary")
     row.invite:SetPoint("RIGHT", -10, 0)
     row.whisper = UI.IconButton(row, 30, "Chat", "Whisper")
     row.whisper:SetPoint("RIGHT", row.invite, "LEFT", -6, 0)
     row.pill = UI.Pill(row)
     row.pill:SetPoint("RIGHT", row.whisper, "LEFT", -10, 0)
+    row.colX = -1
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
       if self.item then ns.Overlays:ShowProfile(self, self.item.pid) end
@@ -91,6 +92,13 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     return row
   end
 
+  local colX = 184
+  local measure = UI.Text(tab, 14, "semi", C.text)
+  measure:Hide()
+  local measureSub = UI.Text(tab, 12, nil, C.dim)
+  measureSub:Hide()
+  local function nameText(p) return ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid) end
+
   local function updateRow(row, p)
     local online = ns:IsOnline(p)
     local c = ns:PersonChar(p) or {}
@@ -98,7 +106,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     local status = online and (L.status or "QUEST") or "OFFLINE"
     local st = ns.STATUS[status] or ns.STATUS.QUEST
     row.avatar:Set(c.name, c.class, online and (status == "AFK" and C.amber or C.green) or nil)
-    row.name:SetText(ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid))
+    row.name:SetText(nameText(p))
     row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""))
     if online then
       local z = L.zone or ""
@@ -114,6 +122,17 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       row.invite:Hide()
     end
     row.pill:Set(st.label, st.color)
+    -- columns size to the content: name column as wide as the longest name in the list,
+    -- zone column takes everything up to the status pill (no more "..." when there is room)
+    if row.colX ~= colX then
+      row.colX = colX
+      row.name:SetWidth(colX - 8); row.sub:SetWidth(colX - 8)
+      row.zone:ClearAllPoints(); row.time:ClearAllPoints()
+      row.zone:SetPoint("TOPLEFT", row.avatar, "TOPRIGHT", 12 + colX, 0)
+      row.zone:SetPoint("RIGHT", row.pill, "LEFT", -10, 0)
+      row.time:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 12 + colX, 0)
+      row.time:SetPoint("RIGHT", row.pill, "LEFT", -10, 0)
+    end
     local target = L.char or p.main
     row.whisper:SetScript("OnClick", function() ns.Whisper(target) end)
     row.invite:SetScript("OnClick", function() ns.Invite(target) end)
@@ -246,6 +265,16 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       if ao then return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end
       return (a.lastSeen or 0) > (b.lastSeen or 0)
     end)
+    local w = 0
+    for _, p in ipairs(people) do
+      measure:SetText(nameText(p))
+      w = math.max(w, measure:GetStringWidth() + 4)
+      local c = ns:PersonChar(p) or {}
+      measureSub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class or ""))
+      w = math.max(w, measureSub:GetStringWidth())
+    end
+    local maxCol = math.max(184, (list:GetWidth() or 640) - 360)
+    colX = math.floor(math.min(maxCol, math.max(150, w + 18)))
     list:SetData(people)
     if quick:IsShown() then
       if not quick.row or not quick.row.item or quick.row.item.pid ~= quick.pid then

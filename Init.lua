@@ -164,7 +164,7 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Window:Create()
     ns.Window.frame:Show()
     ns.Window:Select("more")
-    if ns.Window.tabs.more and ns.Window.tabs.more.ShowSub then ns.Window.tabs.more:ShowSub("ideas") end
+    ns.Window:Select("ideas")
   elseif cmd == "oppsett" or cmd == "settings" then
     ns.Window:Toggle("settings")
   elseif cmd == "minibar" then

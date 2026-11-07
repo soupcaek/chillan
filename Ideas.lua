@@ -203,6 +203,7 @@ Comm:Handle("IS", function(f)
   if f[3] ~= I:Admin() then return end -- only the admin can change status
   local was = it.status
   it.status = f[2]
+  if was ~= f[2] then it.statusAt = ns.Now() end
   if f[2] == "done" and was ~= "done" then
     ns:Fire("TOAST", { kind = "info", title = "Idea done: " .. (it.title or ""), text = "From the idea box – update in WowUp to get it" })
     ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Check", ns.C.green, 12) .. "  " .. ns.Colorize("Idea done: ", ns.C.green) .. (it.title or ""))

@@ -139,6 +139,18 @@ function W:Create()
     b:SetScript("OnLeave", function(self)
       if W.current == self.key then self.panel:SetColors(C.active, nil) else self.panel:SetColors(nil, nil) end
     end)
+    -- unread badge (small accent circle with a number) on the icon's top-right
+    b.badge = CreateFrame("Frame", nil, b)
+    b.badge:SetSize(16, 16)
+    b.badge:SetPoint("CENTER", b.ic, "TOPRIGHT", 3, -1)
+    b.badge:SetFrameLevel(b:GetFrameLevel() + 5)
+    b.badge.bg = b.badge:CreateTexture(nil, "OVERLAY")
+    b.badge.bg:SetTexture(ns.TEX .. "Circle")
+    b.badge.bg:SetAllPoints()
+    b.badge.bg:SetVertexColor(hex(C.red))
+    b.badge.text = UI.Text(b.badge, 9, "bold", "FFFFFF")
+    b.badge.text:SetPoint("CENTER", 0, 0)
+    b.badge:Hide()
     self.navButtons[def.key] = b
    end
   end
@@ -166,8 +178,29 @@ function W:Create()
   return f
 end
 
+function W:UpdateBadges()
+  for key, b in pairs(self.navButtons or {}) do
+    if b.badge then
+      local viewing = key == self.current and self.frame and self.frame:IsShown()
+      if viewing and (key == "chat" or key == "ideas") then
+        ns.db.seen = ns.db.seen or {}
+        ns.db.seen[key] = ns.Now()
+      end
+      local n = viewing and 0 or ns.Badges:Count(key)
+      if n > 0 then
+        b.badge.text:SetText(key == "changelog" and "!" or (n > 9 and "9+" or tostring(n)))
+        b.badge:Show()
+      else
+        b.badge:Hide()
+      end
+    end
+  end
+end
+ns:Listen("BADGES", function() if W.frame then W:UpdateBadges() end end)
+
 function W:Select(key)
   self.current = key
+  if key == "chat" or key == "ideas" or key == "changelog" then ns.Badges:MarkSeen(key) end
   for k, tab in pairs(self.tabs) do
     if k == key then tab:Show() else tab:Hide() end
   end
@@ -183,6 +216,7 @@ function W:Select(key)
     end
   end
   self:Refresh()
+  self:UpdateBadges()
 end
 
 function W:OnlineCount()
