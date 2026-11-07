@@ -1,4 +1,4 @@
--- Chillan? – fanen "Venner"
+-- Chillan? – fanen "Friends"
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
@@ -18,15 +18,15 @@ function ns.Invite(char)
   end
 end
 
-ns:RegisterTab("friends", "Venner", "Friends", function(tab)
+ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   local filter = "online"
 
   local head = UI.Text(tab, 15, "semi", C.text)
   head:SetPoint("TOPLEFT", 16, -16)
-  head:SetText("Venner")
+  head:SetText("Friends")
   local count = UI.Text(tab, 13, nil, C.dim)
   count:SetPoint("LEFT", head, "RIGHT", 8, 0)
-  local mine = UI.Button(tab, 80, 26, "Min side", "ghost", function() ns.Window:OpenPlayer(ns.pid) end)
+  local mine = UI.Button(tab, 80, 26, "My page", "ghost", function() ns.Window:OpenPlayer(ns.pid) end)
   mine:SetPoint("LEFT", count, "RIGHT", 10, 0)
 
   local filterButtons = {}
@@ -34,7 +34,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     filter = key
     for k, b in pairs(filterButtons) do
       if k == key then
-        b.panel:SetColors(C.active, C.activeLine) b.label:SetTextColor(hex(C.text)) b.style = { fill = C.active, line = C.activeLine, text = C.text, hover = "33383E" }
+        b.panel:SetColors(C.active, C.activeLine) b.label:SetTextColor(hex(C.text)) b.style = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover }
       else
         b.panel:SetColors(nil, C.inputLine) b.label:SetTextColor(hex(C.muted)) b.style = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card }
       end
@@ -42,7 +42,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     tab:Refresh()
   end
   local prev
-  for _, def in ipairs({ { "zone", "Samme sone" }, { "all", "Alle" }, { "online", "Online" } }) do
+  for _, def in ipairs({ { "zone", "Same zone" }, { "all", "All" }, { "online", "Online" } }) do
     local b = UI.Button(tab, 10, 28, def[2], "ghost", function() setFilter(def[1]) end)
     b:SetWidth(b.label:GetStringWidth() + 22)
     if prev then b:SetPoint("RIGHT", prev, "LEFT", -6, 0) else b:SetPoint("TOPRIGHT", -16, -12) end
@@ -70,9 +70,9 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     row.time = UI.Text(row, 12, nil, C.dim)
     row.time:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 196, 0)
     row.time:SetWidth(170)
-    row.invite = UI.Button(row, 66, 30, "Inviter", "primary")
+    row.invite = UI.Button(row, 66, 30, "Invite", "primary")
     row.invite:SetPoint("RIGHT", -10, 0)
-    row.whisper = UI.IconButton(row, 30, "Chat", "Hvisk")
+    row.whisper = UI.IconButton(row, 30, "Chat", "Whisper")
     row.whisper:SetPoint("RIGHT", row.invite, "LEFT", -6, 0)
     row.pill = UI.Pill(row)
     row.pill:SetPoint("RIGHT", row.whisper, "LEFT", -10, 0)
@@ -109,7 +109,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       row.invite:Show()
     else
       row.zone:SetText(L.zone or "")
-      row.time:SetText("Sist sett " .. ns.Ago(p.lastSeen))
+      row.time:SetText("Last seen " .. ns.Ago(p.lastSeen))
       row:SetAlpha(0.55)
       row.invite:Hide()
     end
@@ -122,10 +122,10 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
   local list = UI.List(tab, 52, 6, createRow, updateRow)
   list:SetPoint("TOPLEFT", 12, -48)
   list:SetPoint("BOTTOMRIGHT", -12, 60)
-  list.emptyText = "Ingen her ennå. Del gjengkoden din (se fanen Mer), så dukker vennene dine opp når de logger på."
+  list.emptyText = "Nobody here yet. Share your gang code (see the More tab), and your friends show up when they log in."
 
   -- Hurtigkort som dukker opp under vennen du klikker på
-  local quick = UI.Panel(tab, "202429", C.activeLine, false)
+  local quick = UI.Panel(tab, C.cardHover, C.activeLine, false)
   quick:SetHeight(112)
   quick:SetFrameLevel(list:GetFrameLevel() + 30)
   quick:EnableMouse(true)
@@ -146,9 +146,9 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
   quick.info = UI.Text(quick, 12, nil, C.text2)
   quick.info:SetPoint("BOTTOMLEFT", 14, 16)
   quick.info:SetPoint("RIGHT", -230, 0)
-  quick.open = UI.Button(quick, 120, 30, "Åpne spiller ›", "primary")
+  quick.open = UI.Button(quick, 120, 30, "Open player ›", "primary")
   quick.open:SetPoint("BOTTOMRIGHT", -12, 10)
-  quick.wh = UI.Button(quick, 70, 30, "Hvisk", "secondary")
+  quick.wh = UI.Button(quick, 70, 30, "Whisper", "secondary")
   quick.wh:SetPoint("RIGHT", quick.open, "LEFT", -8, 0)
 
   local function fillQuick(p)
@@ -157,9 +157,9 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
     local eta = ns.St:ETA(p)
     local pct = ns.Pct(s3.xp, s3.xpMax)
     local vals = {
-      { rate and ns.Num(rate) or "–", "XP per time" },
-      { eta and ("ca. " .. ns.Duration(eta)) or "–", "til neste level" .. (pct and (" (" .. pct .. " %)") or "") },
-      { s3.today and ns.Duration(s3.today) or "–", "online i dag" },
+      { rate and ns.Num(rate) or "–", "XP per hour" },
+      { eta and ("~" .. ns.Duration(eta)) or "–", "to next level" .. (pct and (" (" .. pct .. " %)") or "") },
+      { s3.today and ns.Duration(s3.today) or "–", "online today" },
       { s3.streak and (s3.streak .. " d") or "–", "streak" },
     }
     for i, cell in ipairs(quick.cells) do
@@ -167,8 +167,8 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       cell.k:SetText(vals[i][2])
     end
     local parts = {}
-    parts[#parts + 1] = math.floor(ns:WeekStat(p, "Quests")) .. " quests denne uka"
-    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " i lomma" end
+    parts[#parts + 1] = math.floor(ns:WeekStat(p, "Quests")) .. " quests this week"
+    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " in the pocket" end
     if s3.ilvl then parts[#parts + 1] = "ilvl " .. s3.ilvl end
     if s3.dura and s3.dura < 100 then
       parts[#parts + 1] = ns.Colorize("utstyr " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
@@ -208,27 +208,27 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
 
   local sl = UI.Text(tab, 12, nil, C.dim)
   sl:SetPoint("BOTTOMLEFT", 16, 20)
-  sl:SetText("Din status")
+  sl:SetText("Your status")
   local statusBtn = UI.Button(tab, 170, 32, "", "ghost")
   statusBtn:SetPoint("LEFT", sl, "RIGHT", 10, 0)
   statusBtn.label:SetTextColor(hex(C.text))
   statusBtn:SetScript("OnClick", function(self)
     local items = {}
     for _, code in ipairs(ns.MANUAL_STATUS) do
-      local label = code == "AUTO" and "Automatisk" or ns.STATUS[code].label
+      local label = code == "AUTO" and "Automatic" or ns.STATUS[code].label
       items[#items + 1] = { text = label, color = code ~= "AUTO" and ns.STATUS[code].color or nil,
         func = function() ns.Tracker:SetStatus(code) tab:Refresh() end }
     end
     UI.Menu(self, items)
   end)
 
-  local sos = UI.Button(tab, 170, 36, "SOS – blir ganket", "danger", function() ns.Data:SOS() end)
+  local sos = UI.Button(tab, 170, 36, "SOS – getting ganked", "danger", function() ns.Data:SOS() end)
   sos:SetIcon("SOS", 15)
   sos:SetPoint("BOTTOMRIGHT", -16, 8)
-  local ready = UI.Button(tab, 112, 36, "Klar-sjekk", "secondary", function() ns.Extras:StartReadyCheck() end)
+  local ready = UI.Button(tab, 112, 36, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
   ready:SetIcon("Check", 14)
   ready:SetPoint("RIGHT", sos, "LEFT", -8, 0)
-  ready.tooltip = "Bag-plasser, holdbarhet og mat/drikke for alle i gruppa – fint før en dungeon"
+  ready.tooltip = "Bag space, durability and food/drink for everyone in the group – handy before a dungeon"
 
   function tab:Refresh()
     local myZone = ns.Tracker:Me().live and ns.Tracker:Me().live.zone
@@ -255,7 +255,7 @@ ns:RegisterTab("friends", "Venner", "Friends", function(tab)
       end
     end
     local n, total = ns.Window:OnlineCount()
-    count:SetText(n .. " av " .. total .. " online")
+    count:SetText(n .. " of " .. total .. " online")
     local st = ns.Tracker:Status()
     local manual = ns.db.statusOverride
     statusBtn:SetLabel((ns.STATUS[st] and ns.STATUS[st].label or st) .. (manual and "" or "  (auto)"))

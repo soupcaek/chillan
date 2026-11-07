@@ -24,23 +24,23 @@ end
 local function wk(key) return function(p) return ns:WeekStat(p, key) end end
 
 T.DEFS = {
-  { key = "deaths", name = "Gulvinspektør", desc = "flest dødsfall denne uka", icon = "Skull", color = "F2777A", val = wk("Deaths"), fmt = "n" },
-  { key = "xp", name = "Maskinen", desc = "mest XP denne uka", icon = "Up", color = "5FD18B",
+  { key = "deaths", name = "Floor Inspector", desc = "most deaths this week", icon = "Skull", color = "F2777A", val = wk("Deaths"), fmt = "n" },
+  { key = "xp", name = "The Machine", desc = "most XP this week", icon = "Up", color = "5FD18B",
     val = function(p) local s = ns:PersonS3(p) return s and s.wXP or 0 end, fmt = "n" },
-  { key = "quests", name = "Questmaskin", desc = "flest quests denne uka", icon = "Book", color = "5FD18B", val = wk("Quests"), fmt = "n" },
-  { key = "levels", name = "Klatremus", desc = "flest levels denne uka", icon = "Up", color = "8FB8E8", val = wk("Levels"), fmt = "n" },
-  { key = "online", name = "Maratonløper", desc = "mest tid online denne uka", icon = "Clock", color = "C8D1DC", val = wk("Online"), fmt = "t" },
-  { key = "night", name = "Nattugle", desc = "mest spilling mellom 00 og 05", icon = "Clock", color = "B9AEDB", val = wk("Night"), fmt = "t", min = 600 },
-  { key = "gold", name = "Gullgris", desc = "mest gull tjent denne uka", icon = "Star", color = "E0C068", val = wk("Gold"), fmt = "g" },
-  { key = "kills", name = "Blodtørstig", desc = "flest PvP-drap denne uka", icon = "Target", color = "F2777A", val = wk("Kills"), fmt = "n" },
-  { key = "loot", name = "Lootgoblin", desc = "flest episke drops denne uka", icon = "Star", color = "A335EE", count = function() return countFeed("LOOT", function(it) return (tonumber(it.b) or 4) >= 4 end) end, fmt = "n" },
-  { key = "chat", name = "Pratmaker", desc = "flest chatmeldinger denne uka", icon = "Chat", color = "8FB8C9", fmt = "n",
+  { key = "quests", name = "Quest Machine", desc = "most quests this week", icon = "Book", color = "5FD18B", val = wk("Quests"), fmt = "n" },
+  { key = "levels", name = "Climber", desc = "most levels this week", icon = "Up", color = "8FB8E8", val = wk("Levels"), fmt = "n" },
+  { key = "online", name = "Marathon Runner", desc = "most time online this week", icon = "Clock", color = "C8D1DC", val = wk("Online"), fmt = "t" },
+  { key = "night", name = "Night Owl", desc = "most playtime between 00 and 05", icon = "Clock", color = "B9AEDB", val = wk("Night"), fmt = "t", min = 600 },
+  { key = "gold", name = "Gold Hog", desc = "most gold earned this week", icon = "Star", color = "E0C068", val = wk("Gold"), fmt = "g" },
+  { key = "kills", name = "Bloodthirsty", desc = "most PvP kills this week", icon = "Target", color = "F2777A", val = wk("Kills"), fmt = "n" },
+  { key = "loot", name = "Loot Goblin", desc = "most epic drops this week", icon = "Star", color = "A335EE", count = function() return countFeed("LOOT", function(it) return (tonumber(it.b) or 4) >= 4 end) end, fmt = "n" },
+  { key = "chat", name = "Chatterbox", desc = "most chat messages this week", icon = "Chat", color = "8FB8C9", fmt = "n",
     count = function()
       local out, start = {}, ns.WeekStart()
       for _, it in ipairs(ns.db.chat or {}) do if it.t and it.t >= start then out[it.pid] = (out[it.pid] or 0) + 1 end end
       return out
     end },
-  { key = "grats", name = "Heiagjeng", desc = "flest reaksjoner gitt denne uka", icon = "Star", color = "F0A8D0", fmt = "n",
+  { key = "grats", name = "Cheer Squad", desc = "most reactions given this week", icon = "Star", color = "F0A8D0", fmt = "n",
     count = function()
       local out, start = {}, ns.WeekStart()
       for _, it in ipairs(ns.db.feed or {}) do
@@ -161,9 +161,9 @@ function T:Update()
       local p = ns:GetPerson(ch.pid) or {}
       local lost = ns:GetPerson(ch.lost)
       ns:Fire("TOAST", { kind = "title", pid = ch.pid,
-        title = ns:ShortWho(p) .. " er ny " .. ns.Colorize(def.name, "E0C068"),
-        text = def.desc .. (lost and (" – tok den fra " .. (ns:PersonAlias(lost) or ns:PersonName(lost))) or "") })
-      ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Crown", "E0C068", 12) .. "  " .. ns:ShortWho(p) .. " er ny " .. ns.Colorize(def.name, "E0C068"))
+        title = ns:ShortWho(p) .. " is the new " .. ns.Colorize(def.name, "E0C068"),
+        text = def.desc .. (lost and (" – took it from " .. (ns:PersonAlias(lost) or ns:PersonName(lost))) or "") })
+      ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Crown", "E0C068", 12) .. "  " .. ns:ShortWho(p) .. " is the new " .. ns.Colorize(def.name, "E0C068"))
     end
   end
   local store = {}

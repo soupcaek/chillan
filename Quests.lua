@@ -154,8 +154,8 @@ local function onAccepted(...)
     for i = 1, math.min(3, #buddies) do names[i] = ns:ShortWho(buddies[i]) end
     local first = buddies[1]
     ns:Fire("TOAST", { kind = "quest", pid = first.pid, char = (first.live and first.live.char) or first.main,
-      title = table.concat(names, ", ") .. (#buddies > 3 and (" +" .. (#buddies - 3)) or "") .. " har også denne",
-      text = "«" .. Q:Title(id) .. "» – ta den sammen?" })
+      title = table.concat(names, ", ") .. (#buddies > 3 and (" +" .. (#buddies - 3)) or "") .. " also has this one",
+      text = "«" .. Q:Title(id) .. "» – do it together?" })
   end)
 end
 

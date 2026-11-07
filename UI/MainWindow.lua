@@ -199,7 +199,7 @@ end
 function W:Refresh()
   if not self.frame then return end
   local hasCode = ns.db.code ~= nil
-  self.chip.text:SetText(hasCode and ("Gjeng: " .. ns.db.code) or "Ingen gjeng ennå")
+  self.chip.text:SetText(hasCode and ("Gang: " .. ns.db.code) or "No gang yet")
   self.chip:SetWidth(self.chip.text:GetStringWidth() + 20)
   local n = self:OnlineCount()
   self.onlineText:SetText(n .. " online")
@@ -244,23 +244,23 @@ function W:BuildSetup()
 
   local h = UI.Text(card, 20, "bold", C.text)
   h:SetPoint("TOPLEFT", 24, -24)
-  h:SetText("Velkommen til " .. ns.Logo())
+  h:SetText("Welcome to " .. ns.Logo())
   local p = UI.Text(card, 13, nil, C.muted)
   p:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -8)
   p:SetWidth(392)
   p:SetWordWrap(true)
-  p:SetText("Lag en ny gjeng og del koden med vennene dine, eller skriv inn koden du har fått. Alle med samme kode ser hverandre, uansett guild.")
+  p:SetText("Create a new gang and share the code with your friends, or enter the code you got. Everyone with the same code sees each other, whatever their guild.")
 
   local al = UI.Text(card, 12, nil, C.dim)
   al:SetPoint("TOPLEFT", p, "BOTTOMLEFT", 0, -18)
-  al:SetText("Ditt navn (IRL) – vises ved alle karakterene dine")
-  local alias = UI.EditBox(card, 392, 34, "f.eks. Henrik")
+  al:SetText("Your name (IRL) – shown next to all your characters")
+  local alias = UI.EditBox(card, 392, 34, "e.g. Henrik")
   alias:SetPoint("TOPLEFT", al, "BOTTOMLEFT", 0, -6)
   alias:SetText(ns.db.alias or "")
 
   local cl = UI.Text(card, 12, nil, C.dim)
   cl:SetPoint("TOPLEFT", alias, "BOTTOMLEFT", 0, -16)
-  cl:SetText("Har du fått en kode?")
+  cl:SetText("Got a code?")
   local code = UI.EditBox(card, 282, 34, "CHILL-XXXX")
   code:SetPoint("TOPLEFT", cl, "BOTTOMLEFT", 0, -6)
 
@@ -268,16 +268,16 @@ function W:BuildSetup()
     local a = ns.Clean(alias:GetText(), 20)
     if a ~= "" then ns.db.alias = a end
     if ns:SetCode(c) then
-      ns.Print("Du er med i gjengen " .. ns.db.code .. ". Del koden med vennene dine!")
+      ns.Print("You're in the gang " .. ns.db.code .. ". Share the code with your friends!")
     end
   end
 
-  local join = UI.Button(card, 100, 34, "Bli med", "secondary", function() apply(code:GetText()) end)
+  local join = UI.Button(card, 100, 34, "Join", "secondary", function() apply(code:GetText()) end)
   join:SetPoint("LEFT", code, "RIGHT", 10, 0)
 
   local orl = UI.Text(card, 12, nil, C.dim)
   orl:SetPoint("TOPLEFT", code, "BOTTOMLEFT", 0, -18)
-  orl:SetText("Eller start en helt ny gjeng:")
-  local new = UI.Button(card, 392, 38, "Lag ny gjeng", "primary", function() apply(ns:NewCode()) end)
+  orl:SetText("Or start a brand new gang:")
+  local new = UI.Button(card, 392, 38, "Create gang", "primary", function() apply(ns:NewCode()) end)
   new:SetPoint("TOPLEFT", orl, "BOTTOMLEFT", 0, -8)
 end

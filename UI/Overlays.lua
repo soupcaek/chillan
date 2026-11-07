@@ -37,7 +37,7 @@ function O:CreateMinibar()
   m.defaultPos = function(f) f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -20) end
   UI.movables.minibar = m
 
-  m.panel = UI.Panel(m, C.window, C.inputLine, false, 0.92)
+  m.panel = UI.OverlayPanel(m, C.window, C.inputLine, false)
   m.panel:SetAllPoints()
   m.panel:SetFrameLevel(m:GetFrameLevel())
   m.logo = UI.Text(m, 14, "bold", C.text)
@@ -64,9 +64,9 @@ function O:CreateMinibar()
         any = true
       end
     end
-    if not any then GameTooltip:AddLine("Ingen andre online", 0.6, 0.63, 0.66) end
+    if not any then GameTooltip:AddLine("Nobody else online", 0.6, 0.63, 0.66) end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Venstreklikk: åpne  ·  Høyreklikk: chat  ·  Dra: flytt", 0.52, 0.55, 0.57)
+    GameTooltip:AddLine("Left-click: open  ·  Right-click: chat  ·  Drag: move", 0.52, 0.55, 0.57)
     GameTooltip:Show()
   end)
   m:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -115,22 +115,22 @@ end
 -- Popup-varsler
 ---------------------------------------------------------------------------
 local KIND = {
-  mention = { icon = "At", color = C.gold, label = "Nevnt i chatten" },
-  quest = { icon = "Book", color = C.green, label = "Quest-kompis" },
-  title = { icon = "Crown", color = C.gold, label = "Ny tittel" },
-  repair = { icon = "Shield", color = C.amber, label = "Holdbarhet" },
-  radar = { icon = "Radar", color = C.green, label = "Kompis i nærheten" },
-  note = { icon = "Map", color = C.amber, label = "Gjengnotat" },
+  mention = { icon = "At", color = C.gold, label = "Mentioned in chat" },
+  quest = { icon = "Book", color = C.green, label = "Quest buddy" },
+  title = { icon = "Crown", color = C.gold, label = "New title" },
+  repair = { icon = "Shield", color = C.amber, label = "Durability" },
+  radar = { icon = "Radar", color = C.green, label = "Friend nearby" },
+  note = { icon = "Map", color = C.amber, label = "Gang note" },
   online = { icon = "Login", color = C.green, label = "Online" },
   ding = { icon = "Up", color = C.green, label = "Ding!" },
-  enemy = { icon = "Target", color = C.red, label = "Fiendelogg" },
-  mats = { icon = "Mail", color = C.amber, label = "Trenger mats" },
-  join = { icon = "Friends", color = C.accent, label = "Vil bli med" },
+  enemy = { icon = "Target", color = C.red, label = "Enemy log" },
+  mats = { icon = "Mail", color = C.amber, label = "Needs mats" },
+  join = { icon = "Friends", color = C.accent, label = "Wants to join" },
   craft = { icon = "Mail", color = C.purple, label = "Craft" },
-  star = { icon = "Star", color = C.amber, label = "Milepæl" },
+  star = { icon = "Star", color = C.amber, label = "Milestone" },
   dead = { icon = "Skull", color = C.red, label = "Ha ha" },
   sos = { icon = "SOS", color = C.red, label = "SOS" },
-  trophy = { icon = "Trophy", color = C.gold, label = "Ukens vinner" },
+  trophy = { icon = "Trophy", color = C.gold, label = "Winner of the week" },
   info = { icon = "Star", color = C.accent, label = "Chillan?" },
 }
 O.KIND = KIND
@@ -167,7 +167,7 @@ local function newToast()
   t:SetFrameStrata("DIALOG")
   t:EnableMouse(true)
   UI.Movable(t, "toasts", function(a) a:SetPoint("TOP", UIParent, "TOP", 0, -110) end, toastAnchor)
-  t.panel = UI.Panel(t, C.window, C.activeLine, false, 0.96)
+  t.panel = UI.OverlayPanel(t, C.window, C.activeLine, false)
   t.panel:SetAllPoints()
   t.panel:SetFrameLevel(t:GetFrameLevel())
   t.tile = UI.Panel(t, C.active, nil, false)
@@ -211,11 +211,11 @@ function O:Toast(info)
     local it = info.item
     local p = ns:GetPerson(it.pid) or {}
     local c = (p.chars and p.chars[it.char]) or {}
-    title = ns.Colorize(ns.ShortName(it.char), ns.ClassHex(c.class)) .. " nådde level " .. tostring(it.a)
+    title = ns.Colorize(ns.ShortName(it.char), ns.ClassHex(c.class)) .. " reached level " .. tostring(it.a)
     local parts = {}
     if tonumber(it.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(it.b)) end
-    if it.first then parts[#parts + 1] = "først i gjengen!"
-    elseif it.place then parts[#parts + 1] = "nr. " .. it.place .. " i gjengen" end
+    if it.first then parts[#parts + 1] = "first in the gang!"
+    elseif it.place then parts[#parts + 1] = "no. " .. it.place .. " in the gang" end
     text = table.concat(parts, " · ")
   end
   t.title:SetText(title or "")
@@ -224,15 +224,15 @@ function O:Toast(info)
   t.text:SetPoint("RIGHT", -34, 0)
   t.btn:Hide()
   if info.kind == "join" and info.char then
-    t.btn:SetLabel("Inviter")
+    t.btn:SetLabel("Invite")
     t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
     t.btn:Show()
   elseif (info.kind == "quest" or info.kind == "radar") and info.char then
-    t.btn:SetLabel("Inviter")
+    t.btn:SetLabel("Invite")
     t.btn:SetScript("OnClick", function() ns.Invite(info.char) removeToast(t) end)
     t.btn:Show()
   elseif info.kind == "mention" then
-    t.btn:SetLabel("Svar")
+    t.btn:SetLabel("Reply")
     t.btn:SetScript("OnClick", function()
       removeToast(t)
       if ns.db.settings.eventFeed and ns.EventWindow.input then
@@ -243,7 +243,7 @@ function O:Toast(info)
     end)
     t.btn:Show()
   elseif info.kind == "craft" and info.char then
-    t.btn:SetLabel("Hvisk")
+    t.btn:SetLabel("Whisper")
     t.btn:SetScript("OnClick", function() ns.Whisper(info.char) removeToast(t) end)
     t.btn:Show()
   end
@@ -289,12 +289,12 @@ function O:CreateSOS()
   s.text = UI.Text(s, 13, nil, "F1D9DA")
   s.text:SetPoint("TOPLEFT", 14, -44)
   s.text:SetPoint("RIGHT", -14, 0)
-  s.map = UI.Button(s, 140, 32, "Vis på kart", "primary")
+  s.map = UI.Button(s, 140, 32, "Show on map", "primary")
   s.map:SetPoint("BOTTOMLEFT", 14, 14)
   s.map.panel:SetColors("FFD6D7", nil)
   s.map.style = { fill = "FFD6D7", text = "2A181A", hover = "FFE6E7", weight = "semi" }
   s.map.label:SetTextColor(hex("2A181A"))
-  s.reply = UI.Button(s, 140, 32, "Svar: på vei", "danger")
+  s.reply = UI.Button(s, 140, 32, "Reply: on my way", "danger")
   s.reply:SetPoint("BOTTOMRIGHT", -14, 14)
   s:SetScript("OnUpdate", function(self, dt)
     self.life = (self.life or 0) - dt
@@ -306,11 +306,11 @@ function O:ShowSOS(item)
   local s = self.sos
   local p = ns:GetPerson(item.pid) or {}
   local c = (p.chars and p.chars[item.char]) or {}
-  s.title:SetText("SOS fra " .. ns.Colorize(ns.ShortName(item.char), ns.ClassHex(c.class)))
+  s.title:SetText("SOS from " .. ns.Colorize(ns.ShortName(item.char), ns.ClassHex(c.class)))
   local mapID, x, y = tonumber(item.b), tonumber(item.c), tonumber(item.d)
   local where = tostring(item.a or "?")
   if x and y then where = where .. string.format(" (%.0f, %.0f)", x / 10, y / 10) end
-  s.text:SetText("Blir ganket i " .. where)
+  s.text:SetText("Getting ganked in " .. where)
   s.map:SetScript("OnClick", function()
     if mapID and x and y then
       ns.SetWaypoint(mapID, x / 1000, y / 1000)
@@ -320,9 +320,9 @@ function O:ShowSOS(item)
   s.map:SetEnabled(mapID ~= nil)
   s.reply:SetScript("OnClick", function()
     ns.Data:AnswerSOS(item)
-    s.reply:SetLabel("Sendt!")
+    s.reply:SetLabel("Sent!")
   end)
-  s.reply:SetLabel("Svar: på vei")
+  s.reply:SetLabel("Reply: on my way")
   s.life = 45
   s:Show()
 end
@@ -338,7 +338,7 @@ function O:CreateSummary()
   s:SetFrameStrata("DIALOG")
   s:EnableMouse(true)
   s:Hide()
-  s.panel = UI.Panel(s, C.window, C.inputLine, false, 0.97)
+  s.panel = UI.OverlayPanel(s, C.window, C.inputLine, false)
   s.panel:SetAllPoints()
   s.panel:SetFrameLevel(s:GetFrameLevel())
   s.title = UI.Text(s, 15, "semi", C.text)
@@ -368,15 +368,15 @@ end
 function O:ShowSummary(sum, previous)
   if not sum then return end
   local s = self.summary
-  s.title:SetText(previous and "Forrige økt" or "Kvelden din")
+  s.title:SetText(previous and "Last session" or "Your evening")
   s.sub:SetText(previous and (ns.ShortName(sum.char) .. " · " .. date("%d.%m %H:%M", sum.at)) or ns.ShortName(sum.char))
   local vals = {
     { ns.Duration(sum.online), "online" },
     { ((sum.levels or 0) > 0 and "+" or "") .. (sum.levels or 0), "levels" },
     { sum.quests or 0, "quests" },
-    { "+" .. ns.Money(sum.gold), "gull tjent" },
-    { sum.deaths or 0, "dødsfall" },
-    { sum.sos or 0, "SOS sendt" },
+    { "+" .. ns.Money(sum.gold), "gold earned" },
+    { sum.deaths or 0, "deaths" },
+    { sum.sos or 0, "SOS sent" },
   }
   for i, cell in ipairs(s.cells) do
     cell.v:SetText(vals[i][1])
@@ -397,7 +397,7 @@ function O:CreateProfile()
   f:SetFrameStrata("TOOLTIP")
   f:SetClampedToScreen(true)
   f:Hide()
-  f.panel = UI.Panel(f, "1B1E22", C.activeLine, false)
+  f.panel = UI.Panel(f, C.card, C.activeLine, false)
   f.panel:SetAllPoints()
   f.panel:SetFrameLevel(f:GetFrameLevel())
   f.avatar = UI.Avatar(f, 42)
@@ -430,14 +430,14 @@ function O:ShowProfile(anchor, pid)
   local f = self.profile
   local c = ns:PersonChar(p) or {}
   local online = ns:IsOnline(p)
-  f.avatar:Set(c.name, c.class, online and C.green or nil, "1B1E22")
+  f.avatar:Set(c.name, c.class, online and C.green or nil, C.card)
   f.name:SetText(ns:PersonLabel(p))
   local where = (p.live and p.live.zone) or ""
-  f.sub:SetText(online and ("Online" .. (where ~= "" and (" · " .. where) or "")) or ("Offline · sist sett " .. ns.Ago(p.lastSeen)))
+  f.sub:SetText(online and ("Online " .. (where ~= "" and (" · " .. where) or "")) or ("Offline · last seen " .. ns.Ago(p.lastSeen)))
   local rows = {}
   local className = c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""
-  if ns:PersonAlias(p) then rows[#rows + 1] = { "Spiller", ns:PersonAlias(p) } end
-  rows[#rows + 1] = { "Karakter", string.format("Level %s %s %s", c.level or "?", c.race or "", className) }
+  if ns:PersonAlias(p) then rows[#rows + 1] = { "Player", ns:PersonAlias(p) } end
+  rows[#rows + 1] = { "Character", string.format("Level %s %s %s", c.level or "?", c.race or "", className) }
   local alts = {}
   for full, ch in pairs(p.chars) do
     if full ~= p.main then
@@ -447,20 +447,20 @@ function O:ShowProfile(anchor, pid)
   if #alts > 0 then rows[#rows + 1] = { "Alts", table.concat(alts, ", ") } end
   local profs = {}
   for _, pr in ipairs(p.profs or {}) do profs[#profs + 1] = pr.name .. " " .. pr.skill end
-  if #profs > 0 then rows[#rows + 1] = { "Profesjoner", table.concat(profs, ", ") } end
+  if #profs > 0 then rows[#rows + 1] = { "Professions", table.concat(profs, ", ") } end
   local played = ns:PersonPlayed(p)
   if played > 0 then rows[#rows + 1] = { "/played", ns.Duration(played) } end
-  rows[#rows + 1] = { "Denne uka", math.floor(ns:WeekStat(p, "Levels")) .. " levels · " .. math.floor(ns:WeekStat(p, "Quests")) .. " quests · " .. ns.Duration(ns:WeekStat(p, "Online")) }
-  if p.deathZone then rows[#rows + 1] = { "Sist død", p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")" } end
+  rows[#rows + 1] = { "This week", math.floor(ns:WeekStat(p, "Levels")) .. " levels · " .. math.floor(ns:WeekStat(p, "Quests")) .. " quests · " .. ns.Duration(ns:WeekStat(p, "Online")) }
+  if p.deathZone then rows[#rows + 1] = { "Last death", p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")" } end
   local titles = {}
   for _, def in ipairs(ns.Titles:For(p.pid)) do titles[#titles + 1] = ns.Colorize(def.name, C.gold) end
-  if #titles > 0 then rows[#rows + 1] = { "Titler", table.concat(titles, ", ") } end
+  if #titles > 0 then rows[#rows + 1] = { "Titles", table.concat(titles, ", ") } end
   local s3p = ns:PersonS3(p)
   if s3p and s3p.dura then
     local dc = s3p.dura <= 10 and C.red or (s3p.dura <= 30 and C.amber or C.text)
-    rows[#rows + 1] = { "Utstyr", ns.Colorize(s3p.dura .. " % holdbarhet", dc) }
+    rows[#rows + 1] = { "Gear", ns.Colorize(s3p.dura .. " % durability", dc) }
   end
-  if p.version and p.pid ~= ns.pid then rows[#rows + 1] = { "Versjon", p.version } end
+  if p.version and p.pid ~= ns.pid then rows[#rows + 1] = { "Version", p.version } end
   local y = -82
   for i, r in ipairs(f.rows) do
     local def = rows[i]
@@ -506,7 +506,7 @@ function O:CreateDing()
   d.shadow:SetPoint("TOPLEFT", -30, 24)
   d.shadow:SetPoint("BOTTOMRIGHT", 30, -36)
   d.shadow:SetVertexColor(0, 0, 0, 0.8)
-  d.panel = UI.Panel(d, C.window, C.activeLine, false, 0.97)
+  d.panel = UI.OverlayPanel(d, C.window, C.activeLine, false)
   d.panel:SetAllPoints()
   d.panel:SetFrameLevel(d:GetFrameLevel())
   d.tile = UI.Panel(d, C.active, nil, false)
@@ -565,27 +565,27 @@ function O:ShowDing(item)
     d.kicker:SetTextColor(hex(tier.color))
     d.icon:SetTexture(ns.TEX .. "IconTrophy")
     d.icon:SetVertexColor(hex(tier.color))
-    d.title:SetText(ns:ShortWho(p, item.char) .. " låste opp " .. ns.Colorize("«" .. def.name .. "»", tier.color))
+    d.title:SetText(ns:ShortWho(p, item.char) .. " unlocked " .. ns.Colorize("«" .. def.name .. "»", tier.color))
     parts[#parts + 1] = def.desc
     parts[#parts + 1] = tier.points .. " poeng"
   elseif dead then
-    d.kicker:SetText("DØD!")
+    d.kicker:SetText("DEAD!")
     d.kicker:SetTextColor(hex(C.red))
     d.icon:SetTexture(ns.TEX .. "IconSkull")
     d.icon:SetVertexColor(hex(C.red))
-    d.title:SetText(ns:PersonLabel(p, item.char) .. " døde")
-    parts[#parts + 1] = "i " .. tostring(item.a or "ukjent sted")
+    d.title:SetText(ns:PersonLabel(p, item.char) .. " died")
+    parts[#parts + 1] = "i " .. tostring(item.a or "unknown place")
     local total = ns:TotalStat(p, "Deaths")
-    if total > 0 then parts[#parts + 1] = "dødsfall nr. " .. math.floor(total + 1) end
+    if total > 0 then parts[#parts + 1] = "death no. " .. math.floor(total + 1) end
   else
     d.kicker:SetText("DING!")
     d.kicker:SetTextColor(hex(C.green))
     d.icon:SetTexture(ns.TEX .. "IconUp")
     d.icon:SetVertexColor(hex(C.green))
-    d.title:SetText(ns:PersonLabel(p, item.char) .. " nådde level " .. tostring(item.a))
+    d.title:SetText(ns:PersonLabel(p, item.char) .. " reached level " .. tostring(item.a))
     if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
-    if item.first then parts[#parts + 1] = ns.Colorize("først i gjengen!", C.gold)
-    elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "nr. " .. item.place .. " i gjengen" end
+    if item.first then parts[#parts + 1] = ns.Colorize("first in the gang!", C.gold)
+    elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "no. " .. item.place .. " in the gang" end
   end
   d.text:SetText(table.concat(parts, " · "))
   -- høyde: topp + kicker + tittel + tekst + luft + knapper
@@ -617,7 +617,7 @@ function O:ShowDing(item)
   -- egne hendelser: ingen knapper (du kan ikke gratulere eller le av deg selv)
   if item.pid == ns.pid then
     for _, b in ipairs(d.buttons) do b:Hide() end
-    if d.sent.SetText then d.sent:SetText("Gjengen kan nå reagere – svarene dukker opp i hendelsesvinduet") end
+    if d.sent.SetText then d.sent:SetText("The gang can react now – replies show up in the event window") end
     d.sent:Show()
     d.life = 6
   end
@@ -690,8 +690,8 @@ function O:CreateMinimapButton()
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("Chillan?", 1, 1, 1)
     local n = ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
-    GameTooltip:AddLine(n .. " venner online", 0.79, 0.8, 0.82)
-    GameTooltip:AddLine("Klikk: åpne · Høyreklikk: chat · Dra: flytt", 0.6, 0.63, 0.66)
+    GameTooltip:AddLine(n .. " friends online", 0.79, 0.8, 0.82)
+    GameTooltip:AddLine("Click: open · Right-click: chat · Drag: move", 0.6, 0.63, 0.66)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function(self)
@@ -748,10 +748,10 @@ function O:FlushCombatQueue()
   if #old > 0 then
     local parts = {}
     if counts.DING then parts[#parts + 1] = counts.DING .. " ding" end
-    if counts.DEAD then parts[#parts + 1] = counts.DEAD .. (counts.DEAD == 1 and " dødsfall" or " dødsfall") end
+    if counts.DEAD then parts[#parts + 1] = counts.DEAD .. (counts.DEAD == 1 and " deaths" or " deaths") end
     if counts.ACH then parts[#parts + 1] = counts.ACH .. " achievements" end
     if counts.TOAST then parts[#parts + 1] = counts.TOAST .. " varsler" end
-    O:Toast({ kind = "info", title = "Mens du var i kamp", text = table.concat(parts, " · ") .. " – se hendelsesvinduet" })
+    O:Toast({ kind = "info", title = "While you were in combat", text = table.concat(parts, " · ") .. " – see the event window" })
   end
   for _, e in ipairs(q) do
     if GetTime() - e.at <= 120 then
@@ -771,14 +771,14 @@ function O:CreateReady()
   r:SetFrameStrata("DIALOG")
   r:EnableMouse(true)
   r:Hide()
-  r.panel = UI.Panel(r, C.window, C.activeLine, false, 0.97)
+  r.panel = UI.OverlayPanel(r, C.window, C.activeLine, false)
   r.panel:SetAllPoints()
   r.panel:SetFrameLevel(r:GetFrameLevel())
   r.icon = UI.Icon(r, "Check", 16, C.green)
   r.icon:SetPoint("TOPLEFT", 16, -16)
   r.title = UI.Text(r, 14, "semi", C.text)
   r.title:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
-  r.title:SetText("Klar-sjekk")
+  r.title:SetText("Ready check")
   r.sub = UI.Text(r, 11, nil, C.dim)
   r.sub:SetPoint("LEFT", r.title, "RIGHT", 8, 0)
   local close = UI.IconButton(r, 24, "Close", nil, function() r:Hide() end)
@@ -786,7 +786,7 @@ function O:CreateReady()
   close.panel:SetColors(nil, nil)
   close.style = { text = C.dim, hover = C.card }
   close.icon:SetVertexColor(hex(C.dim))
-  local heads = { { "Spiller", 16 }, { "Bags", 186 }, { "Utstyr", 250 }, { "Mat/drikke", 310 } }
+  local heads = { { "Player", 16 }, { "Bags", 186 }, { "Gear", 250 }, { "Food/drink", 310 } }
   for _, hd in ipairs(heads) do
     local t = UI.Text(r, 10, "semi", C.dim)
     t:SetPoint("TOPLEFT", hd[2], -46)
@@ -843,7 +843,7 @@ function O:FillReady()
       row.name:Hide() row.bags:Hide() row.dur:Hide() row.food:Hide()
     end
   end
-  r.sub:SetText(ns.Extras.readyGroup and "gruppa di" or "alle online (du er ikke i gruppe)")
+  r.sub:SetText(ns.Extras.readyGroup and "your group" or "everyone online (you're not grouped)")
   r:SetHeight(76 + math.max(1, #list) * 22)
 end
 

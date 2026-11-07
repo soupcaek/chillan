@@ -1,4 +1,4 @@
--- Chillan? – "Sammenlign": deg mot en kompis, side om side
+-- Chillan? – "Compare": deg mot en kompis, side om side
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local W = ns.Window
@@ -16,17 +16,17 @@ local function achPoints(p) return (ns.Ach and ns.Ach.Points and ns.Ach:Points(p
 -- { navn, verdi(p), format, lavest er best }
 local ROWS = {
   { "Level", function(p) return ns:PersonMaxLevel(p) end, "n" },
-  { "XP per time", function(p) return ns.St:XPRate(p) or 0 end, "n" },
-  { "XP denne uka", function(p) return s3(p).wXP or 0 end, "n" },
-  { "Quests denne uka", function(p) return ns:WeekStat(p, "Quests") end, "n" },
-  { "Quests totalt", function(p) return ns:TotalStat(p, "Quests") end, "n" },
-  { "Online denne uka", function(p) return ns:WeekStat(p, "Online") end, "t" },
+  { "XP per hour", function(p) return ns.St:XPRate(p) or 0 end, "n" },
+  { "XP this week", function(p) return s3(p).wXP or 0 end, "n" },
+  { "Quests this week", function(p) return ns:WeekStat(p, "Quests") end, "n" },
+  { "Quests total", function(p) return ns:TotalStat(p, "Quests") end, "n" },
+  { "Online this week", function(p) return ns:WeekStat(p, "Online") end, "t" },
   { "/played", function(p) return ns:PersonPlayed(p) end, "t" },
-  { "Lengste økt", function(p) return (p.stats or {}).tLongest or 0 end, "t" },
-  { "Gull tjent (uka)", function(p) return ns:WeekStat(p, "Gold") end, "g" },
-  { "PvP-drap totalt", function(p) return ns:TotalStat(p, "Kills") end, "n" },
-  { "Dødsfall totalt", function(p) return ns:TotalStat(p, "Deaths") end, "n", true },
-  { "Achievement-poeng", achPoints, "n" },
+  { "Longest session", function(p) return (p.stats or {}).tLongest or 0 end, "t" },
+  { "Gold earned (week)", function(p) return ns:WeekStat(p, "Gold") end, "g" },
+  { "PvP kills total", function(p) return ns:TotalStat(p, "Kills") end, "n" },
+  { "Deaths total", function(p) return ns:TotalStat(p, "Deaths") end, "n", true },
+  { "Achievement points", achPoints, "n" },
   { "Streak", function(p) return s3(p).streak or 0 end, "d" },
   { "Item level", function(p) return s3(p).ilvl or 0 end, "n" },
 }
@@ -38,8 +38,8 @@ local function fmt(kind, v)
   return ns.Num(v)
 end
 
-ns:RegisterTab("compare", "Sammenlign", "Compare", function(tab)
-  local back = UI.Button(tab, 80, 26, "‹ Tilbake", "ghost", function()
+ns:RegisterTab("compare", "Compare", "Compare", function(tab)
+  local back = UI.Button(tab, 80, 26, "‹ Back", "ghost", function()
     if W.comparePid then W:OpenPlayer(W.comparePid) else W:Select("friends") end
   end)
   back:SetPoint("TOPLEFT", 16, -14)
@@ -118,7 +118,7 @@ ns:RegisterTab("compare", "Sammenlign", "Compare", function(tab)
       r.lv:SetTextColor(hex(aWins and C.text or C.muted))
       r.rv:SetTextColor(hex(bWins and C.text or C.muted))
     end
-    score:SetText("Du leder " .. lw .. " – " .. rw .. (lw > rw and "  ·  bra jobba" or (lw < rw and "  ·  på tide å ta igjen" or "  ·  helt likt")))
+    score:SetText("You lead " .. lw .. " – " .. rw .. (lw > rw and "  ·  nice work" or (lw < rw and "  ·  time to catch up" or "  ·  dead even")))
     if lastPid ~= W.comparePid then
       lastPid = W.comparePid
       anim = 0

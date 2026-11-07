@@ -1,8 +1,8 @@
--- Chillan? – fanen "Trofeer": alle achievements, fremdrift og hvem som har dem
+-- Chillan? – fanen "Trophies": alle achievements, fremdrift og hvem som har dem
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
-ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
+ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
   local A = ns.Ach
   local cat = "all"
   local LEFT_W = 176
@@ -38,7 +38,7 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
   pts:SetPoint("TOPLEFT", big, "BOTTOMLEFT", 0, -2)
 
   local catButtons = {}
-  local cats = { { key = "all", name = "Alle" } }
+  local cats = { { key = "all", name = "All" } }
   for _, c in ipairs(A.CATS) do cats[#cats + 1] = c end
   local function paintCats()
     for k, b in pairs(catButtons) do
@@ -124,11 +124,11 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
     local got = A:Has(pid, d.id)
     local tier = A.TIERS[d.tier]
     local hidden = d.secret and not got
-    row.name:SetText(hidden and "Hemmelig achievement" or d.name)
+    row.name:SetText(hidden and "Secret achievement" or d.name)
     row.name:SetTextColor(hex(got and C.text or C.text2))
-    row.desc:SetText(hidden and "Lås den opp for å se hva det er" or d.desc)
+    row.desc:SetText(hidden and "Unlock it to see what it is" or d.desc)
     row.icon:SetVertexColor(hex(got and tier.color or C.dim))
-    row.tile:SetColors(got and "2A2E33" or C.input, nil)
+    row.tile:SetColors(got and C.active or C.input, nil)
     row:SetAlpha(got and 1 or 0.8)
     row.tier:SetText(tier.name .. " · " .. tier.points .. " p")
     row.tier:SetTextColor(hex(tier.color))
@@ -136,7 +136,7 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
     row.track:Hide() row.bar:Hide()
     if got then
       local t = got
-      row.right:SetText(type(t) == "number" and ("Låst opp " .. date("%d.%m.%y", t)) or "Låst opp")
+      row.right:SetText(type(t) == "number" and ("Unlocked " .. date("%d.%m.%y", t)) or "Unlocked")
     elseif pid == ns.pid and not hidden and d.goal > 1 then
       local v = A:Progress(d)
       local pct = math.min(1, v / d.goal)
@@ -156,7 +156,7 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
     end
     local o = others(d.id, pid)
     if #o > 0 and not hidden then
-      row.others:SetText("Også: " .. table.concat(o, ", ", 1, math.min(3, #o)) .. (#o > 3 and (" +" .. (#o - 3)) or ""))
+      row.others:SetText("Also: " .. table.concat(o, ", ", 1, math.min(3, #o)) .. (#o > 3 and (" +" .. (#o - 3)) or ""))
     else
       row.others:SetText("")
     end
@@ -169,7 +169,7 @@ ns:RegisterTab("ach", "Trofeer", "Trophy", function(tab)
   function tab:Refresh()
     local pid = ns.Window.achPid or ns.pid
     local p = ns:GetPerson(pid) or {}
-    who:SetLabel("Viser: " .. ((pid == ns.pid) and "meg" or (ns:PersonAlias(p) or ns:PersonName(p))) .. "  · bytt")
+    who:SetLabel("Showing: " .. ((pid == ns.pid) and "me" or (ns:PersonAlias(p) or ns:PersonName(p))) .. "  · switch")
     local total = #A.defs
     big:SetText(A:Count(pid) .. " / " .. total)
     pts:SetText(A:Points(pid) .. " poeng")

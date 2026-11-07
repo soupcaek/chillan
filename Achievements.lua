@@ -4,20 +4,20 @@ local A = {}
 ns.Ach = A
 
 A.TIERS = {
-  B = { name = "Bronse", points = 5, color = "C9946A" },
-  S = { name = "Sølv", points = 10, color = "C8D1DC" },
-  G = { name = "Gull", points = 25, color = "E0C068" },
-  L = { name = "Legendarisk", points = 50, color = "B9AEDB" },
+  B = { name = "Bronze", points = 5, color = "C9946A" },
+  S = { name = "Silver", points = 10, color = "C8D1DC" },
+  G = { name = "Gold", points = 25, color = "E0C068" },
+  L = { name = "Legendary", points = 50, color = "B9AEDB" },
 }
 
 A.CATS = {
-  { key = "lvl", name = "Leveling" }, { key = "first", name = "Først i gjengen" },
-  { key = "time", name = "Tid og økter" }, { key = "quest", name = "Quests" },
-  { key = "gold", name = "Gull" }, { key = "death", name = "Død og skam" },
-  { key = "pvp", name = "PvP" }, { key = "gang", name = "Gjengen" },
-  { key = "dung", name = "Dungeons og raid" }, { key = "expl", name = "Utforsking" },
-  { key = "prof", name = "Profesjoner" }, { key = "gear", name = "Utstyr og mounts" },
-  { key = "tempo", name = "Tempo" }, { key = "fun", name = "Hemmelige" },
+  { key = "lvl", name = "Leveling" }, { key = "first", name = "First in the gang" },
+  { key = "time", name = "Time and sessions" }, { key = "quest", name = "Quests" },
+  { key = "gold", name = "Gold" }, { key = "death", name = "Death and shame" },
+  { key = "pvp", name = "PvP" }, { key = "gang", name = "The gang" },
+  { key = "dung", name = "Dungeons and raids" }, { key = "expl", name = "Exploration" },
+  { key = "prof", name = "Professions" }, { key = "gear", name = "Gear and mounts" },
+  { key = "tempo", name = "Tempo" }, { key = "fun", name = "Secret" },
 }
 
 ---------------------------------------------------------------------------
@@ -108,196 +108,196 @@ local function V(fn) return fn end
 local function flag(k) return function() return has(k) and 1 or 0 end end
 
 -- Leveling
-local L = { {5,"Første skritt","B"},{10,"Tosifret","B"},{15,"Lærling","B"},{20,"Eventyrer","B"},{25,"Veteran i emning","S"},
-  {30,"Halvveis-ish","S"},{35,"Erfaren","S"},{40,"Rutinert","S"},{45,"Herdet","G"},{50,"Nesten der","G"},{55,"Siste etappe","G"},{60,"Legende","L"} }
-for _, l in ipairs(L) do D("L" .. l[1], "lvl", l[3], l[2], "Nå level " .. l[1], maxLevel, l[1]) end
-D("LV2S", "lvl", "S", "Dobbeltding", "2 levels i én økt", V(function() return cnt("bestSessionLevels") end), 2)
-D("LV3S", "lvl", "G", "Ding-maskin", "3 levels i én økt", V(function() return cnt("bestSessionLevels") end), 3)
-D("LVNT", "lvl", "S", "Nattding", "Ding mellom 00:00 og 05:00", flag("dingNight"))
-D("LVDG", "lvl", "B", "Ding i dypet", "Ding inne i en dungeon", flag("dingDungeon"))
-D("LVRS", "lvl", "B", "Uthvilt", "Ding med rested XP", flag("dingRested"))
-D("LVAL", "lvl", "S", "Altoholiker", "Ha 3 karakterer over level 10", V(function() return altsOver(10) end), 3)
+local L = { {5,"First steps","B"},{10,"Double digits","B"},{15,"Apprentice","B"},{20,"Adventurer","B"},{25,"Veteran in the making","S"},
+  {30,"Halfway-ish","S"},{35,"Experienced","S"},{40,"Seasoned","S"},{45,"Hardened","G"},{50,"Almost there","G"},{55,"Final stretch","G"},{60,"Legend","L"} }
+for _, l in ipairs(L) do D("L" .. l[1], "lvl", l[3], l[2], "Reach level " .. l[1], maxLevel, l[1]) end
+D("LV2S", "lvl", "S", "Double ding", "2 levels in one session", V(function() return cnt("bestSessionLevels") end), 2)
+D("LV3S", "lvl", "G", "Ding machine", "3 levels in one session", V(function() return cnt("bestSessionLevels") end), 3)
+D("LVNT", "lvl", "S", "Night ding", "Ding between 00:00 and 05:00", flag("dingNight"))
+D("LVDG", "lvl", "B", "Ding in the deep", "Ding inside a dungeon", flag("dingDungeon"))
+D("LVRS", "lvl", "B", "Well rested", "Ding with rested XP", flag("dingRested"))
+D("LVAL", "lvl", "S", "Altoholic", "Have 3 characters above level 10", V(function() return altsOver(10) end), 3)
 
 -- Først i gjengen
 for _, n in ipairs({ 10, 20, 30, 40, 50, 60 }) do
-  D("F" .. n, "first", n >= 40 and "G" or "S", "Først til " .. n, "Først i gjengen til level " .. n, V(function() return first("L" .. n) and 1 or 0 end))
+  D("F" .. n, "first", n >= 40 and "G" or "S", "First to " .. n, "First in the gang to level " .. n, V(function() return first("L" .. n) and 1 or 0 end))
 end
-D("FMNT", "first", "G", "Først med mount", "Først i gjengen med mount", V(function() return first("MOUNT") and 1 or 0 end))
-D("FEPC", "first", "G", "Først med epic", "Først i gjengen med et episk drop", V(function() return first("EPIC") and 1 or 0 end))
+D("FMNT", "first", "G", "First with a mount", "First in the gang with a mount", V(function() return first("MOUNT") and 1 or 0 end))
+D("FEPC", "first", "G", "First with an epic", "First in the gang with an epic drop", V(function() return first("EPIC") and 1 or 0 end))
 
 -- Tid og økter
 local D1 = 86400
-for i, t in ipairs({ {1,"En hel dag","B"},{2,"Helgetur","S"},{5,"Hekta","S"},{10,"Ingen vei tilbake","G"},{20,"Bor i Azeroth","L"} }) do
-  D("PL" .. t[1], "time", t[3], t[2], "/played " .. t[1] .. (t[1] == 1 and " døgn" or " døgn") .. " på én karakter", maxPlayed, t[1] * D1)
+for i, t in ipairs({ {1,"A whole day","B"},{2,"Weekend trip","S"},{5,"Hooked","S"},{10,"No way back","G"},{20,"Lives in Azeroth","L"} }) do
+  D("PL" .. t[1], "time", t[3], t[2], "/played " .. t[1] .. (t[1] == 1 and " days" or " days") .. " on one character", maxPlayed, t[1] * D1)
 end
-D("SE3", "time", "B", "Kveldsøkt", "Én økt på 3 timer", V(function() return stat("Longest") end), 3 * 3600)
-D("SE6", "time", "S", "Maraton", "Én økt på 6 timer", V(function() return stat("Longest") end), 6 * 3600)
-D("SE10", "time", "G", "Ultramaraton", "Én økt på 10 timer", V(function() return stat("Longest") end), 10 * 3600)
-D("ST3", "time", "B", "Vane", "3 dager på rad", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 3)
-D("ST7", "time", "S", "Ukesrytme", "7 dager på rad", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 7)
-D("ST14", "time", "G", "Uten pause", "14 dager på rad", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 14)
-D("ST30", "time", "L", "Trofast", "30 dager på rad", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 30)
-D("OWL", "time", "S", "Nattugle", "Pålogget kl. 03:00", flag("online03"))
-D("BIRD", "time", "S", "Morgenfugl", "Pålogget kl. 06:00", flag("online06"))
-D("WKND", "time", "S", "Helgekriger", "10 timer på én helg", V(function() return cnt("bestWeekend") end), 10 * 3600)
+D("SE3", "time", "B", "Evening session", "One 3-hour session", V(function() return stat("Longest") end), 3 * 3600)
+D("SE6", "time", "S", "Marathon", "One 6-hour session", V(function() return stat("Longest") end), 6 * 3600)
+D("SE10", "time", "G", "Ultramarathon", "One 10-hour session", V(function() return stat("Longest") end), 10 * 3600)
+D("ST3", "time", "B", "Habit", "3 days in a row", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 3)
+D("ST7", "time", "S", "Weekly rhythm", "7 days in a row", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 7)
+D("ST14", "time", "G", "No breaks", "14 days in a row", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 14)
+D("ST30", "time", "L", "Loyal", "30 days in a row", V(function() return ns.Tracker:Streak((me().stats or {}).days) end), 30)
+D("OWL", "time", "S", "Night Owl", "Online at 03:00", flag("online03"))
+D("BIRD", "time", "S", "Early Bird", "Online at 06:00", flag("online06"))
+D("WKND", "time", "S", "Weekend warrior", "10 hours in one weekend", V(function() return cnt("bestWeekend") end), 10 * 3600)
 
 -- Quests
-for _, q in ipairs({ {10,"Oppdragstaker","B"},{50,"Hjelpsom","B"},{100,"Questmaskin","S"},{250,"Slitesterk","S"},{500,"Arbeidsjern","G"},{1000,"Tusen takk","G"},{2000,"Questguden","L"} }) do
-  D("Q" .. q[1], "quest", q[3], q[2], q[1] .. " quests totalt", V(function() return stat("Quests") end), q[1])
+for _, q in ipairs({ {10,"Errand runner","B"},{50,"Helpful","B"},{100,"Quest Machine","S"},{250,"Tireless","S"},{500,"Workhorse","G"},{1000,"Thanks a thousand","G"},{2000,"Quest god","L"} }) do
+  D("Q" .. q[1], "quest", q[3], q[2], q[1] .. " quests total", V(function() return stat("Quests") end), q[1])
 end
-D("QSES", "quest", "S", "Produktiv kveld", "20 quests i én økt", V(function() return cnt("bestSessionQuests") end), 20)
-D("QDAY", "quest", "G", "Dagsverk", "40 quests på én dag", V(function() return today("questsDay") > 0 and math.max(today("questsDay"), cnt("bestDayQuests")) or cnt("bestDayQuests") end), 40)
-D("QKNG", "quest", "G", "Ukens questkonge", "Flest quests i gjengen en uke", flag("kingQuests"))
+D("QSES", "quest", "S", "Productive evening", "20 quests in one session", V(function() return cnt("bestSessionQuests") end), 20)
+D("QDAY", "quest", "G", "A day's work", "40 quests in one day", V(function() return today("questsDay") > 0 and math.max(today("questsDay"), cnt("bestDayQuests")) or cnt("bestDayQuests") end), 40)
+D("QKNG", "quest", "G", "Quest king of the week", "Most quests in the gang in a week", flag("kingQuests"))
 
 -- Gull (kobber)
 local G = 10000
-for _, g in ipairs({ {10,"Lommepenger","B"},{100,"Sparebøssa","S"},{500,"Velstående","G"},{1000,"Goblin","L"} }) do
-  D("GE" .. g[1], "gold", g[3], g[2], "Tjen " .. g[1] .. "g totalt", V(function() return stat("Gold") end), g[1] * G)
+for _, g in ipairs({ {10,"Pocket money","B"},{100,"Piggy bank","S"},{500,"Well-off","G"},{1000,"Goblin","L"} }) do
+  D("GE" .. g[1], "gold", g[3], g[2], "Earn " .. g[1] .. "g total", V(function() return stat("Gold") end), g[1] * G)
 end
-for _, g in ipairs({ {50,"Feit lommebok","S"},{100,"Rikmann","G"},{500,"Krøsus","L"} }) do
-  D("GH" .. g[1], "gold", g[3], g[2], "Ha " .. g[1] .. "g på én gang", V(function() return cnt("maxMoney") end), g[1] * G)
+for _, g in ipairs({ {50,"Fat wallet","S"},{100,"Rich guy","G"},{500,"Croesus","L"} }) do
+  D("GH" .. g[1], "gold", g[3], g[2], "Have " .. g[1] .. "g at once", V(function() return cnt("maxMoney") end), g[1] * G)
 end
-D("GS10", "gold", "B", "Lønningsdag", "Tjen 10g i én økt", V(function() return cnt("bestSessionGold") end), 10 * G)
-D("GS50", "gold", "G", "Gullgruve", "Tjen 50g i én økt", V(function() return cnt("bestSessionGold") end), 50 * G)
-D("GKNG", "gold", "G", "Ukens kremmer", "Mest gull i gjengen en uke", flag("kingGold"))
+D("GS10", "gold", "B", "Payday", "Earn 10g in one session", V(function() return cnt("bestSessionGold") end), 10 * G)
+D("GS50", "gold", "G", "Gold mine", "Earn 50g in one session", V(function() return cnt("bestSessionGold") end), 50 * G)
+D("GKNG", "gold", "G", "Merchant of the week", "Most gold in the gang in a week", flag("kingGold"))
 
 -- Død og skam
-D("DE1", "death", "B", "Første gang er verst", "Dø for første gang", V(function() return stat("Deaths") end), 1)
-D("DE10", "death", "B", "Vanen tro", "10 dødsfall", V(function() return stat("Deaths") end), 10)
-D("DE25", "death", "S", "Klumsete", "25 dødsfall", V(function() return stat("Deaths") end), 25)
-D("DE50", "death", "G", "Spirit Healer-stamgjest", "50 dødsfall", V(function() return stat("Deaths") end), 50)
-D("DE100", "death", "L", "Udødelig? Nei.", "100 dødsfall", V(function() return stat("Deaths") end), 100)
-D("DES3", "death", "S", "Dårlig dag", "3 dødsfall i én økt", V(function() return cnt("bestSessionDeaths") end), 3)
-D("DED5", "death", "G", "Katastrofekveld", "5 dødsfall på én dag", V(function() return math.max(today("deathsDay"), cnt("bestDayDeaths")) end), 5)
-D("DELG", "death", "S", "Forbannet", "Dø innen 2 min etter innlogging", flag("deathAfterLogin"))
-D("DEDG", "death", "S", "Kort glede", "Dø innen 2 min etter en ding", flag("deathAfterDing"))
-D("DEZ5", "death", "S", "Stammested", "Dø 5 ganger i samme sone", V(function() return cnt("maxDeathsZone") end), 5)
-D("DESTV", "death", "G", "Stranglethorn-turist", "Dø 10 ganger i Stranglethorn Vale", V(function() return (db().deathsByZone or {})["Stranglethorn Vale"] or 0 end), 10)
-D("DEDN", "death", "B", "Dungeon-offer", "Dø inne i en dungeon", flag("deathDungeon"))
-D("DE60", "death", "G", "Toppen er nådd", "Dø på level 60", flag("deathAt60"))
-D("DENO", "death", "S", "Forsiktig sjel", "10 levels uten å dø", V(function() return cnt("bestLevelsNoDeath") end), 10)
-D("DEWK", "death", "G", "Ufeilbarlig", "En hel uke (minst 5 t) uten å dø", flag("weekNoDeath"))
-D("DKNG", "death", "S", "Skammens konge", "Flest dødsfall i gjengen en uke", flag("kingDeaths"))
+D("DE1", "death", "B", "The first time is the worst", "Die for the first time", V(function() return stat("Deaths") end), 1)
+D("DE10", "death", "B", "Creature of habit", "10 deaths", V(function() return stat("Deaths") end), 10)
+D("DE25", "death", "S", "Clumsy", "25 deaths", V(function() return stat("Deaths") end), 25)
+D("DE50", "death", "G", "Spirit Healer regular", "50 deaths", V(function() return stat("Deaths") end), 50)
+D("DE100", "death", "L", "Immortal? No.", "100 deaths", V(function() return stat("Deaths") end), 100)
+D("DES3", "death", "S", "Bad day", "3 deaths in one session", V(function() return cnt("bestSessionDeaths") end), 3)
+D("DED5", "death", "G", "Disaster night", "5 deaths in one day", V(function() return math.max(today("deathsDay"), cnt("bestDayDeaths")) end), 5)
+D("DELG", "death", "S", "Cursed", "Die within 2 min of logging in", flag("deathAfterLogin"))
+D("DEDG", "death", "S", "Short-lived joy", "Die within 2 min of a ding", flag("deathAfterDing"))
+D("DEZ5", "death", "S", "Favourite spot", "Die 5 times in the same zone", V(function() return cnt("maxDeathsZone") end), 5)
+D("DESTV", "death", "G", "Stranglethorn tourist", "Die 10 times in Stranglethorn Vale", V(function() return (db().deathsByZone or {})["Stranglethorn Vale"] or 0 end), 10)
+D("DEDN", "death", "B", "Dungeon victim", "Die inside a dungeon", flag("deathDungeon"))
+D("DE60", "death", "G", "Peak reached", "Die at level 60", flag("deathAt60"))
+D("DENO", "death", "S", "Careful soul", "10 levels without dying", V(function() return cnt("bestLevelsNoDeath") end), 10)
+D("DEWK", "death", "G", "Infallible", "A whole week (at least 5 h) without dying", flag("weekNoDeath"))
+D("DKNG", "death", "S", "King of shame", "Most deaths in the gang in a week", flag("kingDeaths"))
 
 -- PvP
-for _, k in ipairs({ {1,"Første blod","B"},{10,"Fiende av Alliansen","B"},{50,"Plageånd","S"},{100,"Krigshisser","S"},{250,"Slakter","G"},{500,"Horde-helt","G"},{1000,"Lok'tar Ogar","L"} }) do
+for _, k in ipairs({ {1,"First blood","B"},{10,"Enemy of the Alliance","B"},{50,"Tormentor","S"},{100,"Warmonger","S"},{250,"Butcher","G"},{500,"Horde hero","G"},{1000,"Lok'tar Ogar","L"} }) do
   D("K" .. k[1], "pvp", k[3], k[2], k[1] .. " honorable kills", V(function() return stat("Kills") end), k[1])
 end
-D("BG1", "pvp", "B", "Seier!", "Vinn en battleground", V(function() return cnt("bgWins") end), 1)
-D("BG10", "pvp", "G", "Krigsherre", "Vinn 10 battlegrounds", V(function() return cnt("bgWins") end), 10)
-for _, b in ipairs({ {"WSG","Ulveflagg","Warsong Gulch"},{"AB","Basebygger","Arathi Basin"},{"AV","Fjellgeneral","Alterac Valley"},{"DI","Øyas hersker","Darkspear Islands"} }) do
-  D("BG" .. b[1], "pvp", "S", b[2], "Vinn " .. b[3], V(function() return inSet("bgWonMaps", b[3]) and 1 or 0 end))
+D("BG1", "pvp", "B", "Victory!", "Win a battleground", V(function() return cnt("bgWins") end), 1)
+D("BG10", "pvp", "G", "Warlord", "Win 10 battlegrounds", V(function() return cnt("bgWins") end), 10)
+for _, b in ipairs({ {"WSG","Wolf flag","Warsong Gulch"},{"AB","Base builder","Arathi Basin"},{"AV","Mountain general","Alterac Valley"},{"DI","Ruler of the island","Darkspear Islands"} }) do
+  D("BG" .. b[1], "pvp", "S", b[2], "Win " .. b[3], V(function() return inSet("bgWonMaps", b[3]) and 1 or 0 end))
 end
-D("SOS1", "pvp", "B", "Ropte på hjelp", "Send din første SOS", V(function() return cnt("sosSent") end), 1)
-D("SOSA", "pvp", "B", "Rask hjelp", "Svar «på vei» på en SOS", V(function() return cnt("sosAnswered") end), 1)
-D("SOS10", "pvp", "G", "Livvakt", "Svar på 10 SOS", V(function() return cnt("sosAnswered") end), 10)
+D("SOS1", "pvp", "B", "Cried for help", "Send your first SOS", V(function() return cnt("sosSent") end), 1)
+D("SOSA", "pvp", "B", "Quick help", "Answer «on my way» to an SOS", V(function() return cnt("sosAnswered") end), 1)
+D("SOS10", "pvp", "G", "Bodyguard", "Answer 10 SOS calls", V(function() return cnt("sosAnswered") end), 10)
 
 -- Gjengen
-D("CH1", "gang", "B", "Hei, gjengen!", "Første melding i gjengchatten", V(function() return cnt("chatMsgs") end), 1)
-D("CH100", "gang", "S", "Pratmaker", "100 meldinger i gjengchatten", V(function() return cnt("chatMsgs") end), 100)
-D("CH1K", "gang", "G", "Snakkesalig", "1000 meldinger i gjengchatten", V(function() return cnt("chatMsgs") end), 1000)
-D("CHDY", "gang", "S", "Kjeftesmelle", "50 meldinger på én dag", V(function() return math.max(today("chatDay"), cnt("bestDayChat")) end), 50)
-D("GG10", "gang", "B", "Heiagjeng", "Gi 10 gratulasjoner", V(function() return cnt("gratsGiven") end), 10)
-D("GG50", "gang", "S", "Supporter", "Gi 50 gratulasjoner", V(function() return cnt("gratsGiven") end), 50)
-D("GG200", "gang", "G", "Gjengens mamma", "Gi 200 gratulasjoner", V(function() return cnt("gratsGiven") end), 200)
-D("GR10", "gang", "S", "Populær", "Få 10 gratulasjoner", V(function() return cnt("gratsGot") end), 10)
-D("GR50", "gang", "G", "Kjendis", "Få 50 gratulasjoner", V(function() return cnt("gratsGot") end), 50)
-D("GR5D", "gang", "G", "Festens midtpunkt", "Få 5 gratulasjoner på én ding", V(function() return cnt("maxGratsOneDing") end), 5)
-D("LGH10", "gang", "S", "Skadefryd", "Le av 10 dødsfall", V(function() return cnt("laughsGiven") end), 10)
-D("F10", "gang", "S", "Respekt", "Trykk «F» 10 ganger", V(function() return cnt("fGiven") end), 10)
-D("LGHD", "gang", "G", "Klassens klovn", "Bli ledd av 20 ganger", V(function() return cnt("laughedAt") end), 20)
-D("GRP2", "gang", "B", "Duo", "Vær i gruppe med 1 fra gjengen", V(function() return cnt("maxGangGroup") end), 2)
-D("GRP3", "gang", "B", "Trio", "Vær i gruppe med 2 fra gjengen", V(function() return cnt("maxGangGroup") end), 3)
-D("GRP5", "gang", "S", "Full gjeng", "5-manns gruppe bare med gjengen", V(function() return cnt("maxGangGroup") end), 5)
-D("GRP10", "gang", "G", "Raidgjeng", "Raid med 10 fra gjengen", V(function() return cnt("maxGangGroup") end), 10)
-D("ON8", "gang", "G", "Alle mann på dekk", "8 fra gjengen online samtidig", V(function() return cnt("maxOnline") end), 8)
-D("POLL", "gang", "B", "Demokrat", "Lag en avstemning", V(function() return cnt("pollsCreated") end), 1)
-D("VOTE", "gang", "S", "Stemmekveg", "Stem i 20 avstemninger", V(function() return cnt("votes") end), 20)
-D("EVNT", "gang", "B", "Planlegger", "Lag en avtale", V(function() return cnt("eventsCreated") end), 1)
-D("RSVP", "gang", "S", "Møter opp", "Svar «kommer» på 10 avtaler", V(function() return cnt("rsvpYes") end), 10)
-D("MATS", "gang", "B", "Trenger hjelp", "Legg ut en mats-forespørsel", V(function() return cnt("matsPosted") end), 1)
-D("MATO", "gang", "S", "Leverandør", "Svar «Jeg har!» 10 ganger", V(function() return cnt("matsOffered") end), 10)
+D("CH1", "gang", "B", "Hi, gang!", "First message in gang chat", V(function() return cnt("chatMsgs") end), 1)
+D("CH100", "gang", "S", "Chatterbox", "100 messages in gang chat", V(function() return cnt("chatMsgs") end), 100)
+D("CH1K", "gang", "G", "Talkative", "1000 messages in gang chat", V(function() return cnt("chatMsgs") end), 1000)
+D("CHDY", "gang", "S", "Loudmouth", "50 messages in one day", V(function() return math.max(today("chatDay"), cnt("bestDayChat")) end), 50)
+D("GG10", "gang", "B", "Cheer Squad", "Give 10 congrats", V(function() return cnt("gratsGiven") end), 10)
+D("GG50", "gang", "S", "Supporter", "Give 50 congrats", V(function() return cnt("gratsGiven") end), 50)
+D("GG200", "gang", "G", "Gang mom", "Give 200 congrats", V(function() return cnt("gratsGiven") end), 200)
+D("GR10", "gang", "S", "Popular", "Get 10 congrats", V(function() return cnt("gratsGot") end), 10)
+D("GR50", "gang", "G", "Celebrity", "Get 50 congrats", V(function() return cnt("gratsGot") end), 50)
+D("GR5D", "gang", "G", "Life of the party", "Get 5 congrats on one ding", V(function() return cnt("maxGratsOneDing") end), 5)
+D("LGH10", "gang", "S", "Schadenfreude", "Laugh at 10 deaths", V(function() return cnt("laughsGiven") end), 10)
+D("F10", "gang", "S", "Respect", "Press «F» 10 times", V(function() return cnt("fGiven") end), 10)
+D("LGHD", "gang", "G", "Class clown", "Get laughed at 20 times", V(function() return cnt("laughedAt") end), 20)
+D("GRP2", "gang", "B", "Duo", "Group with 1 from the gang", V(function() return cnt("maxGangGroup") end), 2)
+D("GRP3", "gang", "B", "Trio", "Group with 2 from the gang", V(function() return cnt("maxGangGroup") end), 3)
+D("GRP5", "gang", "S", "Full gang", "5-man group with only the gang", V(function() return cnt("maxGangGroup") end), 5)
+D("GRP10", "gang", "G", "Raid gang", "Raid with 10 from the gang", V(function() return cnt("maxGangGroup") end), 10)
+D("ON8", "gang", "G", "All hands on deck", "8 from the gang online at once", V(function() return cnt("maxOnline") end), 8)
+D("POLL", "gang", "B", "Democrat", "Create a poll", V(function() return cnt("pollsCreated") end), 1)
+D("VOTE", "gang", "S", "Voter", "Vote in 20 polls", V(function() return cnt("votes") end), 20)
+D("EVNT", "gang", "B", "Planner", "Create an event", V(function() return cnt("eventsCreated") end), 1)
+D("RSVP", "gang", "S", "Shows up", "Answer «coming» to 10 events", V(function() return cnt("rsvpYes") end), 10)
+D("MATS", "gang", "B", "Needs help", "Post a mats request", V(function() return cnt("matsPosted") end), 1)
+D("MATO", "gang", "S", "Supplier", "Answer «I have it!» 10 times", V(function() return cnt("matsOffered") end), 10)
 
 -- Dungeons og raid
-D("DG1", "dung", "B", "Ned i mørket", "Første dungeon", V(function() return cnt("dungeonRuns") end), 1)
-D("DG5", "dung", "B", "Dungeonkrabber", "5 dungeon-runs", V(function() return cnt("dungeonRuns") end), 5)
-D("DG10", "dung", "S", "Hulebeboer", "10 dungeon-runs", V(function() return cnt("dungeonRuns") end), 10)
-D("DG25", "dung", "G", "Dypdykker", "25 dungeon-runs", V(function() return cnt("dungeonRuns") end), 25)
-D("DG50", "dung", "L", "Innbitt", "50 dungeon-runs", V(function() return cnt("dungeonRuns") end), 50)
-D("DGU5", "dung", "S", "Fem på rad", "5 forskjellige dungeons", V(function() return setSize("dungeonsSeen") end), 5)
-D("DGU10", "dung", "G", "Samler", "10 forskjellige dungeons", V(function() return setSize("dungeonsSeen") end), 10)
-D("RD1", "dung", "S", "Raid-debut", "Første raid", V(function() return setSize("raidsSeen") end), 1)
-D("RDBD", "dung", "G", "Barrow Deeps", "Gå inn i Barrow Deeps", V(function() return inSet("raidsSeen", "Barrow Deeps") and 1 or 0 end))
-D("RDHS", "dung", "L", "Hyjal Summit", "Gå inn i Hyjal Summit", V(function() return inSet("raidsSeen", "Hyjal Summit") and 1 or 0 end))
-D("DGGG", "dung", "G", "Gjengtur", "En dungeon der alle fem er fra gjengen", flag("gangDungeon"))
-D("DGD2", "dung", "S", "Dobbel dose", "2 dungeons på én kveld", V(function() return math.max(today("dungeonsDay"), cnt("bestDayDungeons")) end), 2)
+D("DG1", "dung", "B", "Into the dark", "First dungeon", V(function() return cnt("dungeonRuns") end), 1)
+D("DG5", "dung", "B", "Dungeon crawler", "5 dungeon runs", V(function() return cnt("dungeonRuns") end), 5)
+D("DG10", "dung", "S", "Cave dweller", "10 dungeon runs", V(function() return cnt("dungeonRuns") end), 10)
+D("DG25", "dung", "G", "Deep diver", "25 dungeon runs", V(function() return cnt("dungeonRuns") end), 25)
+D("DG50", "dung", "L", "Dedicated", "50 dungeon runs", V(function() return cnt("dungeonRuns") end), 50)
+D("DGU5", "dung", "S", "Five in a row", "5 different dungeons", V(function() return setSize("dungeonsSeen") end), 5)
+D("DGU10", "dung", "G", "Collector", "10 different dungeons", V(function() return setSize("dungeonsSeen") end), 10)
+D("RD1", "dung", "S", "Raid debut", "First raid", V(function() return setSize("raidsSeen") end), 1)
+D("RDBD", "dung", "G", "Barrow Deeps", "Enter the Barrow Deeps", V(function() return inSet("raidsSeen", "Barrow Deeps") and 1 or 0 end))
+D("RDHS", "dung", "L", "Hyjal Summit", "Enter Hyjal Summit", V(function() return inSet("raidsSeen", "Hyjal Summit") and 1 or 0 end))
+D("DGGG", "dung", "G", "Gang outing", "A dungeon where all five are from the gang", flag("gangDungeon"))
+D("DGD2", "dung", "S", "Double dose", "2 dungeons in one evening", V(function() return math.max(today("dungeonsDay"), cnt("bestDayDungeons")) end), 2)
 
 -- Utforsking
-D("Z10", "expl", "B", "Turist", "Besøk 10 soner", V(function() return setSize("zonesSeen") end), 10)
-D("Z20", "expl", "S", "Reisende", "Besøk 20 soner", V(function() return setSize("zonesSeen") end), 20)
-D("Z30", "expl", "G", "Oppdagelsesreisende", "Besøk 30 soner", V(function() return setSize("zonesSeen") end), 30)
-D("Z40", "expl", "L", "Kartograf", "Besøk 40 soner", V(function() return setSize("zonesSeen") end), 40)
-D("ZCAP", "expl", "S", "Hjemme i alle byer", "Besøk Orgrimmar, Thunder Bluff og Undercity", V(function()
+D("Z10", "expl", "B", "Tourist", "Visit 10 zones", V(function() return setSize("zonesSeen") end), 10)
+D("Z20", "expl", "S", "Traveller", "Visit 20 zones", V(function() return setSize("zonesSeen") end), 20)
+D("Z30", "expl", "G", "Explorer", "Visit 30 zones", V(function() return setSize("zonesSeen") end), 30)
+D("Z40", "expl", "L", "Cartographer", "Visit 40 zones", V(function() return setSize("zonesSeen") end), 40)
+D("ZCAP", "expl", "S", "At home in every city", "Visit Orgrimmar, Thunder Bluff and Undercity", V(function()
   local n = 0
   for _, z in ipairs({ "Orgrimmar", "Thunder Bluff", "Undercity" }) do if inSet("zonesSeen", z) then n = n + 1 end end
   return n
 end), 3)
-D("ZBB", "expl", "B", "Pirathavn", "Besøk Booty Bay", V(function() return inSet("subzonesSeen", "Booty Bay") and 1 or 0 end))
-D("ZGZ", "expl", "B", "Ørkenrotte", "Besøk Gadgetzan", V(function() return inSet("subzonesSeen", "Gadgetzan") and 1 or 0 end))
-D("ZEL", "expl", "S", "Frostbitt", "Besøk Everlook", V(function() return inSet("subzonesSeen", "Everlook") and 1 or 0 end))
-D("Z10H", "expl", "S", "Stamgjest", "10 timer i samme sone", V(function()
+D("ZBB", "expl", "B", "Pirate harbour", "Visit Booty Bay", V(function() return inSet("subzonesSeen", "Booty Bay") and 1 or 0 end))
+D("ZGZ", "expl", "B", "Desert rat", "Visit Gadgetzan", V(function() return inSet("subzonesSeen", "Gadgetzan") and 1 or 0 end))
+D("ZEL", "expl", "S", "Frostbitten", "Visit Everlook", V(function() return inSet("subzonesSeen", "Everlook") and 1 or 0 end))
+D("Z10H", "expl", "S", "Regular", "10 hours in the same zone", V(function()
   local m = 0
   for _, v in pairs((me().stats or {}).zones or {}) do if v > m then m = v end end
   return m
 end), 10 * 3600)
-D("LAYR", "expl", "S", "Layer-hopper", "Bytt sone eller layer 100 ganger", V(function() return cnt("zoneChanges") end), 100)
+D("LAYR", "expl", "S", "Layer hopper", "Change zone or layer 100 times", V(function() return cnt("zoneChanges") end), 100)
 
 -- Profesjoner
-D("P75", "prof", "B", "Lærling", "Én profesjon på 75", V(function() return profsAtLeast(75) end), 1)
-D("P150", "prof", "B", "Svenn", "Én profesjon på 150", V(function() return profsAtLeast(150) end), 1)
-D("P225", "prof", "S", "Ekspert", "Én profesjon på 225", V(function() return profsAtLeast(225) end), 1)
-D("P300", "prof", "G", "Mester", "Én profesjon på 300", V(function() return profsAtLeast(300) end), 1)
-D("P300X2", "prof", "L", "Dobbel mester", "To profesjoner på 300", V(function() return profsAtLeast(300) end), 2)
-D("PCOOK", "prof", "S", "Mesterkokk", "Cooking 300", V(function() return prof("Cooking") end), 300)
-D("PFISH", "prof", "S", "Fiskehelt", "Fishing 300", V(function() return prof("Fishing") end), 300)
-D("PFA", "prof", "S", "Lege", "First Aid 300", V(function() return prof("First Aid") end), 300)
-D("PWK50", "prof", "S", "Flittig", "+50 skill i en profesjon på én uke", V(function()
+D("P75", "prof", "B", "Apprentice", "One profession at 75", V(function() return profsAtLeast(75) end), 1)
+D("P150", "prof", "B", "Journeyman", "One profession at 150", V(function() return profsAtLeast(150) end), 1)
+D("P225", "prof", "S", "Expert", "One profession at 225", V(function() return profsAtLeast(225) end), 1)
+D("P300", "prof", "G", "Master", "One profession at 300", V(function() return profsAtLeast(300) end), 1)
+D("P300X2", "prof", "L", "Double master", "Two professions at 300", V(function() return profsAtLeast(300) end), 2)
+D("PCOOK", "prof", "S", "Master chef", "Cooking 300", V(function() return prof("Cooking") end), 300)
+D("PFISH", "prof", "S", "Fishing hero", "Fishing 300", V(function() return prof("Fishing") end), 300)
+D("PFA", "prof", "S", "Doctor", "First Aid 300", V(function() return prof("First Aid") end), 300)
+D("PWK50", "prof", "S", "Diligent", "+50 skill in a profession in one week", V(function()
   local m = 0
   for _, p in ipairs(me().profs or {}) do if p.base and (p.skill - p.base) > m then m = p.skill - p.base end end
   return m
 end), 50)
 
 -- Utstyr og mounts
-D("EP1", "gear", "S", "Lilla glede", "Første episke drop", V(function() return cnt("epics") end), 1)
-D("EP5", "gear", "G", "Epic-samler", "5 episke drops", V(function() return cnt("epics") end), 5)
-D("EP15", "gear", "L", "Utstyrsfreak", "15 episke drops", V(function() return cnt("epics") end), 15)
-for _, i in ipairs({ {20,"Godt kledd","B"},{40,"Velutstyrt","S"},{55,"Tungt bevæpnet","G"},{65,"Raid-klar","L"} }) do
+D("EP1", "gear", "S", "Purple joy", "First epic drop", V(function() return cnt("epics") end), 1)
+D("EP5", "gear", "G", "Epic collector", "5 epic drops", V(function() return cnt("epics") end), 5)
+D("EP15", "gear", "L", "Gear freak", "15 epic drops", V(function() return cnt("epics") end), 15)
+for _, i in ipairs({ {20,"Well dressed","B"},{40,"Well equipped","S"},{55,"Heavily armed","G"},{65,"Raid ready","L"} }) do
   D("IL" .. i[1], "gear", i[3], i[2], "Item level " .. i[1], V(function() return cnt("maxIlvl") end), i[1])
 end
-D("MT1", "gear", "S", "Fire bein", "Første mount", V(function() return cnt("mounts") end), 1)
-D("MT3", "gear", "G", "Stallgutt", "3 mounts", V(function() return cnt("mounts") end), 3)
-D("MT5", "gear", "L", "Hestekar", "5 mounts", V(function() return cnt("mounts") end), 5)
-D("MTE", "gear", "G", "Rytter", "Få en mount før level 40", flag("mountBefore40"))
+D("MT1", "gear", "S", "Four legs", "First mount", V(function() return cnt("mounts") end), 1)
+D("MT3", "gear", "G", "Stable boy", "3 mounts", V(function() return cnt("mounts") end), 3)
+D("MT5", "gear", "L", "Horseman", "5 mounts", V(function() return cnt("mounts") end), 5)
+D("MTE", "gear", "G", "Rider", "Get a mount before level 40", flag("mountBefore40"))
 
 -- Tempo
-D("XP10", "tempo", "B", "Fart", "10 000 XP per time i én økt", V(function() return cnt("bestXPRate") end), 10000)
-D("XP25", "tempo", "S", "Turbo", "25 000 XP per time i én økt", V(function() return cnt("bestXPRate") end), 25000)
-D("XP50", "tempo", "G", "Lyshastighet", "50 000 XP per time i én økt", V(function() return cnt("bestXPRate") end), 50000)
-D("LFST", "tempo", "S", "Lynding", "Et level på under 30 min spilletid", flag("fastLevel"))
-D("SPRN", "tempo", "G", "Speedrunner", "Raskeste ding i gjengen (alle tider)", flag("fastestInGang"))
-D("EFF", "tempo", "L", "Effektiv", "Level 60 på under 10 døgn /played", flag("efficient60"))
-D("SNAIL", "tempo", "B", "Snegle", "Et level som tar over 5 timer spilletid", flag("slowLevel"))
+D("XP10", "tempo", "B", "Speed", "10,000 XP per hour in one session", V(function() return cnt("bestXPRate") end), 10000)
+D("XP25", "tempo", "S", "Turbo", "25,000 XP per hour in one session", V(function() return cnt("bestXPRate") end), 25000)
+D("XP50", "tempo", "G", "Light speed", "50,000 XP per hour in one session", V(function() return cnt("bestXPRate") end), 50000)
+D("LFST", "tempo", "S", "Lightning ding", "A level in under 30 min played", flag("fastLevel"))
+D("SPRN", "tempo", "G", "Speedrunner", "Fastest ding in the gang (all time)", flag("fastestInGang"))
+D("EFF", "tempo", "L", "Efficient", "Level 60 in under 10 days /played", flag("efficient60"))
+D("SNAIL", "tempo", "B", "Snail", "A level that takes over 5 hours played", flag("slowLevel"))
 
 -- Hemmelige / morsomme
-D("BACK", "fun", "S", "Kom tilbake!", "Logg inn etter 7+ dager borte", flag("comeback"), 1, true)
-D("LONE", "fun", "S", "Ensom ulv", "3 timer uten at noen fra gjengen er online", V(function() return cnt("bestLone") end), 3 * 3600, true)
-D("AFK", "fun", "B", "AFK-mester", "Stå AFK i 30 minutter", flag("afk30"), 1, true)
-D("WIN1", "fun", "G", "Ukens vinner", "Vinn ukens utfordring", V(function() return cnt("challengeWins") end), 1, true)
-D("WIN5", "fun", "L", "Seriemester", "Vinn ukens utfordring 5 ganger", V(function() return cnt("challengeWins") end), 5, true)
-D("SOS3", "fun", "S", "Spammer", "Send 3 SOS på én dag", V(function() return math.max(today("sosDay"), cnt("bestDaySos")) end), 3, true)
-D("ENM10", "fun", "S", "Fiendejeger", "Tagg 10 fiender", V(function() return cnt("enemiesTagged") end), 10, true)
-D("ENSN", "fun", "B", "Ser deg!", "Få et fiendevarsel", V(function() return cnt("enemySeen") end), 1, true)
-D("ALL100", "fun", "L", "Komplettist", "Lås opp 100 achievements", V(function() return A:Count(ns.pid) end), 100, true)
+D("BACK", "fun", "S", "Welcome back!", "Log in after 7+ days away", flag("comeback"), 1, true)
+D("LONE", "fun", "S", "Lone wolf", "3 hours without anyone from the gang online", V(function() return cnt("bestLone") end), 3 * 3600, true)
+D("AFK", "fun", "B", "AFK-mester", "Stand AFK for 30 minutes", flag("afk30"), 1, true)
+D("WIN1", "fun", "G", "Winner of the week", "Win the weekly challenge", V(function() return cnt("challengeWins") end), 1, true)
+D("WIN5", "fun", "L", "Champion", "Win the weekly challenge 5 times", V(function() return cnt("challengeWins") end), 5, true)
+D("SOS3", "fun", "S", "Spammer", "Send 3 SOS in one day", V(function() return math.max(today("sosDay"), cnt("bestDaySos")) end), 3, true)
+D("ENM10", "fun", "S", "Enemy hunter", "Tag 10 enemies", V(function() return cnt("enemiesTagged") end), 10, true)
+D("ENSN", "fun", "B", "I see you!", "Get an enemy alert", V(function() return cnt("enemySeen") end), 1, true)
+D("ALL100", "fun", "L", "Completionist", "Unlock 100 achievements", V(function() return A:Count(ns.pid) end), 100, true)
 
 A.defs = defs
 A.byId = {}

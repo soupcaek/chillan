@@ -28,6 +28,62 @@ local function roundedBorder(tex, small)
 end
 
 -- Panel med avrundede hjørner, fyllfarge og kantlinje
+-- Overlays (popups, toasts, event window, tiles, minibar) share one opacity setting
+UI.overlayPanels = {}
+function UI.OverlayAlpha() return (ns.db and ns.db.settings.overlayAlpha) or 0.95 end
+function UI.OverlayPanel(parent, fill, line, small)
+  local p = UI.Panel(parent, fill, line, small, UI.OverlayAlpha())
+  p.ofill, p.oline = fill, line
+  table.insert(UI.overlayPanels, p)
+  return p
+end
+function UI.ApplyOverlayAlpha()
+  local a = UI.OverlayAlpha()
+  for _, p in ipairs(UI.overlayPanels) do p:SetColors(p.ofill, p.oline, a) end
+end
+
+-- Simple horizontal slider: UI.Slider(parent, width, min, max, step, get, set, fmt)
+function UI.Slider(parent, w, minV, maxV, step, get, set, fmt)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(w, 34)
+  f.label = UI.Text(f, 12, nil, C.text2)
+  f.label:SetPoint("TOPLEFT")
+  f.value = UI.Text(f, 12, "semi", C.text)
+  f.value:SetPoint("TOPRIGHT")
+  local s = CreateFrame("Slider", nil, f)
+  s:SetPoint("BOTTOMLEFT", 0, 4)
+  s:SetPoint("BOTTOMRIGHT", 0, 4)
+  s:SetHeight(14)
+  s:SetOrientation("HORIZONTAL")
+  s:SetMinMaxValues(minV, maxV)
+  s:SetValueStep(step)
+  if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
+  local track = s:CreateTexture(nil, "BACKGROUND")
+  track:SetTexture(ns.TEX .. "RoundedSmall")
+  track:SetPoint("LEFT")
+  track:SetPoint("RIGHT")
+  track:SetHeight(4)
+  track:SetVertexColor(hex(C.activeLine))
+  s:SetThumbTexture(ns.TEX .. "Circle")
+  local thumb = s:GetThumbTexture()
+  if thumb then thumb:SetSize(14, 14) thumb:SetVertexColor(hex(C.accent)) end
+  s:EnableMouseWheel(true)
+  s:SetScript("OnMouseWheel", function(self, d) self:SetValue(self:GetValue() + d * step) end)
+  s:SetScript("OnValueChanged", function(_, v)
+    v = math.floor(v / step + 0.5) * step
+    f.value:SetText(fmt and fmt(v) or tostring(v))
+    if not f.loading then set(v) end
+  end)
+  function f:Refresh()
+    self.loading = true
+    s:SetValue(get())
+    self.value:SetText(fmt and fmt(get()) or tostring(get()))
+    self.loading = false
+  end
+  f.slider = s
+  return f
+end
+
 function UI.Panel(parent, fill, line, small, alpha)
   local f = CreateFrame("Frame", nil, parent)
   f.bg = f:CreateTexture(nil, "BACKGROUND")
@@ -143,13 +199,16 @@ end
 ---------------------------------------------------------------------------
 -- Knapper
 ---------------------------------------------------------------------------
-local STYLES = {
-  primary = { fill = C.accent, line = nil, text = C.accentText, hover = "DDE3EA", weight = "semi" },
-  secondary = { fill = C.active, line = C.activeLine, text = C.text, hover = "33383E", weight = "semi" },
-  ghost = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card, weight = nil },
-  danger = { fill = C.sosBg, line = C.sosLine, text = C.sosText, hover = "4A2427", weight = "semi" },
-  nav = { fill = nil, line = nil, text = C.dim, hover = C.card, weight = nil },
-}
+local STYLES = {}
+-- Button styles follow the active theme (rebuilt when the theme is applied)
+function UI.RebuildStyles()
+  STYLES.primary = { fill = C.accent, line = nil, text = C.accentText, hover = C.accentHover or C.accent, weight = "semi" }
+  STYLES.secondary = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover or C.active, weight = "semi" }
+  STYLES.ghost = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card, weight = nil }
+  STYLES.danger = { fill = C.sosBg, line = C.sosLine, text = C.sosText, hover = "4A2427", weight = "semi" }
+  STYLES.nav = { fill = nil, line = nil, text = C.dim, hover = C.card, weight = nil }
+end
+UI.RebuildStyles()
 
 UI.STYLES = STYLES
 
@@ -429,7 +488,7 @@ function UI.AchTooltip(owner, id)
   GameTooltip:AddLine(tier.name .. " · " .. tier.points .. " poeng", 0.6, 0.63, 0.66)
   GameTooltip:AddLine(d.desc or "", 1, 1, 1, true)
   if ns.Ach.Has and ns.Ach:Has(ns.pid, id) then
-    GameTooltip:AddLine("Du har denne", 0.37, 0.82, 0.55)
+    GameTooltip:AddLine("You have this one", 0.37, 0.82, 0.55)
   end
   GameTooltip:Show()
 end
@@ -564,7 +623,7 @@ function UI.Prompt(title, fields, onOk)
       dialog.inputs[i] = e
     end
     dialog.ok = UI.Button(dialog, 100, 32, "OK", "primary")
-    dialog.cancel = UI.Button(dialog, 90, 32, "Avbryt", "ghost", function() dialog:Hide() end)
+    dialog.cancel = UI.Button(dialog, 90, 32, "Cancel", "ghost", function() dialog:Hide() end)
   end
   dialog.title:SetText(title)
   local y = -48

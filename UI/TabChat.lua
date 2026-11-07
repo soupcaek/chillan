@@ -10,17 +10,17 @@ function ns.FeedLine(it, withTime)
   local icon, color, text = "Star", C.purple, ""
   if it.kind == "DING" then
     icon, color = "Up", C.green
-    text = "nådde level " .. tostring(it.a)
+    text = "reached level " .. tostring(it.a)
     local played = tonumber(it.b)
     if played then text = text .. " · /played " .. ns.Duration(played) end
-    if it.first then text = text .. ns.Colorize(" · først i gjengen!", C.gold)
-    elseif it.place and tonumber(it.a) and tonumber(it.a) % 10 == 0 then text = text .. " · nr. " .. it.place .. " i gjengen" end
+    if it.first then text = text .. ns.Colorize(" · first in the gang!", C.gold)
+    elseif it.place and tonumber(it.a) and tonumber(it.a) % 10 == 0 then text = text .. " · no. " .. it.place .. " in the gang" end
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
     end
   elseif it.kind == "DEAD" then
     icon, color = "Skull", C.dim
-    text = "døde i " .. tostring(it.a or "?")
+    text = "died in " .. tostring(it.a or "?")
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. " ler", C.red)
     end
@@ -32,24 +32,24 @@ function ns.FeedLine(it, withTime)
       if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
       link = "[item " .. id .. "]"
     end
-    text = "fikk " .. (link or "noe fint")
+    text = "fikk " .. (link or "something nice")
   elseif it.kind == "MOUNT" then
     icon, color = "Star", C.amber
-    text = it.first and ("fikk mount – " .. ns.Colorize("først i gjengen!", C.gold)) or "fikk mount"
+    text = it.first and ("got a mount – " .. ns.Colorize("first in the gang!", C.gold)) or "got a mount"
   elseif it.kind == "SOS" then
     icon, color = "SOS", C.red
-    text = "sendte SOS i " .. tostring(it.a or "?")
+    text = "sent an SOS in " .. tostring(it.a or "?")
   elseif it.kind == "ACH" then
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
     icon, color = "Trophy", tier.color
-    text = "låste opp " .. ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
+    text = "unlocked " .. ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
     end
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
-    text = "så fienden " .. tostring(it.a) .. " i " .. tostring(it.b or "?")
+    text = "saw the enemy " .. tostring(it.a) .. " i " .. tostring(it.b or "?")
   elseif it.kind == "DUNGEON" then
     icon, color = "Shield", "8FB8E8"
     local members = ns.Extras:RunMembers(it)
@@ -59,9 +59,9 @@ function ns.FeedLine(it, withTime)
       who = table.concat(names, ns.Colorize(", ", C.dim))
     end
     local bosses = tostring(it.d or ""):match("^(%d+)")
-    text = "fullførte " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
-      .. " · " .. (tonumber(it.c) or 0) .. " dødsfall" .. (bosses and (" · " .. bosses .. " bosser") or "")
-    if it.first then text = text .. ns.Colorize(" · første i gjengen!", C.gold) end
+    text = "finished " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+      .. " · " .. (tonumber(it.c) or 0) .. " deaths" .. (bosses and (" · " .. bosses .. " bosses") or "")
+    if it.first then text = text .. ns.Colorize(" · first in the gang!", C.gold) end
   else
     text = tostring(it.kind)
   end
@@ -76,7 +76,7 @@ function ns.FeedShort(it)
   local who = ns:ShortWho(p, it.char)
   local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
   if it.kind == "DING" then return I("Up", C.green) .. who .. ns.Colorize(" · level " .. tostring(it.a), C.text2) end
-  if it.kind == "DEAD" then return I("Skull", C.red) .. who .. ns.Colorize(" døde · " .. tostring(it.a or "?"), C.text2) end
+  if it.kind == "DEAD" then return I("Skull", C.red) .. who .. ns.Colorize(" died · " .. tostring(it.a or "?"), C.text2) end
   if it.kind == "ACH" then
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
@@ -92,13 +92,13 @@ function ns.FeedShort(it)
       if C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
       link = "|Hitem:" .. id .. "|h" .. ns.Colorize("[item " .. id .. "]", qhex) .. "|h"
     end
-    return I("Star", qhex) .. who .. " · " .. (link or ns.Colorize("fin drop", qhex))
+    return I("Star", qhex) .. who .. " · " .. (link or ns.Colorize("nice drop", qhex))
   end
   if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
-  if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" fikk mount", C.text2) end
-  if it.kind == "ENSEEN" then return I("Target", C.red) .. "Fiende " .. tostring(it.a) .. ns.Colorize(" sett av ", C.text2) .. who end
+  if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" got a mount", C.text2) end
+  if it.kind == "ENSEEN" then return I("Target", C.red) .. "Enemy " .. tostring(it.a) .. ns.Colorize(" seen by", C.text2) .. who end
   if it.kind == "DUNGEON" then
-    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" · " .. tostring(it.a) .. " på " .. ns.Duration(tonumber(it.b) or 0), C.text2)
+    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" · " .. tostring(it.a) .. " in " .. ns.Duration(tonumber(it.b) or 0), C.text2)
   end
   return I("Star", C.accent) .. who .. " · " .. tostring(it.kind)
 end
@@ -117,10 +117,10 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
 
   local h = UI.Text(tab, 15, "semi", C.text)
   h:SetPoint("TOPLEFT", 16, -16)
-  h:SetText("Gjengchat")
+  h:SetText("Gang chat")
   local hint = UI.Text(tab, 11, nil, C.dim)
   hint:SetPoint("LEFT", h, "RIGHT", 10, 0)
-  hint:SetText("Tips: /cg tekst sender rett fra vanlig chat")
+  hint:SetText("Tip: /cg text sends straight from normal chat")
 
   local divider = UI.SolidLine(tab)
   divider:SetPoint("TOPRIGHT", -FEED_W, 0)
@@ -136,7 +136,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
     ns.Data:SendChat(input:GetText())
     input:SetText("")
   end
-  input = UI.EditBox(tab, 300, 36, "Skriv til gjengen …", send)
+  input = UI.EditBox(tab, 300, 36, "Write to the gang …", send)
   input:SetPoint("BOTTOMLEFT", 16, 14)
   input:SetPoint("RIGHT", tab, "RIGHT", -FEED_W - 90, 0)
   input.edit:SetScript("OnEnterPressed", function(self) send() self:SetFocus() end)
@@ -145,7 +145,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
 
   local fh = UI.Text(tab, 15, "semi", C.text)
   fh:SetPoint("TOPLEFT", tab, "TOPRIGHT", -FEED_W + 14, -16)
-  fh:SetText("Gjengfeed")
+  fh:SetText("Gang feed")
   local feed = UI.MessageFrame(tab, 12)
   feed:SetPoint("TOPLEFT", tab, "TOPRIGHT", -FEED_W + 14, -44)
   feed:SetPoint("BOTTOMRIGHT", -12, 14)
@@ -158,13 +158,13 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
       lastChatKey = key
       msgs:Clear()
       if #ns.db.chat == 0 then
-        msgs:AddMessage(ns.Colorize("Ingen meldinger ennå. Si hei til gjengen!", C.dim))
+        msgs:AddMessage(ns.Colorize("No messages yet. Say hi to the gang!", C.dim))
       end
       for _, it in ipairs(ns.db.chat) do msgs:AddMessage(ns.ChatLine(it)) end
     end
     feed:Clear()
     local start = math.max(1, #ns.db.feed - 40)
     for i = start, #ns.db.feed do feed:AddMessage(ns.FeedLine(ns.db.feed[i], true)) end
-    if #ns.db.feed == 0 then feed:AddMessage(ns.Colorize("Her dukker dings, drops, dødsfall og SOS opp.", C.dim)) end
+    if #ns.db.feed == 0 then feed:AddMessage(ns.Colorize("Dings, drops, deaths and SOS calls show up here.", C.dim)) end
   end
 end)

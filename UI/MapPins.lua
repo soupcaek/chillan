@@ -104,8 +104,8 @@ local function createNotePin(canvas)
     GameTooltip:AddLine(k.name, hex(k.color))
     if n.text and n.text ~= "" then GameTooltip:AddLine(n.text, 1, 1, 1, true) end
     local p = ns:GetPerson(n.pid) or {}
-    GameTooltip:AddLine("av " .. (ns:PersonAlias(p) or ns.ShortName(n.char or "?")) .. " · utløper om " .. ns.Duration((n.exp or 0) - ns.Now()), 0.6, 0.63, 0.66)
-    if n.pid == ns.pid then GameTooltip:AddLine("Høyreklikk: fjern", 0.52, 0.55, 0.57) end
+    GameTooltip:AddLine("by " .. (ns:PersonAlias(p) or ns.ShortName(n.char or "?")) .. " · expires in " .. ns.Duration((n.exp or 0) - ns.Now()), 0.6, 0.63, 0.66)
+    if n.pid == ns.pid then GameTooltip:AddLine("Right-click: remove", 0.52, 0.55, 0.57) end
     GameTooltip:Show()
   end)
   pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -141,9 +141,9 @@ local function noteMenu(mapID, x, y)
   local items = {}
   for _, k in ipairs(ns.Extras.NOTE_KINDS) do
     items[#items + 1] = { text = k.name, color = k.color, func = function()
-      UI.Prompt("Gjengnotat: " .. k.name, {
-        { label = "Tekst (valgfritt)", placeholder = k.key == "gank" and "f.eks. rogue lvl 40 campet her" or "" },
-        { label = "Hvor mange dager skal det ligge? (1, 3 eller 7)", value = "3" },
+      UI.Prompt("Gang note: " .. k.name, {
+        { label = "Text (optional)", placeholder = k.key == "gank" and "e.g. lvl 40 rogue camped here" or "" },
+        { label = "How many days should it stay? (1, 3 or 7)", value = "3" },
       }, function(text, days) ns.Extras:AddNote(mapID, x, y, k.key, text, days) end)
     end }
   end

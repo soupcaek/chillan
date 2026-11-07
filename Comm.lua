@@ -547,7 +547,7 @@ local function onAddonMessage(prefix, text, channel, sender, isBN)
   local h = Comm.handlers[msgType]
   if h then
     local ok, err = pcall(h, fields, sender, channel)
-    if not ok and ns.debug then ns.Print("feil i", msgType, err) end
+    if not ok and ns.debug then ns.Print("error in", msgType, err) end
   end
   maybeRelay(msgType, f, text, channel)
 end
@@ -687,21 +687,21 @@ function Comm:ChannelCount()
 end
 
 local NOTICE_TEXT = {
-  YOU_JOINED = "koblet til", YOU_CHANGED = "koblet til",
-  WRONG_PASSWORD = "feil passord – sjekk at gjengkoden er helt lik",
-  BANNED = "utestengt fra kanalen", NOT_MEMBER = "ikke medlem",
-  TRIAL_RESTRICTED = "prøvekonto kan ikke bruke chat-kanaler",
-  INVALID_NAME = "ugyldig kanalnavn", THROTTLED = "for mange forsøk – vent litt",
-  YOU_LEFT = "forlot kanalen", SUSPENDED = "kanalen er midlertidig utilgjengelig",
+  YOU_JOINED = "connected", YOU_CHANGED = "connected",
+  WRONG_PASSWORD = "wrong password – check that the gang code is exactly the same",
+  BANNED = "banned from the channel", NOT_MEMBER = "not a member",
+  TRIAL_RESTRICTED = "trial accounts can't use chat channels",
+  INVALID_NAME = "invalid channel name", THROTTLED = "too many attempts – wait a bit",
+  YOU_LEFT = "left the channel", SUSPENDED = "the channel is temporarily unavailable",
 }
 function Comm:ChannelStatusText()
   self:RefreshChannelId()
-  if self.chanId then return "koblet til (id " .. self.chanId .. ")" end
-  local parts = { "ikke koblet" }
-  if self.lastNotice then parts[#parts + 1] = "serveren svarte: " .. (NOTICE_TEXT[self.lastNotice] or self.lastNotice) end
+  if self.chanId then return "connected (id " .. self.chanId .. ")" end
+  local parts = { "not connected" }
+  if self.lastNotice then parts[#parts + 1] = "server said: " .. (NOTICE_TEXT[self.lastNotice] or self.lastNotice) end
   local n = self:ChannelCount()
-  if n and n >= 10 then parts[#parts + 1] = "du er med i " .. n .. " kanaler (maks 10) – forlat én" end
-  if not self.lastNotice and not (n and n >= 10) then parts[#parts + 1] = "ingen svar fra serveren – prøv /chill kanal" end
+  if n and n >= 10 then parts[#parts + 1] = "you are in " .. n .. " channels (max 10) – leave one" end
+  if not self.lastNotice and not (n and n >= 10) then parts[#parts + 1] = "no answer from the server – try /chill channel" end
   return table.concat(parts, " · ")
 end
 

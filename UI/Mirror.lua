@@ -36,6 +36,6 @@ end)
 
 ns:Listen("REACTION", function(item, rp, char, idx)
   if not ns.db.settings.activityMirror or not item then return end
-  out(PREFIX_ACT .. ns:ShortWho(rp or {}, char) .. ns.Colorize(" til ", C.dim) .. ns:ShortWho(ns:GetPerson(item.pid) or {}, item.char)
+  out(PREFIX_ACT .. ns:ShortWho(rp or {}, char) .. ns.Colorize(" to ", C.dim) .. ns:ShortWho(ns:GetPerson(item.pid) or {}, item.char)
     .. ": " .. ns.Colorize(ns.ReactionText(item, idx), C.purple))
 end)

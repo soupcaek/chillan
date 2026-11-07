@@ -25,11 +25,11 @@ ns:On("PLAYER_LOGIN", function()
     local st = ns.Comm.stats
     local trial = (IsTrialAccount and IsTrialAccount()) or (IsVeteranTrialAccount and IsVeteranTrialAccount())
     if trial then
-      ns.Print("|cffF2777APrøvekonto oppdaget:|r WoW lar ikke prøvekontoer sende addon-meldinger, så gjengen kan ikke se deg før kontoen er oppgradert.")
+      ns.Print("|cffF2777ATrial account detected:|r WoW doesn't let trial accounts send addon messages, so the gang can't see you until the account is upgraded.")
     elseif st.recv == 0 and st.otherCode > 0 then
-      ns.Print("|cffF2777AVi hører Chillan? fra en annen gjengkode, men ingen fra din.|r Sjekk at koden (" .. ns.db.code .. ") er helt lik den de andre har.")
+      ns.Print("|cffF2777AWe hear Chillan? from a different gang code, but nobody from yours.|r Check that the code (" .. ns.db.code .. ") is exactly the same as the others have.")
     elseif st.recv == 0 then
-      ns.Print("Vi har ikke hørt fra noen i gjengen ennå. Skriv /chill debug og send skjermbilde til gjengen, eller be en kompis skrive /chill legg til " .. (ns.Comm:MyFull() or "navnet ditt") .. ".")
+      ns.Print("We haven't heard from anyone in the gang yet. Type /chill debug and send a screenshot to the gang, or ask a friend to type /chill add " .. (ns.Comm:MyFull() or "your name") .. ".")
     end
   end)
 end)
@@ -66,14 +66,14 @@ ns:On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
     end)
     C_Timer.After(12, function()
       if ns.db.code and not ns.db.alias then
-        ns.UI.Prompt("Hva heter du?", {
-          { label = "Navnet ditt – vises ved alle karakterene dine", placeholder = "f.eks. Henrik" },
+        ns.UI.Prompt("What's your name?", {
+          { label = "Your name – shown next to all your characters", placeholder = "e.g. Henrik" },
         }, function(v) if not ns.SetAlias(v) then return true end end)
       end
     end)
     if not ns.db.code then
       C_Timer.After(10, function()
-        ns.Print("Velkommen! Skriv |cff" .. ns.C.accent .. "/chill|r for å lage eller bli med i en gjeng.")
+        ns.Print("Welcome! Type |cff" .. ns.C.accent .. "/chill|r to create or join a gang.")
       end)
     end
   end
@@ -93,27 +93,27 @@ end)
 -- Kommandoer
 ---------------------------------------------------------------------------
 local function help()
-  ns.Print("Kommandoer:")
-  print("  /chill – åpne/lukk vinduet")
-  print("  /chill sos – send SOS til gjengen")
-  print("  /chill kveld – vis oppsummering av økten")
-  print("  /chill fiende [notat] – legg målet ditt i fiendeloggen")
-  print("  /chill legg til Navn – send hei til en venn som ikke dukker opp")
-  print("  /chill hendelser – vis/skjul hendelsesvinduet")
-  print("  /chill lås – lås/lås opp posisjonene på skjermen")
-  print("  /chill klar – klar-sjekk før dungeon")
-  print("  /chill notat tekst – gjengnotat på kartet der du står (eller Alt+høyreklikk på kartet)")
-  print("  /chill oppsett – åpne innstillingene")
-  print("  /chill minibar – vis/skjul minibaren")
-  print("  /chill debug – vis teknisk status")
-  print("  /chill kanal – koble til gjengkanalen på nytt")
-  print("  /cg tekst – skriv i gjengchatten")
+  ns.Print("Commands:")
+  print("  /chill – open/close the window")
+  print("  /chill sos – send an SOS to the gang")
+  print("  /chill summary – show your session summary")
+  print("  /chill enemy [note] – add your target to the enemy log")
+  print("  /chill add Name – say hi to a friend who doesn't show up")
+  print("  /chill events – show/hide the event window")
+  print("  /chill lock – lock/unlock on-screen positions")
+  print("  /chill ready – ready check before a dungeon")
+  print("  /chill note text – gang note on the map where you stand (or Alt+right-click the map)")
+  print("  /chill settings – open the settings")
+  print("  /chill minibar – show/hide the minibar")
+  print("  /chill debug – show technical status")
+  print("  /chill channel – reconnect to the gang channel")
+  print("  /cg text – write in gang chat")
 end
 
 -- Hurtigtast (Taster → AddOns)
 BINDING_HEADER_CHILLAN = "Chillan?"
-BINDING_NAME_CHILLAN_TOGGLE = "Åpne/lukk Chillan?"
-BINDING_NAME_CHILLAN_CHAT = "Åpne gjengchatten"
+BINDING_NAME_CHILLAN_TOGGLE = "Open/close Chillan?"
+BINDING_NAME_CHILLAN_CHAT = "Open gang chat"
 BINDING_NAME_CHILLAN_SOS = "Send SOS"
 function Chillan_ToggleBinding(key)
   if key == "chat" then ns.Window:Toggle("chat")
@@ -139,23 +139,23 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Data:AddManual((rest or ""):gsub("^til%s+", ""))
   elseif cmd == "add" then
     ns.Data:AddManual(rest)
-  elseif cmd == "kanal" then
+  elseif cmd == "kanal" or cmd == "channel" then
     local old = ns.Comm:ChannelName()
     ns.Comm:LeaveChannel(old)
     C_Timer.After(1, function() ns.Comm:JoinChannel() end)
-    C_Timer.After(4, function() ns.Print("Kanal: " .. ns.Comm:ChannelStatusText()) end)
+    C_Timer.After(4, function() ns.Print("Channel: " .. ns.Comm:ChannelStatusText()) end)
   elseif cmd == "hendelser" or cmd == "feed" or cmd == "events" then
     ns.EventWindow:Toggle()
   elseif cmd == "lås" or cmd == "las" or cmd == "lock" then
     ns.db.settings.locked = not ns.db.settings.locked
     ns:Fire("LOCK_CHANGED", ns.db.settings.locked)
-    ns.Print(ns.db.settings.locked and "Posisjonene er låst." or "Posisjonene er låst opp – dra det du vil flytte.")
+    ns.Print(ns.db.settings.locked and "Positions are locked." or "Positions are unlocked – drag what you want to move.")
   elseif cmd == "klar" or cmd == "ready" then
     ns.Extras:StartReadyCheck()
   elseif cmd == "notat" or cmd == "note" then
     local L = ns.Tracker:UpdateLive()
     if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
-    else ns.Print("Fant ikke posisjonen din her.") end
+    else ns.Print("Couldn't find your position here.") end
   elseif cmd == "oppsett" or cmd == "settings" then
     ns.Window:Toggle("settings")
   elseif cmd == "minibar" then
@@ -167,24 +167,24 @@ SlashCmdList.CHILLAN = function(msg)
     ReloadUI()
   elseif cmd == "debug" then
     ns.debug = not ns.debug
-    ns.Print("Debug " .. (ns.debug and "på" or "av"))
+    ns.Print("Debug " .. (ns.debug and "on" or "off"))
     ns.Comm:RefreshChannelId()
-    print("  Gjeng:", ns.db.code or "ingen", " kanal:", ns.Comm:ChannelName() or "-")
-    print("  Kanalstatus:", ns.Comm:ChannelStatusText())
-    print("  Versjon:", ns.VERSION, " kø:", ns.Comm:QueueSize(), " meg:", ns.Comm:MyFull(), " pid:", ns.pid)
-    print("  Kode-ID:", ns.codeHash or "-", "(skal være lik hos alle i gjengen)")
+    print("  Gang:", ns.db.code or "none", " channel:", ns.Comm:ChannelName() or "-")
+    print("  Channel status:", ns.Comm:ChannelStatusText())
+    print("  Version:", ns.VERSION, " queue:", ns.Comm:QueueSize(), " me:", ns.Comm:MyFull(), " pid:", ns.pid)
+    print("  Code ID:", ns.codeHash or "-", "(must be the same for everyone in the gang)")
     local st = ns.Comm.stats
-    print("  Meldinger mottatt:", st.recv, "(kanal " .. st.recvChan .. ", whisper " .. (st.recvWhisper - (st.recvBN or 0)) .. ", battle.net " .. (st.recvBN or 0) .. ")",
-      " sendt:", st.sent, " feilet:", st.failed, st.lastErr and ("(siste feil: " .. st.lastErr .. ")") or "")
+    print("  Messages received:", st.recv, "(channel " .. st.recvChan .. ", whisper " .. (st.recvWhisper - (st.recvBN or 0)) .. ", battle.net " .. (st.recvBN or 0) .. ")",
+      " sent:", st.sent, " failed:", st.failed, st.lastErr and ("(last error: " .. st.lastErr .. ")") or "")
     if st.otherCode > 0 then
-      ns.Print("|cffF2777AFikk " .. st.otherCode .. " meldinger fra en ANNEN gjengkode|r (bl.a. " .. tostring(st.otherCodeFrom) .. "). Sjekk at koden er helt lik – O og 0 er ikke det samme.")
+      ns.Print("|cffF2777AGot " .. st.otherCode .. " messages from a DIFFERENT gang code|r (e.g. " .. tostring(st.otherCodeFrom) .. "). Check that the code is exactly the same – O and 0 are not the same.")
     end
     local trial = (IsTrialAccount and IsTrialAccount()) or (IsVeteranTrialAccount and IsVeteranTrialAccount())
     if trial then
-      ns.Print("|cffF2777ADette er en prøvekonto.|r WoW lar ikke prøvekontoer sende addon-meldinger eller bruke chatkanaler, så Chillan? kan ikke koble til.")
+      ns.Print("|cffF2777AThis is a trial account.|r WoW doesn't let trial accounts send addon messages or use chat channels, so Chillan? can't connect.")
     end
     if st.recv == 0 and st.sent > 0 then
-      print("  Ingen meldinger mottatt ennå. Be en i gjengen skrive /chill legg til " .. (ns.Comm:MyFull() or "<ditt navn>"))
+      print("  No messages received yet. Ask someone in the gang to type /chill add " .. (ns.Comm:MyFull() or "<your name>"))
     end
     local n = 0
     for char, r in pairs(ns.db.roster) do
@@ -196,11 +196,11 @@ SlashCmdList.CHILLAN = function(msg)
           local p = ns.db.people[r.pid]
           who = "Battle.net: " .. ((p and (ns:PersonAlias(p) or ns:PersonName(p))) or char)
         end
-        local via = r.bn and "battle.net" or ((r.chan and (ns.Now() - r.chan < 150)) and "kanal" or "whisper")
-        print("   ", who, via, ns.Ago(r.heard), forced and "(hører ikke oss på kanalen - sender direkte)" or "")
+        local via = r.bn and "battle.net" or ((r.chan and (ns.Now() - r.chan < 150)) and "channel" or "whisper")
+        print("   ", who, via, ns.Ago(r.heard), forced and "(doesn't hear us on the channel – sending directly)" or "")
       end
     end
-    print("  Hørt fra siste 5 min:", n)
+    print("  Heard from in the last 5 min:", n)
   else
     help()
   end
@@ -219,8 +219,8 @@ function Chillan_OnAddonCompartmentEnter(_, frame)
   GameTooltip:SetOwner(frame or UIParent, "ANCHOR_LEFT")
   GameTooltip:AddLine("Chillan?", 1, 1, 1)
   local n = ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
-  GameTooltip:AddLine(n .. " venner online", 0.6, 0.63, 0.66)
-  GameTooltip:AddLine("Klikk: åpne · Høyreklikk: chat", 0.52, 0.55, 0.57)
+  GameTooltip:AddLine(n .. " friends online", 0.6, 0.63, 0.66)
+  GameTooltip:AddLine("Click: open · Right-click: chat", 0.52, 0.55, 0.57)
   GameTooltip:Show()
 end
 function Chillan_OnAddonCompartmentLeave()

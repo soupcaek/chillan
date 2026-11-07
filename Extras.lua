@@ -23,8 +23,8 @@ function X:Radar()
       if not radarSeen[key] or (ns.Now() - radarSeen[key]) > 1800 then
         radarSeen[key] = ns.Now()
         ns:Fire("TOAST", { kind = "radar", pid = pid, char = pl.char or p.main,
-          title = ns:ShortWho(p) .. " er også i " .. L.zone,
-          text = "Level " .. c.level .. (pl.sub and pl.sub ~= "" and (" · " .. pl.sub) or "") .. " – quest sammen?" })
+          title = ns:ShortWho(p) .. " is also in " .. L.zone,
+          text = "Level " .. c.level .. (pl.sub and pl.sub ~= "" and (" · " .. pl.sub) or "") .. " – quest together?" })
       end
     end
   end
@@ -177,7 +177,7 @@ end
 -- Krønike: gjengens store øyeblikk, eldste først
 ---------------------------------------------------------------------------
 local FIRST_TEXT = {
-  MOUNT = "første i gjengen med mount", EPIC = "første i gjengen med episk drop",
+  MOUNT = "first in the gang with a mount", EPIC = "first in the gang with an epic drop",
 }
 function X:Chronicle()
   local out = {}
@@ -185,8 +185,8 @@ function X:Chronicle()
     local lvl = key:match("^L(%d+)$")
     local dg = key:match("^DG:(.+)$")
     local text, icon, color
-    if lvl then text, icon, color = "første i gjengen til level " .. lvl, "Up", "5FD18B"
-    elseif dg then text, icon, color = "første gjennom " .. dg, "Shield", "8FB8E8"
+    if lvl then text, icon, color = "first in the gang to level " .. lvl, "Up", "5FD18B"
+    elseif dg then text, icon, color = "first through " .. dg, "Shield", "8FB8E8"
     elseif FIRST_TEXT[key] then text, icon, color = FIRST_TEXT[key], "Star", key == "EPIC" and "A335EE" or "E0B04F" end
     if text then out[#out + 1] = { t = f.t, pid = f.pid, char = f.char, text = text, icon = icon, color = color } end
   end
@@ -205,11 +205,11 @@ end
 -- Gjeng-notater på kartet (Alt + høyreklikk på verdenskartet)
 ---------------------------------------------------------------------------
 X.NOTE_KINDS = {
-  { key = "gank", name = "Ganket her", icon = "Target", color = "F2777A" },
+  { key = "gank", name = "Ganked here", icon = "Target", color = "F2777A" },
   { key = "rare", name = "Rare", icon = "Star", color = "B9AEDB" },
   { key = "herb", name = "Herbs / ore", icon = "Star", color = "5FD18B" },
-  { key = "meet", name = "Møteplass", icon = "Friends", color = "8FB8E8" },
-  { key = "text", name = "Notat", icon = "Mail", color = "E0B04F" },
+  { key = "meet", name = "Meeting spot", icon = "Friends", color = "8FB8E8" },
+  { key = "text", name = "Note", icon = "Mail", color = "E0B04F" },
 }
 X.noteKind = {}
 for _, k in ipairs(X.NOTE_KINDS) do X.noteKind[k.key] = k end
@@ -229,7 +229,7 @@ function X:AddNote(mapID, x, y, kind, text, days)
   Comm:Seen(n.id)
   Comm:Broadcast(buildNote(n), 2)
   ns:Fire("MAP_PINS")
-  ns.Print("Gjengnotat lagt til (" .. (X.noteKind[kind] or X.noteKind.text).name .. ", " .. days .. " d).")
+  ns.Print("Gang note added (" .. (X.noteKind[kind] or X.noteKind.text).name .. ", " .. days .. " d).")
 end
 
 function X:RemoveNote(id)
@@ -265,7 +265,7 @@ Comm:Handle("MN", function(f)
     local p = ns:GetPerson(f[2]) or {}
     local zone = C_Map.GetMapInfo and ns.S(C_Map.GetMapInfo, tonumber(f[4]) or 0)
     ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Target", "F2777A", 12) .. "  " .. ns:ShortWho(p, f[3])
-      .. ns.Colorize(" ble ganket" .. ((type(zone) == "table" and zone.name) and (" i " .. zone.name) or ""), ns.C.text2)
+      .. ns.Colorize(" got ganked" .. ((type(zone) == "table" and zone.name) and (" in " .. zone.name) or ""), ns.C.text2)
       .. ((f[9] and f[9] ~= "") and (": " .. f[9]) or ""))
   end
   ns:Fire("MAP_PINS")

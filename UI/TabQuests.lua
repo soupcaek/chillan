@@ -38,10 +38,10 @@ ns:RegisterTab("quests", "Quests", "Book", function(tab)
           local c = ns:PersonChar(p) or {}
           local r, g, b = ns.ClassColor(c.class)
           GameTooltip:AddDoubleLine(ns:PersonName(p) .. (ns:PersonAlias(p) and (" (" .. ns:PersonAlias(p) .. ")") or ""),
-            ns:IsOnline(p) and ("online" .. (ns.InMyGroup(p) and " · i gruppa" or "")) or "offline", r, g, b, 0.6, 0.63, 0.66)
+            ns:IsOnline(p) and ("online" .. (ns.InMyGroup(p) and " · in your group" or "")) or "offline", r, g, b, 0.6, 0.63, 0.66)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Klikk: hvisk den første som er online", 0.52, 0.55, 0.57)
+        GameTooltip:AddLine("Click: whisper the first one online", 0.52, 0.55, 0.57)
         GameTooltip:Show()
       end)
       row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) GameTooltip:Hide() end)
@@ -65,9 +65,9 @@ ns:RegisterTab("quests", "Quests", "Book", function(tab)
       end
       local extra = #e.holders > 4 and ns.Colorize(" +" .. (#e.holders - 4), C.dim) or ""
       row.who:SetText(table.concat(names, ns.Colorize(", ", C.dim)) .. extra)
-      if e.mine and e.group then row.pill:Set("Gruppe · du har", C.green)
-      elseif e.mine then row.pill:Set("Du har", C.green)
-      else row.pill:Set("Gruppe", C.amber) end
+      if e.mine and e.group then row.pill:Set("Group · you have it", C.green)
+      elseif e.mine then row.pill:Set("You have it", C.green)
+      else row.pill:Set("Group", C.amber) end
       row.pill:SetWidth(row.pill.text:GetStringWidth() + 16)
       row:SetAlpha(on > 0 and 1 or 0.6)
     end
@@ -79,10 +79,10 @@ ns:RegisterTab("quests", "Quests", "Book", function(tab)
     return col
   end
 
-  local left = column("Felles quests", "Quests du har som noen i gjengen også har",
-    "Ingen felles quests akkurat nå. Når du plukker opp en quest en kompis har, får du beskjed.")
-  local right = column("Gruppe-quests i gjengen", "Elite-, gruppe- og dungeon-quests noen har – finn folk å ta dem med",
-    "Ingen gruppe-quests i gjengen ennå.")
+  local left = column("Shared quests", "Quests you have that someone in the gang also has",
+    "No shared quests right now. When you pick up a quest a friend has, you'll get a heads-up.")
+  local right = column("Group quests in the gang", "Elite, group and dungeon quests someone has – find people to do them with",
+    "No group quests in the gang yet.")
 
   left:SetPoint("TOPLEFT", 16, -16)
   left:SetPoint("BOTTOMLEFT", 16, 14)

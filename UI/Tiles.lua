@@ -55,75 +55,75 @@ end
 
 -- Alle rubrikkene: key, navn i menyen, funksjon som gir verdi + undertekst (+ ev. farge)
 T.DEFS = {
-  { key = "level", name = "Level og % til neste", get = function()
+  { key = "level", name = "Level and % to next", get = function()
     local d, c = s3(), ns.Tracker:MyChar() or {}
     local pct = ns.Pct(d.xp, d.xpMax)
-    return tostring(c.level or "?"), pct and (pct .. " % til neste") or "level"
+    return tostring(c.level or "?"), pct and (pct .. " % to next") or "level"
   end },
-  { key = "xph", name = "XP per time", get = function()
+  { key = "xph", name = "XP per hour", get = function()
     local rate, label = ns.St:XPRate(me())
-    return rate and ns.Num(rate) or "–", "XP/t" .. (label == "denne økten" and " · økt" or label and " · uke" or "")
+    return rate and ns.Num(rate) or "–", "XP/h" .. (label == "this session" and " · session" or label and " · week" or "")
   end },
-  { key = "eta", name = "Tid til neste level", get = function()
+  { key = "eta", name = "Time to next level", get = function()
     local eta = ns.St:ETA(me())
-    return eta and ns.Duration(eta) or "–", "til neste level"
+    return eta and ns.Duration(eta) or "–", "to next level"
   end },
-  { key = "gold", name = "Gull (+/− denne økta)", get = function()
+  { key = "gold", name = "Gold (+/− this session)", get = function()
     local m = ns.S(GetMoney)
     if type(m) ~= "number" then return "–", "gull" end
     startMoney = startMoney or m
     local diff = m - startMoney
-    local sub = diff == 0 and "gull" or ((diff > 0 and "+" or "−") .. goldText(math.abs(diff)) .. " i økta")
+    local sub = diff == 0 and "gull" or ((diff > 0 and "+" or "−") .. goldText(math.abs(diff)) .. " this session")
     return goldText(m), sub, diff > 0 and C.green or diff < 0 and C.red or nil
   end },
   { key = "rested", name = "Rested XP", get = function()
     local d = s3()
     local pct = ns.Pct(d.rested or 0, d.xpMax)
-    return pct and (pct .. " %") or "–", "rested av level"
+    return pct and (pct .. " %") or "–", "rested of a level"
   end },
-  { key = "session", name = "Økt-tid", get = function()
-    return ns.Duration(s3().sessSec or 0), "denne økta"
+  { key = "session", name = "Session time", get = function()
+    return ns.Duration(s3().sessSec or 0), "this session"
   end },
-  { key = "today", name = "Online i dag", get = function()
-    return ns.Duration(s3().today or 0), "online i dag"
+  { key = "today", name = "Online today", get = function()
+    return ns.Duration(s3().today or 0), "online today"
   end },
-  { key = "played", name = "Total spilletid", get = function()
+  { key = "played", name = "Total playtime", get = function()
     local p = ns:PersonPlayed(me())
     return p > 0 and ns.Duration(p) or "–", "/played"
   end },
-  { key = "quests", name = "Quests i dag", get = function()
-    return tostring(today("questsDay")), "quests i dag"
+  { key = "quests", name = "Quests today", get = function()
+    return tostring(today("questsDay")), "quests today"
   end },
-  { key = "kills", name = "Drap (økt / uke)", get = function()
+  { key = "kills", name = "Kills (session / week)", get = function()
     local now = hk()
     startHK = startHK or now
     local sess = (now and startHK) and (now - startHK) or 0
-    return tostring(sess), "drap i økta · " .. ns:WeekStat(me(), "Kills") .. " uka"
+    return tostring(sess), "kills this session · " .. ns:WeekStat(me(), "Kills") .. " this week"
   end },
-  { key = "deaths", name = "Dødsfall i dag", get = function()
+  { key = "deaths", name = "Deaths today", get = function()
     local n = today("deathsDay")
-    return tostring(n), "dødsfall i dag", n > 0 and C.red or nil
+    return tostring(n), "deaths today", n > 0 and C.red or nil
   end },
   { key = "ilvl", name = "Item level", get = function()
     local v = s3().ilvl
     return v and tostring(math.floor(v)) or "–", "item level"
   end },
-  { key = "dura", name = "Holdbarhet", get = function()
+  { key = "dura", name = "Durability", get = function()
     local low = ns.Durability()
-    if not low then return "–", "holdbarhet" end
+    if not low then return "–", "durability" end
     local col = low < 20 and C.red or low < 50 and C.amber or nil
-    return math.floor(low) .. " %", "laveste utstyr", col
+    return math.floor(low) .. " %", "lowest item", col
   end },
-  { key = "bags", name = "Ledige bag-plasser", get = function()
+  { key = "bags", name = "Free bag space", get = function()
     local free, total = freeBags()
-    return tostring(free), "ledig av " .. total, free <= 3 and C.red or free <= 8 and C.amber or nil
+    return tostring(free), "free of " .. total, free <= 3 and C.red or free <= 8 and C.amber or nil
   end },
-  { key = "ach", name = "Achievement-poeng", get = function()
-    return tostring(ns.Ach and ns.Ach:Points(ns.pid) or 0), "achievement-poeng"
+  { key = "ach", name = "Achievement points", get = function()
+    return tostring(ns.Ach and ns.Ach:Points(ns.pid) or 0), "achievement points"
   end },
   { key = "streak", name = "Streak", get = function()
     local n = s3().streak or 0
-    return n .. (n == 1 and " dag" or " dager"), "på rad"
+    return n .. (n == 1 and " day" or " days"), "in a row"
   end },
 }
 T.byKey = {}
@@ -146,7 +146,7 @@ function T:Toggle(key)
     if k == key then table.remove(list, i) self:Layout() return false end
   end
   if #list >= MAX then
-    ns.Print("Du kan feste maks " .. MAX .. " rubrikker. Høyreklikk en for å fjerne den.")
+    ns.Print("You can pin up to " .. MAX .. " tiles. Right-click one to remove it.")
     return false
   end
   list[#list + 1] = key
@@ -159,7 +159,7 @@ function T:OpenMenu(anchor)
   for _, d in ipairs(self.DEFS) do
     local on = self:IsPinned(d.key)
     items[#items + 1] = {
-      text = (on and "Fjern: " or "Fest: ") .. d.name,
+      text = (on and "Remove:" or "Pin:") .. d.name,
       color = on and C.green or C.text2,
       func = function() T:Toggle(d.key) end,
     }
@@ -171,7 +171,7 @@ local function makeTile(i)
   local t = CreateFrame("Button", nil, T.holder)
   t:SetSize(W, H)
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  t.panel = UI.Panel(t, C.window, C.inputLine, true, 0.92)
+  t.panel = UI.OverlayPanel(t, C.window, C.inputLine, true)
   t.panel:SetAllPoints()
   t.panel:SetFrameLevel(t:GetFrameLevel())
   t.v = UI.Text(t, 14, "bold", C.text)
@@ -193,7 +193,7 @@ local function makeTile(i)
     local d = self.key and T.byKey[self.key]
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(d and d.name or "Chillan?", 1, 1, 1)
-    GameTooltip:AddLine("Venstreklikk: Min side  ·  Høyreklikk: fjern", 0.52, 0.55, 0.57)
+    GameTooltip:AddLine("Left-click: My page  ·  Right-click: remove", 0.52, 0.55, 0.57)
     GameTooltip:Show()
   end)
   t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -253,7 +253,7 @@ function T:Init()
   self.holder = holder
 
   -- "+"-knapp på minibaren
-  local plus = UI.IconButton(m, 22, "Plus", "Fest stats under baren", function(b) T:OpenMenu(b) end)
+  local plus = UI.IconButton(m, 22, "Plus", "Pin stats under the bar", function(b) T:OpenMenu(b) end)
   plus:SetScript("OnClick", function(b) T:OpenMenu(b) end)
   m.plus = plus
 

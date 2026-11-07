@@ -30,11 +30,11 @@ function St:XPRate(p)
   local s = ns:PersonS3(p)
   if not s then return nil end
   if (s.sessSec or 0) >= 600 and (s.sessXP or 0) > 0 then
-    return s.sessXP / s.sessSec * 3600, "denne økten"
+    return s.sessXP / s.sessSec * 3600, "this session"
   end
   local wOnline = ns:WeekStat(p, "Online")
   if (s.wXP or 0) > 0 and wOnline >= 600 then
-    return s.wXP / wOnline * 3600, "snitt denne uka"
+    return s.wXP / wOnline * 3600, "average this week"
   end
   return nil
 end

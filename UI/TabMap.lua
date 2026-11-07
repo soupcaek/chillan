@@ -1,4 +1,4 @@
--- Chillan? – fanen "Kart": hvor er alle?
+-- Chillan? – fanen "Map": hvor er alle?
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
@@ -21,18 +21,18 @@ function ns.OpenMapAt(mapID)
   end)
 end
 
-ns:RegisterTab("map", "Kart", "Map", function(tab)
+ns:RegisterTab("map", "Map", "Map", function(tab)
   local h = UI.Text(tab, 15, "semi", C.text)
   h:SetPoint("TOPLEFT", 16, -16)
-  h:SetText("Hvor er gjengen?")
+  h:SetText("Where's the gang?")
 
-  local openMap = UI.Button(tab, 150, 28, "Åpne verdenskartet", "secondary", function()
+  local openMap = UI.Button(tab, 150, 28, "Open the world map", "secondary", function()
     ns.OpenMapAt(nil)
   end)
   openMap:SetIcon("Map", 14)
   openMap:SetPoint("TOPRIGHT", -16, -12)
 
-  local pins = UI.Check(tab, "Vis venner på kartet",
+  local pins = UI.Check(tab, "Show friends on the map",
     function() return ns.db.settings.mapPins end,
     function(v) ns.db.settings.mapPins = v ns:Fire("MAP_PINS") end)
   pins:SetWidth(180)
@@ -53,7 +53,7 @@ ns:RegisterTab("map", "Kart", "Map", function(tab)
     row.zone:SetWidth(240)
     row.coords = UI.Text(row, 12, nil, C.dim)
     row.coords:SetPoint("RIGHT", -110, 0)
-    row.wp = UI.Button(row, 90, 28, "Veipunkt", "secondary")
+    row.wp = UI.Button(row, 90, 28, "Waypoint", "secondary")
     row.wp:SetPoint("RIGHT", -10, 0)
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
@@ -78,7 +78,7 @@ ns:RegisterTab("map", "Kart", "Map", function(tab)
       row.wp:SetAlpha(1)
       row.wp:SetScript("OnClick", function()
         if ns.SetWaypoint(L.mapID, L.x, L.y) then
-          ns.Print("Veipunkt satt til " .. (c.name or "?") .. ".")
+          ns.Print("Waypoint set to " .. (c.name or "?") .. ".")
           ns.OpenMapAt(L.mapID)
         end
       end)
@@ -92,7 +92,7 @@ ns:RegisterTab("map", "Kart", "Map", function(tab)
   local list = UI.List(tab, 48, 6, createRow, updateRow)
   list:SetPoint("TOPLEFT", 12, -50)
   list:SetPoint("BOTTOMRIGHT", -12, 12)
-  list.emptyText = "Ingen venner online akkurat nå."
+  list.emptyText = "No friends online right now."
 
   function tab:Refresh()
     local people = ns:SortedPeople(function(p, pid) return pid ~= ns.pid and ns:IsOnline(p) end)

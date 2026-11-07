@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Chillan|cffc8d1dc?|r
-## Notes: Sosial addon for vennegjengen: venner, LFG, gjengchat, leaderboard, feed, SOS og mer.
+## Notes: Social addon for your friend group: friends, gang chat, events, stats, achievements, SOS and more.
 ## Author: Henrik
 ## Version: @project-version@
 ## IconTexture: Interface\AddOns\Chillan\Media\Textures\Logo
@@ -25,7 +25,6 @@ UI\TabFriends.lua
 UI\TabQuests.lua
 UI\TabChat.lua
 UI\TabStats.lua
-UI\TabChronicle.lua
 UI\TabAch.lua
 UI\TabMap.lua
 UI\TabMore.lua

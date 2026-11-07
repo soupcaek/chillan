@@ -1,10 +1,11 @@
--- Chillan? – fanen "Statistikk": race til 60, level over tid, tabell og morsomme fakta
+-- Chillan? – fanen "Stats": race til 60, level over tid, tabell og morsomme fakta
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
-ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
+ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local RIGHT_W = 214
-  local page = "race"
+  local page = "overview"
+  local histMode = "milestones"
   local mode = "week"
   local sortKey = "level"
 
@@ -14,14 +15,14 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
 
   -- Underfaner
   local pageBtns = {}
-  local PAGES = { { "race", "Race til 60" }, { "graph", "Level over tid" }, { "table", "Tabell" }, { "facts", "Fakta" }, { "titles", "Titler" } }
+  local PAGES = { { "overview", "Overview" }, { "graph", "Progress" }, { "titles", "Titles" }, { "history", "History" } }
   local pages = {}
   local function paintPages()
     for k, b in pairs(pageBtns) do
       local on = k == page
       b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
       b.label:SetTextColor(hex(on and C.text or C.muted))
-      b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and "33383E" or C.card }
+      b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
     end
     for k, f in pairs(pages) do f:SetShown(k == page) end
   end
@@ -86,7 +87,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     row.rank:SetTextColor(hex(medal[idx] or C.dim))
     row.name:SetText(ns:PersonLabel(p))
     local played = ns:PersonPlayed(p)
-    row.sub:SetText((played > 0 and ("/played " .. ns.Duration(played)) or "/played ukjent") .. (p.pid == ns.pid and "  ·  deg" or ""))
+    row.sub:SetText((played > 0 and ("/played " .. ns.Duration(played)) or "/played unknown") .. (p.pid == ns.pid and "  ·  you" or ""))
     row.lvl:SetText(lvl)
     row.bar:SetVertexColor(ns.ClassColor(c.class))
     local w = row.track:GetWidth()
@@ -95,7 +96,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   end
   local raceList = UI.List(racePage, 42, 6, createRace, updateRace)
   raceList:SetAllPoints()
-  raceList.emptyText = "Ingen data ennå."
+  raceList.emptyText = "No data yet."
 
   -------------------------------------------------------------------------
   -- 2) Level over tid (linjegraf)
@@ -121,13 +122,13 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   xStart:SetPoint("BOTTOMLEFT", plot, "BOTTOMLEFT", 0, -18)
   local xEnd = UI.Text(graph, 10, nil, C.dim)
   xEnd:SetPoint("BOTTOMRIGHT", plot, "BOTTOMRIGHT", 0, -18)
-  xEnd:SetText("nå")
+  xEnd:SetText("now")
   local graphEmpty = UI.Text(graph, 12, nil, C.muted)
   graphEmpty:SetPoint("CENTER")
   graphEmpty:SetWordWrap(true)
   graphEmpty:SetWidth(320)
   graphEmpty:SetJustifyH("CENTER")
-  graphEmpty:SetText("Grafen fylles etter hvert som dere dinger. Levelhistorikk lagres fra versjon 0.2.")
+  graphEmpty:SetText("The graph fills up as you ding. Level history is stored from version 0.2.")
   for i = 1, 8 do
     local lg = UI.Text(graphPage, 11, "semi", C.text)
     legend[i] = lg
@@ -227,16 +228,16 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   -------------------------------------------------------------------------
   -- 3) Tabell (sorterbar, uke/totalt)
   -------------------------------------------------------------------------
-  local tablePage = newPage("table")
+  local tablePage = newPage("overview")
   local COLS = {
     { key = "rank", label = "#", w = 24 },
-    { key = "name", label = "Spiller", w = 0 },
+    { key = "name", label = "Player", w = 0 },
     { key = "level", label = "Level", w = 42 },
     { key = "quests", label = "Quests", w = 50 },
-    { key = "gold", label = "Gull", w = 62 },
+    { key = "gold", label = "Gold", w = 62 },
     { key = "kills", label = "Kills", w = 40 },
-    { key = "deaths", label = "Død", w = 34 },
-    { key = "points", label = "Poeng", w = 44 },
+    { key = "deaths", label = "Deaths", w = 34 },
+    { key = "points", label = "Points", w = 44 },
   }
   local seg = UI.Panel(tablePage, C.input, C.inputLine, true)
   seg:SetSize(170, 28)
@@ -245,12 +246,12 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   local function paintSeg()
     for k, b in pairs(segBtns) do
       local on = k == mode
-      b.panel:SetColors(on and "33383E" or nil, nil)
+      b.panel:SetColors(on and C.activeHover or nil, nil)
       b.label:SetTextColor(hex(on and C.text or C.muted))
-      b.style = { fill = on and "33383E" or nil, text = on and C.text or C.muted, hover = "2D3237" }
+      b.style = { fill = on and C.activeHover or nil, text = on and C.text or C.muted, hover = C.cardHover }
     end
   end
-  for i, def in ipairs({ { "week", "Denne uka" }, { "total", "Totalt" } }) do
+  for i, def in ipairs({ { "week", "This week" }, { "total", "Total" } }) do
     local b = UI.Button(seg, 82, 22, def[2], "nav", function() mode = def[1] paintSeg() tab:Refresh() end)
     b:SetPoint("LEFT", 3 + (i - 1) * 83, 0)
     segBtns[def[1]] = b
@@ -259,7 +260,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   local sortHint = UI.Text(tablePage, 11, nil, C.dim)
   sortHint:SetPoint("LEFT", 0, 0)
   sortHint:SetPoint("TOP", seg, "TOP", 0, -8)
-  sortHint:SetText("Klikk på en kolonne for å sortere")
+  sortHint:SetText("Click a column to sort")
 
   local function layoutCols(parent, cells)
     local rightX = -10
@@ -314,6 +315,20 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     row.cells.name = UI.Text(row, 13, "semi", C.text)
     for _, k in ipairs({ "level", "quests", "gold", "kills", "deaths", "points" }) do row.cells[k] = UI.Text(row, 12, nil, C.text2) end
     layoutCols(row, row.cells)
+    -- race to 60: thin level bar under the name
+    row.cells.name:ClearAllPoints()
+    row.cells.name:SetPoint("TOPLEFT", row, "TOPLEFT", 40, -5)
+    row.cells.name:SetPoint("RIGHT", row.cells.level, "LEFT", -8, 0)
+    row.track = row:CreateTexture(nil, "ARTWORK")
+    row.track:SetTexture(ns.TEX .. "RoundedSmall")
+    row.track:SetVertexColor(hex(C.active))
+    row.track:SetHeight(4)
+    row.track:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 40, 7)
+    row.track:SetWidth(120)
+    row.bar = row:CreateTexture(nil, "OVERLAY")
+    row.bar:SetTexture(ns.TEX .. "RoundedSmall")
+    row.bar:SetHeight(4)
+    row.bar:SetPoint("LEFT", row.track, "LEFT")
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
       if self.item then ns.Overlays:ShowProfile(self, self.item.pid) end
@@ -332,6 +347,11 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     row.cells.kills:SetText(math.floor(value(p, "kills")))
     row.cells.deaths:SetText(math.floor(value(p, "deaths")))
     row.cells.points:SetText(ns.Ach:Points(p.pid))
+    local lvl = ns:PersonMaxLevel(p) or 1
+    local s3 = ns:PersonS3(p)
+    local frac = (s3 and s3.xpMax and s3.xpMax > 0) and ((s3.xp or 0) / s3.xpMax) or 0
+    row.bar:SetWidth(math.max(2, 120 * math.min(1, (lvl - 1 + frac) / 59)))
+    row.bar:SetVertexColor(hex(ns.ClassHex(c.class)))
   end
   local tableList = UI.List(tablePage, 36, 5, createRow, updateRow)
   tableList:SetPoint("TOPLEFT", 0, -58)
@@ -383,7 +403,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       local p = ns:GetPerson(e.holder.pid) or {}
       row.who:SetText(ns:ShortWho(p))
       local lead = e.holder.value - (e.holder.second or 0)
-      row.val:SetText(ns.Titles:Format(def, e.holder.value) .. (lead > 0 and e.holder.second and e.holder.second > 0 and (" · leder med " .. ns.Titles:Format(def, lead)) or ""))
+      row.val:SetText(ns.Titles:Format(def, e.holder.value) .. (lead > 0 and e.holder.second and e.holder.second > 0 and (" · leads by " .. ns.Titles:Format(def, lead)) or ""))
       row:SetAlpha(1)
     else
       row.who:SetText(ns.Colorize("ledig", C.dim))
@@ -397,7 +417,105 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   -------------------------------------------------------------------------
   -- 4) Morsomme fakta
   -------------------------------------------------------------------------
-  local factsPage = newPage("facts")
+  -------------------------------------------------------------------------
+  -- History: milestones, dungeon records and fun facts (switch at the top)
+  -------------------------------------------------------------------------
+  local historyPage = newPage("history")
+  local hseg = UI.Panel(historyPage, C.input, C.inputLine, true)
+  hseg:SetSize(3 * 96 + 6, 28)
+  hseg:SetPoint("TOPLEFT", 0, 0)
+  local hsegBtns, histFrames = {}, {}
+  local function paintHist()
+    for k, b in pairs(hsegBtns) do
+      local on = k == histMode
+      b.panel:SetColors(on and C.activeHover or nil, nil)
+      b.label:SetTextColor(hex(on and C.text or C.muted))
+      b.style = { fill = on and C.activeHover or nil, text = on and C.text or C.muted, hover = C.cardHover }
+    end
+    for k, f in pairs(histFrames) do f:SetShown(k == histMode) end
+  end
+  for i, def in ipairs({ { "milestones", "Milestones" }, { "dungeons", "Dungeons" }, { "facts", "Fun facts" } }) do
+    local b = UI.Button(hseg, 94, 22, def[2], "nav", function() histMode = def[1] paintHist() tab:Refresh() end)
+    b:SetPoint("LEFT", 3 + (i - 1) * 96, 0)
+    hsegBtns[def[1]] = b
+  end
+  local function histFrame(key)
+    local f = CreateFrame("Frame", nil, historyPage)
+    f:SetPoint("TOPLEFT", 0, -38)
+    f:SetPoint("BOTTOMRIGHT", 0, 0)
+    histFrames[key] = f
+    return f
+  end
+
+  -- milestones (the gang's chronicle)
+  local msFrame = histFrame("milestones")
+  local function createMs(list)
+    local row = CreateFrame("Button", nil, list)
+    row.panel = UI.Panel(row, C.card, C.line, false)
+    row.panel:SetAllPoints()
+    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.date = UI.Text(row, 11, "semi", C.dim)
+    row.date:SetPoint("LEFT", 12, 0)
+    row.date:SetWidth(40)
+    row.tile = UI.Panel(row, C.active, nil, false)
+    row.tile:SetSize(26, 26)
+    row.tile:SetPoint("LEFT", 54, 0)
+    row.icon = UI.Icon(row.tile, "Star", 14, C.gold)
+    row.icon:SetPoint("CENTER")
+    row.text = UI.Text(row, 12, nil, C.text)
+    row.text:SetPoint("LEFT", row.tile, "RIGHT", 10, 0)
+    row.text:SetPoint("RIGHT", -10, 0)
+    row:SetScript("OnEnter", function(self)
+      self.panel:SetColors(C.cardHover, C.line)
+      if self.item and self.item.pid then ns.Overlays:ShowProfile(self, self.item.pid) end
+    end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() end)
+    return row
+  end
+  local function updateMs(row, e)
+    row.date:SetText(e.t and date("%d.%m", e.t) or "")
+    row.icon:SetTexture(ns.TEX .. "Icon" .. (e.icon or "Star"))
+    row.icon:SetVertexColor(hex(e.color or C.gold))
+    local p = ns:GetPerson(e.pid) or {}
+    row.text:SetText(ns:ShortWho(p, e.char) .. " " .. ns.Colorize(e.text, C.text2))
+  end
+  local msList = UI.List(msFrame, 38, 5, createMs, updateMs)
+  msList:SetAllPoints()
+  msList.emptyText = "The chronicle fills itself: first to level 10, first mount, first epic, first through a dungeon and gold achievements."
+
+  -- dungeon records
+  local dgFrame = histFrame("dungeons")
+  local function createRec(l)
+    local row = CreateFrame("Button", nil, l)
+    row.panel = UI.Panel(row, C.card, C.line, false)
+    row.panel:SetAllPoints()
+    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.icon = UI.Icon(row, "Shield", 15, "8FB8E8")
+    row.icon:SetPoint("LEFT", 12, 0)
+    row.name = UI.Text(row, 13, "semi", C.text)
+    row.name:SetPoint("TOPLEFT", 36, -8)
+    row.name:SetPoint("RIGHT", -90, 0)
+    row.time = UI.Text(row, 14, "bold", C.text)
+    row.time:SetPoint("RIGHT", -12, 0)
+    row.time:SetJustifyH("RIGHT")
+    row.who = UI.Text(row, 11, nil, C.muted)
+    row.who:SetPoint("BOTTOMLEFT", 36, 8)
+    row.who:SetPoint("RIGHT", -90, 0)
+    return row
+  end
+  local function updateRec(row, r)
+    row.name:SetText(r.name)
+    row.time:SetText(ns.Duration(r.dur))
+    local names = {}
+    for _, p in ipairs(ns.Extras:RunMembers(r.item)) do names[#names + 1] = ns:ShortWho(p) end
+    if #names == 0 then names[1] = ns:ShortWho(ns:GetPerson(r.item.pid) or {}, r.item.char) end
+    row.who:SetText(table.concat(names, ns.Colorize(", ", C.dim)) .. ns.Colorize("  ·  " .. date("%d.%m", r.item.t), C.dim))
+  end
+  local dgList = UI.List(dgFrame, 44, 5, createRec, updateRec)
+  dgList:SetAllPoints()
+  dgList.emptyText = "No finished dungeons yet. Runs are logged automatically (time, deaths and bosses) – the fastest run per dungeon shows here."
+
+  local factsPage = histFrame("facts")
   local factsBox = UI.Panel(factsPage, C.card, C.line, false)
   factsBox:SetAllPoints()
   local facts = UI.MessageFrame(factsBox, 13)
@@ -440,11 +558,11 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       return bp, bv
     end
     local entries = {}
-    if best then entries[#entries + 1] = { "Up", C.green, "Raskeste ding", nameOf(best.p) .. " til level " .. best.l .. " på " .. ns.Duration(best.dt) } end
+    if best then entries[#entries + 1] = { "Up", C.green, "Fastest ding", nameOf(best.p) .. " to level " .. best.l .. " in " .. ns.Duration(best.dt) } end
     local lp, lv = maxBy(function(p) return (p.stats or {}).tLongest end)
-    if lp then entries[#entries + 1] = { "Clock", C.accent, "Lengste økt", nameOf(lp) .. " – " .. ns.Duration(lv) } end
+    if lp then entries[#entries + 1] = { "Clock", C.accent, "Longest session", nameOf(lp) .. " – " .. ns.Duration(lv) } end
     local pp, pv = maxBy(function(p) return ns:PersonPlayed(p) end)
-    if pp then entries[#entries + 1] = { "Clock", C.purple, "Mest /played", nameOf(pp) .. " – " .. ns.Duration(pv) } end
+    if pp then entries[#entries + 1] = { "Clock", C.purple, "Most /played", nameOf(pp) .. " – " .. ns.Duration(pv) } end
     -- Farligste sone (flest dødsfall i feeden)
     local zones = {}
     for _, it in ipairs(ns.db.feed) do
@@ -455,15 +573,15 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     end
     local bz, bzv = nil, 0
     for z, v in pairs(zones) do if v > bzv then bz, bzv = z, v end end
-    if bz then entries[#entries + 1] = { "Skull", C.red, "Farligste sone", bz .. " – " .. bzv .. " dødsfall" } end
+    if bz then entries[#entries + 1] = { "Skull", C.red, "Deadliest zone", bz .. " – " .. bzv .. " deaths" } end
     local dp, dv = maxBy(function(p) return ns:TotalStat(p, "Deaths") end)
-    if dp then entries[#entries + 1] = { "Skull", C.dim, "Flest dødsfall", nameOf(dp) .. " – " .. math.floor(dv) } end
+    if dp then entries[#entries + 1] = { "Skull", C.dim, "Most deaths", nameOf(dp) .. " – " .. math.floor(dv) } end
     local gp, gv = maxBy(function(p) return ns:TotalStat(p, "Gold") end)
-    if gp then entries[#entries + 1] = { "Star", C.gold, "Mest gull tjent", nameOf(gp) .. " – " .. ns.Money(gv) } end
+    if gp then entries[#entries + 1] = { "Star", C.gold, "Most gold earned", nameOf(gp) .. " – " .. ns.Money(gv) } end
     local qp, qv = maxBy(function(p) return ns:TotalStat(p, "Quests") end)
-    if qp then entries[#entries + 1] = { "Check", C.green, "Flest quests", nameOf(qp) .. " – " .. math.floor(qv) } end
+    if qp then entries[#entries + 1] = { "Check", C.green, "Most quests", nameOf(qp) .. " – " .. math.floor(qv) } end
     local kp, kv = maxBy(function(p) return ns:TotalStat(p, "Kills") end)
-    if kp then entries[#entries + 1] = { "Target", C.red, "Flest PvP-kills", nameOf(kp) .. " – " .. math.floor(kv) } end
+    if kp then entries[#entries + 1] = { "Target", C.red, "Most PvP kills", nameOf(kp) .. " – " .. math.floor(kv) } end
     -- Mest gratulert
     local grats = {}
     for _, it in ipairs(ns.db.feed) do
@@ -471,16 +589,16 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     end
     local gpid, gcount = nil, 0
     for pid, v in pairs(grats) do if v > gcount then gpid, gcount = pid, v end end
-    if gpid then entries[#entries + 1] = { "Star", C.purple, "Mest gratulert", nameOf(ns:GetPerson(gpid) or {}) .. " – " .. gcount .. " gratulasjoner" } end
+    if gpid then entries[#entries + 1] = { "Star", C.purple, "Most congratulated", nameOf(ns:GetPerson(gpid) or {}) .. " – " .. gcount .. " gratulasjoner" } end
     -- Mest pratsom
     local talk = {}
     for _, it in ipairs(ns.db.chat) do talk[it.pid] = (talk[it.pid] or 0) + 1 end
     local tpid, tcount = nil, 0
     for pid, v in pairs(talk) do if v > tcount then tpid, tcount = pid, v end end
-    if tpid then entries[#entries + 1] = { "Chat", C.accent, "Mest pratsom", nameOf(ns:GetPerson(tpid) or {}) .. " – " .. tcount .. " meldinger" } end
+    if tpid then entries[#entries + 1] = { "Chat", C.accent, "Most talkative", nameOf(ns:GetPerson(tpid) or {}) .. " – " .. tcount .. " meldinger" } end
 
     if #entries == 0 then
-      facts:AddMessage(ns.Colorize("Ingen fakta ennå – spill litt, så dukker de opp her.", C.dim))
+      facts:AddMessage(ns.Colorize("No facts yet – play a bit and they show up here.", C.dim))
       return
     end
     for i = #entries, 1, -1 do fact(entries[i][1], entries[i][2], entries[i][3], entries[i][4]) end
@@ -503,7 +621,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     return cd
   end
 
-  local ch = card(92, "Ukens utfordring")
+  local ch = card(92, "Weekly challenge")
   ch:SetPoint("TOPLEFT") ch:SetPoint("TOPRIGHT")
   ch.main = UI.Text(ch, 14, "semi", C.text)
   ch.main:SetPoint("TOPLEFT", 12, -30)
@@ -514,7 +632,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   ch.last:SetPoint("TOPLEFT", 12, -70)
   ch.last:SetPoint("RIGHT", -10, 0)
 
-  local shame = card(80, "Skammens tavle (uka)")
+  local shame = card(80, "Wall of shame (week)")
   shame:SetPoint("TOPLEFT", ch, "BOTTOMLEFT", 0, -8)
   shame:SetPoint("TOPRIGHT", ch, "BOTTOMRIGHT", 0, -8)
   shame.big = UI.Text(shame, 24, "bold", C.text)
@@ -526,7 +644,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
   shame.last:SetPoint("BOTTOMLEFT", 12, 10)
   shame.last:SetPoint("RIGHT", -10, 0)
 
-  local firsts = card(10, "Først i gjengen")
+  local firsts = card(10, "First in the gang")
   firsts:SetPoint("TOPLEFT", shame, "BOTTOMLEFT", 0, -8)
   firsts:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT")
   firsts.text = UI.Text(firsts, 12, nil, C.text2)
@@ -547,7 +665,7 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       raceList:SetData(people)
     elseif page == "graph" then
       drawGraph()
-    elseif page == "table" then
+    elseif page == "overview" then
       table.sort(people, function(a, b)
         local va, vb = value(a, sortKey), value(b, sortKey)
         if va ~= vb then return va > vb end
@@ -555,8 +673,11 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
       end)
       tableList:SetData(people)
       for key, t in pairs(headerTexts) do t:SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
-    elseif page == "facts" then
-      drawFacts()
+    elseif page == "history" then
+      paintHist()
+      if histMode == "milestones" then msList:SetData(ns.Extras:Chronicle())
+      elseif histMode == "dungeons" then dgList:SetData(ns.Extras:DungeonRecords())
+      else drawFacts() end
     elseif page == "titles" then
       local cur = ns.Titles:Current()
       local data = {}
@@ -572,15 +693,15 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     if daysLeft == 0 then daysLeft = 7 end
     if leader then
       local lc = ns:PersonChar(leader) or {}
-      ch.sub:SetText("Leder: " .. ns:PersonLabel(leader) .. " – " .. chal.fmt(v))
+      ch.sub:SetText("Leader: " .. ns:PersonLabel(leader) .. " – " .. chal.fmt(v))
     else
-      ch.sub:SetText("Ingen poeng ennå")
+      ch.sub:SetText("No points yet")
     end
     local pch, pbest, pv = ns.Data:LastWeekWinner()
     if pbest then
-      ch.last:SetText(daysLeft .. " d igjen · forrige uke: " .. ns:PersonFirst(pbest) .. " (" .. pch.fmt(pv) .. ")")
+      ch.last:SetText(daysLeft .. " d left · last week: " .. ns:PersonFirst(pbest) .. " (" .. pch.fmt(pv) .. ")")
     else
-      ch.last:SetText(daysLeft .. " d igjen")
+      ch.last:SetText(daysLeft .. " d left")
     end
 
     -- Flest dødsfall denne uka
@@ -592,11 +713,11 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
     if worst then
       local wc = ns:PersonChar(worst) or {}
       shame.big:SetText(math.floor(wv))
-      shame.who:SetText("dødsfall · " .. ns:PersonLabel(worst))
-      shame.last:SetText(worst.deathZone and ("Sist: " .. worst.deathZone .. ", " .. ns.Ago(worst.deathAt)) or "")
+      shame.who:SetText("deaths · " .. ns:PersonLabel(worst))
+      shame.last:SetText(worst.deathZone and ("Last: " .. worst.deathZone .. ", " .. ns.Ago(worst.deathAt)) or "")
     else
       shame.big:SetText("0")
-      shame.who:SetText("dødsfall – imponerende")
+      shame.who:SetText("deaths – impressive")
       shame.last:SetText("")
     end
 
@@ -610,7 +731,14 @@ ns:RegisterTab("stats", "Statistikk", "Board", function(tab)
         lines[#lines + 1] = ns.Colorize(label, C.muted) .. "  " .. ns.Colorize(ns.FirstName(f.char), ns.ClassHex(c.class))
       end
     end
-    firsts.text:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("Ingen ennå – hvem blir først til level 10?", C.muted))
+    firsts.text:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("Nobody yet – who'll be first to level 10?", C.muted))
+  end
+
+  function tab:SetPage(k, h)
+    page = k
+    if h then histMode = h end
+    paintPages()
+    self:Refresh()
   end
 
   paintPages()

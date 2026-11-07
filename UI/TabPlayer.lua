@@ -3,13 +3,13 @@ local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local St = ns.St
 
-ns:RegisterTab("player", "Spiller", "Friends", function(tab)
+ns:RegisterTab("player", "Player", "Friends", function(tab)
   local showAlts = false
 
   -------------------------------------------------------------------------
   -- Topp: tilbake, avatar, navn, knapper
   -------------------------------------------------------------------------
-  local back = UI.Button(tab, 86, 28, "‹ Tilbake", "ghost", function()
+  local back = UI.Button(tab, 86, 28, "‹ Back", "ghost", function()
     ns.Window:Select(ns.Window.returnTo or "friends")
   end)
   back:SetPoint("TOPLEFT", 16, -14)
@@ -23,11 +23,11 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
   sub:SetPoint("BOTTOMLEFT", avatar, "BOTTOMRIGHT", 12, 1)
   sub:SetPoint("RIGHT", -200, 0)
 
-  local invite = UI.Button(tab, 80, 30, "Inviter", "primary")
+  local invite = UI.Button(tab, 80, 30, "Invite", "primary")
   invite:SetPoint("TOPRIGHT", -16, -62)
-  local whisper = UI.Button(tab, 80, 30, "Hvisk", "secondary")
+  local whisper = UI.Button(tab, 80, 30, "Whisper", "secondary")
   whisper:SetPoint("RIGHT", invite, "LEFT", -8, 0)
-  local compare = UI.Button(tab, 110, 30, "Sammenlign", "ghost")
+  local compare = UI.Button(tab, 110, 30, "Compare", "ghost")
   compare:SetIcon("Compare", 14)
   compare:SetPoint("RIGHT", whisper, "LEFT", -8, 0)
 
@@ -54,7 +54,7 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     t:SetScript("OnMouseUp", function(self)
       if not self.isMe then return end
       local on = ns.Tiles:Toggle(self.pinKey)
-      ns.Print(on and "Festet under Chillan?-baren." or "Fjernet fra Chillan?-baren.")
+      ns.Print(on and "Pinned under the Chillan? bar." or "Removed from the Chillan? bar.")
       self:RefreshPin()
     end)
     function t:RefreshPin()
@@ -66,8 +66,8 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     t:SetScript("OnEnter", function(self)
       if not self.isMe then return end
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      GameTooltip:AddLine(ns.Tiles:IsPinned(self.pinKey) and "Klikk: fjern fra Chillan?-baren" or "Klikk: fest under Chillan?-baren", 1, 1, 1)
-      GameTooltip:AddLine("Flere rubrikker: «+» på baren", 0.52, 0.55, 0.57)
+      GameTooltip:AddLine(ns.Tiles:IsPinned(self.pinKey) and "Click: remove from the Chillan? bar" or "Click: pin under the Chillan? bar", 1, 1, 1)
+      GameTooltip:AddLine("More tiles: «+» on the bar", 0.52, 0.55, 0.57)
       GameTooltip:Show()
     end)
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -172,7 +172,7 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     avatar:Set(c.name, c.class, online and C.green or nil, C.window)
     name:SetText(ns:PersonLabel(p))
     local className = c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""
-    local where = online and ("Online · " .. (L.zone or "")) or ("Offline · sist sett " .. ns.Ago(p.lastSeen))
+    local where = online and ("Online · " .. (L.zone or "")) or ("Offline · last seen " .. ns.Ago(p.lastSeen))
     sub:SetText(string.format("Level %s %s %s  ·  %s", c.level or "?", c.race or "", className, where))
     local target = L.char or p.main
     whisper:SetScript("OnClick", function() ns.Whisper(target) end)
@@ -188,16 +188,16 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
     for _, t in ipairs(tiles) do t.isMe = me t:RefreshPin() end
     local pct = ns.Pct(s3.xp, s3.xpMax)
     tiles[1].v:SetText(c.level or "?")
-    tiles[1].k:SetText(pct and (pct .. " % til neste" .. ((s3.rested or 0) > 0 and " · rested" or "")) or "level")
+    tiles[1].k:SetText(pct and (pct .. " % to next" .. ((s3.rested or 0) > 0 and " · rested" or "")) or "level")
     local rate, rateLabel = St:XPRate(p)
     tiles[2].v:SetText(rate and ns.Num(rate) or "–")
-    tiles[2].k:SetText("XP per time" .. (rateLabel and (" · " .. rateLabel) or ""))
+    tiles[2].k:SetText("XP per hour" .. (rateLabel and (" · " .. rateLabel) or ""))
     local eta = St:ETA(p)
-    tiles[3].v:SetText(eta and ("ca. " .. ns.Duration(eta)) or "–")
-    tiles[3].k:SetText("til neste level")
+    tiles[3].v:SetText(eta and ("~" .. ns.Duration(eta)) or "–")
+    tiles[3].k:SetText("to next level")
     local played = ns:PersonPlayed(p)
     tiles[4].v:SetText(played > 0 and ns.Duration(played) or "–")
-    tiles[4].k:SetText("/played (alle karakterer)")
+    tiles[4].k:SetText("/played (all characters)")
 
     -- seksjoner
     for _, cd in ipairs(cards) do cd:Hide() end
@@ -208,28 +208,28 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
 
     local lvl = St:LevelSummary(p)
     local levelRows = {
-      { "XP nå", (s3.xp and s3.xpMax) and (ns.Num(s3.xp) .. " / " .. ns.Num(s3.xpMax) .. (pct and (" (" .. pct .. " %)") or "")) or nil },
-      { "Rested XP", (s3.rested and s3.xpMax and s3.rested > 0) and (ns.Num(s3.rested) .. " (" .. ns.Pct(s3.rested, s3.xpMax) .. " %)") or "ingen" },
-      { "XP denne økten", s3.sessXP and ns.Num(s3.sessXP) or nil },
-      { "XP denne uka", s3.wXP and ns.Num(s3.wXP) or nil },
-      { "Snitt per level", lvl and (dur(lvl.avg) .. (lvl.estimated and " (anslått)" or "")) or nil },
-      { "Raskeste level", (lvl and lvl.fast) and ("level " .. lvl.fast.level .. " på " .. dur(lvl.fast.secs)) or nil },
-      { "Tregeste level", (lvl and lvl.slow) and ("level " .. lvl.slow.level .. " på " .. dur(lvl.slow.secs)) or nil },
-      { "Anslått til 60", St:ETA60(p) and ("ca. " .. dur(St:ETA60(p)) .. " spilletid") or ((c.level or 0) >= 60 and "Allerede 60!" or nil) },
+      { "XP now", (s3.xp and s3.xpMax) and (ns.Num(s3.xp) .. " / " .. ns.Num(s3.xpMax) .. (pct and (" (" .. pct .. " %)") or "")) or nil },
+      { "Rested XP", (s3.rested and s3.xpMax and s3.rested > 0) and (ns.Num(s3.rested) .. " (" .. ns.Pct(s3.rested, s3.xpMax) .. " %)") or "none" },
+      { "XP this session", s3.sessXP and ns.Num(s3.sessXP) or nil },
+      { "XP this week", s3.wXP and ns.Num(s3.wXP) or nil },
+      { "Average per level", lvl and (dur(lvl.avg) .. (lvl.estimated and " (estimated)" or "")) or nil },
+      { "Fastest level", (lvl and lvl.fast) and ("level " .. lvl.fast.level .. " in " .. dur(lvl.fast.secs)) or nil },
+      { "Slowest level", (lvl and lvl.slow) and ("level " .. lvl.slow.level .. " in " .. dur(lvl.slow.secs)) or nil },
+      { "Estimated to 60", St:ETA60(p) and ("~" .. dur(St:ETA60(p)) .. " spilletid") or ((c.level or 0) >= 60 and "Already 60!" or nil) },
     }
     yL = section(xL, yL, "Leveling", levelRows)
 
     local sessionLen = online and L.session and (ns.Now() - L.session) or nil
     local sessionRows = {
-      { "Denne økten", sessionLen and dur(sessionLen) or "offline" },
-      { "I dag", s3.today and dur(s3.today) or nil },
-      { "Denne uka", dur(ns:WeekStat(p, "Online")) },
-      { "Totalt", dur(ns:TotalStat(p, "Online")) },
-      { "Lengste økt", dur((p.stats or {}).tLongest) },
-      { "Streak", s3.streak and (s3.streak .. (s3.streak == 1 and " dag" or " dager på rad")) or nil },
-      { "Mest spilte sone", s3.zone },
+      { "This session", sessionLen and dur(sessionLen) or "offline" },
+      { "Today", s3.today and dur(s3.today) or nil },
+      { "This week", dur(ns:WeekStat(p, "Online")) },
+      { "Total", dur(ns:TotalStat(p, "Online")) },
+      { "Longest session", dur((p.stats or {}).tLongest) },
+      { "Streak", s3.streak and (s3.streak .. (s3.streak == 1 and " day" or " days in a row")) or nil },
+      { "Most played zone", s3.zone },
     }
-    yL = section(xL, yL, "Økter", sessionRows)
+    yL = section(xL, yL, "Sessions", sessionRows)
 
     local achN, achP = ns.Ach:Count(pid), ns.Ach:Points(pid)
     local recent = {}
@@ -245,52 +245,52 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
       recent[#recent + 1] = ns.Colorize(d.name, ns.Ach.TIERS[d.tier].color)
     end
     yL = section(xL, yL, "Achievements", {
-      { "Låst opp", achN .. " av " .. #ns.Ach.defs },
-      { "Poeng", tostring(achP) },
-      { "Siste", #recent > 0 and table.concat(recent, ", ") or "ingen ennå" },
-    }, { label = "Se alle", onClick = function() ns.Window:OpenAch(pid) end })
+      { "Unlocked", achN .. " of " .. #ns.Ach.defs },
+      { "Points", tostring(achP) },
+      { "Latest", #recent > 0 and table.concat(recent, ", ") or "none yet" },
+    }, { label = "See all", onClick = function() ns.Window:OpenAch(pid) end })
 
     local got, gave = St:Grats(p)
     local firsts = St:Firsts(p)
     local loot = St:RecentLoot(p, 3)
     local socialRows = {
-      { "Gratulasjoner fått", tostring(got) },
-      { "Gratulasjoner gitt", tostring(gave) },
-      { "Først i gjengen", #firsts > 0 and table.concat(firsts, ", ") or "ingen ennå" },
-      { "Siste epics", #loot > 0 and table.concat(loot, ", ") or "ingen ennå" },
+      { "Congrats received", tostring(got) },
+      { "Congrats given", tostring(gave) },
+      { "First in the gang", #firsts > 0 and table.concat(firsts, ", ") or "none yet" },
+      { "Latest epics", #loot > 0 and table.concat(loot, ", ") or "none yet" },
     }
-    yL = section(xL, yL, "Sosialt", socialRows)
+    yL = section(xL, yL, "Social", socialRows)
 
     local qph, gph = St:PerHour(p, "Quests"), St:PerHour(p, "Gold")
     local goldRows = {
-      { "Quests denne uka", tostring(math.floor(ns:WeekStat(p, "Quests"))) },
-      { "Quests totalt", tostring(math.floor(ns:TotalStat(p, "Quests"))) },
-      { "Quests per time", qph and string.format("%.1f", qph) or nil },
-      { "Gull tjent uka", ns.Money(ns:WeekStat(p, "Gold")) },
-      { "Gull tjent totalt", ns.Money(ns:TotalStat(p, "Gold")) },
-      { "Gull per time", gph and ns.Money(gph) or nil },
-      { "Gull nå", s3.money and ns.Money(s3.money) or nil },
+      { "Quests this week", tostring(math.floor(ns:WeekStat(p, "Quests"))) },
+      { "Quests total", tostring(math.floor(ns:TotalStat(p, "Quests"))) },
+      { "Quests per hour", qph and string.format("%.1f", qph) or nil },
+      { "Gold earned this week", ns.Money(ns:WeekStat(p, "Gold")) },
+      { "Gold earned total", ns.Money(ns:TotalStat(p, "Gold")) },
+      { "Gold per hour", gph and ns.Money(gph) or nil },
+      { "Gold now", s3.money and ns.Money(s3.money) or nil },
     }
-    yR = section(xR, yR, "Quests og gull", goldRows)
+    yR = section(xR, yR, "Quests and gold", goldRows)
 
     local maxLvl = math.max(1, ns:PersonMaxLevel(p))
     local deathsT = ns:TotalStat(p, "Deaths")
     local pvpRows = {
-      { "Dødsfall uka", tostring(math.floor(ns:WeekStat(p, "Deaths"))) },
-      { "Dødsfall totalt", tostring(math.floor(deathsT)) },
+      { "Deaths this week", tostring(math.floor(ns:WeekStat(p, "Deaths"))) },
+      { "Deaths total", tostring(math.floor(deathsT)) },
       { "Per 10 levels", string.format("%.1f", deathsT / maxLvl * 10) },
-      { "Siste dødssted", p.deathZone and (p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")") or nil },
-      { "PvP-kills uka", tostring(math.floor(ns:WeekStat(p, "Kills"))) },
-      { "PvP-kills totalt", tostring(math.floor(ns:TotalStat(p, "Kills"))) },
+      { "Last place of death", p.deathZone and (p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")") or nil },
+      { "PvP kills this week", tostring(math.floor(ns:WeekStat(p, "Kills"))) },
+      { "PvP kills total", tostring(math.floor(ns:TotalStat(p, "Kills"))) },
     }
-    yR = section(xR, yR, "Død og PvP", pvpRows)
+    yR = section(xR, yR, "Death and PvP", pvpRows)
 
     local gearRows = { { "Item level", s3.ilvl and tostring(s3.ilvl) or nil } }
     for _, pr in ipairs(p.profs or {}) do
       local gain = pr.base and (pr.skill - pr.base) or 0
-      gearRows[#gearRows + 1] = { pr.name, pr.skill .. " / " .. pr.max .. (gain > 0 and ns.Colorize("  +" .. gain .. " denne uka", C.green) or "") }
+      gearRows[#gearRows + 1] = { pr.name, pr.skill .. " / " .. pr.max .. (gain > 0 and ns.Colorize("  +" .. gain .. " this week", C.green) or "") }
     end
-    yR = section(xR, yR, "Utstyr og profesjoner", gearRows)
+    yR = section(xR, yR, "Gear and professions", gearRows)
 
     local alts = {}
     for full, ch in pairs(p.chars) do
@@ -305,10 +305,10 @@ ns:RegisterTab("player", "Spiller", "Friends", function(tab)
           "Level " .. (ch.level or "?") .. " " .. cn .. (ch.played and (" · " .. dur(ch.played)) or "") }
       end
     else
-      altRows[1] = { "Antall", #alts == 0 and "ingen andre karakterer" or (#alts .. (#alts == 1 and " karakter" or " karakterer")) }
+      altRows[1] = { "Count", #alts == 0 and "no other characters" or (#alts .. (#alts == 1 and " karakter" or " karakterer")) }
     end
-    yR = section(xR, yR, "Andre karakterer", altRows, #alts > 0 and {
-      label = showAlts and "Skjul" or "Vis andre karakterer",
+    yR = section(xR, yR, "Other characters", altRows, #alts > 0 and {
+      label = showAlts and "Hide" or "Show other characters",
       onClick = function() showAlts = not showAlts tab:Refresh() end,
     } or nil)
 

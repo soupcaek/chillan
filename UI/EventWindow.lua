@@ -8,7 +8,7 @@ local E = {}
 ns.EventWindow = E
 
 local MAX_KEEP = 200
-local FILTERS = { { "all", "Alt" }, { "ev", "Hendelser" }, { "chat", "Chat" } }
+local FILTERS = { { "all", "All" }, { "ev", "Events" }, { "chat", "Chat" } }
 
 E.entries = {}
 E.pendingRx = {}
@@ -113,7 +113,7 @@ local function whatText(it)
   elseif it.kind == "DING" then
     return ns.Colorize("level " .. tostring(it.a), C.green)
   elseif it.kind == "DEAD" then
-    return ns.Colorize("døde", C.red)
+    return ns.Colorize("died", C.red)
   end
   return ns.Colorize(tostring(it.kind):lower(), C.text2)
 end
@@ -161,8 +161,7 @@ end
 
 function E:Create()
   local S = ns.db.settings
-  local f = UI.Panel(UIParent, C.window, C.line, false)
-  f:SetColors(C.window, C.line, 0.88)
+  local f = UI.OverlayPanel(UIParent, C.window, C.line, false)
   f:SetFrameStrata("MEDIUM")
   local sz = S.evSize or { w = 380, h = 210 }
   f:SetSize(sz.w, sz.h)
@@ -185,7 +184,7 @@ function E:Create()
   self.count = UI.Text(head, 11, nil, C.muted)
   self.count:SetPoint("LEFT", title, "RIGHT", 6, 0)
 
-  local close = UI.IconButton(head, 20, "Close", "Skjul (/chill hendelser viser igjen)", function()
+  local close = UI.IconButton(head, 20, "Close", "Hide (/chill events shows it again)", function()
     ns.db.settings.eventFeed = false
     E:Apply()
   end)
@@ -219,7 +218,7 @@ function E:Create()
   sep:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT", -8, 0)
 
   -- Skrivefelt
-  local input = UI.EditBox(f, 100, 26, "Skriv til gjengen …  (Enter)", function(eb)
+  local input = UI.EditBox(f, 100, 26, "Write to the gang …  (Enter)", function(eb)
     local txt = eb:GetText()
     if txt and txt ~= "" then ns.Data:SendChat(txt) end
     eb:SetText("")
@@ -319,7 +318,7 @@ function E:Backfill()
     end
   end
   if added > 0 then
-    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("- - -  tidligere i dag (nytt kommer under)  - - -", "5A6067"), t = time() }, MAX_KEEP)
+    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("- - -  earlier today (new below)  - - -", "5A6067"), t = time() }, MAX_KEEP)
   end
 end
 

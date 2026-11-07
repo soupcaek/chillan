@@ -203,8 +203,8 @@ local function checkDurability()
     duraWarned = level
     if ns.db.settings.duraWarn == false then return end
     ns:Fire("TOAST", { kind = "repair",
-      title = level == 10 and ("Utstyret er nesten ødelagt (" .. d .. " %)") or ("Utstyret er slitt (" .. d .. " %)"),
-      text = "Reparer hos en smed før neste pull" })
+      title = level == 10 and ("Your gear is almost broken (" .. d .. " %)") or ("Your gear is worn (" .. d .. " %)"),
+      text = "Repair at a vendor before the next pull" })
     ns.Sound("sos")
   end
 end
@@ -531,7 +531,7 @@ end)
 ns:On("PLAYER_DEAD", function()
   local me = Tracker:Me()
   local loc = Tracker:Location()
-  local zone = loc.zone ~= "" and loc.zone or "ukjent sted"
+  local zone = loc.zone ~= "" and loc.zone or "unknown place"
   if loc.sub and loc.sub ~= "" and not loc.inInst then zone = loc.sub .. ", " .. zone end
   me.deathZone = zone
   me.deathAt = ns.Now()

@@ -90,7 +90,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
   if not list then return end
   for i = 1, #list do
     local ok, err = pcall(list[i], ...)
-    if not ok and ns.debug then print("|cffF2777AChillan feil|r", event, err) end
+    if not ok and ns.debug then print("|cffF2777AChillan error|r", event, err) end
   end
 end)
 
@@ -104,7 +104,7 @@ function ns:Fire(name, ...)
   if not list then return end
   for i = 1, #list do
     local ok, err = pcall(list[i], ...)
-    if not ok and ns.debug then print("|cffF2777AChillan feil|r", name, err) end
+    if not ok and ns.debug then print("|cffF2777AChillan error|r", name, err) end
   end
 end
 
@@ -177,19 +177,19 @@ function ns.Duration(sec)
   local d = math.floor(sec / 86400)
   local h = math.floor((sec % 86400) / 3600)
   local m = math.floor((sec % 3600) / 60)
-  if d > 0 then return string.format("%d d %d t", d, h) end
-  if h > 0 then return string.format("%d t %02d m", h, m) end
-  return string.format("%d m", m)
+  if d > 0 then return string.format("%dd %dh", d, h) end
+  if h > 0 then return string.format("%dh %02dm", h, m) end
+  return string.format("%dm", m)
 end
 
 function ns.Ago(t)
   if not t or t == 0 then return "aldri" end
   local s = ns.Now() - t
-  if s < 60 then return "nå" end
-  if s < 3600 then return math.floor(s / 60) .. " min siden" end
-  if s < 86400 then return math.floor(s / 3600) .. " t siden" end
-  if s < 172800 then return "i går" end
-  return math.floor(s / 86400) .. " dager siden"
+  if s < 60 then return "now" end
+  if s < 3600 then return math.floor(s / 60) .. " min ago" end
+  if s < 86400 then return math.floor(s / 3600) .. "h ago" end
+  if s < 172800 then return "yesterday" end
+  return math.floor(s / 86400) .. " days ago"
 end
 
 function ns.Money(copper)
@@ -292,7 +292,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
-    accent = "grey", locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
+    accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
@@ -315,6 +315,11 @@ function ns:InitDB()
   if not ChillanDB.pid then ChillanDB.pid = ns.RandomId(8) end
   ns.db = ChillanDB
   ns.pid = ChillanDB.pid
+  -- 0.12: class colour is the new default accent (grey was the old default)
+  if not ChillanDB.migr012 then
+    if ChillanDB.settings.accent == "grey" then ChillanDB.settings.accent = "class" end
+    ChillanDB.migr012 = true
+  end
   ns:ApplyAccent()
 end
 
@@ -322,42 +327,81 @@ end
 -- Aksentfarge (velges i Innstillinger, gjelder etter /reload)
 ---------------------------------------------------------------------------
 ns.ACCENTS = {
-  { key = "grey", name = "Grå", hex = "C8D1DC" },
-  { key = "blue", name = "Blå", hex = "8FB8E8" },
-  { key = "green", name = "Grønn", hex = "7FD6A0" },
-  { key = "purple", name = "Lilla", hex = "B9AEDB" },
-  { key = "gold", name = "Gull", hex = "E0C068" },
-  { key = "red", name = "Rød", hex = "F2999B" },
-  { key = "pink", name = "Rosa", hex = "F0A8D0" },
-  { key = "teal", name = "Turkis", hex = "7ED6D1" },
-  { key = "class", name = "Klassefarge", hex = nil },
+  { key = "theme", name = "Theme", hex = nil },
+  { key = "class", name = "Class colour", hex = nil },
+  { key = "grey", name = "Grey", hex = "C8D1DC" },
+  { key = "blue", name = "Blue", hex = "8FB8E8" },
+  { key = "green", name = "Green", hex = "7FD6A0" },
+  { key = "purple", name = "Purple", hex = "B9AEDB" },
+  { key = "gold", name = "Gold", hex = "E0C068" },
+  { key = "red", name = "Red", hex = "F2999B" },
+  { key = "pink", name = "Pink", hex = "F0A8D0" },
+  { key = "teal", name = "Teal", hex = "7ED6D1" },
 }
+
+-- Themes change the whole addon: background, cards, lines, text and the default accent
+ns.THEMES = {
+  { key = "graphite", name = "Graphite", desc = "Neutral grey",
+    c = { backdrop = "0C0D0F", window = "17191C", card = "1D2024", cardHover = "22262B", line = "24282D", input = "202328",
+      inputLine = "2A2E33", active = "2A2E33", activeLine = "3A3F45", text = "E8EAED", text2 = "C9CDD2", muted = "9BA1A8",
+      dim = "858B92", accent = "C8D1DC", accentText = "121417" } },
+  { key = "midnight", name = "Midnight", desc = "Near black, cool blue",
+    c = { backdrop = "07090C", window = "0E1116", card = "161B23", cardHover = "1C222C", line = "1E2530", input = "141920",
+      inputLine = "263040", active = "222A36", activeLine = "324054", text = "E6EDF6", text2 = "B9C4D2", muted = "8C99AB",
+      dim = "6F7D90", accent = "8FB8E8", accentText = "0B1726" } },
+  { key = "coal", name = "Coal", desc = "Pure black and gold",
+    c = { backdrop = "000000", window = "050505", card = "121212", cardHover = "191919", line = "1C1C1C", input = "0E0E0E",
+      inputLine = "262626", active = "202020", activeLine = "333333", text = "F2F2F2", text2 = "BDBDBD", muted = "8E8E8E",
+      dim = "777777", accent = "E0C068", accentText = "2A1F05" } },
+  { key = "slate", name = "Slate", desc = "Dark green-grey, teal",
+    c = { backdrop = "0A0E0F", window = "14191A", card = "1B2324", cardHover = "212B2C", line = "253031", input = "182021",
+      inputLine = "2C3839", active = "263233", activeLine = "36494A", text = "E3EEEC", text2 = "B5C7C5", muted = "8AA19F",
+      dim = "6E8583", accent = "7ED6D1", accentText = "062523" } },
+  { key = "horde", name = "Horde", desc = "Dark wine, muted red",
+    c = { backdrop = "0D0A0C", window = "171316", card = "211A1E", cardHover = "281F24", line = "2E2429", input = "1D171A",
+      inputLine = "352A30", active = "2E242A", activeLine = "46363E", text = "F0E6EA", text2 = "C8B9BF", muted = "9F8D94",
+      dim = "87767D", accent = "F2999B", accentText = "3A0F12" } },
+  { key = "void", name = "Void", desc = "Deep purple-black",
+    c = { backdrop = "0A0910", window = "13121A", card = "1B1A25", cardHover = "22202E", line = "262433", input = "18171F",
+      inputLine = "2E2B3D", active = "28263A", activeLine = "3B3852", text = "ECEAF6", text2 = "BDB9D0", muted = "9591AB",
+      dim = "7B7792", accent = "B9AEDB", accentText = "1E1838" } },
+}
+
+function ns.Theme(key)
+  for _, t in ipairs(ns.THEMES) do if t.key == key then return t end end
+  return ns.THEMES[1]
+end
 
 local function lighten(h, f)
   local r, g, b = tonumber(h:sub(1, 2), 16), tonumber(h:sub(3, 4), 16), tonumber(h:sub(5, 6), 16)
   local function l(v) return math.min(255, math.floor(v + (255 - v) * f)) end
   return string.format("%02X%02X%02X", l(r), l(g), l(b))
 end
+ns.Lighten = lighten
 
-function ns.AccentHex(key)
+function ns.AccentHex(key, themeKey)
+  if key == "theme" then return ns.Theme(themeKey or (ns.db and ns.db.settings.theme)).c.accent end
+  if key == "class" then
+    local _, class = UnitClass("player")
+    return CLASS_HEX[class or ""] or "C8D1DC"
+  end
   for _, a in ipairs(ns.ACCENTS) do
-    if a.key == key then
-      if a.hex then return a.hex end
-      local _, class = UnitClass("player")
-      return CLASS_HEX[class or ""] or "C8D1DC"
-    end
+    if a.key == key and a.hex then return a.hex end
   end
   return "C8D1DC"
 end
 
+-- Apply theme + accent to ns.C (before any UI is built; changing them needs a /reload)
 function ns:ApplyAccent()
-  local h = ns.AccentHex(ns.db.settings.accent or "grey")
+  local S = ns.db.settings
+  local theme = ns.Theme(S.theme)
+  for k, v in pairs(theme.c) do ns.C[k] = v end
+  ns.C.silver = "C8D1DC"
+  local h = ns.AccentHex(S.accent or "class")
   ns.C.accent = h
   ns.C.accentHover = lighten(h, 0.35)
-  if ns.UI and ns.UI.STYLES then
-    ns.UI.STYLES.primary.fill = h
-    ns.UI.STYLES.primary.hover = ns.C.accentHover
-  end
+  ns.C.activeHover = lighten(ns.C.active, 0.06)
+  if ns.UI and ns.UI.RebuildStyles then ns.UI.RebuildStyles() end
   if ns.Overlays and ns.Overlays.KIND then
     ns.Overlays.KIND.join.color = h
     ns.Overlays.KIND.info.color = h
@@ -392,7 +436,7 @@ end
 function ns.MentionsMe(text)
   local t = (text or ""):lower()
   if not t:find("@", 1, true) then return false end
-  if t:find("@alle", 1, true) or t:find("@all%f[%W]") then return true end
+  if t:find("@alle", 1, true) or t:find("@all%f[%W]") or t:sub(-4) == "@all" then return true end
   for _, n in ipairs(ns.MyMentionNames()) do
     if n ~= "" then
       local s, e = t:find("@" .. n, 1, true)
@@ -534,12 +578,12 @@ end
 ---------------------------------------------------------------------------
 ns.STATUS = {
   QUEST = { label = "Questing", color = "5FD18B" },
-  DUNGEON = { label = "I dungeon", color = "C8D1DC" },
-  BG = { label = "I battleground", color = "C8D1DC" },
+  DUNGEON = { label = "In a dungeon", color = "C8D1DC" },
+  BG = { label = "In a battleground", color = "C8D1DC" },
   AFK = { label = "AFK", color = "E0B04F" },
-  LFG = { label = "Ledig for gruppe", color = "B9AEDB" },
-  HELP = { label = "Trenger hjelp", color = "F2777A" },
-  DND = { label = "Ikke forstyrr", color = "9BA1A8" },
+  LFG = { label = "Looking for group", color = "B9AEDB" },
+  HELP = { label = "Needs help", color = "F2777A" },
+  DND = { label = "Do not disturb", color = "9BA1A8" },
   OFFLINE = { label = "Offline", color = "858B92" },
 }
 ns.MANUAL_STATUS = { "AUTO", "LFG", "HELP", "DND" }
