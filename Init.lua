@@ -104,6 +104,8 @@ local function help()
   print("  /chill ready – ready check before a dungeon")
   print("  /chill note text – gang note on the map where you stand (or Alt+right-click the map)")
   print("  /chill settings – open the settings")
+  print("  /chill ideas – open the idea box")
+  print("  /chill admin – become admin of the idea box (first one wins)")
   print("  /chill minibar – show/hide the minibar")
   print("  /chill debug – show technical status")
   print("  /chill channel – reconnect to the gang channel")
@@ -156,6 +158,13 @@ SlashCmdList.CHILLAN = function(msg)
     local L = ns.Tracker:UpdateLive()
     if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
     else ns.Print("Couldn't find your position here.") end
+  elseif cmd == "admin" then
+    ns.Ideas:ClaimAdmin()
+  elseif cmd == "ideas" or cmd == "ideer" then
+    ns.Window:Create()
+    ns.Window.frame:Show()
+    ns.Window:Select("more")
+    if ns.Window.tabs.more and ns.Window.tabs.more.ShowSub then ns.Window.tabs.more:ShowSub("ideas") end
   elseif cmd == "oppsett" or cmd == "settings" then
     ns.Window:Toggle("settings")
   elseif cmd == "minibar" then

@@ -17,6 +17,7 @@ Sync.lua
 Quests.lua
 Titles.lua
 Extras.lua
+Ideas.lua
 Stats.lua
 Achievements.lua
 UI\Widgets.lua
