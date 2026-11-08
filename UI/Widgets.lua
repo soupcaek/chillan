@@ -157,7 +157,8 @@ function UI.RestorePos(frame)
   local pos = ns.db.settings.pos and ns.db.settings.pos[key]
   frame:ClearAllPoints()
   if pos and pos.point then
-    frame:SetPoint(pos.point, UIParent, pos.rel or pos.point, pos.x or 0, pos.y or 0)
+    local ok = pcall(frame.SetPoint, frame, pos.point, UIParent, pos.rel or pos.point, pos.x or 0, pos.y or 0)
+    if not ok then frame:ClearAllPoints() frame.defaultPos(frame) end
   else
     frame.defaultPos(frame)
   end

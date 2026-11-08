@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.5", date = "08.11", items = {
+    "Fix: Lua error when detaching the event window from the bar",
+  } },
   { v = "0.15.4", date = "08.11", items = {
     "Session time removed from the Chillan? bar, and the bar group is a little narrower (~370 px)",
   } },

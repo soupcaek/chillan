@@ -372,15 +372,7 @@ end
 -- Docking: the window hangs under the bar (or the pinned cards), same width, one shared background
 function E:SetDocked(on)
   ns.db.settings.evDocked = on and true or nil
-  if not on and self.frame then
-    self.frame.noMove = nil
-    if self.count then self.count:Show() end
-    self.frame.ofill, self.frame.oline = C.window, C.line
-    self.frame:SetColors(C.window, C.line, UI.OverlayAlpha())
-    if self.topLine then self.topLine:Hide() end
-    UI.RestorePos(self.frame)
-    if self.grip then self.grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin) end
-  end
+  -- (detaching is done by Reanchor via the bar's UpdateGroup, after the bar lets go of us)
   if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() elseif ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
   if self.dockBtn then
     self.dockBtn.tooltip = on and "Detach from the Chillan? bar" or "Attach to the Chillan? bar"
@@ -404,6 +396,7 @@ function E:Reanchor(anchor)
       local sz = ns.db.settings.evSize or { w = 380, h = 210 }
       f:SetWidth(sz.w)
       UI.RestorePos(f)
+      if self.grip then self.grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin) end
     end
     return false
   end

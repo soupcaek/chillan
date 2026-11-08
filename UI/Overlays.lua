@@ -177,6 +177,9 @@ function O:UpdateGroup()
   local holder = ns.Tiles and ns.Tiles.holder
   local tilesOn = holder and holder:IsShown() and m:IsShown()
   local last = tilesOn and holder or m
+  -- let go of the event window first, so it can be moved back without an anchor loop
+  m.panel:ClearAllPoints()
+  m.panel:SetAllPoints(m)
   local E = ns.EventWindow
   if E and E.Reanchor then
     local docked = E:Reanchor(last)
