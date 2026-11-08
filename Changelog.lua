@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.17.0", date = "08.11", items = {
+    "@mentions with suggestions: type @ and a few letters – matches aliases, characters and alts; Tab/Enter picks, arrows move",
+    "Item links in gang chat: shift-click an item while the chat input is active (max 3 per message)",
+    "Items in chat show in quality colour with tooltip; shift-click one to link it on in normal WoW chat",
+  } },
   { v = "0.16.0", date = "08.11", items = {
     "Attached event window can be resized: drag its corner sideways to change the width of the whole bar group, up/down for the chat height",
     "Width 330–700 px; cards stay at least 110 px wide; Lock positions also locks this",

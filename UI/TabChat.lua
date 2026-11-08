@@ -107,7 +107,7 @@ function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
   local line = ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLabel(p, it.char)
-    .. "  " .. ns.Colorize(it.text, it.mention and C.gold or "D4D7DB")
+    .. "  " .. ns.RenderChatText(it.text, it.mention and C.gold or "D4D7DB")
   if it.mention then line = UI.InlineIcon("At", C.gold, 13) .. " " .. line end
   return line
 end
@@ -137,6 +137,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
     input:SetText("")
   end
   input = UI.EditBox(tab, 300, 36, "Write to the gang …", send)
+  UI.AttachMentions(input)
   input:SetPoint("BOTTOMLEFT", 16, 14)
   input:SetPoint("RIGHT", tab, "RIGHT", -FEED_W - 90, 0)
   input.edit:SetScript("OnEnterPressed", function(self) send() self:SetFocus() end)
@@ -152,6 +153,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
   feed:SetSpacing(8)
 
   local lastChatKey
+  ns:Listen("ITEMINFO", function() if tab:IsShown() then tab:Refresh() end end)
   function tab:Refresh()
     local key = ns.chatRev or 0
     if key ~= lastChatKey then

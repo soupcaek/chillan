@@ -165,6 +165,67 @@ function ns.MyDisplayName()
   return n
 end
 
+---------------------------------------------------------------------------
+-- Item links in gang chat. Links can't travel in addon messages (pipes are stripped),
+-- so they are sent as {i:12345} and turned back into a real link on display.
+---------------------------------------------------------------------------
+ns.MAX_CHAT_ITEMS = 3
+function ns.EncodeItems(text)
+  if type(text) ~= "string" then return "" end
+  local n = 0
+  local function enc(id)
+    n = n + 1
+    if n > ns.MAX_CHAT_ITEMS then return "" end
+    return "{i:" .. id .. "}"
+  end
+  -- full coloured link, then bare link
+  text = text:gsub("|c%x%x%x%x%x%x%x%x|Hitem:(%d+)[^|]*|h%[[^%]]*%]|h|r", enc)
+  text = text:gsub("|Hitem:(%d+)[^|]*|h%[[^%]]*%]|h", enc)
+  return text
+end
+
+local itemWaiting = {}
+local function itemInfo(id)
+  local name, link, quality
+  if C_Item and C_Item.GetItemInfo then
+    name, link, quality = C_Item.GetItemInfo(id)
+  elseif GetItemInfo then
+    name, link, quality = GetItemInfo(id)
+  end
+  if not name then
+    itemWaiting[id] = true
+    if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+  end
+  return name, quality
+end
+
+-- text (already cleaned) -> display string with base colour on the plain parts and real item links
+function ns.RenderChatText(text, baseHex)
+  text = text or ""
+  if not text:find("{i:", 1, true) then return ns.Colorize(text, baseHex) end
+  local out, pos = {}, 1
+  for s, id, e in text:gmatch("(){i:(%d+)}()") do
+    if s > pos then out[#out + 1] = ns.Colorize(text:sub(pos, s - 1), baseHex) end
+    local nid = tonumber(id)
+    local name, q = itemInfo(nid)
+    local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[q or 1]) or "FFFFFF"
+    out[#out + 1] = "|Hitem:" .. id .. "|h" .. ns.Colorize("[" .. (name or "loading…") .. "]", name and hexq or ns.C.dim) .. "|h"
+    pos = e
+  end
+  if pos <= #text then out[#out + 1] = ns.Colorize(text:sub(pos), baseHex) end
+  return table.concat(out)
+end
+
+-- when the game finishes loading an item we were waiting for, redraw chat
+local itemPending = false
+ns:On("GET_ITEM_INFO_RECEIVED", function(id)
+  if not itemWaiting[id] then return end
+  itemWaiting[id] = nil
+  if itemPending then return end
+  itemPending = true
+  C_Timer.After(0.3, function() itemPending = false ns:Fire("ITEMINFO") end)
+end)
+
 function ns.Clean(text, maxLen)
   if type(text) ~= "string" then return "" end
   text = text:gsub("[~|\r\n\t]", " "):gsub("^%s+", ""):gsub("%s+$", "")

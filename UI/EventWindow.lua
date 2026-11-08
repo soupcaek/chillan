@@ -91,9 +91,9 @@ local function chatText(item)
   local p = ns:GetPerson(item.pid) or {}
   local name = "|Hchillan:" .. tostring(item.pid) .. "|h" .. ns:ShortWho(p, item.char) .. "|h"
   if item.mention then
-    return UI.InlineIcon("At", C.gold, 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", C.gold)
+    return UI.InlineIcon("At", C.gold, 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.RenderChatText(item.text, C.gold)
   end
-  return UI.InlineIcon("Chat", "8FB8C9", 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.Colorize(item.text or "", "D9F0F7")
+  return UI.InlineIcon("Chat", "8FB8C9", 12) .. "  " .. name .. ns.Colorize(": ", C.dim) .. ns.RenderChatText(item.text, "D9F0F7")
 end
 
 -- Reaksjoner samles i ~5 sek per hendelse, gruppert per reaksjon med hvem som ga den:
@@ -270,6 +270,7 @@ function E:Create()
     eb:SetText("")
     eb:ClearFocus()
   end)
+  UI.AttachMentions(input)
   input:SetPoint("BOTTOMLEFT", 8, 8)
   input:SetPoint("BOTTOMRIGHT", -22, 8)
   self.input = input
@@ -279,7 +280,11 @@ function E:Create()
   m:SetSpacing(3)
   m:SetPoint("TOPLEFT", sep, "BOTTOMLEFT", 2, -6)
   m:SetPoint("BOTTOMRIGHT", input, "TOPRIGHT", 12, 6)
-  m:SetScript("OnHyperlinkClick", function(_, link)
+  m:SetScript("OnHyperlinkClick", function(_, link, text)
+    if type(link) == "string" and link:find("^item:") then
+      ns.ShiftLinkItem(link)
+      return
+    end
     local pid = type(link) == "string" and link:match("^chillan:(.+)$")
     if pid and ns.Window and ns.Window.OpenPlayer then ns.Window:OpenPlayer(pid) end
     if type(link) == "string" and link:find("^chillantitle:") and ns.Window then
@@ -531,9 +536,17 @@ function E:Init()
   self:Apply()
 
   ns:Listen("FEEDEVENT", function(text, item) E:Add("ev", text, nil, item) end)
+  ns:Listen("ITEMINFO", function()
+    for _, e in ipairs(E.entries) do
+      if e.chatItem then e.base = chatText(e.chatItem) e.text = render(e) end
+    end
+    E:Redraw()
+  end)
   ns:Listen("CHAT", function(item)
     if (ns.Now() - (item.t or 0)) > 120 then return end
     E:Add("chat", chatText(item), item.t)
+    local last = E.entries[#E.entries]
+    if last and last.kind == "chat" then last.chatItem = item end
   end)
   ns:Listen("REACTION", function(item, rp, char, idx) E:OnReaction(item, rp, char, idx) end)
   ns:Listen("CODE_CHANGED", function() E:Apply() end)

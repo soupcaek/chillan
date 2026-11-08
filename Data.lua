@@ -627,7 +627,7 @@ local function addChat(id, pid, char, t, text)
 end
 
 function Data:SendChat(text)
-  text = ns.Clean(text, 200)
+  text = ns.Clean(ns.EncodeItems(text), 200)
   if text == "" or not ns.codeHash then return end
   local id = Comm:NewId()
   Comm:Seen(id)

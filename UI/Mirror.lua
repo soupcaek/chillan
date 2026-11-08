@@ -26,7 +26,7 @@ ns:Listen("CHAT", function(item)
   if not ns.db.settings.chatMirror then return end
   if (ns.Now() - (item.t or 0)) > 120 then return end -- ikke gammel historikk
   local p = ns:GetPerson(item.pid) or {}
-  out(PREFIX_CHAT .. playerLink(p, item.char) .. ": " .. ns.Colorize(item.text, "D9F0F7"))
+  out(PREFIX_CHAT .. playerLink(p, item.char) .. ": " .. ns.RenderChatText(item.text, "D9F0F7"))
 end)
 
 ns:Listen("ACTIVITY", function(text)

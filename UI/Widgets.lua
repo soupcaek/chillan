@@ -547,6 +547,9 @@ function UI.MessageFrame(parent, size)
     end
   end)
   m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
+  m:SetScript("OnHyperlinkClick", function(_, link)
+    if type(link) == "string" and link:find("^item:") then ns.ShiftLinkItem(link) end
+  end)
   return m
 end
 
@@ -669,4 +672,199 @@ function UI.Prompt(title, fields, onOk)
   end)
   dialog:Show()
   dialog.inputs[1].edit:SetFocus()
+end
+
+---------------------------------------------------------------------------
+-- Item links: shift-click an item while a Chillan chat input is active puts the link there;
+-- shift-click an item in Chillan chat links it on into normal WoW chat.
+---------------------------------------------------------------------------
+function ns.ShiftLinkItem(link)
+  if not IsModifiedClick or not IsModifiedClick("CHATLINK") then return end
+  local id = link:match("^item:(%d+)")
+  local full = id and ((C_Item and C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(tonumber(id))))
+    or (GetItemInfo and select(2, GetItemInfo(tonumber(id)))))
+  if not full then return end
+  if ns.activeChatBox and ns.activeChatBox:HasFocus() then
+    ns.activeChatBox:Insert(full)
+  elseif ChatEdit_InsertLink then
+    ChatEdit_InsertLink(full)
+  elseif ChatFrameUtil and ChatFrameUtil.InsertLink then
+    ChatFrameUtil.InsertLink(full)
+  end
+end
+
+local function insertIntoOurBox(link)
+  local box = ns.activeChatBox
+  if type(link) ~= "string" or not box or not box:HasFocus() then return end
+  if not link:find("|Hitem:", 1, true) then return end
+  box:Insert(link)
+end
+if ChatEdit_InsertLink then hooksecurefunc("ChatEdit_InsertLink", insertIntoOurBox) end
+if ChatFrameUtil and ChatFrameUtil.InsertLink then hooksecurefunc(ChatFrameUtil, "InsertLink", insertIntoOurBox) end
+
+---------------------------------------------------------------------------
+-- @mentions: suggestion list above a chat input. Type "@" and a few letters;
+-- Tab/Enter picks, arrows move, Esc closes, click works too.
+---------------------------------------------------------------------------
+local mlist
+local function mentionCandidates(prefix)
+  prefix = (prefix or ""):lower()
+  local out, seen = {}, {}
+  local function add(label, insert, sub, online, color)
+    local key = insert:lower()
+    if seen[key] then return end
+    seen[key] = true
+    out[#out + 1] = { label = label, insert = insert, sub = sub, online = online, color = color }
+  end
+  local function match(name)
+    if not name or name == "" then return false end
+    local l = name:lower()
+    if l:sub(1, #prefix) == prefix then return true end
+    for word in l:gmatch("%S+") do if word:sub(1, #prefix) == prefix then return true end end
+    return false
+  end
+  if ("all"):sub(1, #prefix) == prefix then add("@all", "all", "everyone in the gang", true, C.gold) end
+  local people = {}
+  for pid, p in pairs(ns.db.people or {}) do
+    if pid ~= ns.pid and p.main then people[#people + 1] = p end
+  end
+  table.sort(people, function(a, b)
+    local ao, bo = ns:IsOnline(a), ns:IsOnline(b)
+    if ao ~= bo then return ao end
+    return (ns:PersonAlias(a) or ns:PersonName(a)) < (ns:PersonAlias(b) or ns:PersonName(b))
+  end)
+  for _, p in ipairs(people) do
+    local alias = ns:PersonAlias(p)
+    local main = ns:PersonChar(p) or {}
+    local hit = match(alias)
+    local chars = {}
+    for _, c in pairs(p.chars or {}) do
+      if c.name then chars[#chars + 1] = c.name if match(c.name) then hit = true end end
+    end
+    if hit then
+      local r, g, b = ns.ClassColor(main.class)
+      local col = string.format("%02X%02X%02X", math.floor(r * 255), math.floor(g * 255), math.floor(b * 255))
+      local insert = alias or main.name or chars[1]
+      local sub = alias and (main.name or "") or ""
+      if #chars > 1 then sub = sub .. (sub ~= "" and " · " or "") .. (#chars - 1) .. " alt" .. (#chars > 2 and "s" or "") end
+      add(insert, insert, sub, ns:IsOnline(p), col)
+    end
+    if #out >= 6 then break end
+  end
+  return out
+end
+
+local function ensureList()
+  if mlist then return mlist end
+  mlist = UI.Panel(UIParent, C.card, C.activeLine, true)
+  mlist:SetFrameStrata("FULLSCREEN_DIALOG")
+  mlist.rows = {}
+  for i = 1, 6 do
+    local b = CreateFrame("Button", nil, mlist)
+    b:SetHeight(24)
+    b:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 24)
+    b:SetPoint("RIGHT", -4, 0)
+    b.hl = b:CreateTexture(nil, "BACKGROUND")
+    b.hl:SetAllPoints()
+    b.hl:SetColorTexture(1, 1, 1, 0.07)
+    b.dot = b:CreateTexture(nil, "OVERLAY")
+    b.dot:SetTexture(ns.TEX .. "Circle")
+    b.dot:SetSize(6, 6)
+    b.dot:SetPoint("LEFT", 8, 0)
+    b.name = UI.Text(b, 13, "semi", C.text)
+    b.name:SetPoint("LEFT", b.dot, "RIGHT", 7, 0)
+    b.sub = UI.Text(b, 11, nil, C.dim)
+    b.sub:SetPoint("LEFT", b.name, "RIGHT", 8, 0)
+    b.sub:SetPoint("RIGHT", -6, 0)
+    b.sub:SetWordWrap(false)
+    b:SetScript("OnEnter", function(self) mlist.sel = self.i mlist:Paint() end)
+    b:SetScript("OnClick", function(self) mlist.sel = self.i mlist:Accept() end)
+    b.i = i
+    mlist.rows[i] = b
+  end
+  function mlist:Paint()
+    for i, b in ipairs(self.rows) do b.hl:SetShown(i == self.sel and b:IsShown()) end
+  end
+  function mlist:Accept()
+    local c = self.items and self.items[self.sel or 1]
+    local e = self.edit
+    if not c or not e then self:Hide() return end
+    local text, cur = e:GetText(), e:GetCursorPosition()
+    local before, after = text:sub(1, cur), text:sub(cur + 1)
+    local s = before:match("()@[^@%s]*$")
+    if s then
+      before = before:sub(1, s - 1) .. "@" .. c.insert .. " "
+      e:SetText(before .. after)
+      e:SetCursorPosition(#before)
+    end
+    self:Hide()
+  end
+  mlist:Hide()
+  return mlist
+end
+
+local function refreshMentions(holder)
+  local e = holder.edit
+  if not e:HasFocus() then if mlist and mlist.edit == e then mlist:Hide() end return end
+  local before = e:GetText():sub(1, e:GetCursorPosition())
+  local prefix = before:match("@([^@%s]*)$")
+  -- also allow two-word character names ("@helse pr")
+  if not prefix then prefix = before:match("@(%S+ %S*)$") end
+  if not prefix then if mlist and mlist.edit == e then mlist:Hide() end return end
+  local items = mentionCandidates(prefix)
+  local l = ensureList()
+  if #items == 0 then l:Hide() return end
+  l.edit, l.items = e, items
+  l.sel = math.min(l.sel or 1, #items)
+  local w = 200
+  for i, b in ipairs(l.rows) do
+    local it = items[i]
+    if it then
+      b.name:SetText(it.label)
+      b.name:SetTextColor(hex(it.color or C.text))
+      b.sub:SetText(it.sub or "")
+      b.dot:SetVertexColor(hex(it.online and C.green or C.dim))
+      b:Show()
+      w = math.max(w, 30 + b.name:GetStringWidth() + 8 + math.min(160, b.sub:GetStringWidth() + 8))
+    else
+      b:Hide()
+    end
+  end
+  l:SetSize(w, #items * 24 + 8)
+  l:ClearAllPoints()
+  l:SetPoint("BOTTOMLEFT", holder, "TOPLEFT", 0, 4)
+  l:SetClampedToScreen(true)
+  l:Show()
+  l:Paint()
+end
+
+function UI.AttachMentions(holder)
+  local e = holder.edit
+  e:HookScript("OnEditFocusGained", function(self) ns.activeChatBox = self end)
+  e:HookScript("OnEditFocusLost", function(self)
+    if ns.activeChatBox == self then ns.activeChatBox = nil end
+    C_Timer.After(0.15, function() if mlist and mlist.edit == self and not self:HasFocus() then mlist:Hide() end end)
+  end)
+  e:HookScript("OnTextChanged", function(_, user) if user ~= false then refreshMentions(holder) end end)
+  e:HookScript("OnCursorChanged", function() if mlist and mlist:IsShown() and mlist.edit == e then refreshMentions(holder) end end)
+  e:SetScript("OnTabPressed", function()
+    if mlist and mlist:IsShown() and mlist.edit == e then mlist:Accept() end
+  end)
+  e:SetScript("OnArrowPressed", function(_, key)
+    if not (mlist and mlist:IsShown() and mlist.edit == e) then return end
+    local n = #mlist.items
+    if key == "UP" then mlist.sel = ((mlist.sel or 1) - 2) % n + 1
+    elseif key == "DOWN" then mlist.sel = (mlist.sel or 1) % n + 1 end
+    mlist:Paint()
+  end)
+  local esc = e:GetScript("OnEscapePressed")
+  e:SetScript("OnEscapePressed", function(self)
+    if mlist and mlist:IsShown() and mlist.edit == self then mlist:Hide() return end
+    if esc then esc(self) end
+  end)
+  local enter = e:GetScript("OnEnterPressed")
+  e:SetScript("OnEnterPressed", function(self)
+    if mlist and mlist:IsShown() and mlist.edit == self then mlist:Accept() return end
+    if enter then enter(self) end
+  end)
 end
