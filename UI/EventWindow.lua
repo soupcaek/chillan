@@ -47,8 +47,9 @@ local function chips(item)
       .. ns.Colorize("[ ", br) .. ns.Colorize(o.label, C.purple) .. (n > 1 and ns.Colorize(" " .. n, C.muted) or "")
       .. ns.Colorize(" ]", br) .. "|h"
   end
-  -- own line under the event, indented past the timestamp
-  return "\n            " .. table.concat(parts, "  ")
+  -- own line under the event: a small corner, then the reactions
+  local corner = UI.InlineIcon("Corner", C.muted, 12)
+  return "\n            " .. corner .. " " .. table.concat(parts, "  ")
 end
 
 local function render(e)

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.3", date = "08.11", items = {
+    "Reactions line: a small corner under the event, then the reactions in brackets ([ Gay ]  [ Grats! 2 ])",
+  } },
   { v = "0.15.2", date = "08.11", items = {
     "Reactions sit on their own line under the death/ding/achievement in the event window",
   } },
