@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.9", date = "08.11", items = {
+    "Menus are as wide as their longest line – no more text sticking out of the pin menu",
+  } },
   { v = "0.14.8", date = "08.11", items = {
     "Your status in the Chillan? bar – click it to set LFG, Needs help or Do not disturb",
     "The newest gang event shows in the bar for a minute (session time when nothing is happening)",

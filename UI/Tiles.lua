@@ -166,7 +166,7 @@ function T:OpenMenu(anchor)
   for _, d in ipairs(self.DEFS) do
     local on = self:IsPinned(d.key)
     items[#items + 1] = {
-      text = (on and "Remove:" or "Pin:") .. d.name,
+      text = (on and "Remove: " or "Pin: ") .. d.name,
       color = on and C.green or C.text2,
       func = function() T:Toggle(d.key) end,
     }

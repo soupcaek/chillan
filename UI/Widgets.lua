@@ -573,7 +573,14 @@ function UI.Menu(anchor, items, below)
     menu.closer:SetScript("OnClick", function() menu:Hide() menu.closer:Hide() end)
   end
   for _, b in ipairs(menu.buttons) do b:Hide() end
+  -- menu is as wide as its longest line (min 180), so nothing spills outside
+  menu.measure = menu.measure or UI.Text(menu, 13, nil, C.text2)
+  menu.measure:Hide()
   local w = 180
+  for _, it in ipairs(items) do
+    menu.measure:SetText(it.text or "")
+    w = math.max(w, math.ceil(menu.measure:GetStringWidth() or 0) + 40)
+  end
   for i, it in ipairs(items) do
     local b = menu.buttons[i]
     if not b then
@@ -582,6 +589,7 @@ function UI.Menu(anchor, items, below)
       b.label:SetPoint("LEFT", 10, 0)
       menu.buttons[i] = b
     end
+    b:SetWidth(w - 12)
     b:SetLabel(it.text)
     b.label:SetTextColor(hex(it.color or C.text2))
     b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 30)
