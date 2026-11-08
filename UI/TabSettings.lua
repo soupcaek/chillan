@@ -167,6 +167,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Minimap button", "minimapButton", function() ns:Fire("MINIBAR") end },
     { "Event window", "eventFeed", function() ns.EventWindow:Apply() end },
     { "Gang chat in the event window", "feedChat", function() ns.EventWindow:Redraw() end },
+    { "Attach the event window to the Chillan? bar", "evDocked", function(v) ns.EventWindow:SetDocked(v) end },
     { "Fade the event window when quiet", "evFade" },
     { "Lock positions", "locked", function(v) ns:Fire("LOCK_CHANGED", v) end,
       "Stops the minibar, event window and popups from being dragged by accident. Also /chill lock." },

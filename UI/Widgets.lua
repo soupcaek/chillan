@@ -152,6 +152,7 @@ local function savePos(frame, key)
 end
 
 function UI.RestorePos(frame)
+  if frame.noMove then return end   -- docked frames are placed by their owner
   local key = frame.posKey
   local pos = ns.db.settings.pos and ns.db.settings.pos[key]
   frame:ClearAllPoints()
@@ -175,7 +176,7 @@ function UI.Movable(frame, key, defaultPos, target)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
   frame:HookScript("OnDragStart", function()
-    if UI.IsLocked() then return end
+    if UI.IsLocked() or target.noMove then return end
     target.isMoving = true
     target:StartMoving()
   end)

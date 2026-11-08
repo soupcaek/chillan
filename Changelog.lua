@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.0", date = "08.11", items = {
+    "Pinned cards are joined to the Chillan? bar – one panel with a thin line between",
+    "Attach the event window to the bar (arrow button in its header, or Settings) – it hangs under the cards with the same width",
+  } },
   { v = "0.14.9", date = "08.11", items = {
     "Menus are as wide as their longest line – no more text sticking out of the pin menu",
   } },

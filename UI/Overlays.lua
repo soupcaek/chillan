@@ -157,6 +157,33 @@ function O:FitMinibar()
     m.plus:SetPoint("RIGHT", -4, 0)
   end
   self:UpdateMinibarExtras()
+  self:UpdateGroup()
+end
+
+-- The bar, the pinned cards and (if attached) the event window share one background,
+-- with thin lines between the parts.
+function O:UpdateGroup()
+  local m = self.minibar
+  if not m or not m.panel then return end
+  local holder = ns.Tiles and ns.Tiles.holder
+  local tilesOn = holder and holder:IsShown() and m:IsShown()
+  local last = tilesOn and holder or m
+  local E = ns.EventWindow
+  if E and E.Reanchor then
+    local docked = E:Reanchor(last)
+    if docked then last = E.frame end
+  end
+  m.panel:ClearAllPoints()
+  m.panel:SetPoint("TOPLEFT", m, "TOPLEFT")
+  m.panel:SetPoint("BOTTOMRIGHT", last, "BOTTOMRIGHT")
+  if not m.divider then
+    m.divider = m:CreateTexture(nil, "ARTWORK")
+    m.divider:SetHeight(1)
+    m.divider:SetPoint("BOTTOMLEFT", 8, 0)
+    m.divider:SetPoint("BOTTOMRIGHT", -8, 0)
+  end
+  m.divider:SetColorTexture(hex(C.line))
+  m.divider:SetShown(last ~= m)
 end
 
 -- newest gang event, shown short in the bar

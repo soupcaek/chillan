@@ -7,7 +7,7 @@ ns.Tiles = T
 
 local MAX = 8
 local PER_ROW = 3
-local W, H, GAP = 108, 44, 3   -- GAP = space between the bar and the card block
+local W, H, GAP = 108, 44, 0   -- cards sit flush under the bar, sharing its background
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end
@@ -294,9 +294,7 @@ function T:Init()
   local holder = CreateFrame("Frame", "ChillanTiles", UIParent)
   holder:SetFrameStrata("MEDIUM")
   holder:SetPoint("TOPLEFT", m, "BOTTOMLEFT", 0, -GAP)
-  holder.panel = UI.OverlayPanel(holder, C.window, C.inputLine, false)
-  holder.panel:SetAllPoints()
-  holder.panel:SetFrameLevel(holder:GetFrameLevel())
+  holder:SetFrameLevel(m:GetFrameLevel() + 5)
   self.holder = holder
 
   -- "+"-knapp på minibaren

@@ -197,10 +197,16 @@ function E:Create()
     ns.Print("Event window hidden. Right-click the Chillan? bar or the minimap button to bring it back.")
   end)
   close:SetPoint("RIGHT", -6, 0)
+  -- attach/detach to the Chillan? bar
+  local dock = UI.IconButton(head, 20, "Up", "Attach to the Chillan? bar", function()
+    E:SetDocked(not ns.db.settings.evDocked)
+  end)
+  self.dockBtn = dock
   -- "–" folds the window down to just the header
   local mini = CreateFrame("Button", nil, head)
   mini:SetSize(20, 20)
   mini:SetPoint("RIGHT", close, "LEFT", -2, 0)
+  dock:SetPoint("RIGHT", mini, "LEFT", -2, 0)
   mini.bar = mini:CreateTexture(nil, "OVERLAY")
   mini.bar:SetSize(10, 2)
   mini.bar:SetPoint("CENTER", 0, 0)
@@ -242,7 +248,7 @@ function E:Create()
     b.line:SetHeight(1)
     b.line:SetPoint("BOTTOMLEFT", 6, 2)
     b.line:SetPoint("BOTTOMRIGHT", -6, 2)
-    if prev then b:SetPoint("RIGHT", prev, "LEFT", 0, 0) else b:SetPoint("RIGHT", mini, "LEFT", -4, 0) end
+    if prev then b:SetPoint("RIGHT", prev, "LEFT", 0, 0) else b:SetPoint("RIGHT", dock, "LEFT", -4, 0) end
     b:SetScript("OnClick", function() ns.db.settings.evFilter = key E:Redraw() end)
     self.filterBtns[key] = b
     prev = b
@@ -325,6 +331,7 @@ function E:Create()
 
   self:Redraw()
   if ns.db.settings.evMin then self:SetMinimized(true, true) end
+  if ns.db.settings.evDocked then C_Timer.After(0.2, function() E:SetDocked(true) end) end
 end
 
 -- Fold to header / unfold. Keeps the header where it is on screen.
@@ -341,7 +348,7 @@ function E:SetMinimized(on, silent)
   if self.grip and not on then self.grip:SetShown(not UI.IsLocked()) end
   for _, b in pairs(self.filterBtns or {}) do b:SetShown(not on) end
   f:SetHeight(on and 28 or sz.h)
-  if top and left and not silent then
+  if top and left and not silent and not f.noMove then
     -- re-anchor by the top-left corner so the header doesn't jump
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
@@ -351,11 +358,70 @@ function E:SetMinimized(on, silent)
   if self.miniBtn then
     self.miniBtn.bar:SetSize(on and 8 or 10, on and 8 or 2)
   end
+  if f.noMove and self.grip then self.grip:Hide() end
+  if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
   if not on then
     self.missed = 0
     self:Redraw()
   end
   self:UpdateCount()
+end
+
+-- Docking: the window hangs under the bar (or the pinned cards), same width, one shared background
+function E:SetDocked(on)
+  ns.db.settings.evDocked = on and true or nil
+  if not on and self.frame then
+    self.frame.noMove = nil
+    self.frame.ofill, self.frame.oline = C.window, C.line
+    self.frame:SetColors(C.window, C.line, UI.OverlayAlpha())
+    if self.topLine then self.topLine:Hide() end
+    UI.RestorePos(self.frame)
+    if self.grip then self.grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin) end
+  end
+  if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
+  if self.dockBtn then
+    self.dockBtn.tooltip = on and "Detach from the Chillan? bar" or "Attach to the Chillan? bar"
+  end
+  self:Redraw()
+end
+
+-- called by the bar when its layout changes; returns true if the window is attached under `anchor`
+function E:Reanchor(anchor)
+  local f = self.frame
+  if not f then return false end
+  local m = ns.Overlays.minibar
+  local want = ns.db.settings.evDocked and f:IsShown() and m and m:IsShown()
+  if not want then
+    if f.noMove then
+      f.noMove = nil
+      f.ofill, f.oline = C.window, C.line
+      f:SetColors(C.window, C.line, UI.OverlayAlpha())
+      if self.topLine then self.topLine:Hide() end
+      local sz = ns.db.settings.evSize or { w = 380, h = 210 }
+      f:SetWidth(sz.w)
+      UI.RestorePos(f)
+    end
+    return false
+  end
+  f.noMove = true
+  f.ofill, f.oline = nil, nil          -- the bar's background shows through
+  f:SetColors(nil, nil)
+  f:SetFrameLevel(m:GetFrameLevel() + 5)
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, 0)
+  f:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, 0)
+  local aw = anchor:GetWidth()
+  if aw and aw > 0 then f:SetWidth(aw) end
+  if not self.topLine then
+    self.topLine = f:CreateTexture(nil, "ARTWORK")
+    self.topLine:SetHeight(1)
+    self.topLine:SetPoint("TOPLEFT", 8, 0)
+    self.topLine:SetPoint("TOPRIGHT", -8, 0)
+  end
+  self.topLine:SetColorTexture(hex(C.line))
+  self.topLine:SetShown(anchor ~= m)    -- the bar draws its own line when we hang right under it
+  if self.grip then self.grip:Hide() end -- width follows the bar; detach to resize
+  return true
 end
 
 function E:UpdateCount()
@@ -371,6 +437,7 @@ end
 function E:Apply()
   if not self.frame then return end
   self.frame:SetShown(ns.db.settings.eventFeed and ns.codeHash ~= nil)
+  if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
 end
 
 -- right-click on the bar / minimap button: bring it back if hidden or folded, otherwise hide it
