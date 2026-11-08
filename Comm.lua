@@ -10,6 +10,7 @@ local queue = { {}, {}, {} } -- prioritet 1 (høy), 2 (normal), 3 (lav)
 Comm._queue = queue
 local tokens = 5
 local MAX_TOKENS = 8
+local RESERVE = { 1, 3, 5 } -- minste antall sendinger igjen før en melding med denne prioriteten går
 local TOKEN_EVERY = 1.0
 local recentWhispers = {}
 local seenIds = {}
@@ -118,6 +119,26 @@ function Comm:RefreshChannelId()
   self.chanId = (id and id > 0) and id or nil
 end
 
+-- Forever (fra 1.60.1) slipper ikke addon-meldinger gjennom egne kanaler: sendingen ser ut
+-- til å gå, men ingen får dem. Vi bruker derfor kanalen bare når noen faktisk har sagt fra
+-- (HR) at de hører oss der. Hvert 5. minutt prøver vi én melding på kanalen i tilfelle
+-- Blizzard åpner den igjen. Kanalen brukes fortsatt til å se hvem som logger på og av.
+Comm.PROBE_EVERY = 300
+function Comm:ChannelUsable()
+  if not self.chanId then return false end
+  if self.chanBlockedAt and (ns.Now() - self.chanBlockedAt) < 1800 then return false end
+  return self.chanOkAt and (ns.Now() - self.chanOkAt) < 180 or false
+end
+
+-- Kanalen er (kanskje) død: send likevel innimellom én prøvemelding der
+function Comm:ChannelProbeDue()
+  if not self.chanId or self:ChannelUsable() then return false end
+  if self.chanBlockedAt and (ns.Now() - self.chanBlockedAt) < 1800 then return false end
+  if self.lastProbe and (ns.Now() - self.lastProbe) < self.PROBE_EVERY then return false end
+  self.lastProbe = ns.Now()
+  return true
+end
+
 ---------------------------------------------------------------------------
 -- Sending med kø (serveren struper addon-meldinger)
 ---------------------------------------------------------------------------
@@ -197,8 +218,10 @@ end
 function Comm:Broadcast(msg, prio, logged)
   if not ns.codeHash then return end
   self:RefreshChannelId()
-  if self.chanId then
+  if self:ChannelUsable() then
     enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(self.chanId), logged = logged }, prio)
+  elseif self:ChannelProbeDue() then
+    enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(self.chanId), logged = logged }, 3)
   end
   local t = ns.Now()
   local groups = {}
@@ -245,7 +268,7 @@ function Comm:SendBye()
   if not ns.codeHash then return end
   local msg = self:Build("BY", ns.pid)
   self:RefreshChannelId()
-  if self.chanId then pcall(C_ChatInfo.SendAddonMessage, ns.PREFIX, msg, "CHANNEL", tostring(self.chanId)) end
+  if self:ChannelUsable() then pcall(C_ChatInfo.SendAddonMessage, ns.PREFIX, msg, "CHANNEL", tostring(self.chanId)) end
   local t, n, done = ns.Now(), 0, {}
   for char, r in pairs(ns.db.roster) do
     if n < 10 and r.heard and (t - r.heard) < 120 and not (r.chan and (t - r.chan) < self.CHAN_FRESH)
@@ -336,7 +359,7 @@ function Comm:OnWorldChanged()
     -- 0 = bare ny sone/layer: de andre trenger ikke sende all statistikk på nytt
     local msg = Comm:Build("HI", ns.pid, Comm:MyFull(), 0, ns.VERSION)
     Comm:RefreshChannelId()
-    if Comm.chanId then
+    if Comm:ChannelUsable() then
       enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 1)
     else
       -- uten kanal: hvisk til de vi har hørt nylig
@@ -354,7 +377,7 @@ end
 -- Bare til kanalen (brukes for å tipse om venner som bare nås via whisper)
 function Comm:SendChannel(msg, prio)
   self:RefreshChannelId()
-  if self.chanId and ns.codeHash then
+  if self:ChannelUsable() and ns.codeHash then
     enqueue({ msg = msg, chatType = "CHANNEL", target = tostring(self.chanId) }, prio)
   end
 end
@@ -406,6 +429,10 @@ local function trySend(item)
   local ok, result = pcall(fn, ns.PREFIX, item.msg, item.chatType, target)
   if not ok then Comm.stats.failed = Comm.stats.failed + 1 Comm.stats.lastErr = tostring(result) return false, true end
   if result == nil or result == true or result == 0 then Comm.stats.sent = Comm.stats.sent + 1 return true end
+  if item.chatType == "CHANNEL" and result == 7 then
+    Comm.chanBlockedAt = ns.Now() -- InvalidChannel: kanalen tar ikke imot addon-meldinger
+    return false, true
+  end
   Comm.stats.failed = Comm.stats.failed + 1
   Comm.stats.lastErr = tostring(result)
   if Enum and Enum.SendAddonMessageResult then
@@ -435,6 +462,9 @@ ticker:SetScript("OnUpdate", function(_, dt)
   local t = now()
   for p = 1, 3 do
     local q = queue[p]
+    -- chat, dings og SOS (1) kan alltid sende; status (2) og bakgrunn (3) lar noen
+    -- sendinger stå igjen, så en chatmelding når flere venner med en gang
+    if tokens < RESERVE[p] then q = {} end
     for i = 1, #q do
       local item = q[i]
       if not item.notBefore or item.notBefore <= t then
@@ -494,13 +524,13 @@ local function maybeRelay(msgType, f, text, channel)
   end
   if relaySeen[key] or relayDone[key] then return end
   Comm:RefreshChannelId()
-  if not Comm.chanId then return end
+  if not Comm:ChannelUsable() then return end
   relayDone[key] = true
   -- litt tilfeldig ventetid, så bare én i gjengen trenger å videresende
   C_Timer.After(0.4 + math.random() * 2.5, function()
     if relaySeen[key] then return end
     Comm:RefreshChannelId()
-    if Comm.chanId then
+    if Comm:ChannelUsable() then
       enqueue({ msg = text, chatType = "CHANNEL", target = tostring(Comm.chanId) }, 2)
       relaySeen[key] = GetTime()
     end
@@ -555,7 +585,7 @@ end
 -- Tips gjengen jevnlig om venner som bare nås via whisper, så alle får kontakt
 function Comm:GossipWhisperPeers()
   self:RefreshChannelId()
-  if not self.chanId or not ns.codeHash then return end
+  if not self:ChannelUsable() or not ns.codeHash then return end
   local t, n, told = ns.Now(), 0, {}
   for char, r in pairs(ns.db.roster) do
     if r.pid and not told[r.pid] and r.heard and (t - r.heard) < 120 and r.whisper and (t - r.whisper) < 120
@@ -696,7 +726,10 @@ local NOTICE_TEXT = {
 }
 function Comm:ChannelStatusText()
   self:RefreshChannelId()
-  if self.chanId then return "connected (id " .. self.chanId .. ")" end
+  if self.chanId then
+    if self:ChannelUsable() then return "connected (id " .. self.chanId .. ")" end
+    return "connected (id " .. self.chanId .. ") · used for who logs on/off – the game blocks addon messages in channels, so everything goes by whisper"
+  end
   local parts = { "not connected" }
   if self.lastNotice then parts[#parts + 1] = "server said: " .. (NOTICE_TEXT[self.lastNotice] or self.lastNotice) end
   local n = self:ChannelCount()
@@ -713,6 +746,49 @@ function Comm:Reconnect()
   if self.chanId then return end
   self:JoinChannel()
 end
+
+-- Noen i gjengen logget på (eller kom inn i kanalen): si hei direkte med en gang.
+-- Noen forsvant fra kanalen: send et lite «hei» – er han logget av, svarer serveren
+-- «No player named …», og da vises han som offline med en gang (meldingen skjules).
+local presencePinged = {}
+local function onChannelPresence(joined, playerName, chanBase, chanText)
+  local name = Comm:ChannelName()
+  if not name or not ns.codeHash or type(playerName) ~= "string" or playerName == "" then return end
+  name = name:lower()
+  if ns.isSecret(playerName) then return end
+  local base = (type(chanBase) == "string" and not ns.isSecret(chanBase)) and chanBase or ""
+  local txt = (type(chanText) == "string" and not ns.isSecret(chanText)) and chanText or ""
+  if not (base:lower() == name or txt:lower():find(name, 1, true)) then return end
+  if Comm:IsMe(playerName) then return end
+  local key = norm(playerName) .. (joined and "j" or "l")
+  if presencePinged[key] and (now() - presencePinged[key]) < 20 then return end
+  presencePinged[key] = now()
+  local delay = joined and 1.5 or 4
+  C_Timer.After(delay, function()
+    local r = ns.db.roster[playerName]
+    if joined and r then r.offlineAt = nil end
+    if not joined and r and r.heard and (ns.Now() - r.heard) < 5 then return end
+    enqueue({ msg = Comm:Build("HI", ns.pid, Comm:MyFull(), joined and 1 or 0, ns.VERSION),
+      chatType = "WHISPER", target = playerName, hello = true }, 1)
+  end)
+end
+ns:On("CHAT_MSG_CHANNEL_JOIN", function(_, playerName, _, chanText, _, _, _, _, chanBase)
+  onChannelPresence(true, playerName, chanBase, chanText)
+end)
+ns:On("CHAT_MSG_CHANNEL_LEAVE", function(_, playerName, _, chanText, _, _, _, _, chanBase)
+  onChannelPresence(false, playerName, chanBase, chanText)
+end)
+-- «ikke tillatt i denne kanalen» = kanalen slipper ikke gjennom addon-meldinger
+ns:On("CHAT_MSG_CHANNEL_NOTICE", function(notice, _, _, chanText, _, _, _, _, chanBase)
+  local name = Comm:ChannelName()
+  if not name or type(notice) ~= "string" or ns.isSecret(notice) then return end
+  name = name:lower()
+  local base = (type(chanBase) == "string" and not ns.isSecret(chanBase)) and chanBase:lower() or ""
+  local txt = (type(chanText) == "string" and not ns.isSecret(chanText)) and chanText:lower() or ""
+  if (base == name or txt:find(name, 1, true)) and notice:find("NOT_ALLOWED", 1, true) then
+    Comm.chanBlockedAt = ns.Now()
+  end
+end)
 
 function Comm:InstallFilters()
   buildPatterns()

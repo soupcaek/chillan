@@ -119,6 +119,8 @@ Comm:Handle("HR", function(f, sender)
     if mine == "chan" then
       r.forceWhisper = nil
       p.forceWhisper = nil
+      Comm.chanOkAt = t -- noen hører oss på kanalen: den virker (igjen)
+      Comm.chanBlockedAt = nil
     elseif (GetTime() - startAt) > 40 then
       -- han hører meg ikke på kanalen (annen realm/layer): send alt direkte til ham
       r.forceWhisper = t
@@ -175,5 +177,5 @@ function Sync:Start()
   startAt = GetTime()
   -- tett de første minuttene (rask oppkobling), deretter hvert 30. sekund
   for _, d in ipairs({ 6, 14, 24, 36, 50, 65, 80, 100 }) do C_Timer.After(d, function() Sync:Send() end) end
-  C_Timer.After(100, function() C_Timer.NewTicker(30, function() Sync:Send() end) end)
+  C_Timer.After(100, function() C_Timer.NewTicker(45, function() Sync:Send() end) end)
 end

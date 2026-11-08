@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.20.0", date = "08.11", items = {
+    "Faster sync: since launch the game silently drops addon messages in chat channels, so Chillan? no longer wastes sends there – everything goes straight by whisper (it checks every 5 min in case Blizzard opens channels again)",
+    "Chat, dings and SOS always have sends ready, so a message reaches several friends at once instead of queuing behind background updates",
+    "Less background traffic: your status only goes out when something changed (zone, level, AFK …) or once a minute, map position at most every 40 s, stats every 3 min",
+    "Quicker online/offline: when someone joins or leaves the gang channel you say hi right away, and a friend who logged off shows as offline almost instantly",
+    "Tip: add each other as WoW friends – friends get messages across realms and layers more reliably",
+  } },
   { v = "0.19.1", date = "08.11", items = {
     "@mentions in chat now show the person card on hover too (shift-click pins it), also when gang chat is mirrored into normal WoW chat",
   } },

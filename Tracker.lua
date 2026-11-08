@@ -323,7 +323,9 @@ end
 
 function Tracker:SendStatus(prio)
   if not ns.codeHash then return end
-  ns.Comm:Broadcast(self:BuildST(), prio or 2)
+  local msg = self:BuildST()
+  ns.Comm:Broadcast(msg, prio or 2)
+  if Tracker.MarkStatusSent then Tracker:MarkStatusSent(msg) end
   ns:MarkDirty()
 end
 
@@ -332,6 +334,35 @@ function Tracker:SendStats(prio)
   ns.Comm:Broadcast(self:BuildSS(), prio or 3)
   ns.Comm:Broadcast(self:BuildS2(), 3)
   ns.Comm:Broadcast(self:BuildS3(), 3)
+end
+
+-- Status sendes bare når noe har endret seg (sone, status, level …) – ellers hvert
+-- minutt som «jeg er her». Posisjon på kartet oppdateres maks hvert 40. sekund.
+-- Mindre bakgrunnstrafikk = chat og dings kommer raskere fram.
+local lastST = { at = 0, key = nil, pos = nil }
+-- PROTO~kode~ST~pid~char~class~race~level~zone~sub~status~session~inInst~mapID~x~y~cont~wx~wy~name~version~alias
+local function stKey(msg)
+  local f = ns.Split(msg, "~")
+  local key = table.concat({ f[5] or "", f[8] or "", f[9] or "", f[10] or "", f[11] or "", f[13] or "", f[14] or "",
+    f[20] or "", f[21] or "", f[22] or "" }, "|")
+  return key, (f[15] or "") .. "," .. (f[16] or "")
+end
+
+function Tracker:MarkStatusSent(msg)
+  lastST.at = GetTime()
+  lastST.key, lastST.pos = stKey(msg)
+end
+
+function Tracker:MaybeSendStatus()
+  if not ns.codeHash then return end
+  local msg = self:BuildST()
+  local key, pos = stKey(msg)
+  local age = GetTime() - lastST.at
+  local send = key ~= lastST.key or age >= 60 or (pos ~= lastST.pos and age >= 40)
+  if not send then return end
+  lastST.at, lastST.key, lastST.pos = GetTime(), key, pos
+  ns.Comm:Broadcast(msg, 2)
+  ns:MarkDirty()
 end
 
 local stPending = false
@@ -479,8 +510,8 @@ function Tracker:Start()
   self:InitXP()
 
   C_Timer.NewTicker(15, tick)
-  C_Timer.NewTicker(20, function() Tracker:SendStatus() end)
-  C_Timer.NewTicker(120, function() Tracker:SendStats() end)
+  C_Timer.NewTicker(20, function() Tracker:MaybeSendStatus() end)
+  C_Timer.NewTicker(180, function() Tracker:SendStats() end)
   -- husk økten løpende, slik at oppsummeringen kan vises ved neste innlogging
   C_Timer.NewTicker(20, function() Tracker:SaveSession() end)
 end
