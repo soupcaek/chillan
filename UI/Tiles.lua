@@ -7,7 +7,7 @@ ns.Tiles = T
 
 local MAX = 8
 local PER_ROW = 3
-local W, H, GAP = 108, 44, 0   -- cards sit flush under the bar, sharing its background
+local W, H, GAP = 134, 44, 0   -- cards sit flush under the bar, sharing its background
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end
@@ -243,7 +243,7 @@ function T:Layout()
   local rows = math.ceil(n / PER_ROW)
   -- the block is as wide as the bar (or the bar grows to fit 3 cards); cards split the width evenly
   local m2 = ns.Overlays.minibar
-  local blockW = math.max(cols * W, (m2 and m2.naturalW) or 0)
+  local blockW = math.max(cols * W, ns.Overlays:BaseWidth())
   local tw = math.floor(blockW / cols)
   blockW = tw * cols
   n = 0

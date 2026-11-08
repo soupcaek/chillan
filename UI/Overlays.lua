@@ -147,10 +147,19 @@ function O:UpdateMinibar()
 end
 
 -- bar is as wide as its content, or as the row of pinned cards under it if that is wider
+-- smallest width of the bar group: its own content, or 400 when the event window is attached
+function O:BaseWidth()
+  local m = self.minibar
+  local w = (m and m.naturalW) or 0
+  local E = ns.EventWindow
+  if ns.db.settings.evDocked and E and E.frame and E.frame:IsShown() then w = math.max(w, 400) end
+  return w
+end
+
 function O:FitMinibar()
   local m = self.minibar
   if not m or not m.naturalW then return end
-  local w = math.max(m.naturalW, (ns.Tiles and ns.Tiles.rowWidth) or 0)
+  local w = math.max(self:BaseWidth(), (ns.Tiles and ns.Tiles.rowWidth) or 0)
   m:SetWidth(w)
   if m.plus then
     m.plus:ClearAllPoints()

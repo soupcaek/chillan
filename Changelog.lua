@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.1", date = "08.11", items = {
+    "Wider cards (3 per row now ~400 px), and an attached event window is at least 400 px wide",
+    "Attached event window hides its own online count (the bar shows it) so the filters don't collide",
+  } },
   { v = "0.15.0", date = "08.11", items = {
     "Pinned cards are joined to the Chillan? bar – one panel with a thin line between",
     "Attach the event window to the bar (arrow button in its header, or Settings) – it hangs under the cards with the same width",

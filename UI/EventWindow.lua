@@ -372,13 +372,14 @@ function E:SetDocked(on)
   ns.db.settings.evDocked = on and true or nil
   if not on and self.frame then
     self.frame.noMove = nil
+    if self.count then self.count:Show() end
     self.frame.ofill, self.frame.oline = C.window, C.line
     self.frame:SetColors(C.window, C.line, UI.OverlayAlpha())
     if self.topLine then self.topLine:Hide() end
     UI.RestorePos(self.frame)
     if self.grip then self.grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin) end
   end
-  if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
+  if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() elseif ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
   if self.dockBtn then
     self.dockBtn.tooltip = on and "Detach from the Chillan? bar" or "Attach to the Chillan? bar"
   end
@@ -394,6 +395,7 @@ function E:Reanchor(anchor)
   if not want then
     if f.noMove then
       f.noMove = nil
+      if self.count then self.count:Show() end
       f.ofill, f.oline = C.window, C.line
       f:SetColors(C.window, C.line, UI.OverlayAlpha())
       if self.topLine then self.topLine:Hide() end
@@ -419,7 +421,8 @@ function E:Reanchor(anchor)
     self.topLine:SetPoint("TOPRIGHT", -8, 0)
   end
   self.topLine:SetColorTexture(hex(C.line))
-  self.topLine:SetShown(anchor ~= m)    -- the bar draws its own line when we hang right under it
+  self.topLine:SetShown(anchor ~= m)
+  if self.count then self.count:Hide() end   -- the bar above already shows who's online    -- the bar draws its own line when we hang right under it
   if self.grip then self.grip:Hide() end -- width follows the bar; detach to resize
   return true
 end
