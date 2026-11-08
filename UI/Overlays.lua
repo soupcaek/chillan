@@ -102,6 +102,45 @@ function O:UpdateMinibar()
   m.count:SetPoint("LEFT", x, 0)
   m.count:SetText(#online .. " online")
   local w = x + m.count:GetStringWidth() + 14
+  -- your status as a small clickable pill right after the online count
+  if not m.status then
+    local sb = CreateFrame("Button", nil, m)
+    sb:SetHeight(20)
+    sb.dot = sb:CreateTexture(nil, "OVERLAY")
+    sb.dot:SetTexture(ns.TEX .. "Circle")
+    sb.dot:SetSize(7, 7)
+    sb.dot:SetPoint("LEFT", 4, 0)
+    sb.text = UI.Text(sb, 11, "semi", C.text2)
+    sb.text:SetPoint("LEFT", sb.dot, "RIGHT", 5, 0)
+    sb:SetScript("OnClick", function(self)
+      local items = {}
+      for _, code in ipairs(ns.MANUAL_STATUS) do
+        local label = code == "AUTO" and "Automatic" or ns.STATUS[code].label
+        items[#items + 1] = { text = label, color = code ~= "AUTO" and ns.STATUS[code].color or nil,
+          func = function() ns.Tracker:SetStatus(code) O:UpdateMinibar() end }
+      end
+      UI.Menu(self, items, true)
+    end)
+    sb:SetScript("OnEnter", function(self)
+      self.text:SetTextColor(hex(C.text))
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:AddLine("Your status")
+      GameTooltip:AddLine(ns.db.statusOverride and "Set by you – click to change" or "Automatic – click to set LFG, Needs help or Do not disturb", 0.6, 0.63, 0.66, true)
+      GameTooltip:Show()
+    end)
+    sb:SetScript("OnLeave", function(self) self.text:SetTextColor(hex(C.text2)) GameTooltip:Hide() end)
+    m.status = sb
+  end
+  local SHORT = { QUEST = "Questing", DUNGEON = "Dungeon", BG = "BG", AFK = "AFK", LFG = "LFG", HELP = "Help!", DND = "DND" }
+  local st = ns.Tracker:Status()
+  local info = ns.STATUS[st] or ns.STATUS.QUEST
+  m.status.dot:SetVertexColor(hex(info.color))
+  m.status.text:SetText(SHORT[st] or info.label)
+  m.status:SetWidth(m.status.text:GetStringWidth() + 18)
+  m.countX, m.statusX = x, w - 8
+  m.status:ClearAllPoints()
+  m.status:SetPoint("LEFT", m.statusX, 0)
+  w = w + m.status:GetWidth() + 2
   if m.plus then w = w + 22 end
   m.naturalW = w
   if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() else self:FitMinibar() end
@@ -120,7 +159,15 @@ function O:FitMinibar()
   self:UpdateMinibarExtras()
 end
 
--- extra info in the spare room of a wide bar: session time
+-- newest gang event, shown short in the bar
+ns:Listen("FEEDEVENT", function(text)
+  if type(text) ~= "string" then return end
+  local short = text:gsub("|T.-|t", ""):gsub("^%s+", "")
+  O.lastEvent = { text = short, at = GetTime() }
+  O:UpdateMinibarExtras()
+end)
+
+-- extra info in the spare room of a wide bar: latest event, otherwise session time
 function O:UpdateMinibarExtras()
   local m = self.minibar
   if not m or not m.naturalW then return end
@@ -130,6 +177,35 @@ function O:UpdateMinibarExtras()
   end
   local d = ns.Tracker:S3Data() or {}
   -- session time, only when the bar has room to spare (no growing just for this)
+  -- latest event from the gang fills the spare room (fades out after a minute)
+  local ev = self.lastEvent
+  local evAge = ev and (GetTime() - ev.at) or 999
+  local rightEdge = m:GetWidth() - (m.plus and 28 or 8)
+  if ev and evAge < 75 then
+    -- while an event is fresh it takes the place of "N online" (the avatars still show who's on)
+    m.count:Hide()
+    m.status:ClearAllPoints()
+    m.status:SetPoint("LEFT", m.countX - 4, 0)
+    local leftX = m.countX + m.status:GetWidth() + 2
+    local room = rightEdge - leftX
+    m.extra:ClearAllPoints()
+    m.extra:SetPoint("LEFT", leftX, 0)
+    m.extra:SetWidth(room)
+    m.extra:SetWordWrap(false)
+    m.extra:SetJustifyH("LEFT")
+    m.extra:SetText(ev.text)
+    m.extra:SetAlpha(evAge < 60 and 1 or math.max(0, (75 - evAge) / 15))
+    m.extra:Show()
+    return
+  end
+  m.count:Show()
+  if m.statusX then
+    m.status:ClearAllPoints()
+    m.status:SetPoint("LEFT", m.statusX, 0)
+  end
+  m.extra:SetAlpha(1)
+  m.extra:SetWidth(0)
+  m.extra:SetJustifyH("RIGHT")
   local pinned = {}
   for _, k in ipairs(ns.Tiles and ns.Tiles:List() or {}) do pinned[k] = true end
   local txt = "session " .. ns.Duration(d.sessSec or 0)

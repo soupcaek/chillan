@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.8", date = "08.11", items = {
+    "Your status in the Chillan? bar – click it to set LFG, Needs help or Do not disturb",
+    "The newest gang event shows in the bar for a minute (session time when nothing is happening)",
+  } },
   { v = "0.14.7", date = "08.11", items = {
     "Pinned cards are one block with thin divider lines, tucked right under the bar",
     "The Chillan? bar shows your session time when it has room",
