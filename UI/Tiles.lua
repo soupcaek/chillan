@@ -243,9 +243,12 @@ function T:Layout()
   local rows = math.ceil(n / PER_ROW)
   -- the block is as wide as the bar (or the bar grows to fit 3 cards); cards split the width evenly
   local m2 = ns.Overlays.minibar
-  local blockW = math.max(cols * W, ns.Overlays:BaseWidth())
-  local tw = math.floor(blockW / cols)
-  blockW = tw * cols
+  -- attached chat lets you drag the group narrower, so cards may shrink to 110 px (never less)
+  local E = ns.EventWindow
+  local docked = ns.db.settings.evDocked and E and E.frame and E.frame:IsShown()
+  local blockW = math.max(cols * (docked and 110 or W), ns.Overlays:BaseWidth())
+  blockW = math.floor(blockW)
+  local tw = math.floor(blockW / cols)   -- the last column takes the leftover pixels
   n = 0
   for i = 1, MAX do
     local t = self.tiles[i] or makeTile(i)
@@ -256,7 +259,7 @@ function T:Layout()
       t.key = key
       local row, col = math.floor((n - 1) / PER_ROW), (n - 1) % PER_ROW
       t:ClearAllPoints()
-      t:SetSize(tw, H)
+      t:SetSize(col == cols - 1 and (blockW - tw * (cols - 1)) or tw, H)
       t:SetPoint("TOPLEFT", self.holder, "TOPLEFT", col * tw, -row * H)
       t:Show()
     else

@@ -152,7 +152,12 @@ function O:BaseWidth()
   local m = self.minibar
   local w = (m and m.naturalW) or 0
   local E = ns.EventWindow
-  if ns.db.settings.evDocked and E and E.frame and E.frame:IsShown() then w = math.max(w, 372) end
+  if ns.db.settings.evDocked and E and E.frame and E.frame:IsShown() then
+    -- attached: the width you dragged to (default ~372), never below what the bar needs or the limits
+    local want = ns.db.settings.evDockW or 372
+    want = math.max(E.DOCK_MIN_W or 330, math.min(E.DOCK_MAX_W or 700, want))
+    w = math.max(w, want)
+  end
   return w
 end
 

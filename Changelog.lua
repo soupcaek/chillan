@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.16.0", date = "08.11", items = {
+    "Attached event window can be resized: drag its corner sideways to change the width of the whole bar group, up/down for the chat height",
+    "Width 330–700 px; cards stay at least 110 px wide; Lock positions also locks this",
+    "Detaching brings the window back to its own old size and place; attaching again restores the attached size",
+  } },
   { v = "0.15.5", date = "08.11", items = {
     "Fix: Lua error when detaching the event window from the bar",
   } },

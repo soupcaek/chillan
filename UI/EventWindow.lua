@@ -303,12 +303,38 @@ function E:Create()
   gt:SetVertexColor(hex(C.muted))
   grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin)
   ns:Listen("LOCK_CHANGED", function(v) grip:SetShown(not v and not ns.db.settings.evMin) end)
-  grip:SetScript("OnMouseDown", function()
+  grip:SetScript("OnMouseDown", function(g)
     if UI.IsLocked() then return end
+    if f.noMove then
+      -- attached: sideways = width of the whole bar group, up/down = height of the chat
+      local S = ns.db.settings
+      local sc = f:GetEffectiveScale()
+      local cx, cy = GetCursorPosition()
+      local startW = ns.Overlays.minibar and ns.Overlays.minibar:GetWidth() or 372
+      local startH = f:GetHeight()
+      g.docking = true
+      g:SetScript("OnUpdate", function()
+        local x, y = GetCursorPosition()
+        local w = math.floor(math.max(E.DOCK_MIN_W, math.min(E.DOCK_MAX_W, startW + (x - cx) / sc)))
+        local h = math.floor(math.max(130, math.min(600, startH - (y - cy) / sc)))
+        if w ~= S.evDockW then
+          S.evDockW = w
+          if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() else ns.Overlays:FitMinibar() end
+        end
+        if h ~= S.evDockH then S.evDockH = h f:SetHeight(h) end
+      end)
+      return
+    end
     f.sizing = true
     f:StartSizing("BOTTOMRIGHT")
   end)
-  grip:SetScript("OnMouseUp", function()
+  grip:SetScript("OnMouseUp", function(g)
+    if g.docking then
+      g.docking = nil
+      g:SetScript("OnUpdate", nil)
+      E:Redraw()
+      return
+    end
     if not f.sizing then return end
     f.sizing = nil
     f:StopMovingOrSizing()
@@ -349,7 +375,7 @@ function E:SetMinimized(on, silent)
   end
   if self.grip and not on then self.grip:SetShown(not UI.IsLocked()) end
   for _, b in pairs(self.filterBtns or {}) do b:SetShown(not on) end
-  f:SetHeight(on and 28 or sz.h)
+  f:SetHeight(on and 28 or (f.noMove and (S.evDockH or sz.h)) or sz.h)
   if top and left and not silent and not f.noMove then
     -- re-anchor by the top-left corner so the header doesn't jump
     f:ClearAllPoints()
@@ -360,7 +386,7 @@ function E:SetMinimized(on, silent)
   if self.miniBtn then
     self.miniBtn.bar:SetSize(on and 8 or 10, on and 8 or 2)
   end
-  if f.noMove and self.grip then self.grip:Hide() end
+  if f.noMove and self.grip then self.grip:SetShown(not on and not UI.IsLocked()) end
   if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
   if not on then
     self.missed = 0
@@ -380,6 +406,8 @@ function E:SetDocked(on)
   self:Redraw()
 end
 
+E.DOCK_MIN_W, E.DOCK_MAX_W = 330, 700
+
 -- called by the bar when its layout changes; returns true if the window is attached under `anchor`
 function E:Reanchor(anchor)
   local f = self.frame
@@ -393,8 +421,9 @@ function E:Reanchor(anchor)
       f.ofill, f.oline = C.window, C.line
       f:SetColors(C.window, C.line, UI.OverlayAlpha())
       if self.topLine then self.topLine:Hide() end
+      -- back to the detached window's own size and place, whatever size it had while attached
       local sz = ns.db.settings.evSize or { w = 380, h = 210 }
-      f:SetWidth(sz.w)
+      f:SetSize(sz.w, ns.db.settings.evMin and 28 or sz.h)
       UI.RestorePos(f)
       if self.grip then self.grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin) end
     end
@@ -417,8 +446,11 @@ function E:Reanchor(anchor)
   end
   self.topLine:SetColorTexture(hex(C.line))
   self.topLine:SetShown(anchor ~= m)
-  if self.count then self.count:Hide() end   -- the bar above already shows who's online    -- the bar draws its own line when we hang right under it
-  if self.grip then self.grip:Hide() end -- width follows the bar; detach to resize
+  if self.count then self.count:Hide() end   -- the bar above already shows who's online
+  -- attached height is remembered separately from the detached window's size
+  local S = ns.db.settings
+  f:SetHeight(S.evMin and 28 or (S.evDockH or (S.evSize and S.evSize.h) or 210))
+  if self.grip then self.grip:SetShown(not UI.IsLocked() and not S.evMin) end
   return true
 end
 
