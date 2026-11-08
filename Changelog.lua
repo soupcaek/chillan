@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.2", date = "08.11", items = {
+    "Reactions sit on their own line under the death/ding/achievement in the event window",
+  } },
   { v = "0.15.1", date = "08.11", items = {
     "Wider cards (3 per row now ~400 px), and an attached event window is at least 400 px wide",
     "Attached event window hides its own online count (the bar shows it) so the filters don't collide",

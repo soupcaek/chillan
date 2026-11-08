@@ -25,7 +25,7 @@ local function visible(kind)
   return kind == "chat"
 end
 
--- Reaksjoner som «brikker» bak hendelsen: Hahaha! 2   F   RIP
+-- Reaksjoner som «brikker» på egen linje under hendelsen: Hahaha! 2   F   RIP
 -- (hold musa over en brikke for å se hvem). Linja oppdaterer seg selv.
 local function chips(item)
   if not item or not item.reacts or #item.reacts == 0 then return "" end
@@ -47,7 +47,8 @@ local function chips(item)
       .. ns.Colorize("[ ", br) .. ns.Colorize(o.label, C.purple) .. (n > 1 and ns.Colorize(" " .. n, C.muted) or "")
       .. ns.Colorize(" ]", br) .. "|h"
   end
-  return "    " .. table.concat(parts, " ")
+  -- own line under the event, indented past the timestamp
+  return "\n            " .. table.concat(parts, "  ")
 end
 
 local function render(e)
