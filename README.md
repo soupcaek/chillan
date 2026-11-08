@@ -62,6 +62,6 @@ Hurtigtaster for å åpne Chillan, gjengchatten og SOS kan settes under **Esc �
 
 ## For utvikler: ny versjon
 
-Endre tallet i `VERSION` (f.eks. `0.2.0`) og push til `main`. GitHub Actions lager taggen `v0.2.0`, bygger zip-filen med BigWigs-packageren og legger den ut som release.
+Endre tallet i `VERSION` (f.eks. `0.22.0`) og push til `main`. Hver natt kl. 03:00 norsk tid lager GitHub Actions taggen `v0.22.0`, bygger zip-filen og legger den ut som release – så gjengen får maks én oppdatering i døgnet. Haster det: **Actions → Release → Run workflow**.
 
 Font: Inter (SIL Open Font License).

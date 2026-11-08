@@ -1,12 +1,16 @@
 name: Release
 
-# Ny versjon: endre tallet i VERSION-fila (f.eks. 0.2.0) og push til main.
-# Da lages taggen v0.2.0, zip-filen bygges, og den legges ut som en
-# GitHub-release som WowUp finner automatisk.
+# Nattlig utgivelse: endre tallet i VERSION-fila (f.eks. 0.22.0) og push til main så ofte
+# du vil i løpet av dagen. Kl. 03:00 norsk tid sjekker denne jobben om VERSION har en
+# release fra før – hvis ikke bygges zip-filen og legges ut som GitHub-release, som
+# WowUp finner. Da får gjengen maks én oppdatering i døgnet, med alt samlet.
+# Haster det (f.eks. en feil som ødelegger noe): kjør jobben manuelt under
+# Actions → Release → Run workflow, så går den ut med en gang.
 on:
-  push:
-    branches: [main]
-    paths: [VERSION]
+  schedule:
+    # GitHub bruker UTC: 01:00 UTC = 03:00 sommertid, 02:00 UTC = 03:00 vintertid
+    - cron: "0 1 * * *"
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +29,15 @@ jobs:
       - name: Les versjon
         id: v
         run: |
+          # planlagte kjøringer: bare rundt 03:00 i Norge (den andre cron-tiden hoppes over)
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            H=$(TZ=Europe/Oslo date +%H)
+            if [ "$H" -lt 3 ] || [ "$H" -gt 5 ]; then
+              echo "Klokka er $H i Norge – venter til 03:00."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           VERSION="v$(tr -d '[:space:]' < VERSION)"
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
           if gh release view "$VERSION" >/dev/null 2>&1; then
