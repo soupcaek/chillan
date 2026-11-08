@@ -198,6 +198,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Quest buddy", "questBuddy", nil, "Alert when you pick up a quest a friend also has (not when you're grouped)." },
     { "Group radar", "radar", nil, "Alert when a friend within ±3 levels is in your zone and you're not grouped (max once per 30 min)." },
     { "Weekly titles", "titles", function() ns:MarkDirty() end, "Alert when a title like «Floor Inspector» changes hands." },
+    { "Friends on the world map", "mapPins", function() ns:Fire("MAP_PINS") end, "Class-coloured pins where your friends are." },
+    { "Offline friends on the map (last known spot, dimmed)", "mapPinsOffline", function() ns:Fire("MAP_PINS") end },
     { "Gang notes on the map", "mapNotes", function() ns:Fire("MAP_PINS") end, "Alt + right-click the world map to add one. Right-click your own note to remove it." },
     { "Share blue drops in the feed (not just epics)", "blueLoot", function(v) S().lootMinQuality = v and 3 or 4 end },
   })

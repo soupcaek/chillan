@@ -395,8 +395,14 @@ end
 -- Si fra én gang per økt hvis en venn har nyere versjon av Chillan?
 local updateNoticeShown = false
 function Data:CheckVersion(theirVersion, pid)
-  if updateNoticeShown or not theirVersion or theirVersion == "" then return end
+  if not theirVersion or theirVersion == "" then return end
   if ns.VERSION:find("dev", 1, true) then return end
+  -- remember the newest version anyone in the gang has (shown in the main window header)
+  if ns.NewerVersion(theirVersion, ns.VERSION) and (not ns.newestVersion or ns.NewerVersion(theirVersion, ns.newestVersion)) then
+    ns.newestVersion, ns.newestVersionPid = theirVersion, pid
+    ns:Fire("BADGES")
+  end
+  if updateNoticeShown then return end
   if ns.NewerVersion(theirVersion, ns.VERSION) then
     updateNoticeShown = true
     local p = ns:GetPerson(pid)
@@ -560,7 +566,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if b == "G" or b == "L" then
       local def = ns.Ach and ns.Ach.byId[a]
       ns.Extras:AddChronicle("ACH:" .. tostring(a) .. ":" .. tostring(pid), t, pid, char,
-        "unlocked «" .. (def and def.name or tostring(a)) .. "» (" .. (b == "L" and "legendarisk" or "gull") .. ")",
+        "unlocked «" .. (def and def.name or tostring(a)) .. "» (" .. (b == "L" and "legendary" or "gold") .. ")",
         "Trophy", b == "L" and "F0A8D0" or "E0C068")
     end
   elseif kind == "DEAD" then

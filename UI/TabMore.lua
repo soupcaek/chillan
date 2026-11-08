@@ -89,7 +89,7 @@ ns:RegisterTab("more", "More", "More", function(tab)
   tip:SetText("Colours, notifications, position lock and modules are under Settings in the menu on the left.\n\nUseful commands:\n/chill · /cg text · /chill sos · /chill events · /chill lock · /chill debug")
   local ver = UI.Text(left, 11, nil, C.dim)
   ver:SetPoint("LEFT", h, "RIGHT", 10, 0)
-  ver:SetText("versjon " .. ns.VERSION)
+  ver:SetText("version " .. ns.VERSION)
 
   -- Høyre: fiendelogg og "kan lage"
   local right = CreateFrame("Frame", nil, general)

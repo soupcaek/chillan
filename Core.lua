@@ -178,9 +178,11 @@ function ns.EncodeItems(text)
     if n > ns.MAX_CHAT_ITEMS then return "" end
     return "{i:" .. id .. "}"
   end
-  -- full coloured link, then bare link
-  text = text:gsub("|c%x%x%x%x%x%x%x%x|Hitem:(%d+)[^|]*|h%[[^%]]*%]|h|r", enc)
-  text = text:gsub("|Hitem:(%d+)[^|]*|h%[[^%]]*%]|h", enc)
+  -- the link itself (any colour format around it is stripped below)
+  text = text:gsub("|Hitem:(%d+)[^|]*|h.-|h", enc)
+  -- remove every other escape code: old |cffRRGGBB, new |cnIQ2: / |cn...: colours, |r, textures, other links
+  text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", "")
+  text = text:gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|H.-|h(.-)|h", "%1")
   return text
 end
 
@@ -199,20 +201,72 @@ local function itemInfo(id)
   return name, quality
 end
 
--- text (already cleaned) -> display string with base colour on the plain parts and real item links
+-- @names in class colour: lookup of every name a person can be mentioned by
+local function mentionColors()
+  local map = { all = "E0C068", alle = "E0C068" }
+  for _, p in pairs(ns.db.people or {}) do
+    local main = ns:PersonChar(p) or {}
+    local r, g, b = ns.ClassColor(main.class)
+    local col = string.format("%02X%02X%02X", math.floor(r * 255), math.floor(g * 255), math.floor(b * 255))
+    local alias = ns:PersonAlias(p)
+    if alias and alias ~= "" then map[alias:lower()] = col end
+    for _, c in pairs(p.chars or {}) do
+      if c.name then
+        local cr, cg, cb = ns.ClassColor(c.class or main.class)
+        local cc = string.format("%02X%02X%02X", math.floor(cr * 255), math.floor(cg * 255), math.floor(cb * 255))
+        map[c.name:lower()] = cc
+        local first = c.name:match("^(%S+)")
+        if first and #first >= 3 and not map[first:lower()] then map[first:lower()] = cc end
+      end
+    end
+  end
+  return map
+end
+
+local function colorMentions(plain, baseHex, map)
+  if not plain:find("@", 1, true) then return ns.Colorize(plain, baseHex) end
+  local out, pos = {}, 1
+  while true do
+    local at = plain:find("@", pos, true)
+    if not at then break end
+    -- try "two words", then "one word" after the @
+    local two = plain:match("^@(%S+ %S+)", at)
+    local one = plain:match("^@(%S+)", at)
+    local name, col
+    if two and map[two:lower():gsub("[%p]+$", "")] then
+      name = two:gsub("[%p]+$", "") col = map[name:lower()]
+    elseif one and map[one:lower():gsub("[%p]+$", "")] then
+      name = one:gsub("[%p]+$", "") col = map[name:lower()]
+    end
+    if name then
+      if at > pos then out[#out + 1] = ns.Colorize(plain:sub(pos, at - 1), baseHex) end
+      out[#out + 1] = ns.Colorize("@" .. name, col)
+      pos = at + 1 + #name
+    else
+      out[#out + 1] = ns.Colorize(plain:sub(pos, at), baseHex)
+      pos = at + 1
+    end
+  end
+  if pos <= #plain then out[#out + 1] = ns.Colorize(plain:sub(pos), baseHex) end
+  return table.concat(out)
+end
+
+-- text (already cleaned) -> display string with base colour on the plain parts, @names in
+-- class colour and real item links
 function ns.RenderChatText(text, baseHex)
   text = text or ""
-  if not text:find("{i:", 1, true) then return ns.Colorize(text, baseHex) end
+  local map = text:find("@", 1, true) and mentionColors() or {}
+  if not text:find("{i:", 1, true) then return colorMentions(text, baseHex, map) end
   local out, pos = {}, 1
   for s, id, e in text:gmatch("(){i:(%d+)}()") do
-    if s > pos then out[#out + 1] = ns.Colorize(text:sub(pos, s - 1), baseHex) end
+    if s > pos then out[#out + 1] = colorMentions(text:sub(pos, s - 1), baseHex, map) end
     local nid = tonumber(id)
     local name, q = itemInfo(nid)
     local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[q or 1]) or "FFFFFF"
     out[#out + 1] = "|Hitem:" .. id .. "|h" .. ns.Colorize("[" .. (name or "loading…") .. "]", name and hexq or ns.C.dim) .. "|h"
     pos = e
   end
-  if pos <= #text then out[#out + 1] = ns.Colorize(text:sub(pos), baseHex) end
+  if pos <= #text then out[#out + 1] = colorMentions(text:sub(pos), baseHex, map) end
   return table.concat(out)
 end
 
@@ -350,7 +404,7 @@ end
 local DEFAULTS = {
   version = 1,
   settings = {
-    minibar = true, sounds = true, toasts = true, mapPins = true,
+    minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
     accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
@@ -561,7 +615,7 @@ end
 
 -- Kortnavn (= hele karakternavnet) for lister og varsler
 function ns:PersonFirst(p)
-  return ns:PersonName(p)
+  return ns:PersonAlias(p) or ns:PersonName(p)
 end
 
 -- IRL-navnet personen har skrevet inn (gjelder alle karakterene deres)

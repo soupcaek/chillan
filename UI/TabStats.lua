@@ -232,12 +232,12 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local COLS = {
     { key = "rank", label = "#", w = 24 },
     { key = "name", label = "Player", w = 0 },
-    { key = "level", label = "Level", w = 42 },
-    { key = "quests", label = "Quests", w = 50 },
-    { key = "gold", label = "Gold", w = 62 },
-    { key = "kills", label = "Kills", w = 40 },
-    { key = "deaths", label = "Deaths", w = 34 },
-    { key = "points", label = "Points", w = 44 },
+    { key = "level", label = "Lvl", w = 34, tip = "Highest character level" },
+    { key = "quests", label = "Quests", w = 48, tip = "Quests completed" },
+    { key = "gold", label = "Gold", w = 50, tip = "Gold earned (looted, quest rewards, sales)" },
+    { key = "kills", label = "PvP", w = 34, tip = "PvP kills (honorable kills)" },
+    { key = "deaths", label = "Died", w = 34, tip = "Deaths" },
+    { key = "points", label = "Pts", w = 40, tip = "Achievement points from the Trophies tab:\nBronze 5 · Silver 10 · Gold 25 · Legendary 50\n(always all-time, not just this week)" },
   }
   local seg = UI.Panel(tablePage, C.input, C.inputLine, true)
   seg:SetSize(170, 28)
@@ -292,6 +292,13 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       local hit = CreateFrame("Button", nil, header)
       hit:SetAllPoints(t)
       hit:SetScript("OnClick", function() sortKey = col.key tab:Refresh() end)
+      hit:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(col.tip or col.label)
+        GameTooltip:AddLine("Click to sort", 0.6, 0.63, 0.66)
+        GameTooltip:Show()
+      end)
+      hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
   end
   layoutCols(header, headerTexts)
@@ -340,7 +347,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     local c = ns:PersonChar(p) or {}
     row.cells.rank:SetText(idx)
     row.cells.rank:SetTextColor(hex(medal[idx] or C.dim))
-    row.cells.name:SetText(ns:PersonLabel(p))
+    row.cells.name:SetText(ns:ShortWho(p))   -- alias in class colour (full name on hover)
     row.cells.level:SetText(ns:PersonMaxLevel(p))
     row.cells.quests:SetText(math.floor(value(p, "quests")))
     row.cells.gold:SetText(math.floor(value(p, "gold") / 10000) .. "g")
@@ -422,7 +429,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   -------------------------------------------------------------------------
   local historyPage = newPage("history")
   local hseg = UI.Panel(historyPage, C.input, C.inputLine, true)
-  hseg:SetSize(3 * 96 + 6, 28)
+  hseg:SetSize(4 * 96 + 6, 28)
   hseg:SetPoint("TOPLEFT", 0, 0)
   local hsegBtns, histFrames = {}, {}
   local function paintHist()
@@ -434,7 +441,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end
     for k, f in pairs(histFrames) do f:SetShown(k == histMode) end
   end
-  for i, def in ipairs({ { "milestones", "Milestones" }, { "dungeons", "Dungeons" }, { "facts", "Fun facts" } }) do
+  for i, def in ipairs({ { "feed", "Feed" }, { "milestones", "Milestones" }, { "dungeons", "Dungeons" }, { "facts", "Fun facts" } }) do
     local b = UI.Button(hseg, 94, 22, def[2], "nav", function() histMode = def[1] paintHist() tab:Refresh() end)
     b:SetPoint("LEFT", 3 + (i - 1) * 96, 0)
     hsegBtns[def[1]] = b
@@ -515,6 +522,21 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   dgList:SetAllPoints()
   dgList.emptyText = "No finished dungeons yet. Runs are logged automatically (time, deaths and bosses) – the fastest run per dungeon shows here."
 
+  -- the gang feed (moved here from the Chat tab): every ding, drop, death and SOS, newest at the bottom
+  local feedPage = histFrame("feed")
+  local feedBox = UI.Panel(feedPage, C.card, C.line, false)
+  feedBox:SetAllPoints()
+  local feedMsgs = UI.MessageFrame(feedBox, 12)
+  feedMsgs:SetPoint("TOPLEFT", 14, -12)
+  feedMsgs:SetPoint("BOTTOMRIGHT", -14, 12)
+  feedMsgs:SetSpacing(6)
+  local function drawFeed()
+    feedMsgs:Clear()
+    local feed = ns.db.feed or {}
+    for i = math.max(1, #feed - 80), #feed do feedMsgs:AddMessage(ns.FeedLine(feed[i], true)) end
+    if #feed == 0 then feedMsgs:AddMessage(ns.Colorize("Dings, drops, deaths and SOS calls show up here.", C.dim)) end
+  end
+
   local factsPage = histFrame("facts")
   local factsBox = UI.Panel(factsPage, C.card, C.line, false)
   factsBox:SetAllPoints()
@@ -589,13 +611,13 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end
     local gpid, gcount = nil, 0
     for pid, v in pairs(grats) do if v > gcount then gpid, gcount = pid, v end end
-    if gpid then entries[#entries + 1] = { "Star", C.purple, "Most congratulated", nameOf(ns:GetPerson(gpid) or {}) .. " – " .. gcount .. " gratulasjoner" } end
+    if gpid then entries[#entries + 1] = { "Star", C.purple, "Most congratulated", nameOf(ns:GetPerson(gpid) or {}) .. " – " .. gcount .. " reactions" } end
     -- Mest pratsom
     local talk = {}
     for _, it in ipairs(ns.db.chat) do talk[it.pid] = (talk[it.pid] or 0) + 1 end
     local tpid, tcount = nil, 0
     for pid, v in pairs(talk) do if v > tcount then tpid, tcount = pid, v end end
-    if tpid then entries[#entries + 1] = { "Chat", C.accent, "Most talkative", nameOf(ns:GetPerson(tpid) or {}) .. " – " .. tcount .. " meldinger" } end
+    if tpid then entries[#entries + 1] = { "Chat", C.accent, "Most talkative", nameOf(ns:GetPerson(tpid) or {}) .. " – " .. tcount .. " messages" } end
 
     if #entries == 0 then
       facts:AddMessage(ns.Colorize("No facts yet – play a bit and they show up here.", C.dim))
@@ -675,7 +697,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       for key, t in pairs(headerTexts) do t:SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
     elseif page == "history" then
       paintHist()
-      if histMode == "milestones" then msList:SetData(ns.Extras:Chronicle())
+      if histMode == "feed" then drawFeed()
+      elseif histMode == "milestones" then msList:SetData(ns.Extras:Chronicle())
       elseif histMode == "dungeons" then dgList:SetData(ns.Extras:DungeonRecords())
       else drawFacts() end
     elseif page == "titles" then
@@ -693,7 +716,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     if daysLeft == 0 then daysLeft = 7 end
     if leader then
       local lc = ns:PersonChar(leader) or {}
-      ch.sub:SetText("Leader: " .. ns:PersonLabel(leader) .. " – " .. chal.fmt(v))
+      ch.sub:SetText("Leader: " .. ns:ShortWho(leader) .. " – " .. chal.fmt(v))
     else
       ch.sub:SetText("No points yet")
     end
@@ -713,7 +736,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     if worst then
       local wc = ns:PersonChar(worst) or {}
       shame.big:SetText(math.floor(wv))
-      shame.who:SetText("deaths · " .. ns:PersonLabel(worst))
+      shame.who:SetText("deaths · " .. ns:ShortWho(worst))
       shame.last:SetText(worst.deathZone and ("Last: " .. worst.deathZone .. ", " .. ns.Ago(worst.deathAt)) or "")
     else
       shame.big:SetText("0")
@@ -728,7 +751,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         local p = ns:GetPerson(f.pid) or {}
         local c = (p.chars and p.chars[f.char]) or {}
         local label = key == "MOUNT" and "Mount" or ("Level " .. key:sub(2))
-        lines[#lines + 1] = ns.Colorize(label, C.muted) .. "  " .. ns.Colorize(ns.FirstName(f.char), ns.ClassHex(c.class))
+        lines[#lines + 1] = ns.Colorize(label, C.muted) .. "  " .. ns:ShortWho(p, f.char)
       end
     end
     firsts.text:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("Nobody yet – who'll be first to level 10?", C.muted))

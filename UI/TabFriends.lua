@@ -19,7 +19,7 @@ function ns.Invite(char)
 end
 
 ns:RegisterTab("friends", "Friends", "Friends", function(tab)
-  local filter = "online"
+  local filter = "all"
 
   local head = UI.Text(tab, 15, "semi", C.text)
   head:SetPoint("TOPLEFT", 16, -16)
@@ -28,6 +28,8 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   count:SetPoint("LEFT", head, "RIGHT", 8, 0)
   local mine = UI.Button(tab, 80, 26, "My page", "ghost", function() ns.Window:OpenPlayer(ns.pid) end)
   mine:SetPoint("LEFT", count, "RIGHT", 10, 0)
+  local mapBtn = UI.IconButton(tab, 26, "Map", "Open the world map (friends are pinned on it)", function() ns.OpenMapAt(nil) end)
+  mapBtn:SetPoint("LEFT", mine, "RIGHT", 6, 0)
 
   local filterButtons = {}
   local function setFilter(key)
@@ -42,7 +44,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     tab:Refresh()
   end
   local prev
-  for _, def in ipairs({ { "zone", "Same zone" }, { "all", "All" }, { "online", "Online" } }) do
+  for _, def in ipairs({ { "zone", "Same zone" }, { "online", "Online only" }, { "all", "All" } }) do
     local b = UI.Button(tab, 10, 28, def[2], "ghost", function() setFilter(def[1]) end)
     b:SetWidth(b.label:GetStringWidth() + 22)
     if prev then b:SetPoint("RIGHT", prev, "LEFT", -6, 0) else b:SetPoint("TOPRIGHT", -16, -12) end
@@ -74,12 +76,18 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row.invite:SetPoint("RIGHT", -10, 0)
     row.whisper = UI.IconButton(row, 30, "Chat", "Whisper")
     row.whisper:SetPoint("RIGHT", row.invite, "LEFT", -6, 0)
+    row.wp = UI.IconButton(row, 30, "Map", "Set a waypoint to them")
+    row.wp:SetPoint("RIGHT", row.whisper, "LEFT", -6, 0)
     row.pill = UI.Pill(row)
-    row.pill:SetPoint("RIGHT", row.whisper, "LEFT", -10, 0)
+    row.pill:SetPoint("RIGHT", row.wp, "LEFT", -10, 0)
+    row.sepText = UI.Text(row, 11, "semi", C.dim)
+    row.sepText:SetPoint("BOTTOMLEFT", 6, 8)
+    row.sepText:Hide()
     row.colX = -1
     row:SetScript("OnEnter", function(self)
+      if not self.item or self.item.sep then return end
       self.panel:SetColors(C.cardHover, C.line)
-      if self.item then ns.Overlays:ShowProfile(self, self.item.pid) end
+      ns.Overlays:ShowProfile(self, self.item.pid)
     end)
     row:SetScript("OnLeave", function(self)
       self.panel:SetColors(C.card, C.line)
@@ -87,7 +95,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     end)
     row:SetScript("OnClick", function(self)
       ns.Overlays:HideProfile()
-      if self.item then tab:ToggleQuick(self, self.item) end
+      if self.item and not self.item.sep then tab:ToggleQuick(self, self.item) end
     end)
     return row
   end
@@ -99,7 +107,18 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   measureSub:Hide()
   local function nameText(p) return ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid) end
 
+  local ROW_PARTS = { "panel", "avatar", "name", "sub", "zone", "time", "invite", "whisper", "wp", "pill" }
   local function updateRow(row, p)
+    -- section line between online and offline friends
+    if p.sep then
+      for _, k in ipairs(ROW_PARTS) do if row[k] then row[k]:Hide() end end
+      row.sepText:SetText(p.label)
+      row.sepText:Show()
+      row:SetAlpha(1)
+      return
+    end
+    row.sepText:Hide()
+    for _, k in ipairs({ "panel", "avatar", "name", "sub", "zone", "time", "whisper", "wp", "pill" }) do row[k]:Show() end
     local online = ns:IsOnline(p)
     local c = ns:PersonChar(p) or {}
     local L = p.live or {}
@@ -112,7 +131,8 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       local z = L.zone or ""
       if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
       row.zone:SetText(z)
-      row.time:SetText("Online " .. ns.Duration(ns.Now() - (L.session or ns.Now())))
+      local coords = (L.x and L.y) and string.format("  ·  %.0f, %.0f", L.x * 100, L.y * 100) or ""
+      row.time:SetText("Online " .. ns.Duration(ns.Now() - (L.session or ns.Now())) .. coords)
       row:SetAlpha(1)
       row.invite:Show()
     else
@@ -136,6 +156,15 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     local target = L.char or p.main
     row.whisper:SetScript("OnClick", function() ns.Whisper(target) end)
     row.invite:SetScript("OnClick", function() ns.Invite(target) end)
+    local c2 = c
+    local canWp = online and L.x and L.y and L.mapID
+    row.wp:SetAlpha(canWp and 1 or 0.3)
+    row.wp:SetScript("OnClick", function()
+      if canWp and ns.SetWaypoint(L.mapID, L.x, L.y) then
+        ns.Print("Waypoint set to " .. (ns:PersonAlias(p) or c2.name or "?") .. ".")
+        ns.OpenMapAt(L.mapID)
+      end
+    end)
   end
 
   local list = UI.List(tab, 52, 6, createRow, updateRow)
@@ -190,7 +219,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " in the pocket" end
     if s3.ilvl then parts[#parts + 1] = "ilvl " .. s3.ilvl end
     if s3.dura and s3.dura < 100 then
-      parts[#parts + 1] = ns.Colorize("utstyr " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
+      parts[#parts + 1] = ns.Colorize("gear " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
     end
     quick.info:SetText(table.concat(parts, "  ·  "))
     local target = (p.live and p.live.char) or p.main
@@ -275,6 +304,14 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     end
     local maxCol = math.max(184, (list:GetWidth() or 640) - 360)
     colX = math.floor(math.min(maxCol, math.max(150, w + 18)))
+    -- "All": online on top, then an "Offline" line and the rest dimmed
+    if filter == "all" then
+      local firstOff
+      for i, p in ipairs(people) do if not ns:IsOnline(p) then firstOff = i break end end
+      if firstOff then
+        table.insert(people, firstOff, { sep = true, label = "OFFLINE  ·  " .. (#people - firstOff + 1) })
+      end
+    end
     list:SetData(people)
     if quick:IsShown() then
       if not quick.row or not quick.row.item or quick.row.item.pid ~= quick.pid then

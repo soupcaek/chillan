@@ -190,6 +190,7 @@ function E:Create()
   local title = UI.Text(head, 12, "semi", C.text)
   title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
   title:SetText("Chillan?")
+  self.title = title
   self.count = UI.Text(head, 11, nil, C.muted)
   self.count:SetPoint("LEFT", title, "RIGHT", 6, 0)
 
@@ -423,6 +424,7 @@ function E:Reanchor(anchor)
     if f.noMove then
       f.noMove = nil
       if self.count then self.count:Show() end
+      if self.title then self.title:SetText("Chillan?") end
       f.ofill, f.oline = C.window, C.line
       f:SetColors(C.window, C.line, UI.OverlayAlpha())
       if self.topLine then self.topLine:Hide() end
@@ -452,6 +454,7 @@ function E:Reanchor(anchor)
   self.topLine:SetColorTexture(hex(C.line))
   self.topLine:SetShown(anchor ~= m)
   if self.count then self.count:Hide() end   -- the bar above already shows who's online
+  if self.title then self.title:SetText("Gang feed") end   -- the bar above already says Chillan?
   -- attached height is remembered separately from the detached window's size
   local S = ns.db.settings
   f:SetHeight(S.evMin and 28 or (S.evDockH or (S.evSize and S.evSize.h) or 210))

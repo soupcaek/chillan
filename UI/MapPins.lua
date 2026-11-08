@@ -29,8 +29,12 @@ local function createPin(canvas)
     GameTooltip:AddLine((c.name or "?") .. "  (lvl " .. (c.level or "?") .. ")", r, g, b)
     local L = p.live or {}
     GameTooltip:AddLine((L.sub and L.sub ~= "" and (L.sub .. ", ") or "") .. (L.zone or ""), 0.8, 0.82, 0.85)
-    local st = ns.STATUS[L.status or "QUEST"]
-    if st then GameTooltip:AddLine(st.label, hex(st.color)) end
+    if ns:IsOnline(p) then
+      local st = ns.STATUS[L.status or "QUEST"]
+      if st then GameTooltip:AddLine(st.label, hex(st.color)) end
+    else
+      GameTooltip:AddLine("Offline – last seen here " .. ns.Ago(p.lastSeen), 0.6, 0.63, 0.66)
+    end
     GameTooltip:Show()
   end)
   pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -54,7 +58,11 @@ function P:Update()
   local n = 0
   for pid, p in pairs(ns.db.people) do
     local L = p.live
-    if pid ~= ns.pid and p.main and ns:IsOnline(p) and L and L.cont and L.wx and L.wy then
+    local online = ns:IsOnline(p)
+    -- offline friends: their last known spot, dimmed (if seen within a week)
+    local showOff = not online and ns.db.settings.mapPinsOffline ~= false
+      and (ns.Now() - (p.lastSeen or 0)) < 7 * 86400
+    if pid ~= ns.pid and p.main and (online or showOff) and L and L.cont and L.wx and L.wy then
       local ok, _, pos = pcall(C_Map.GetMapPosFromWorldPos, L.cont, CreateVector2D(L.wx, L.wy), mapID)
       if ok and pos then
         local x, y = pos:GetXY()
@@ -70,9 +78,10 @@ function P:Update()
           pin.ring:SetVertexColor(ns.ClassColor(c.class))
           pin.letter:SetText((c.name or "?"):sub(1, 1):upper())
           pin.letter:SetTextColor(ns.ClassColor(c.class))
-          pin:SetScale(inv * 1.15)
+          pin:SetAlpha(online and 1 or 0.4)
+          pin:SetScale(inv * (online and 1.15 or 0.95))
           pin:ClearAllPoints()
-          pin:SetPoint("CENTER", canvas, "TOPLEFT", (x * w) / (inv * 1.15), (-y * h) / (inv * 1.15))
+          pin:SetPoint("CENTER", canvas, "TOPLEFT", (x * w) / (inv * (online and 1.15 or 0.95)), (-y * h) / (inv * (online and 1.15 or 0.95)))
           pin:Show()
         end
       end

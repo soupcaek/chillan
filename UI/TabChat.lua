@@ -16,7 +16,7 @@ function ns.FeedLine(it, withTime)
     if it.first then text = text .. ns.Colorize(" · first in the gang!", C.gold)
     elseif it.place and tonumber(it.a) and tonumber(it.a) % 10 == 0 then text = text .. " · no. " .. it.place .. " in the gang" end
     if it.reacts and #it.reacts > 0 then
-      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
+      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.purple)
     end
   elseif it.kind == "DEAD" then
     icon, color = "Skull", C.dim
@@ -32,7 +32,7 @@ function ns.FeedLine(it, withTime)
       if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
       link = "[item " .. id .. "]"
     end
-    text = "fikk " .. (link or "something nice")
+    text = "got " .. (link or "something nice")
   elseif it.kind == "MOUNT" then
     icon, color = "Star", C.amber
     text = it.first and ("got a mount – " .. ns.Colorize("first in the gang!", C.gold)) or "got a mount"
@@ -45,7 +45,7 @@ function ns.FeedLine(it, withTime)
     icon, color = "Trophy", tier.color
     text = "unlocked " .. ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
     if it.reacts and #it.reacts > 0 then
-      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " gratulasjon" or " gratulasjoner"), C.purple)
+      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.purple)
     end
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
@@ -113,7 +113,7 @@ function ns.ChatLine(it)
 end
 
 ns:RegisterTab("chat", "Chat", "Chat", function(tab)
-  local FEED_W = 236
+  local FEED_W = 0   -- the feed moved to Stats → History → Feed; chat takes the full width
 
   local h = UI.Text(tab, 15, "semi", C.text)
   h:SetPoint("TOPLEFT", 16, -16)
@@ -122,10 +122,6 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
   hint:SetPoint("LEFT", h, "RIGHT", 10, 0)
   hint:SetText("Tip: /cg text sends straight from normal chat")
 
-  local divider = UI.SolidLine(tab)
-  divider:SetPoint("TOPRIGHT", -FEED_W, 0)
-  divider:SetPoint("BOTTOMRIGHT", -FEED_W, 0)
-  divider:SetWidth(1)
 
   local msgs = UI.MessageFrame(tab, 13)
   msgs:SetPoint("TOPLEFT", 16, -44)
@@ -144,13 +140,12 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
   local sendBtn = UI.Button(tab, 64, 36, "Send", "primary", send)
   sendBtn:SetPoint("LEFT", input, "RIGHT", 8, 0)
 
-  local fh = UI.Text(tab, 15, "semi", C.text)
-  fh:SetPoint("TOPLEFT", tab, "TOPRIGHT", -FEED_W + 14, -16)
-  fh:SetText("Gang feed")
-  local feed = UI.MessageFrame(tab, 12)
-  feed:SetPoint("TOPLEFT", tab, "TOPRIGHT", -FEED_W + 14, -44)
-  feed:SetPoint("BOTTOMRIGHT", -12, 14)
-  feed:SetSpacing(8)
+  local feedLink = UI.Button(tab, 120, 26, "Gang feed ›", "ghost", function()
+    ns.Window:Select("stats")
+    local st = ns.Window.tabs.stats
+    if st and st.SetPage then st:SetPage("history", "feed") end
+  end)
+  feedLink:SetPoint("TOPRIGHT", -16, -12)
 
   local lastChatKey
   ns:Listen("ITEMINFO", function() if tab:IsShown() then tab:Refresh() end end)
@@ -162,11 +157,18 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
       if #ns.db.chat == 0 then
         msgs:AddMessage(ns.Colorize("No messages yet. Say hi to the gang!", C.dim))
       end
-      for _, it in ipairs(ns.db.chat) do msgs:AddMessage(ns.ChatLine(it)) end
+      -- a line whenever the day changes ("Yesterday", "Today", or the date)
+      local lastDay
+      local today, yday = date("%Y-%m-%d"), date("%Y-%m-%d", time() - 86400)
+      for _, it in ipairs(ns.db.chat) do
+        local d = date("%Y-%m-%d", it.t or 0)
+        if d ~= lastDay then
+          lastDay = d
+          local label = d == today and "Today" or (d == yday and "Yesterday" or date("%A %d.%m", it.t or 0))
+          msgs:AddMessage(ns.Colorize("—— " .. label .. " ——", C.dim))
+        end
+        msgs:AddMessage(ns.ChatLine(it))
+      end
     end
-    feed:Clear()
-    local start = math.max(1, #ns.db.feed - 40)
-    for i = start, #ns.db.feed do feed:AddMessage(ns.FeedLine(ns.db.feed[i], true)) end
-    if #ns.db.feed == 0 then feed:AddMessage(ns.Colorize("Dings, drops, deaths and SOS calls show up here.", C.dim)) end
   end
 end)

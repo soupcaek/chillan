@@ -3,7 +3,6 @@ local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
 ns:RegisterTab("quests", "Quests", "Book", function(tab)
-  local COL_GAP = 16
 
   local function column(title, sub, empty)
     local col = CreateFrame("Frame", nil, tab)
@@ -79,27 +78,17 @@ ns:RegisterTab("quests", "Quests", "Book", function(tab)
     return col
   end
 
-  local left = column("Shared quests", "Quests you have that someone in the gang also has",
-    "No shared quests right now. When you pick up a quest a friend has, you'll get a heads-up.")
-  local right = column("Group quests in the gang", "Elite, group and dungeon quests someone has – find people to do them with",
-    "No group quests in the gang yet.")
-
-  left:SetPoint("TOPLEFT", 16, -16)
-  left:SetPoint("BOTTOMLEFT", 16, 14)
-  right:SetPoint("TOPRIGHT", -16, -16)
-  right:SetPoint("BOTTOMRIGHT", -16, 14)
-  tab:SetScript("OnSizeChanged", nil)
-  local function sizeCols()
-    local w = (tab:GetWidth() or 711) - 32 - COL_GAP
-    left:SetWidth(math.floor(w / 2))
-    right:SetWidth(math.floor(w / 2))
-  end
-  sizeCols()
+  -- one list: quests you share with someone first, then group quests others have
+  local col = column("Quests in the gang", "Quests you share with a friend come first, then elite/group/dungeon quests someone has – click to whisper",
+    "No shared or group quests right now. When you pick up a quest a friend has, you'll get a heads-up.")
+  col:SetPoint("TOPLEFT", 16, -16)
+  col:SetPoint("BOTTOMRIGHT", -16, 14)
 
   function tab:Refresh()
-    sizeCols()
     local shared, group = ns.Quests:Overview()
-    left.list:SetData(shared)
-    right.list:SetData(group)
+    local data, seen = {}, {}
+    for _, e in ipairs(shared) do data[#data + 1] = e seen[e.id] = true end
+    for _, e in ipairs(group) do if not seen[e.id] then data[#data + 1] = e end end
+    col.list:SetData(data)
   end
 end)

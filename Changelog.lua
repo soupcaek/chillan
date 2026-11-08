@@ -2,6 +2,16 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.18.0", date = "08.11", items = {
+    "Friends: online on top, then an Offline section (last seen + last zone); waypoint button and coordinates on each friend",
+    "The Map tab is merged into Friends (map button in the header); offline friends show dimmed on the world map at their last spot",
+    "Quests: one list – quests you share first, then group quests",
+    "Chat tab: full width with day separators (Today / Yesterday); the gang feed moved to Stats → History → Feed",
+    "Header shows \"update available\" when someone in the gang has a newer version",
+    "Stats: aliases instead of cut-off names, short column headers with tooltips (incl. what Points are)",
+    "@names in chat show in class colour",
+    "Fixes: item links left \"cnIQ2:\" and \"r\" in chat, leftover Norwegian text, attached feed no longer repeats the Chillan? title, idea status as a coloured pill",
+  } },
   { v = "0.17.0", date = "08.11", items = {
     "@mentions with suggestions: type @ and a few letters – matches aliases, characters and alts; Tab/Enter picks, arrows move",
     "Item links in gang chat: shift-click an item while the chat input is active (max 3 per message)",

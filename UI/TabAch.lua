@@ -172,7 +172,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
     who:SetLabel("Showing: " .. ((pid == ns.pid) and "me" or (ns:PersonAlias(p) or ns:PersonName(p))) .. "  · switch")
     local total = #A.defs
     big:SetText(A:Count(pid) .. " / " .. total)
-    pts:SetText(A:Points(pid) .. " poeng")
+    pts:SetText(A:Points(pid) .. " points")
     -- antall per kategori
     local per, gotPer = {}, {}
     for _, d in ipairs(A.defs) do

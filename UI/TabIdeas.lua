@@ -106,7 +106,12 @@ ns:RegisterTab("ideas", "Ideas", "Star", function(tab)
     row.meta = UI.Text(row, 11, nil, C.muted)
     row.meta:SetPoint("BOTTOMLEFT", 70, 8)
     row.meta:SetPoint("RIGHT", -140, 0)
-    row.status = UI.Button(row, 86, 22, "New", "ghost", function(self)
+    -- status as a coloured pill; the admin clicks it to change status
+    row.pill = UI.Pill(row)
+    row.pill:SetPoint("RIGHT", -36, 0)
+    row.status = CreateFrame("Button", nil, row)
+    row.status:SetAllPoints(row.pill)
+    row.status:SetScript("OnClick", function(self)
       if not row.item or not I:IsAdmin() then return end
       local items = {}
       for _, k in ipairs(I.STATUS_ORDER) do
@@ -114,7 +119,13 @@ ns:RegisterTab("ideas", "Ideas", "Star", function(tab)
       end
       UI.Menu(self, items, true)
     end)
-    row.status:SetPoint("RIGHT", -36, 0)
+    row.status:SetScript("OnEnter", function(self)
+      if not I:IsAdmin() then return end
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine("Click to change status")
+      GameTooltip:Show()
+    end)
+    row.status:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row.del = UI.IconButton(row, 22, "Close", "Delete", function() if row.item then I:Delete(row.item.id) end end)
     row.del:SetPoint("RIGHT", -8, 0)
     row:EnableMouse(true)
@@ -148,8 +159,7 @@ ns:RegisterTab("ideas", "Ideas", "Star", function(tab)
     local p = ns:GetPerson(it.pid) or {}
     row.meta:SetText(ns:ShortWho(p, it.char) .. ns.Colorize("  ·  " .. ns.Ago(it.t) .. ((it.desc and it.desc ~= "") and ("  ·  " .. it.desc) or ""), C.dim))
     local st = I.STATUS[it.status or "new"]
-    row.status:SetLabel(st.name)
-    row.status.label:SetTextColor(hex(st.color))
+    row.pill:Set(st.name, st.color)
     row.del:SetShown(it.pid == ns.pid or I:IsAdmin())
   end
   local ideaList = UI.List(tab, 46, 6, createIdea, updateIdea)

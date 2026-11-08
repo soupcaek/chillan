@@ -90,6 +90,24 @@ function W:Create()
   ver:SetPoint("LEFT", chip, "RIGHT", 10, 0)
   ver:SetText("v" .. ns.VERSION)
   ver:SetTextColor(hex(C.muted))
+  self.ver = ver
+  -- "update available" when someone in the gang runs a newer version
+  local upd = CreateFrame("Button", nil, title)
+  upd:SetHeight(20)
+  upd:SetPoint("LEFT", ver, "RIGHT", 8, 0)
+  upd.text = UI.Text(upd, 11, "semi", C.amber)
+  upd.text:SetPoint("LEFT")
+  upd:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Chillan? " .. tostring(ns.newestVersion) .. " is out")
+    local p = ns.newestVersionPid and ns:GetPerson(ns.newestVersionPid)
+    if p then GameTooltip:AddLine((ns:PersonFirst(p) or "Someone") .. " already has it.", 0.8, 0.82, 0.85) end
+    GameTooltip:AddLine("Update in WowUp, then /reload.", 0.6, 0.63, 0.66)
+    GameTooltip:Show()
+  end)
+  upd:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  upd:Hide()
+  self.updBtn = upd
 
   local close = UI.IconButton(title, 32, "Close", nil, function() f:Hide() end)
   close:SetPoint("RIGHT", -10, 0)
@@ -179,6 +197,14 @@ function W:Create()
 end
 
 function W:UpdateBadges()
+  if self.updBtn then
+    local newer = ns.newestVersion and ns.NewerVersion(ns.newestVersion, ns.VERSION)
+    if newer then
+      self.updBtn.text:SetText("· update available (" .. ns.newestVersion .. ")")
+      self.updBtn:SetWidth(self.updBtn.text:GetStringWidth() + 4)
+    end
+    self.updBtn:SetShown(newer and true or false)
+  end
   for key, b in pairs(self.navButtons or {}) do
     if b.badge then
       local viewing = key == self.current and self.frame and self.frame:IsShown()

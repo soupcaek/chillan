@@ -487,7 +487,7 @@ function UI.AchTooltip(owner, id)
   local tier = ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
   GameTooltip:SetOwner(owner, "ANCHOR_CURSOR")
   GameTooltip:AddLine(d.name, hex(tier.color))
-  GameTooltip:AddLine(tier.name .. " · " .. tier.points .. " poeng", 0.6, 0.63, 0.66)
+  GameTooltip:AddLine(tier.name .. " · " .. tier.points .. " points", 0.6, 0.63, 0.66)
   GameTooltip:AddLine(d.desc or "", 1, 1, 1, true)
   if ns.Ach.Has and ns.Ach:Has(ns.pid, id) then
     GameTooltip:AddLine("You have this one", 0.37, 0.82, 0.55)

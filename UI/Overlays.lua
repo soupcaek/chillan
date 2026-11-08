@@ -710,7 +710,7 @@ function O:ShowDing(item)
     d.icon:SetVertexColor(hex(tier.color))
     d.title:SetText(ns:ShortWho(p, item.char) .. " unlocked " .. ns.Colorize("«" .. def.name .. "»", tier.color))
     parts[#parts + 1] = def.desc
-    parts[#parts + 1] = tier.points .. " poeng"
+    parts[#parts + 1] = tier.points .. " points"
   elseif dead then
     d.kicker:SetText("DEAD!")
     d.kicker:SetTextColor(hex(C.red))
