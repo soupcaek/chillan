@@ -7,7 +7,7 @@ ns.Tiles = T
 
 local MAX = 8
 local PER_ROW = 3
-local W, H, GAP = 134, 44, 0   -- cards sit flush under the bar, sharing its background
+local W, H, GAP = 124, 44, 0   -- cards sit flush under the bar, sharing its background
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end

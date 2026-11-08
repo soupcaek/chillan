@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.15.4", date = "08.11", items = {
+    "Session time removed from the Chillan? bar, and the bar group is a little narrower (~370 px)",
+  } },
   { v = "0.15.3", date = "08.11", items = {
     "Reactions line: a small corner under the event, then the reactions in brackets ([ Gay ]  [ Grats! 2 ])",
   } },

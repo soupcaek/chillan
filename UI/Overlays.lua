@@ -152,7 +152,7 @@ function O:BaseWidth()
   local m = self.minibar
   local w = (m and m.naturalW) or 0
   local E = ns.EventWindow
-  if ns.db.settings.evDocked and E and E.frame and E.frame:IsShown() then w = math.max(w, 400) end
+  if ns.db.settings.evDocked and E and E.frame and E.frame:IsShown() then w = math.max(w, 372) end
   return w
 end
 
@@ -203,7 +203,7 @@ ns:Listen("FEEDEVENT", function(text)
   O:UpdateMinibarExtras()
 end)
 
--- extra info in the spare room of a wide bar: latest event, otherwise session time
+-- extra info in the spare room of a wide bar: the latest gang event
 function O:UpdateMinibarExtras()
   local m = self.minibar
   if not m or not m.naturalW then return end
@@ -242,16 +242,8 @@ function O:UpdateMinibarExtras()
   m.extra:SetAlpha(1)
   m.extra:SetWidth(0)
   m.extra:SetJustifyH("RIGHT")
-  local pinned = {}
-  for _, k in ipairs(ns.Tiles and ns.Tiles:List() or {}) do pinned[k] = true end
-  local txt = "session " .. ns.Duration(d.sessSec or 0)
-  if pinned.session then txt = "today " .. ns.Duration(d.today or 0) end
-  if pinned.session and pinned.today then txt = "" end
-  m.extra:SetText(txt)
-  local spare = m:GetWidth() - m.naturalW
-  m.extra:ClearAllPoints()
-  m.extra:SetPoint("RIGHT", m.plus or m, m.plus and "LEFT" or "RIGHT", -6, 0)
-  m.extra:SetShown(spare >= (m.extra:GetStringWidth() or 0) + 12)
+  m.extra:SetText("")
+  m.extra:Hide()
 end
 
 ---------------------------------------------------------------------------
