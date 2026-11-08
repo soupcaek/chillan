@@ -6,7 +6,7 @@ local T = {}
 ns.Tiles = T
 
 local MAX = 8
-local PER_ROW = 4
+local PER_ROW = 3
 local W, H, GAP = 104, 44, 6
 
 local function me() return ns:GetPerson(ns.pid, true) end
@@ -68,12 +68,19 @@ T.DEFS = {
     local eta = ns.St:ETA(me())
     return eta and ns.Duration(eta) or "–", "to next level"
   end },
+  { key = "lvltime", name = "Time on this level", get = function()
+    local t = ns.Tracker:TimeThisLevel()
+    local c = ns.Tracker:MyChar() or {}
+    local sub = "this level"
+    if c.prevLevelTime and c.prevLevelTime > 0 then sub = "last: " .. ns.Duration(c.prevLevelTime) end
+    return t and ns.Duration(t) or "–", sub
+  end },
   { key = "gold", name = "Gold (+/− this session)", get = function()
     local m = ns.S(GetMoney)
-    if type(m) ~= "number" then return "–", "gull" end
+    if type(m) ~= "number" then return "–", "gold" end
     startMoney = startMoney or m
     local diff = m - startMoney
-    local sub = diff == 0 and "gull" or ((diff > 0 and "+" or "−") .. goldText(math.abs(diff)) .. " this session")
+    local sub = diff == 0 and "gold" or ((diff > 0 and "+" or "−") .. goldText(math.abs(diff)) .. " this session")
     return goldText(m), sub, diff > 0 and C.green or diff < 0 and C.red or nil
   end },
   { key = "rested", name = "Rested XP", get = function()
@@ -220,7 +227,11 @@ function T:Layout()
   local list = self:List()
   local show = m and m:IsShown() and #list > 0
   self.holder:SetShown(show and true or false)
-  if not show then return end
+  if not show then
+    self.rowWidth = 0
+    if ns.Overlays.FitMinibar then ns.Overlays:FitMinibar() end
+    return
+  end
   local n = 0
   for i = 1, MAX do
     local t = self.tiles[i] or makeTile(i)
@@ -240,6 +251,9 @@ function T:Layout()
   end
   local rows = math.ceil(n / PER_ROW)
   self.holder:SetSize(math.min(n, PER_ROW) * (W + GAP), math.max(1, rows) * (H + GAP))
+  -- the bar grows with the cards (up to 3 wide), more cards go downwards
+  self.rowWidth = n > 0 and (math.min(n, PER_ROW) * (W + GAP) - GAP) or 0
+  if ns.Overlays.FitMinibar then ns.Overlays:FitMinibar() end
   self:Update()
 end
 

@@ -500,12 +500,23 @@ function Tracker:SaveSession()
   ns.db.lastSession = self:SessionSummary()
 end
 
-ns:On("TIME_PLAYED_MSG", function(total)
+ns:On("TIME_PLAYED_MSG", function(total, thisLevel)
   if ns.isSecret(total) then return end
   local c = Tracker:MyChar()
   c.played = total
   c.playedAt = ns.Now()
+  if type(thisLevel) == "number" and not ns.isSecret(thisLevel) then
+    c.playedLevel, c.playedLevelAt = thisLevel, ns.Now()
+  end
 end)
+
+-- /played on this level, ticking live (nil until the game has told us once this session)
+function Tracker:TimeThisLevel()
+  local c = self:MyChar()
+  if not c.playedLevel or not c.playedLevelAt then return nil end
+  if c.playedLevelAt < (ns.db.sessionStart or 0) - 5 then return nil end
+  return c.playedLevel + math.max(0, ns.Now() - c.playedLevelAt)
+end
 
 ns:On("PLAYER_LEVEL_UP", function(level)
   if ns.isSecret(level) then return end
@@ -513,6 +524,8 @@ ns:On("PLAYER_LEVEL_UP", function(level)
   c.level = level
   c.hist = c.hist or {}
   table.insert(c.hist, { t = ns.Now(), l = level, p = c.played })
+  c.prevLevelTime = Tracker:TimeThisLevel()
+  c.playedLevel, c.playedLevelAt = 0, ns.Now()
   while #c.hist > 80 do table.remove(c.hist, 1) end
   session.levels = session.levels + 1
   Tracker:AddStat("Levels", 1)

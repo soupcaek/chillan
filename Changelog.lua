@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.5", date = "08.11", items = {
+    "The Chillan? bar grows with your pinned cards (max 3 per row, then they continue downwards)",
+    "New card: Time on this level (live /played for the level, with the previous level's time)",
+  } },
   { v = "0.14.4", date = "07.11", items = {
     "Event window has a \"–\" button (or double-click the header) that folds it down to just the header, with a count of new lines",
     "Right-click the Chillan? bar or minimap button to bring the event window back after closing it with X",

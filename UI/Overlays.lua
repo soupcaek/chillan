@@ -102,13 +102,21 @@ function O:UpdateMinibar()
   m.count:SetPoint("LEFT", x, 0)
   m.count:SetText(#online .. " online")
   local w = x + m.count:GetStringWidth() + 14
+  if m.plus then w = w + 22 end
+  m.naturalW = w
+  if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() else self:FitMinibar() end
+end
+
+-- bar is as wide as its content, or as the row of pinned cards under it if that is wider
+function O:FitMinibar()
+  local m = self.minibar
+  if not m or not m.naturalW then return end
+  local w = math.max(m.naturalW, (ns.Tiles and ns.Tiles.rowWidth) or 0)
+  m:SetWidth(w)
   if m.plus then
     m.plus:ClearAllPoints()
-    m.plus:SetPoint("LEFT", w - 6, 0)
-    w = w + 22
+    m.plus:SetPoint("RIGHT", -4, 0)
   end
-  m:SetWidth(w)
-  if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() end
 end
 
 ---------------------------------------------------------------------------
