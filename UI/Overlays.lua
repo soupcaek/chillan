@@ -206,7 +206,7 @@ end
 -- newest gang event, shown short in the bar
 ns:Listen("FEEDEVENT", function(text)
   if type(text) ~= "string" then return end
-  local short = text:gsub("|T.-|t", ""):gsub("^%s+", "")
+  local short = text:gsub("|T.-|t", ""):gsub("|Hchillan[^|]*|h(.-)|h", "%1"):gsub("^%s+", "")
   O.lastEvent = { text = short, at = GetTime() }
   O:UpdateMinibarExtras()
 end)
@@ -529,106 +529,14 @@ function O:ShowSummary(sum, previous)
 end
 
 ---------------------------------------------------------------------------
--- Profilkort (hover) – stor, lesbar tekst og rader som brytes riktig
+-- Profilkort (hover) – bruker det lille personkortet (UI/PersonCard.lua)
 ---------------------------------------------------------------------------
-local CARD_W, KEY_W = 340, 96
-
-function O:CreateProfile()
-  local f = CreateFrame("Frame", "ChillanProfileCard", UIParent)
-  self.profile = f
-  f:SetWidth(CARD_W)
-  f:SetFrameStrata("TOOLTIP")
-  f:SetClampedToScreen(true)
-  f:Hide()
-  f.panel = UI.Panel(f, C.card, C.activeLine, false)
-  f.panel:SetAllPoints()
-  f.panel:SetFrameLevel(f:GetFrameLevel())
-  f.avatar = UI.Avatar(f, 42)
-  f.avatar:SetPoint("TOPLEFT", 16, -16)
-  f.name = UI.Text(f, 15, "semi", C.text)
-  f.name:SetPoint("TOPLEFT", f.avatar, "TOPRIGHT", 12, -2)
-  f.name:SetPoint("RIGHT", -14, 0)
-  f.sub = UI.Text(f, 12, nil, C.text2)
-  f.sub:SetPoint("BOTTOMLEFT", f.avatar, "BOTTOMRIGHT", 12, 2)
-  f.sub:SetPoint("RIGHT", -14, 0)
-  f.divider = UI.SolidLine(f)
-  f.divider:SetHeight(1)
-  f.divider:SetPoint("TOPLEFT", 16, -70)
-  f.divider:SetPoint("TOPRIGHT", -16, -70)
-  f.rows = {}
-  for i = 1, 8 do
-    local k = UI.Text(f, 12, nil, C.muted)
-    k:SetWidth(KEY_W)
-    local v = UI.Text(f, 13, nil, C.text)
-    v:SetWidth(CARD_W - 32 - KEY_W)
-    v:SetWordWrap(true)
-    v:SetJustifyV("TOP")
-    f.rows[i] = { k = k, v = v }
-  end
-end
-
 function O:ShowProfile(anchor, pid)
-  local p = ns:GetPerson(pid)
-  if not p then return end
-  local f = self.profile
-  local c = ns:PersonChar(p) or {}
-  local online = ns:IsOnline(p)
-  f.avatar:Set(c.name, c.class, online and C.green or nil, C.card)
-  f.name:SetText(ns:PersonLabel(p))
-  local where = (p.live and p.live.zone) or ""
-  f.sub:SetText(online and ("Online " .. (where ~= "" and (" · " .. where) or "")) or ("Offline · last seen " .. ns.Ago(p.lastSeen)))
-  local rows = {}
-  local className = c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""
-  if ns:PersonAlias(p) then rows[#rows + 1] = { "Player", ns:PersonAlias(p) } end
-  rows[#rows + 1] = { "Character", string.format("Level %s %s %s", c.level or "?", c.race or "", className) }
-  local alts = {}
-  for full, ch in pairs(p.chars) do
-    if full ~= p.main then
-      alts[#alts + 1] = ns.Colorize(ns.FirstName(ch.name or full), ns.ClassHex(ch.class)) .. " " .. (ch.level or "")
-    end
-  end
-  if #alts > 0 then rows[#rows + 1] = { "Alts", table.concat(alts, ", ") } end
-  local profs = {}
-  for _, pr in ipairs(p.profs or {}) do profs[#profs + 1] = pr.name .. " " .. pr.skill end
-  if #profs > 0 then rows[#rows + 1] = { "Professions", table.concat(profs, ", ") } end
-  local played = ns:PersonPlayed(p)
-  if played > 0 then rows[#rows + 1] = { "/played", ns.Duration(played) } end
-  rows[#rows + 1] = { "This week", math.floor(ns:WeekStat(p, "Levels")) .. " levels · " .. math.floor(ns:WeekStat(p, "Quests")) .. " quests · " .. ns.Duration(ns:WeekStat(p, "Online")) }
-  if p.deathZone then rows[#rows + 1] = { "Last death", p.deathZone .. " (" .. ns.Ago(p.deathAt) .. ")" } end
-  local titles = {}
-  for _, def in ipairs(ns.Titles:For(p.pid)) do titles[#titles + 1] = ns.Colorize(def.name, C.gold) end
-  if #titles > 0 then rows[#rows + 1] = { "Titles", table.concat(titles, ", ") } end
-  local s3p = ns:PersonS3(p)
-  if s3p and s3p.dura then
-    local dc = s3p.dura <= 10 and C.red or (s3p.dura <= 30 and C.amber or C.text)
-    rows[#rows + 1] = { "Gear", ns.Colorize(s3p.dura .. " % durability", dc) }
-  end
-  if p.version and p.pid ~= ns.pid then rows[#rows + 1] = { "Version", p.version } end
-  local y = -82
-  for i, r in ipairs(f.rows) do
-    local def = rows[i]
-    if def then
-      r.k:ClearAllPoints()
-      r.k:SetPoint("TOPLEFT", 16, y - 1)
-      r.v:ClearAllPoints()
-      r.v:SetPoint("TOPLEFT", 16 + KEY_W, y)
-      r.k:SetText(def[1])
-      r.v:SetText(def[2])
-      r.k:Show() r.v:Show()
-      local h = math.max(16, r.v:GetStringHeight() or 16)
-      y = y - h - 8
-    else
-      r.k:Hide() r.v:Hide()
-    end
-  end
-  f:SetHeight(-y + 10)
-  f:ClearAllPoints()
-  f:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 10, 0)
-  f:Show()
+  ns.PersonCard:Show(anchor, pid)
 end
 
 function O:HideProfile()
-  if self.profile then self.profile:Hide() end
+  ns.PersonCard:Hide()
 end
 
 ---------------------------------------------------------------------------
@@ -1004,7 +912,6 @@ function O:Init()
   self:CreateMinibar()
   self:CreateSOS()
   self:CreateSummary()
-  self:CreateProfile()
   self:CreateDing()
   self:CreateMinimapButton()
   ns:Listen("DING", function(item) if not O:QueueOr("ding", item) then O:ShowDing(item) end end)

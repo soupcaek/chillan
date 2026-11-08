@@ -37,6 +37,7 @@ UI\TabChangelog.lua
 UI\TabPlayer.lua
 UI\TabCompare.lua
 UI\Overlays.lua
+UI\PersonCard.lua
 UI\Tiles.lua
 UI\EventWindow.lua
 UI\Mirror.lua

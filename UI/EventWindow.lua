@@ -286,8 +286,7 @@ function E:Create()
       ns.ShiftLinkItem(link)
       return
     end
-    local pid = type(link) == "string" and link:match("^chillan:(.+)$")
-    if pid and ns.Window and ns.Window.OpenPlayer then ns.Window:OpenPlayer(pid) end
+    if ns.PersonCard:OnLinkClick(link) then return end
     if type(link) == "string" and link:find("^chillantitle:") and ns.Window then
       ns.Window:Create()
       ns.Window.frame:Show()

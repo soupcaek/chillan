@@ -94,6 +94,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       ns.Overlays:HideProfile()
     end)
     row:SetScript("OnClick", function(self)
+      if self.item and not self.item.sep and IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) return end
       ns.Overlays:HideProfile()
       if self.item and not self.item.sep then tab:ToggleQuick(self, self.item) end
     end)

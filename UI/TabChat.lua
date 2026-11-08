@@ -6,7 +6,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  local who = ns:PersonLabel(p, it.char)
+  local who = ns:PersonLinked(p, ns:PersonLabel(p, it.char))
   local icon, color, text = "Star", C.purple, ""
   if it.kind == "DING" then
     icon, color = "Up", C.green
@@ -73,7 +73,7 @@ end
 -- Kort variant til hendelsesfeeden på skjermen
 function ns.FeedShort(it)
   local p = ns:GetPerson(it.pid) or {}
-  local who = ns:ShortWho(p, it.char)
+  local who = ns:PersonLinked(p, ns:ShortWho(p, it.char))
   local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
   if it.kind == "DING" then return I("Up", C.green) .. who .. ns.Colorize(" · level " .. tostring(it.a), C.text2) end
   if it.kind == "DEAD" then return I("Skull", C.red) .. who .. ns.Colorize(" died · " .. tostring(it.a or "?"), C.text2) end
@@ -106,7 +106,7 @@ end
 function ns.ChatLine(it)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
-  local line = ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLabel(p, it.char)
+  local line = ns.Colorize(ns.Clock(it.t), C.dim) .. "  " .. ns:PersonLinked(p, ns:PersonLabel(p, it.char))
     .. "  " .. ns.RenderChatText(it.text, it.mention and C.gold or "D4D7DB")
   if it.mention then line = UI.InlineIcon("At", C.gold, 13) .. " " .. line end
   return line

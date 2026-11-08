@@ -524,6 +524,8 @@ function UI.MessageFrame(parent, size)
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
       pcall(GameTooltip.SetHyperlink, GameTooltip, link)
       GameTooltip:Show()
+    elseif link:find("^chillan:") then
+      ns.PersonCard:Show(self, link:match("^chillan:(.+)$"), "cursor")
     elseif link:find("^chillanach:") then
       UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
     elseif link:find("^chillantitle:") then
@@ -546,9 +548,10 @@ function UI.MessageFrame(parent, size)
       GameTooltip:Show()
     end
   end)
-  m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
+  m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() ns.PersonCard:Hide() end)
   m:SetScript("OnHyperlinkClick", function(_, link)
-    if type(link) == "string" and link:find("^item:") then ns.ShiftLinkItem(link) end
+    if type(link) == "string" and link:find("^item:") then ns.ShiftLinkItem(link) return end
+    ns.PersonCard:OnLinkClick(link)
   end)
   return m
 end

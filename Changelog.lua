@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.19.0", date = "08.11", items = {
+    "Hover a gang member's name in gang chat, the event window, the feed, Friends, Stats or normal WoW chat to see a small card: name, alias, class, level with XP bar, where they are (or last seen) and their latest ding",
+    "Shift-click a name to pin the card: Whisper, Invite, Profile and Waypoint buttons; drag it around, Esc or the X closes it",
+    "The small card replaces the bigger profile card on Friends and Stats rows (everything else is still on the player page)",
+  } },
   { v = "0.18.0", date = "08.11", items = {
     "Friends: online on top, then an Offline section (last seen + last zone); waypoint button and coordinates on each friend",
     "The Map tab is merged into Friends (map button in the header); offline friends show dimmed on the world map at their last spot",

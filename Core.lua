@@ -641,6 +641,12 @@ function ns:PersonLabel(p, char)
   return name
 end
 
+-- Gjør et navn hoverbart (personkort) og klikkbart (spillersiden / shift = fest kortet)
+function ns:PersonLinked(p, text)
+  if p and p.pid then return "|Hchillan:" .. tostring(p.pid) .. "|h" .. text .. "|h" end
+  return text
+end
+
 function ns:PersonMaxLevel(p)
   local lvl = 0
   for _, c in pairs(p.chars or {}) do
