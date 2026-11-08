@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.21.0", date = "08.11", items = {
+    "Chillan? sounds: a soft pop for new gang chat, a chime when you're @mentioned, a sad trombone when someone dies, and a pling when friends log in and out",
+    "Settings → Notifications: turn the chat sound and the log in/out sound on or off",
+    "Restart the game fully once (not just /reload) so it finds the new sound files – until then you hear the old Blizzard sounds",
+  } },
   { v = "0.20.0", date = "08.11", items = {
     "Faster sync: since launch the game silently drops addon messages in chat channels, so Chillan? no longer wastes sends there – everything goes straight by whisper (it checks every 5 min in case Blizzard opens channels again)",
     "Chat, dings and SOS always have sends ready, so a message reaches several friends at once instead of queuing behind background updates",

@@ -60,6 +60,7 @@ Comm:Handle("ST", function(f, sender, channel)
     and (not p.announcedSession or math.abs(sessKey - p.announcedSession) > 2)
   p.announcedSession = sessKey
   if not wasOnline and freshLogin then
+    if ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("online") end
     do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logged in" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Login", ns.C.green, 12) .. "  " .. ns:ShortWho(p) .. ns.Colorize(" logged in", ns.C.text2))
@@ -100,6 +101,7 @@ Comm:Handle("BY", function(f, sender)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
   local p = ns.db.people[pid]
+  if p and ns:IsOnline(p) and ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("offline") end
   if p then
     p.heard, p.via, p.byeAt = nil, nil, ns.Now()
     p.lastSeen = ns.Now()
@@ -623,9 +625,14 @@ local function addChat(id, pid, char, t, text)
   table.sort(ns.db.chat, function(x, y) return x.t < y.t end)
   ns.chatRev = (ns.chatRev or 0) + 1
   ns:Fire("CHAT", item)
+  -- lite «pop» for nye meldinger fra andre (ikke i kamp, ikke historikk, ikke når du blir nevnt)
+  if pid ~= ns.pid and not item.mention and (ns.Now() - t) < 60 and not quiet()
+    and ns.db.settings.chatSound and not InCombatLockdown() then
+    ns.Sound("chat")
+  end
   if item.mention and fresh(t) and not quiet() then
     local p = ns:GetPerson(pid) or {}
-    if ns.db.settings.mentionSound then ns.Sound("online") end
+    if ns.db.settings.mentionSound then ns.Sound("mention") end
     ns:Fire("TOAST", { kind = "mention", pid = pid, char = char,
       title = ns:PersonLabel(p, char) .. " mentioned you", text = ns.Clean(text, 90) })
   end
@@ -760,7 +767,7 @@ Comm:Handle("RX", function(f)
           end
           ns:Fire("TOAST", { kind = "star", title = who .. " congratulated you!", text = what })
         end
-        ns.Sound("online")
+        ns.Sound("notify")
       end)
     end
   end
@@ -817,7 +824,7 @@ Comm:Handle("MH", function(f, sender)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
     title = ns:PersonLabel(ns:GetPerson(f[1], true), f[2]) .. " has what you need",
     text = post and post.text or "Mats" })
-  ns.Sound("online")
+  ns.Sound("notify")
 end)
 
 function Data:ExpireMats()
@@ -1049,7 +1056,7 @@ Comm:Handle("CR", function(f, sender)
   local p = ns:GetPerson(f[1], true)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
     title = ns:PersonLabel(p) .. " asks for a craft", text = (f[3] and f[3] ~= "") and f[3] or "Get in touch in game" })
-  ns.Sound("online")
+  ns.Sound("notify")
 end)
 
 ---------------------------------------------------------------------------

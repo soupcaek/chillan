@@ -188,6 +188,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
       "Dings, deaths, achievements and notifications wait until you leave combat. SOS always shows right away." },
     { "Sound and alert when someone @mentions you", "mentionSound", nil,
       "Matches your nickname, your character name and @all." },
+    { "Sound for new gang chat messages", "chatSound", nil, "A short pop when someone writes in gang chat (not in combat)." },
+    { "Sound when friends log in and out", "presenceSound" },
     { "Warn when gear durability is low (30 % and 10 %)", "duraWarn" },
     { "Also in the normal WoW chat", "chatMirror", function(v) S().activityMirror = v end,
       "Gang chat and events are also printed in the default chat window." },

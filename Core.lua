@@ -391,13 +391,30 @@ function ns.Print(...)
   print("|cff" .. ns.C.accent .. "Chillan?|r", ...)
 end
 
+-- Chillan?s egne lyder (Media\Sounds). Nye lydfiler krever full omstart av spillet første
+-- gang; finner ikke spillet fila ennå, spilles den vanlige Blizzard-lyden i stedet.
+local CUSTOM_SOUNDS = { chat = "Chat", mention = "Mention", dead = "Dead", online = "Online", offline = "Offline" }
+local FALLBACK = { chat = "notify", mention = "notify", online = "notify", offline = false }
+local lastSoundAt = {}
+
 function ns.Sound(kind)
   if not (ns.db and ns.db.settings.sounds) then return end
+  -- samme lyd maks hvert 1,5 sek (flere meldinger på rad = ett «pop»)
+  local now = GetTime()
+  if lastSoundAt[kind] and (now - lastSoundAt[kind]) < 1.5 then return end
+  lastSoundAt[kind] = now
+  local file = CUSTOM_SOUNDS[kind]
+  if file and PlaySoundFile then
+    local ok, willPlay = pcall(PlaySoundFile, ns.MEDIA .. "Sounds\\" .. file .. ".ogg", "Master")
+    if ok and willPlay then return end
+    if FALLBACK[kind] == false then return end
+    kind = FALLBACK[kind] or kind
+  end
   local kit = SOUNDKIT or {}
   local id
   if kind == "ding" then id = kit.UI_LEVELUP_GENERIC or 888
   elseif kind == "sos" then id = kit.RAID_WARNING or 8959
-  elseif kind == "online" then id = kit.UI_CHAT_SOUND_NOTIFY or kit.TELL_MESSAGE or 3081
+  elseif kind == "online" or kind == "notify" then id = kit.UI_CHAT_SOUND_NOTIFY or kit.TELL_MESSAGE or 3081
   elseif kind == "dead" then id = kit.UI_BATTLEGROUND_COUNTDOWN_FINISHED or kit.IG_QUEST_FAILED or 847
   else id = kit.IG_MAINMENU_OPTION_CHECKBOX_ON or 856 end
   pcall(PlaySound, id, "Master")
@@ -412,7 +429,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
-    accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, mentionSound = true, combatQueue = true,
+    accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
