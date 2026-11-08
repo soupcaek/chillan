@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.19.1", date = "08.11", items = {
+    "@mentions in chat now show the person card on hover too (shift-click pins it), also when gang chat is mirrored into normal WoW chat",
+  } },
   { v = "0.19.0", date = "08.11", items = {
     "Hover a gang member's name in gang chat, the event window, the feed, Friends, Stats or normal WoW chat to see a small card: name, alias, class, level with XP bar, where they are (or last seen) and their latest ding",
     "Shift-click a name to pin the card: Whisper, Invite, Profile and Waypoint buttons; drag it around, Esc or the X closes it",

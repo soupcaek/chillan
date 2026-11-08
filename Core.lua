@@ -204,26 +204,28 @@ end
 -- @names in class colour: lookup of every name a person can be mentioned by
 local function mentionColors()
   local map = { all = "E0C068", alle = "E0C068" }
-  for _, p in pairs(ns.db.people or {}) do
+  local pids = {} -- navn -> person-id, så @navn kan holdes musa over (personkortet)
+  for pid, p in pairs(ns.db.people or {}) do
     local main = ns:PersonChar(p) or {}
     local r, g, b = ns.ClassColor(main.class)
     local col = string.format("%02X%02X%02X", math.floor(r * 255), math.floor(g * 255), math.floor(b * 255))
     local alias = ns:PersonAlias(p)
-    if alias and alias ~= "" then map[alias:lower()] = col end
+    if alias and alias ~= "" then map[alias:lower()] = col pids[alias:lower()] = pid end
     for _, c in pairs(p.chars or {}) do
       if c.name then
         local cr, cg, cb = ns.ClassColor(c.class or main.class)
         local cc = string.format("%02X%02X%02X", math.floor(cr * 255), math.floor(cg * 255), math.floor(cb * 255))
         map[c.name:lower()] = cc
+        pids[c.name:lower()] = pid
         local first = c.name:match("^(%S+)")
-        if first and #first >= 3 and not map[first:lower()] then map[first:lower()] = cc end
+        if first and #first >= 3 and not map[first:lower()] then map[first:lower()] = cc pids[first:lower()] = pid end
       end
     end
   end
-  return map
+  return map, pids
 end
 
-local function colorMentions(plain, baseHex, map)
+local function colorMentions(plain, baseHex, map, pids)
   if not plain:find("@", 1, true) then return ns.Colorize(plain, baseHex) end
   local out, pos = {}, 1
   while true do
@@ -240,7 +242,9 @@ local function colorMentions(plain, baseHex, map)
     end
     if name then
       if at > pos then out[#out + 1] = ns.Colorize(plain:sub(pos, at - 1), baseHex) end
-      out[#out + 1] = ns.Colorize("@" .. name, col)
+      local pid = pids and pids[name:lower()]
+      local shown = ns.Colorize("@" .. name, col)
+      out[#out + 1] = pid and ("|Hchillan:" .. tostring(pid) .. "|h" .. shown .. "|h") or shown
       pos = at + 1 + #name
     else
       out[#out + 1] = ns.Colorize(plain:sub(pos, at), baseHex)
@@ -255,18 +259,19 @@ end
 -- class colour and real item links
 function ns.RenderChatText(text, baseHex)
   text = text or ""
-  local map = text:find("@", 1, true) and mentionColors() or {}
-  if not text:find("{i:", 1, true) then return colorMentions(text, baseHex, map) end
+  local map, pids = {}, {}
+  if text:find("@", 1, true) then map, pids = mentionColors() end
+  if not text:find("{i:", 1, true) then return colorMentions(text, baseHex, map, pids) end
   local out, pos = {}, 1
   for s, id, e in text:gmatch("(){i:(%d+)}()") do
-    if s > pos then out[#out + 1] = colorMentions(text:sub(pos, s - 1), baseHex, map) end
+    if s > pos then out[#out + 1] = colorMentions(text:sub(pos, s - 1), baseHex, map, pids) end
     local nid = tonumber(id)
     local name, q = itemInfo(nid)
     local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[q or 1]) or "FFFFFF"
     out[#out + 1] = "|Hitem:" .. id .. "|h" .. ns.Colorize("[" .. (name or "loading…") .. "]", name and hexq or ns.C.dim) .. "|h"
     pos = e
   end
-  if pos <= #text then out[#out + 1] = colorMentions(text:sub(pos), baseHex, map) end
+  if pos <= #text then out[#out + 1] = colorMentions(text:sub(pos), baseHex, map, pids) end
   return table.concat(out)
 end
 

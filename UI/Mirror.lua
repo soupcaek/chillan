@@ -7,7 +7,14 @@ local PREFIX_CHAT = ns.UI.InlineIcon("Chat", "8FB8C9", 13) .. " "
 local PREFIX_ACT = ns.UI.InlineIcon("Feed", "C8D1DC", 13) .. " "
 
 local function out(text)
-  text = tostring(text):gsub("|Hchillan[^|]*|h(.-)|h", "%1")
+  -- personlenker blir vanlige spillerlenker (hover = personkort, klikk = hvisk); andre Chillan-lenker fjernes
+  text = tostring(text):gsub("|Hchillan:([^|]*)|h(.-)|h", function(pid, shown)
+    local p = ns:GetPerson(pid)
+    local who = p and (p.whisperTo or p.main)
+    if who then return "|Hplayer:" .. who .. "|h" .. shown .. "|h" end
+    return shown
+  end)
+  text = text:gsub("|Hchillan[^|]*|h(.-)|h", "%1")
   local frame = DEFAULT_CHAT_FRAME or ChatFrame1
   if frame and frame.AddMessage then frame:AddMessage(text) end
 end
