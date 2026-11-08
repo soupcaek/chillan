@@ -120,40 +120,15 @@ function O:FitMinibar()
   self:UpdateMinibarExtras()
 end
 
--- extra info in the spare room of a wide bar: session time + a thin XP bar along the bottom
+-- extra info in the spare room of a wide bar: session time
 function O:UpdateMinibarExtras()
   local m = self.minibar
   if not m or not m.naturalW then return end
   if not m.extra then
     m.extra = UI.Text(m, 11, nil, C.muted)
     m.extra:SetJustifyH("RIGHT")
-    m.xpbg = m:CreateTexture(nil, "ARTWORK")
-    m.xpbg:SetHeight(2)
-    m.xpbg:SetPoint("BOTTOMLEFT", 10, 3)
-    m.xpbg:SetPoint("BOTTOMRIGHT", -10, 3)
-    m.xpbg:SetColorTexture(hex(C.line))
-    m.xprest = m:CreateTexture(nil, "ARTWORK", nil, 1)
-    m.xprest:SetHeight(2)
-    m.xprest:SetPoint("BOTTOMLEFT", m.xpbg, "BOTTOMLEFT")
-    m.xpfill = m:CreateTexture(nil, "ARTWORK", nil, 2)
-    m.xpfill:SetHeight(2)
-    m.xpfill:SetPoint("BOTTOMLEFT", m.xpbg, "BOTTOMLEFT")
   end
   local d = ns.Tracker:S3Data() or {}
-  -- XP bar (hidden at max level / when XP is unknown)
-  local barW = math.max(1, m:GetWidth() - 20)
-  if d.xp and d.xpMax and d.xpMax > 0 then
-    local f = math.min(1, d.xp / d.xpMax)
-    local r = math.min(1 - f, (d.rested or 0) / d.xpMax)
-    m.xpfill:SetColorTexture(hex(C.accent))
-    m.xpfill:SetWidth(math.max(1, barW * f))
-    m.xprest:SetColorTexture(hex(C.purple))
-    m.xprest:SetAlpha(0.5)
-    m.xprest:SetWidth(math.max(1, barW * (f + r)))
-    m.xpbg:Show() m.xpfill:Show() m.xprest:SetShown(r > 0)
-  else
-    m.xpbg:Hide() m.xpfill:Hide() m.xprest:Hide()
-  end
   -- session time, only when the bar has room to spare (no growing just for this)
   local pinned = {}
   for _, k in ipairs(ns.Tiles and ns.Tiles:List() or {}) do pinned[k] = true end
