@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.14.6", date = "08.11", items = {
+    "Pinned cards are one block with thin divider lines, tucked right under the bar",
+    "The Chillan? bar shows a thin XP bar (rested in purple) and your session time when it has room",
+  } },
   { v = "0.14.5", date = "08.11", items = {
     "The Chillan? bar grows with your pinned cards (max 3 per row, then they continue downwards)",
     "New card: Time on this level (live /played for the level, with the previous level's time)",

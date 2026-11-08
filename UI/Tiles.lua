@@ -7,7 +7,7 @@ ns.Tiles = T
 
 local MAX = 8
 local PER_ROW = 3
-local W, H, GAP = 104, 44, 6
+local W, H, GAP = 108, 44, 3   -- GAP = space between the bar and the card block
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end
@@ -178,9 +178,14 @@ local function makeTile(i)
   local t = CreateFrame("Button", nil, T.holder)
   t:SetSize(W, H)
   t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  t.panel = UI.OverlayPanel(t, C.window, C.inputLine, true)
-  t.panel:SetAllPoints()
-  t.panel:SetFrameLevel(t:GetFrameLevel())
+  -- cards share one background (the holder); each card only gets a hover highlight
+  t.hl = t:CreateTexture(nil, "BACKGROUND", nil, 2)
+  t.hl:SetPoint("TOPLEFT", 2, -2)
+  t.hl:SetPoint("BOTTOMRIGHT", -2, 2)
+  t.hl:SetColorTexture(1, 1, 1, 0.04)
+  t.hl:Hide()
+  t:HookScript("OnEnter", function(self) self.hl:Show() end)
+  t:HookScript("OnLeave", function(self) self.hl:Hide() end)
   t.v = UI.Text(t, 14, "bold", C.text)
   t.v:SetPoint("TOPLEFT", 9, -7)
   t.v:SetPoint("RIGHT", -6, 0)
@@ -233,6 +238,15 @@ function T:Layout()
     return
   end
   local n = 0
+  for _, key in ipairs(list) do if self.byKey[key] then n = n + 1 end end
+  local cols = math.min(n, PER_ROW)
+  local rows = math.ceil(n / PER_ROW)
+  -- the block is as wide as the bar (or the bar grows to fit 3 cards); cards split the width evenly
+  local m2 = ns.Overlays.minibar
+  local blockW = math.max(cols * W, (m2 and m2.naturalW) or 0)
+  local tw = math.floor(blockW / cols)
+  blockW = tw * cols
+  n = 0
   for i = 1, MAX do
     local t = self.tiles[i] or makeTile(i)
     self.tiles[i] = t
@@ -242,17 +256,33 @@ function T:Layout()
       t.key = key
       local row, col = math.floor((n - 1) / PER_ROW), (n - 1) % PER_ROW
       t:ClearAllPoints()
-      t:SetPoint("TOPLEFT", self.holder, "TOPLEFT", col * (W + GAP), -row * (H + GAP))
+      t:SetSize(tw, H)
+      t:SetPoint("TOPLEFT", self.holder, "TOPLEFT", col * tw, -row * H)
       t:Show()
     else
       t.key = nil
       t:Hide()
     end
   end
-  local rows = math.ceil(n / PER_ROW)
-  self.holder:SetSize(math.min(n, PER_ROW) * (W + GAP), math.max(1, rows) * (H + GAP))
+  self.holder:SetSize(blockW, math.max(1, rows) * H)
+  -- thin divider lines between the cards instead of gaps
+  self.lines = self.lines or {}
+  local li = 0
+  local function line(x1, y1, x2, y2)
+    li = li + 1
+    local l = self.lines[li]
+    if not l then l = self.holder:CreateTexture(nil, "ARTWORK") self.lines[li] = l end
+    l:SetColorTexture(hex(C.line))
+    l:ClearAllPoints()
+    l:SetPoint("TOPLEFT", self.holder, "TOPLEFT", x1, y1)
+    l:SetPoint("BOTTOMRIGHT", self.holder, "TOPLEFT", x2, y2)
+    l:Show()
+  end
+  for c = 1, cols - 1 do line(c * tw, -8, c * tw + 1, -(rows * H) + 8) end
+  for r = 1, rows - 1 do line(8, -r * H, blockW - 8, -r * H - 1) end
+  for i = li + 1, #self.lines do self.lines[i]:Hide() end
   -- the bar grows with the cards (up to 3 wide), more cards go downwards
-  self.rowWidth = n > 0 and (math.min(n, PER_ROW) * (W + GAP) - GAP) or 0
+  self.rowWidth = blockW
   if ns.Overlays.FitMinibar then ns.Overlays:FitMinibar() end
   self:Update()
 end
@@ -264,6 +294,9 @@ function T:Init()
   local holder = CreateFrame("Frame", "ChillanTiles", UIParent)
   holder:SetFrameStrata("MEDIUM")
   holder:SetPoint("TOPLEFT", m, "BOTTOMLEFT", 0, -GAP)
+  holder.panel = UI.OverlayPanel(holder, C.window, C.inputLine, false)
+  holder.panel:SetAllPoints()
+  holder.panel:SetFrameLevel(holder:GetFrameLevel())
   self.holder = holder
 
   -- "+"-knapp på minibaren
@@ -277,7 +310,10 @@ function T:Init()
   ns:Listen("DATA", function() T:Update() end)
   ns:On("PLAYER_REGEN_DISABLED", function() holder:SetAlpha(0.3) end)
   ns:On("PLAYER_REGEN_ENABLED", function() holder:SetAlpha(1) end)
-  C_Timer.NewTicker(2, function() T:Update() end)
+  C_Timer.NewTicker(2, function()
+    T:Update()
+    if ns.Overlays.UpdateMinibarExtras then ns.Overlays:UpdateMinibarExtras() end
+  end)
   C_Timer.After(1, function()
     startMoney = startMoney or (type(ns.S(GetMoney)) == "number" and ns.S(GetMoney)) or nil
     startHK = startHK or hk()
