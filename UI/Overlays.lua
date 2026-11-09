@@ -413,7 +413,7 @@ end
 function O:CreateSOS()
   local s = CreateFrame("Frame", "ChillanSOS", UIParent)
   self.sos = s
-  s:SetSize(320, 124)
+  s:SetSize(420, 124)
   UI.Movable(s, "sos", function(f) f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -24, -200) end)
   s:SetFrameStrata("DIALOG")
   s:EnableMouse(true)
@@ -439,8 +439,12 @@ function O:CreateSOS()
   s.map.panel:SetColors("FFD6D7", nil)
   s.map.style = { fill = "FFD6D7", text = "2A181A", hover = "FFE6E7", weight = "semi" }
   s.map.label:SetTextColor(hex("2A181A"))
+  s.map:SetWidth(118)
   s.reply = UI.Button(s, 140, 32, "Reply: on my way", "danger")
-  s.reply:SetPoint("BOTTOMRIGHT", -14, 14)
+  s.reply:SetPoint("LEFT", s.map, "RIGHT", 8, 0)
+  -- a random cheeky reaction ("Get rekt" and friends)
+  s.react = UI.Button(s, 118, 32, "Get rekt", "ghost")
+  s.react:SetPoint("BOTTOMRIGHT", -14, 14)
   s:SetScript("OnUpdate", function(self, dt)
     self.life = (self.life or 0) - dt
     if self.life <= 0 then self:Hide() end
@@ -468,6 +472,13 @@ function O:ShowSOS(item)
     s.reply:SetLabel("Sent!")
   end)
   s.reply:SetLabel("Reply: on my way")
+  local pick = ns.PickReactions(item, 1)[1] or 1
+  local label = ns.ReactionList(item)[pick]
+  s.react:SetLabel(ns.Emotes and ns.Emotes:Render(label, 16) or label)
+  s.react:SetScript("OnClick", function()
+    ns.Data:React(item, pick)
+    s.react:SetLabel("Sent!")
+  end)
   s.life = 45
   s:Show()
 end

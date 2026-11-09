@@ -592,7 +592,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
         ns:Fire("DING", item)
         ns.Sound("ding")
       end
-    elseif kind == "SOS" then
+    elseif kind == "SOS" and pid ~= ns.pid then
       ns:Fire("SOS", item)
       ns.Sound("sos")
     elseif kind == "ENSEEN" then
@@ -682,7 +682,15 @@ ns.REACTIONS_ACH = {
   "PogU", "peepoClap", "EZ", "widepeepoHappy", "HYPERS",
 }
 
+-- SOS: the cheeky answers (the popup also has "Reply: on my way")
+ns.REACTIONS_SOS = {
+  "Get rekt", "Skill issue", "Run!", "Hide!", "lol gl", "Not my problem", "Bring friends", "Call the guards",
+  "Pray", "Rest in pieces", "o7", "Die with honor", "Kill them all", "Avenge you later", "Popcorn time",
+  "KEKW", "monkaS", "Sadge",
+}
+
 function ns.ReactionList(item)
+  if item and item.kind == "SOS" then return ns.REACTIONS_SOS end
   if item and item.kind == "DEAD" then return ns.REACTIONS_DEAD end
   if item and item.kind == "ACH" then return ns.REACTIONS_ACH end
   return ns.REACTIONS
@@ -734,7 +742,7 @@ function Data:React(item, idx)
   if item.kind == "DEAD" then
     local tag = ns.ReactionTag(item, idx)
     if tag == "f" then ns.Cnt("fGiven") elseif tag == "laugh" then ns.Cnt("laughsGiven") end
-  else
+  elseif item.kind ~= "SOS" then
     ns.Cnt("gratsGiven")
   end
   ns:Fire("REACTION", item, ns:GetPerson(ns.pid), Comm:MyFull(), idx)
@@ -753,7 +761,7 @@ Comm:Handle("RX", function(f)
   if item.pid == ns.pid then
     if item.kind == "DEAD" then
       if ns.ReactionTag(item, idx) == "laugh" then ns.Cnt("laughedAt") end
-    else
+    elseif item.kind ~= "SOS" then
       ns.Cnt("gratsGot")
       if item.kind == "DING" then ns.CntMax("maxGratsOneDing", #item.reacts) end
     end
@@ -766,6 +774,8 @@ Comm:Handle("RX", function(f)
         local who = #names == 1 and names[1] or (names[1] .. " and " .. (#names - 1) .. " others")
         if item.kind == "DEAD" then
           ns:Fire("TOAST", { kind = "dead", title = who .. " reacted to your death", text = "You died in " .. tostring(item.a or "?") })
+        elseif item.kind == "SOS" then
+          ns:Fire("TOAST", { kind = "sos", title = who .. " answered your SOS", text = "In " .. tostring(item.a or "?") })
         else
           local what = "On level " .. tostring(item.a)
           if item.kind == "ACH" then
