@@ -412,7 +412,23 @@ end)
 -- Hendelser som ikke fanges andre steder
 ---------------------------------------------------------------------------
 local afkSince, loneThisSession = nil, 0
-local lastDungeon, lastDungeonAt = nil, 0
+local function dgState()
+  ns.db.dgState = ns.db.dgState or {}
+  local me = ns.Comm:MyFull()
+  ns.db.dgState[me] = ns.db.dgState[me] or {}
+  return ns.db.dgState[me]
+end
+-- while inside, keep "last seen in this dungeon" fresh, so a long run + /reload still counts once
+local function touchDungeon()
+  local inInst, kind = ns.S(IsInInstance)
+  if inInst and kind == "party" then
+    local name = ns.S(GetInstanceInfo)
+    local st = dgState()
+    if name and name == st.name then st.at = ns.Now() end
+  end
+end
+C_Timer.NewTicker(60, touchDungeon)
+ns:On("PLAYER_LOGOUT", touchDungeon)
 
 function A:Tick(dt)
   local h = tonumber(date("%H"))
@@ -516,12 +532,15 @@ local function onWorld()
     if name and name ~= "" then
       if kind == "party" then
         ns.CntSet("dungeonsSeen", name)
-        if name ~= lastDungeon or (ns.Now() - lastDungeonAt) > 1800 then
+        -- the last dungeon is saved (per character), so /reload or a disconnect inside
+        -- the same dungeon doesn't count as a new run
+        local st = dgState()
+        if name ~= st.name or (ns.Now() - (st.at or 0)) > 1800 then
           ns.Cnt("dungeonRuns")
           ns.CntDay("dungeonsDay")
           ns.CntMax("bestDayDungeons", (db().dungeonsDay or {})[date("%Y-%m-%d")] or 0)
         end
-        lastDungeon, lastDungeonAt = name, ns.Now()
+        st.name, st.at = name, ns.Now()
       elseif kind == "raid" then
         ns.CntSet("raidsSeen", name)
       end

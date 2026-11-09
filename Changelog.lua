@@ -3,6 +3,7 @@ local ADDON, ns = ...
 
 ns.CHANGELOG = {
   { v = "0.22.0", date = "09.11", items = {
+    "Fix: /reload or a disconnect inside a dungeon no longer counts as a new run (gave Double dose and extra dungeon runs) – the dungeon run timer also survives a reload",
     "Layer hop: click your status in the Chillan? bar (or /chill layer) to ask the gang for an invite – friends who are online and not in a group, dungeon or combat get a popup with Invite / Not now; the first one invites, the popup closes for the rest, and you accept automatically",
     "Emotes in Chillan? from the Twitch Emotes v2 addon (install it from WowUp): gang chat, event window, mirrored chat, reactions, popups and toasts",
     "Emote picker: star button in the chat input – favourites (right-click), recent and search",

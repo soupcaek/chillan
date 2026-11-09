@@ -112,6 +112,7 @@ local function finishRun()
   if not run then return end
   local r = run
   run = nil
+  ns.db.curRun = nil
   local dur = ns.Now() - r.start
   if dur < 180 or r.bosses == 0 then return end
   r.dur = dur
@@ -131,7 +132,15 @@ local function onWorld()
     local name = ns.S(GetInstanceInfo)
     if name and (not run or run.name ~= name) then
       finishRun()
-      run = { name = name, start = ns.Now(), deaths = 0, bosses = 0 }
+      -- after /reload inside the same dungeon: carry on with the saved run (time, bosses, deaths)
+      local saved = ns.db.curRun
+      if saved and saved.name == name and saved.char == ns.Comm:MyFull() and (ns.Now() - (saved.seen or 0)) < 1800 then
+        run = saved
+      else
+        run = { name = name, start = ns.Now(), deaths = 0, bosses = 0, char = ns.Comm:MyFull() }
+      end
+      run.seen = ns.Now()
+      ns.db.curRun = run
     end
   elseif run then
     finishRun()
@@ -141,6 +150,8 @@ end
 ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(2, onWorld) end)
 ns:On("ZONE_CHANGED_NEW_AREA", function() C_Timer.After(2, onWorld) end)
 ns:On("PLAYER_DEAD", function() if run then run.deaths = run.deaths + 1 end end)
+C_Timer.NewTicker(60, function() if run then run.seen = ns.Now() end end)
+ns:On("PLAYER_LOGOUT", function() if run then run.seen = ns.Now() end end)
 ns:On("ENCOUNTER_END", function(_, name, _, _, success)
   if run and success == 1 and not ns.isSecret(success) then
     run.bosses = run.bosses + 1
