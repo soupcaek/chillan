@@ -3,6 +3,9 @@ local ADDON, ns = ...
 
 ns.CHANGELOG = {
   { v = "0.22.0", date = "09.11", items = {
+    "Fix: dying in a dungeon (corpse run outside) no longer posts the run as finished – a run ends after 10 min outside or when you enter another dungeon",
+    "Dungeon runs read clearer: \"Olav ran Scarlet Monastery · 42m · 4 bosses · 2 deaths\"",
+    "Reaction toasts use aliases (Adee, Henrik) instead of character names",
     "SOS: you no longer get your own SOS popup; the popup has a new random cheeky reaction button (Get rekt, Skill issue, lol gl, Popcorn time …)",
     "Fix: /reload or a disconnect inside a dungeon no longer counts as a new run (gave Double dose and extra dungeon runs) – the dungeon run timer also survives a reload",
     "Layer hop: click your status in the Chillan? bar (or /chill layer) to ask the gang for an invite – friends who are online and not in a group, dungeon or combat get a popup with Invite / Not now; the first one invites, the popup closes for the rest, and you accept automatically",

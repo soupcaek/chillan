@@ -113,7 +113,7 @@ local function finishRun()
   local r = run
   run = nil
   ns.db.curRun = nil
-  local dur = ns.Now() - r.start
+  local dur = (r.endAt or ns.Now()) - r.start
   if dur < 180 or r.bosses == 0 then return end
   r.dur = dur
   r.members = gangInGroup()
@@ -143,9 +143,20 @@ local function onWorld()
       ns.db.curRun = run
     end
   elseif run then
+    -- left the dungeon: often just a death + corpse run or a hearth to repair.
+    -- The run only ends if you stay out for 10 minutes (or enter another dungeon).
+    if not run.leftAt then run.leftAt = ns.Now() end
+  end
+  if run and inInst and kind == "party" then run.leftAt = nil end
+end
+
+C_Timer.NewTicker(30, function()
+  if run and run.leftAt and not (UnitIsDeadOrGhost and UnitIsDeadOrGhost("player")) and ns.Now() - run.leftAt > 600 then
+    -- the run ended when you walked out, not 10 min later
+    run.endAt = run.leftAt
     finishRun()
   end
-end
+end)
 
 ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(2, onWorld) end)
 ns:On("ZONE_CHANGED_NEW_AREA", function() C_Timer.After(2, onWorld) end)

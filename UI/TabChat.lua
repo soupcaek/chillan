@@ -22,7 +22,7 @@ function ns.FeedLine(it, withTime)
     icon, color = "Skull", C.dim
     text = "died in " .. tostring(it.a or "?")
     if it.reacts and #it.reacts > 0 then
-      text = text .. ns.Colorize(" · " .. #it.reacts .. " ler", C.red)
+      text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.red)
     end
   elseif it.kind == "LOOT" then
     icon, color = "Star", ns.QUALITY_HEX[tonumber(it.b) or 4] or C.purple
@@ -49,7 +49,7 @@ function ns.FeedLine(it, withTime)
     end
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
-    text = "saw the enemy " .. tostring(it.a) .. " i " .. tostring(it.b or "?")
+    text = "saw the enemy " .. tostring(it.a) .. " in " .. tostring(it.b or "?")
   elseif it.kind == "DUNGEON" then
     icon, color = "Shield", "8FB8E8"
     local members = ns.Extras:RunMembers(it)
@@ -98,7 +98,11 @@ function ns.FeedShort(it)
   if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" got a mount", C.text2) end
   if it.kind == "ENSEEN" then return I("Target", C.red) .. "Enemy " .. tostring(it.a) .. ns.Colorize(" seen by", C.text2) .. who end
   if it.kind == "DUNGEON" then
-    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" · " .. tostring(it.a) .. " in " .. ns.Duration(tonumber(it.b) or 0), C.text2)
+    local bosses = tonumber(((it.d or ""):match("^(%d+)")))
+    local deaths = tonumber(it.c) or 0
+    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" ran " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+      .. (bosses and (" · " .. bosses .. " boss" .. (bosses == 1 and "" or "es")) or "")
+      .. (deaths > 0 and (" · " .. deaths .. " death" .. (deaths == 1 and "" or "s")) or ""), C.text2)
   end
   return I("Star", C.accent) .. who .. " · " .. tostring(it.kind)
 end

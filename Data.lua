@@ -766,7 +766,9 @@ Comm:Handle("RX", function(f)
       if item.kind == "DING" then ns.CntMax("maxGratsOneDing", #item.reacts) end
     end
     -- samle gratulasjonene til ett varsel
-    reactBuffer[#reactBuffer + 1] = ns.FirstName(f[3]) .. " (" .. ns.ReactionText(item, idx) .. ")"
+    -- alias (Adee, Henrik) instead of the character's first name (Ret, Lil)
+    local rname = (rp and ns:PersonAlias(rp)) or ns.FirstName(f[3])
+    reactBuffer[#reactBuffer + 1] = rname .. " (" .. ns.ReactionText(item, idx) .. ")"
     if #reactBuffer == 1 then
       C_Timer.After(4, function()
         local names = reactBuffer
