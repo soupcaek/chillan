@@ -186,6 +186,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "When friends log in", "onlineToasts" },
     { "Hold popups until after combat", "combatQueue", nil,
       "Dings, deaths, achievements and notifications wait until you leave combat. SOS always shows right away." },
+    { "\"Since you last played\" card at login", "briefing" },
     { "Sound and alert when someone @mentions you", "mentionSound", nil,
       "Matches your nickname, your character name and @all." },
     { "Sound for new gang chat messages", "chatSound", nil, "A short pop when someone writes in gang chat (not in combat)." },

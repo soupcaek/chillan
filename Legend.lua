@@ -1,0 +1,232 @@
+-- Chillan? – the legend book: one chapter per week, written from what the gang did.
+-- Weekly facts are collected as events arrive (so they survive the feed being trimmed).
+local ADDON, ns = ...
+
+local L = {}
+ns.Legend = L
+
+local function mondayOf(t)
+  local d = date("*t", t)
+  local wday = (d.wday + 5) % 7 -- Monday = 0
+  return time({ year = d.year, month = d.month, day = d.day - wday, hour = 0 })
+end
+
+function L:Week(t, create)
+  ns.db.legend = ns.db.legend or {}
+  local wk = ns.WeekKey(t)
+  local w = ns.db.legend[wk]
+  if not w and create then
+    w = { wk = wk, mon = mondayOf(t), seen = {}, deaths = {}, dz = {}, lv = {}, firsts = {}, loot = {}, runs = {}, ach = {}, sos = {}, mounts = {} }
+    ns.db.legend[wk] = w
+    -- keep the last 30 weeks
+    local keys = {}
+    for k in pairs(ns.db.legend) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for i = 1, #keys - 30 do ns.db.legend[keys[i]] = nil end
+  end
+  return w
+end
+
+function L:Add(item)
+  if not item or not item.id or not item.t then return end
+  local w = self:Week(item.t, true)
+  if w.seen[item.id] then return end
+  w.seen[item.id] = true
+  local pid, k = item.pid, item.kind
+  if k == "DEAD" then
+    w.deaths[pid] = (w.deaths[pid] or 0) + 1
+    if item.a and item.a ~= "" then
+      w.dz[pid] = w.dz[pid] or {}
+      w.dz[pid][item.a] = (w.dz[pid][item.a] or 0) + 1
+    end
+  elseif k == "DING" then
+    local lvl = tonumber(item.a)
+    if lvl then
+      local r = w.lv[pid] or { from = lvl - 1, to = lvl }
+      r.from, r.to = math.min(r.from, lvl - 1), math.max(r.to, lvl)
+      w.lv[pid] = r
+      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "level " .. lvl } end
+    end
+  elseif k == "LOOT" then
+    local q = tonumber(item.b) or 0
+    if q >= 4 then
+      w.loot[#w.loot + 1] = { pid = pid, id = tonumber(item.a), q = q }
+      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "an epic" } end
+    end
+  elseif k == "MOUNT" then
+    w.mounts[#w.mounts + 1] = pid
+    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "a mount" } end
+  elseif k == "DUNGEON" then
+    w.runs[#w.runs + 1] = { pid = pid, name = item.a, dur = tonumber(item.b), deaths = tonumber(item.c) or 0, d = item.d }
+    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "clear " .. tostring(item.a) } end
+  elseif k == "ACH" then
+    w.ach[pid] = (w.ach[pid] or 0) + 1
+  elseif k == "SOS" then
+    w.sos[pid] = (w.sos[pid] or 0) + 1
+  end
+end
+
+-- hook into the event stream
+local orig = ns.Data.ApplyEvent
+ns.Data.ApplyEvent = function(self, id, ...)
+  orig(self, id, ...)
+  for i = #ns.db.feed, 1, -1 do
+    local it = ns.db.feed[i]
+    if it.id == id then L:Add(it) break end
+  end
+end
+
+-- fill this week from the feed we already have (first time after an update)
+function L:Backfill()
+  for _, it in ipairs(ns.db.feed or {}) do self:Add(it) end
+end
+
+---------------------------------------------------------------------------
+-- writing the chapter
+---------------------------------------------------------------------------
+local function name(pid)
+  local p = ns:GetPerson(pid)
+  return p and ns:ShortWho(p) or "Someone"
+end
+
+-- stable "random" pick per week, so a chapter reads the same every time you open it
+local function picker(seed)
+  local h = 0
+  for i = 1, #seed do h = (h * 31 + seed:byte(i)) % 2147483647 end
+  return function(list)
+    h = (h * 1103515245 + 12345) % 2147483648
+    return list[(h % #list) + 1]
+  end
+end
+
+local function maxOf(t)
+  local bk, bv = nil, 0
+  for k, v in pairs(t) do if v > bv then bk, bv = k, v end end
+  return bk, bv
+end
+
+-- snapshot of weekly stats (quests, hours) – taken live for the current week
+function L:Snapshot(w)
+  if w.wk ~= ns.WeekKey() then return w.snap end
+  local snap = { quests = {}, online = {}, gold = {} }
+  for pid, p in pairs(ns.db.people or {}) do
+    if p.main then
+      snap.quests[pid] = ns:WeekStat(p, "Quests")
+      snap.online[pid] = ns:WeekStat(p, "Online")
+      snap.gold[pid] = ns:WeekStat(p, "Gold")
+    end
+  end
+  local chal, leader, v = ns.Data:CurrentLeader()
+  if leader then snap.chal = { label = chal.label, pid = leader.pid, text = chal.fmt(v) } end
+  w.snap = snap
+  return snap
+end
+
+function L:Chapter(wk)
+  local w = ns.db.legend and ns.db.legend[wk]
+  if not w then return nil end
+  local C = ns.C
+  local pick = picker(wk)
+  local story, facts = {}, {}
+  local snap = self:Snapshot(w) or {}
+
+  -- the climber
+  local climbPid, climbN = nil, 0
+  for pid, r in pairs(w.lv) do
+    local n = r.to - r.from
+    if n > climbN then climbPid, climbN = pid, n end
+  end
+  if climbPid then
+    local r = w.lv[climbPid]
+    story[#story + 1] = pick({
+      "%s climbed %d levels and ended the week at %d.",
+      "%s had a good week: %d levels, all the way to %d.",
+      "Nobody could catch %s – %d levels up, now level %d.",
+    }):format(name(climbPid), climbN, r.to)
+  end
+
+  -- firsts
+  for _, f in ipairs(w.firsts) do
+    story[#story + 1] = pick({
+      "%s became the first in the gang to reach %s.",
+      "History was made: %s was first in the gang to %s.",
+    }):format(name(f.pid), f.what)
+  end
+
+  -- the floor inspector
+  local dPid, dN = maxOf(w.deaths)
+  if dPid and dN >= 2 then
+    local zone = w.dz[dPid] and maxOf(w.dz[dPid])
+    story[#story + 1] = pick({
+      "%s spent a lot of time on the floor – %d deaths%s.",
+      "It was not %s's week: %d deaths%s.",
+      "%s kept the spirit healers busy with %d deaths%s.",
+    }):format(name(dPid), dN, zone and (", most of them in " .. zone) or "")
+  end
+
+  -- loot
+  table.sort(w.loot, function(a, b) return a.q > b.q end)
+  if w.loot[1] then
+    local l = w.loot[1]
+    local item = l.id and (C_Item and C_Item.GetItemInfo or GetItemInfo)(l.id)
+    local q = ns.QUALITY_HEX and ns.QUALITY_HEX[l.q] or C.purple
+    story[#story + 1] = pick({
+      "The loot gods smiled on %s: %s.",
+      "%s walked away with %s.",
+    }):format(name(l.pid), ns.Colorize("[" .. (item or "an epic") .. "]", q))
+  end
+
+  -- dungeons
+  if #w.runs > 0 then
+    local names, deaths = {}, 0
+    for _, r in ipairs(w.runs) do names[r.name or "?"] = (names[r.name or "?"] or 0) + 1 deaths = deaths + (r.deaths or 0) end
+    local list = {}
+    for n, c in pairs(names) do list[#list + 1] = c > 1 and (n .. " ×" .. c) or n end
+    table.sort(list)
+    story[#story + 1] = ("The gang ran %d dungeon%s (%s)%s."):format(#w.runs, #w.runs == 1 and "" or "s",
+      table.concat(list, ", "), deaths > 0 and (" and died " .. deaths .. " times along the way") or "")
+  end
+
+  -- SOS
+  local sPid, sN = maxOf(w.sos)
+  if sPid then
+    story[#story + 1] = pick({ "%s called for help %d time%s.", "%s sent %d SOS call%s – the Alliance had a good week." })
+      :format(name(sPid), sN, sN == 1 and "" or "s")
+  end
+
+  -- facts box
+  local q, qn = maxOf(snap.quests or {})
+  if q then facts[#facts + 1] = { "Most quests", name(q) .. " · " .. math.floor(qn) } end
+  local o, on = maxOf(snap.online or {})
+  if o then facts[#facts + 1] = { "Most time online", name(o) .. " · " .. ns.Duration(on) } end
+  local g, gn = maxOf(snap.gold or {})
+  if g then facts[#facts + 1] = { "Most gold earned", name(g) .. " · " .. ns.Money(gn) } end
+  if dPid then facts[#facts + 1] = { "Most deaths", name(dPid) .. " · " .. dN } end
+  local a, an = maxOf(w.ach)
+  if a then facts[#facts + 1] = { "Most achievements", name(a) .. " · " .. an } end
+  if snap.chal then facts[#facts + 1] = { snap.chal.label, name(snap.chal.pid) .. " · " .. snap.chal.text } end
+
+  if #story == 0 then
+    story[1] = pick({ "A quiet week. The calm before the storm?", "Not much happened this week – the gang was resting up." })
+  end
+
+  local sun = w.mon + 6 * 86400
+  local num = tonumber(wk:match("%-(%d+)$")) or 0
+  return {
+    wk = wk,
+    title = "Week " .. num,
+    range = date("%d.%m", w.mon) .. " – " .. date("%d.%m", sun),
+    current = wk == ns.WeekKey(),
+    story = story,
+    facts = facts,
+  }
+end
+
+function L:Weeks()
+  local keys = {}
+  for k in pairs(ns.db.legend or {}) do keys[#keys + 1] = k end
+  table.sort(keys)
+  return keys
+end
+
+ns:On("PLAYER_LOGIN", function() C_Timer.After(5, function() L:Backfill() end) end)

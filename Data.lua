@@ -87,6 +87,7 @@ Comm:Handle("ST", function(f, sender, channel)
       ns.Quests:SendTo(sender)
       ns.Extras:SendNotes(sender)
       ns.Ideas:SendAll(sender)
+      if ns.Gear then ns.Gear:SendTo(sender) end
     end
     -- når vi bare når vennen via whisper, tips resten av gjengen på kanalen
     if channel == "WHISPER" and p.whisperTo then

@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.23.0", date = "10.11", items = {
+    "\"Since you last played\" card 10 s after login: dings, firsts, epics, gold achievements, dungeon runs and deaths while you were away, plus who's online and in your zone (Settings to turn off)",
+    "Gear compare: everyone's equipped gear is shared (nothing from bags or bank). Hover a friend for \"Gear ilvl 27 · better in 3 slots\"; Compare has a new Gear view, slot by slot with item tooltips",
+    "Legend book (Stats → Legend book): a chapter for every week, written from what the gang did – flip back through earlier weeks",
+  } },
   { v = "0.22.0", date = "09.11", items = {
     "Fix: dying in a dungeon (corpse run outside) no longer posts the run as finished – a run ends after 10 min outside or when you enter another dungeon",
     "Dungeon runs read clearer: \"Olav ran Scarlet Monastery · 42m · 4 bosses · 2 deaths\"",

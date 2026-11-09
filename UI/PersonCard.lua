@@ -98,6 +98,9 @@ function PC:Create()
   f.ding = UI.Text(f, 11, nil, C.dim)
   f.ding:SetWidth(W - PAD * 2)
   f.ding:SetWordWrap(true)
+  f.gear = UI.Text(f, 12, nil, C.text2)
+  f.gear:SetWidth(W - PAD * 2)
+  f.gear:SetWordWrap(true)
   f.hint = UI.Text(f, 11, nil, C.dim)
   f.hint:SetText("Shift-click the name to pin")
 
@@ -205,6 +208,21 @@ function PC:Fill(pid)
   f.zone:SetText(where)
   place(f.zone, y)
   y = y - math.max(14, f.zone:GetStringHeight() or 14) - 10
+
+  -- gear vs yours
+  local cmp = (not isMe) and ns.Gear and ns.Gear:Compare(p)
+  if cmp and cmp.avg then
+    local parts = { "Gear ilvl " .. string.format("%.0f", cmp.avg) }
+    if cmp.better > 0 then parts[#parts + 1] = ns.Colorize("better in " .. cmp.better .. " slot" .. (cmp.better == 1 and "" or "s"), C.green) end
+    if cmp.worse > 0 then parts[#parts + 1] = ns.Colorize("worse in " .. cmp.worse, C.red) end
+    if cmp.better == 0 and cmp.worse == 0 then parts[#parts + 1] = ns.Colorize("same as yours", C.dim) end
+    f.gear:SetText(table.concat(parts, "  ·  ") .. ns.Colorize("  (vs yours)", C.dim))
+    place(f.gear, y)
+    f.gear:Show()
+    y = y - math.max(14, f.gear:GetStringHeight() or 14) - 10
+  else
+    f.gear:Hide()
+  end
 
   -- siste ding
   local d = lastDing(pid)

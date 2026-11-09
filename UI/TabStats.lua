@@ -15,7 +15,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
 
   -- Underfaner
   local pageBtns = {}
-  local PAGES = { { "overview", "Overview" }, { "graph", "Progress" }, { "titles", "Titles" }, { "history", "History" } }
+  local PAGES = { { "overview", "Overview" }, { "graph", "Progress" }, { "titles", "Titles" }, { "history", "History" }, { "legend", "Legend book" } }
   local pages = {}
   local function paintPages()
     for k, b in pairs(pageBtns) do
@@ -427,6 +427,74 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   -------------------------------------------------------------------------
   -- History: milestones, dungeon records and fun facts (switch at the top)
   -------------------------------------------------------------------------
+  -------------------------------------------------------------------------
+  -- Legend book: one chapter per week
+  -------------------------------------------------------------------------
+  local legendPage = newPage("legend")
+  local book = UI.Panel(legendPage, C.card, C.line, false)
+  book:SetAllPoints()
+  local lgPrev = UI.Button(book, 30, 26, "‹", "ghost", function() tab:LegendStep(-1) end)
+  lgPrev:SetPoint("TOPRIGHT", -46, -12)
+  local lgNext = UI.Button(book, 30, 26, "›", "ghost", function() tab:LegendStep(1) end)
+  lgNext:SetPoint("TOPRIGHT", -12, -12)
+  local lgKicker = UI.Text(book, 10, "semi", C.accent)
+  lgKicker:SetPoint("TOPLEFT", 18, -16)
+  local lgTitle = UI.Text(book, 20, "bold", C.text)
+  lgTitle:SetPoint("TOPLEFT", lgKicker, "BOTTOMLEFT", 0, -4)
+  local lgRange = UI.Text(book, 12, nil, C.dim)
+  lgRange:SetPoint("BOTTOMLEFT", lgTitle, "BOTTOMRIGHT", 10, 2)
+  local lgStory = UI.Text(book, 13, nil, C.text2)
+  lgStory:SetPoint("TOPLEFT", 18, -66)
+  lgStory:SetPoint("RIGHT", -230, 0)
+  lgStory:SetWordWrap(true)
+  lgStory:SetJustifyV("TOP")
+  lgStory:SetSpacing(6)
+  local lgFacts = UI.Panel(book, C.window, C.line, false)
+  lgFacts:SetPoint("TOPRIGHT", -14, -54)
+  lgFacts:SetPoint("BOTTOMRIGHT", -14, 14)
+  lgFacts:SetWidth(200)
+  local lgFactsHead = UI.Text(lgFacts, 10, "semi", C.muted)
+  lgFactsHead:SetPoint("TOPLEFT", 12, -12)
+  lgFactsHead:SetText("THE WEEK IN NUMBERS")
+  local lgFactsText = UI.Text(lgFacts, 11, nil, C.text2)
+  lgFactsText:SetPoint("TOPLEFT", 12, -32)
+  lgFactsText:SetPoint("RIGHT", -10, 0)
+  lgFactsText:SetWordWrap(true)
+  lgFactsText:SetJustifyV("TOP")
+  lgFactsText:SetSpacing(4)
+  local lgIdx
+
+  local function drawLegend()
+    local weeks = ns.Legend:Weeks()
+    if #weeks == 0 then
+      lgKicker:SetText("THE LEGEND BOOK")
+      lgTitle:SetText("No chapters yet")
+      lgRange:SetText("")
+      lgStory:SetText("Every week gets a chapter written from what the gang did – dings, deaths, loot, dungeons and firsts. Play a bit and the first page fills in.")
+      lgFactsText:SetText("")
+      lgPrev:SetAlpha(0.3) lgNext:SetAlpha(0.3)
+      return
+    end
+    lgIdx = math.max(1, math.min(#weeks, lgIdx or #weeks))
+    local ch = ns.Legend:Chapter(weeks[lgIdx])
+    lgKicker:SetText("CHAPTER " .. lgIdx .. (ch.current and "  ·  BEING WRITTEN" or ""))
+    lgTitle:SetText(ch.title)
+    lgRange:SetText(ch.range)
+    lgStory:SetText(table.concat(ch.story, "\n\n"))
+    local lines = {}
+    for _, f in ipairs(ch.facts) do lines[#lines + 1] = ns.Colorize(f[1], C.muted) .. "\n" .. f[2] end
+    lgFactsText:SetText(#lines > 0 and table.concat(lines, "\n\n") or ns.Colorize("No numbers yet.", C.dim))
+    lgPrev:SetAlpha(lgIdx > 1 and 1 or 0.3)
+    lgNext:SetAlpha(lgIdx < #weeks and 1 or 0.3)
+  end
+
+  function tab:LegendStep(d)
+    local n = #ns.Legend:Weeks()
+    if n == 0 then return end
+    lgIdx = math.max(1, math.min(n, (lgIdx or n) + d))
+    drawLegend()
+  end
+
   local historyPage = newPage("history")
   local hseg = UI.Panel(historyPage, C.input, C.inputLine, true)
   hseg:SetSize(4 * 96 + 6, 28)
@@ -742,6 +810,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       elseif histMode == "milestones" then msList:SetData(ns.Extras:Chronicle())
       elseif histMode == "dungeons" then dgList:SetData(ns.Extras:DungeonRecords())
       else drawFacts() end
+    elseif page == "legend" then
+      drawLegend()
     elseif page == "titles" then
       local cur = ns.Titles:Current()
       local data = {}

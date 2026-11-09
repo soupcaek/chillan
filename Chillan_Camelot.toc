@@ -21,6 +21,9 @@ Titles.lua
 Extras.lua
 Ideas.lua
 Badges.lua
+Gear.lua
+Briefing.lua
+Legend.lua
 Changelog.lua
 Stats.lua
 Achievements.lua
@@ -40,6 +43,7 @@ UI\TabPlayer.lua
 UI\TabCompare.lua
 UI\Overlays.lua
 UI\LayerHop.lua
+UI\BriefingCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
 UI\EventWindow.lua

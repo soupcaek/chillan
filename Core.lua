@@ -429,7 +429,7 @@ end
 local DEFAULTS = {
   version = 1,
   settings = {
-    minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true,
+    minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true, briefing = true,
     onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
     accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
