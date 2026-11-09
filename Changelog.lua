@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.22.0", date = "09.11", items = {
+    "Emotes in Chillan? from the Twitch Emotes v2 addon (install it from WowUp): gang chat, event window, mirrored chat, reactions, popups and toasts",
+    "Emote picker: star button in the chat input – favourites (right-click), recent and search",
+    "Autocomplete: type :kek for suggestions with previews, or a name + Tab",
+    "New emote reactions: PogChamp, peepoClap, OMEGALUL, Sadge, PepeHands, monkaS and more",
+    "/chill emotes checks that the emotes are found",
+  } },
   { v = "0.21.0", date = "08.11", items = {
     "Chillan? sounds: a soft pop for new gang chat, a chime when you're @mentioned, a sad trombone when someone dies, and a pling when friends log in and out",
     "Settings → Notifications: turn the chat sound and the log in/out sound on or off",

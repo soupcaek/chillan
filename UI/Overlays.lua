@@ -361,8 +361,9 @@ function O:Toast(info)
     elseif it.place then parts[#parts + 1] = "no. " .. it.place .. " in the gang" end
     text = table.concat(parts, " · ")
   end
-  t.title:SetText(title or "")
-  t.text:SetText(text or "")
+  local emo = ns.Emotes
+  t.title:SetText(emo and emo:Render(title or "", 16) or (title or ""))
+  t.text:SetText(emo and emo:Render(text or "", 16) or (text or ""))
   t.title:SetPoint("RIGHT", -34, 0)
   t.text:SetPoint("RIGHT", -34, 0)
   t.btn:Hide()
@@ -654,7 +655,7 @@ function O:ShowDing(item)
       b:SetWidth(bw)
       b:ClearAllPoints()
       b:SetPoint("BOTTOMLEFT", 20 + (i - 1) * (bw + 8), 20)
-      b:SetLabel(list[picks[i]])
+      b:SetLabel(ns.Emotes and ns.Emotes:Render(list[picks[i]], 18) or list[picks[i]])
     end
   end
   d.sent:Hide()

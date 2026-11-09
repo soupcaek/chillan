@@ -7,9 +7,11 @@
 ## AddonCompartmentFunc: Chillan_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: Chillan_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Chillan_OnAddonCompartmentLeave
+## OptionalDeps: TwitchEmotes
 ## SavedVariables: ChillanDB
 
 Core.lua
+Emotes.lua
 Comm.lua
 Tracker.lua
 Data.lua

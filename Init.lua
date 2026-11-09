@@ -159,6 +159,13 @@ SlashCmdList.CHILLAN = function(msg)
     local L = ns.Tracker:UpdateLive()
     if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
     else ns.Print("Couldn't find your position here.") end
+  elseif cmd == "emotes" or cmd == "emotar" then
+    local E = ns.Emotes
+    if E:Available() then
+      ns.Print("Emotes: " .. E:Count() .. " from Twitch Emotes v2. Example: Kappa " .. (E:Icon("Kappa", 18) or "(not found)"))
+    else
+      ns.Print("Emotes: Twitch Emotes v2 not found (or not loaded yet). Install it to see emotes in Chillan?.")
+    end
   elseif cmd == "admin" then
     ns.Ideas:ClaimAdmin()
   elseif cmd == "ideas" or cmd == "ideer" then

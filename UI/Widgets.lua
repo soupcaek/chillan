@@ -794,11 +794,12 @@ local function ensureList()
     if not c or not e then self:Hide() return end
     local text, cur = e:GetText(), e:GetCursorPosition()
     local before, after = text:sub(1, cur), text:sub(cur + 1)
-    local s = before:match("()@[^@%s]*$")
-    if s then
-      before = before:sub(1, s - 1) .. "@" .. c.insert .. " "
+    local s = self.tokenStart
+    if s and s <= #before + 1 then
+      before = before:sub(1, s - 1) .. (c.emote and c.insert or ("@" .. c.insert)) .. " "
       e:SetText(before .. after)
       e:SetCursorPosition(#before)
+      if c.emote and ns.Emotes then ns.Emotes:Used(c.insert) end
     end
     self:Hide()
   end
@@ -810,14 +811,29 @@ local function refreshMentions(holder)
   local e = holder.edit
   if not e:HasFocus() then if mlist and mlist.edit == e then mlist:Hide() end return end
   local before = e:GetText():sub(1, e:GetCursorPosition())
-  local prefix = before:match("@([^@%s]*)$")
+  local tokenStart, prefix = before:match("()@([^@%s]*)$")
   -- also allow two-word character names ("@helse pr")
-  if not prefix then prefix = before:match("@(%S+ %S*)$") end
-  if not prefix then if mlist and mlist.edit == e then mlist:Hide() end return end
-  local items = mentionCandidates(prefix)
+  if not prefix then tokenStart, prefix = before:match("()@(%S+ %S*)$") end
+  local items
+  if prefix then
+    items = mentionCandidates(prefix)
+  else
+    -- :emote – suggestions from Twitch Emotes v2 (or Tab on a plain word, see AttachMentions)
+    local s2, ep = before:match("()%:([%w_]+)$")
+    if not ep and holder.tabWord then s2, ep = before:match("()([%w_]+)$") end
+    holder.tabWord = nil
+    if ep and #ep >= 2 and ns.Emotes and ns.Emotes:Available() then
+      tokenStart = s2
+      items = {}
+      for _, n in ipairs(ns.Emotes:Search(ep, 6)) do
+        items[#items + 1] = { label = (ns.Emotes:Icon(n, 18) or "") .. "  " .. n, insert = n, emote = true, color = C.text }
+      end
+    end
+  end
+  if not items then if mlist and mlist.edit == e then mlist:Hide() end return end
   local l = ensureList()
   if #items == 0 then l:Hide() return end
-  l.edit, l.items = e, items
+  l.edit, l.items, l.tokenStart = e, items, tokenStart
   l.sel = math.min(l.sel or 1, #items)
   local w = 200
   for i, b in ipairs(l.rows) do
@@ -827,6 +843,7 @@ local function refreshMentions(holder)
       b.name:SetTextColor(hex(it.color or C.text))
       b.sub:SetText(it.sub or "")
       b.dot:SetVertexColor(hex(it.online and C.green or C.dim))
+      b.dot:SetShown(not it.emote)
       b:Show()
       w = math.max(w, 30 + b.name:GetStringWidth() + 8 + math.min(160, b.sub:GetStringWidth() + 8))
     else
@@ -851,8 +868,13 @@ function UI.AttachMentions(holder)
   e:HookScript("OnTextChanged", function(_, user) if user ~= false then refreshMentions(holder) end end)
   e:HookScript("OnCursorChanged", function() if mlist and mlist:IsShown() and mlist.edit == e then refreshMentions(holder) end end)
   e:SetScript("OnTabPressed", function()
-    if mlist and mlist:IsShown() and mlist.edit == e then mlist:Accept() end
+    if mlist and mlist:IsShown() and mlist.edit == e then mlist:Accept() return end
+    -- Tab on a plain word: emote completion (like Twitch Emotes does in normal chat)
+    holder.tabWord = true
+    refreshMentions(holder)
+    if mlist and mlist:IsShown() and mlist.edit == e and #mlist.items == 1 then mlist:Accept() end
   end)
+  UI.AttachEmotePicker(holder)
   e:SetScript("OnArrowPressed", function(_, key)
     if not (mlist and mlist:IsShown() and mlist.edit == e) then return end
     local n = #mlist.items
@@ -870,4 +892,155 @@ function UI.AttachMentions(holder)
     if mlist and mlist:IsShown() and mlist.edit == self then mlist:Accept() return end
     if enter then enter(self) end
   end)
+end
+
+---------------------------------------------------------------------------
+-- Emote picker: small button inside the chat input; favourites, recent and search.
+-- Emotes come from Twitch Emotes v2 (Chillan ships no emote images itself).
+---------------------------------------------------------------------------
+local picker
+local function ensurePicker()
+  if picker then return picker end
+  local P = UI.Panel(UIParent, C.card, C.activeLine, true)
+  P:SetFrameStrata("FULLSCREEN_DIALOG")
+  P:SetSize(8 * 36 + 20, 300)
+  P:EnableMouse(true)
+  P.search = UI.EditBox(P, 8 * 36, 28, "Search emotes …", function(self) self:ClearFocus() end)
+  P.search:SetPoint("TOPLEFT", 10, -10)
+  P.head = UI.Text(P, 10, "semi", C.dim)
+  P.head:SetPoint("TOPLEFT", 12, -46)
+  P.cells = {}
+  for i = 1, 40 do
+    local b = CreateFrame("Button", nil, P)
+    b:SetSize(34, 34)
+    local col, row = (i - 1) % 8, math.floor((i - 1) / 8)
+    b:SetPoint("TOPLEFT", 10 + col * 36, -62 - row * 36)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b.hl = b:CreateTexture(nil, "BACKGROUND")
+    b.hl:SetAllPoints()
+    b.hl:SetColorTexture(1, 1, 1, 0.08)
+    b.hl:Hide()
+    b.tex = b:CreateTexture(nil, "ARTWORK")
+    b.tex:SetPoint("CENTER")
+    b.star = b:CreateTexture(nil, "OVERLAY")
+    b.star:SetTexture(ns.TEX .. "IconStar")
+    b.star:SetSize(10, 10)
+    b.star:SetPoint("TOPRIGHT", -1, -1)
+    b.star:SetVertexColor(hex(C.gold))
+    b:SetScript("OnEnter", function(self)
+      self.hl:Show()
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine(self.word or "")
+      GameTooltip:AddLine("Click: insert · Right-click: favourite", 0.6, 0.63, 0.66)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function(self) self.hl:Hide() GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(self, btn)
+      if not self.word then return end
+      if btn == "RightButton" then
+        ns.Emotes:ToggleFav(self.word)
+        P:Fill()
+        return
+      end
+      local e = P.edit
+      if e then
+        local text, cur = e:GetText(), e:GetCursorPosition()
+        local before, after = text:sub(1, cur), text:sub(cur + 1)
+        local add = ((before ~= "" and not before:match("%s$")) and " " or "") .. self.word .. " "
+        e:SetText(before .. add .. after)
+        e:SetCursorPosition(#before + #add)
+        e:SetFocus()
+      end
+      ns.Emotes:Used(self.word)
+      P:Fill()
+    end)
+    P.cells[i] = b
+  end
+  P.empty = UI.Text(P, 12, nil, C.text2, true)
+  P.empty:SetPoint("TOPLEFT", 12, -66)
+  P.empty:SetPoint("RIGHT", -12, 0)
+  P.foot = UI.Text(P, 10, nil, C.dim)
+  P.foot:SetPoint("BOTTOMLEFT", 12, 10)
+
+  function P:Fill()
+    local E = ns.Emotes
+    local q = self.search:GetText() or ""
+    local list, head = {}, ""
+    if not E:Available() then
+      self.empty:SetText("Install the addon Twitch Emotes v2 to use emotes in Chillan?. Without it, emote names just show as words.")
+      self.empty:Show()
+      for _, b in ipairs(self.cells) do b:Hide() end
+      self.head:SetText("") self.foot:SetText("")
+      return
+    end
+    self.empty:Hide()
+    if q ~= "" then
+      list = E:Search(q, 40) head = #list .. " MATCHES"
+    else
+      local seen = {}
+      for _, w in ipairs(E:Favs()) do if not seen[w] then list[#list + 1] = w seen[w] = true end end
+      for _, w in ipairs(ns.db.emoteRecent or {}) do if E:Info(w) and not seen[w] then list[#list + 1] = w seen[w] = true end end
+      head = #list > 0 and "FAVOURITES & RECENT" or "POPULAR"
+      for _, w in ipairs({ "KEKW", "OMEGALUL", "PogChamp", "Kappa", "LUL", "Sadge", "monkaS", "PepeHands", "catJAM", "EZ",
+        "peepoClap", "HYPERS", "Pog", "PogU", "5Head", "Pepega", "LULW", "widepeepoHappy", "FeelsBadMan", "FeelsGoodMan" }) do
+        if #list >= 40 then break end
+        if E:Info(w) and not seen[w] then list[#list + 1] = w seen[w] = true end
+      end
+    end
+    self.head:SetText(head)
+    local favs = ns.db.emoteFav or {}
+    for i, b in ipairs(self.cells) do
+      local w = list[i]
+      local info = w and E:Info(w)
+      if info then
+        b.word = w
+        b.tex:SetTexture(info.path)
+        local h = 28
+        b.tex:SetSize(math.min(34, h * info.w / math.max(1, info.h)), h)
+        b.star:SetShown(favs[w] and true or false)
+        b:Show()
+      else
+        b.word = nil
+        b:Hide()
+      end
+    end
+    self.foot:SetText(E:Count() .. " emotes from Twitch Emotes v2")
+  end
+  P.search.edit:HookScript("OnTextChanged", function() P:Fill() end)
+  P:SetScript("OnShow", function(self) self:Fill() end)
+  P:Hide()
+  picker = P
+  return P
+end
+
+function UI.AttachEmotePicker(holder)
+  local e = holder.edit
+  e:SetPoint("BOTTOMRIGHT", -34, 0)
+  local b = CreateFrame("Button", nil, holder)
+  b:SetSize(26, 26)
+  b:SetPoint("RIGHT", -5, 0)
+  b.icon = b:CreateTexture(nil, "OVERLAY")
+  b.icon:SetTexture(ns.TEX .. "IconStar")
+  b.icon:SetSize(15, 15)
+  b.icon:SetPoint("CENTER")
+  b.icon:SetVertexColor(hex(C.muted))
+  b:SetScript("OnEnter", function(self)
+    self.icon:SetVertexColor(hex(C.accent))
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Emotes")
+    GameTooltip:AddLine("Or type :name / a name + Tab", 0.6, 0.63, 0.66)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function(self) self.icon:SetVertexColor(hex(C.muted)) GameTooltip:Hide() end)
+  b:SetScript("OnClick", function()
+    local P = ensurePicker()
+    if P:IsShown() and P.edit == e then P:Hide() return end
+    P.edit = e
+    P:ClearAllPoints()
+    P:SetPoint("BOTTOMRIGHT", holder, "TOPRIGHT", 0, 4)
+    P:SetClampedToScreen(true)
+    P:Show()
+    P:Fill()
+  end)
+  holder.emoteBtn = b
 end

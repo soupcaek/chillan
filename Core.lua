@@ -225,8 +225,11 @@ local function mentionColors()
   return map, pids
 end
 
+-- emote images (Twitch Emotes v2) in plain chat text
+local function emo(t) return ns.Emotes and ns.Emotes:Render(t) or t end
+
 local function colorMentions(plain, baseHex, map, pids)
-  if not plain:find("@", 1, true) then return ns.Colorize(plain, baseHex) end
+  if not plain:find("@", 1, true) then return ns.Colorize(emo(plain), baseHex) end
   local out, pos = {}, 1
   while true do
     local at = plain:find("@", pos, true)
@@ -241,17 +244,17 @@ local function colorMentions(plain, baseHex, map, pids)
       name = one:gsub("[%p]+$", "") col = map[name:lower()]
     end
     if name then
-      if at > pos then out[#out + 1] = ns.Colorize(plain:sub(pos, at - 1), baseHex) end
+      if at > pos then out[#out + 1] = ns.Colorize(emo(plain:sub(pos, at - 1)), baseHex) end
       local pid = pids and pids[name:lower()]
       local shown = ns.Colorize("@" .. name, col)
       out[#out + 1] = pid and ("|Hchillan:" .. tostring(pid) .. "|h" .. shown .. "|h") or shown
       pos = at + 1 + #name
     else
-      out[#out + 1] = ns.Colorize(plain:sub(pos, at), baseHex)
+      out[#out + 1] = ns.Colorize(emo(plain:sub(pos, at)), baseHex)
       pos = at + 1
     end
   end
-  if pos <= #plain then out[#out + 1] = ns.Colorize(plain:sub(pos), baseHex) end
+  if pos <= #plain then out[#out + 1] = ns.Colorize(emo(plain:sub(pos)), baseHex) end
   return table.concat(out)
 end
 

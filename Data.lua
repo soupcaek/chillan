@@ -665,16 +665,21 @@ end)
 -- fixed buttons, so reactions from older versions still show the right text.
 ns.REACTIONS = {
   "Grats!", "GZ!", "Finally!", "Gay", "Ding dong!", "Big ding!", "Absolute unit", "Levelled up!", "About time", "Speedrun?", "Show-off", "Sheesh!", "W", "Massive W", "Huge!", "Leveling god", "Go go go!", "Nice one!", "Keep it up!", "Unstoppable", "XP vacuum", "No-lifer", "Touch grass", "Hell yeah!", "Lets gooo!", "Banger", "Proud of you", "Clean", "Too fast!", "Wait for me!", "Slow down!", "Respect", "Built diff", "Getting old", "Happy ding!", "Yippie!", "Skål!", "Nais!", "Gratulerer!", "Rått!", "Konge!", "Damn!", "Ding ding", "Insane", "Tryhard", "Who asked?", "Cake time", "Grats, nerd", "Big brain", "Glow up",
+  -- emotes (images with Twitch Emotes v2, plain words without)
+  "PogChamp", "peepoClap", "EZ", "catJAM", "HYPERS",
 }
 -- tag: "laugh" counts as laughing at a death, "f" as paying respect
 ns.REACTIONS_DEAD = {
   "Hahaha!", "RIP", "Noob!", "F", "Gay", "LOL", "KEKW", "Skill issue", "Git gud", "Bruh", "Oof", "o7", "Unlucky", "Classic", "Corpse run!", "Walk it off", "Was it lag?", "Blame tank", "Blame healer", "Floor tank", "Not again", "Again?!", "Res pls", "Pathetic", "Sad", "Tragic", "Big oof", "Nice try", "Deserved", "Get rekt", "Who did it?", "Cry about it", "Smooth", "Pain", "Rest easy", "Gone too soon", "Ripperoni", "Ded", "Dirt nap", "Ouch!", "Omegalul", "Fall damage?", "Huh?", "Carry harder", "Avenge me!", "Floor is cozy", "Spirit buddy", "Durability!", "Chalk outline", "Pepega",
+  "OMEGALUL", "LULW", "Sadge", "PepeHands", "monkaS",
 }
 ns.REACTIONS_DEAD_TAG = {
   "laugh", "", "laugh", "f", "laugh", "laugh", "laugh", "laugh", "laugh", "", "", "f", "", "laugh", "laugh", "", "", "", "", "laugh", "laugh", "laugh", "", "laugh", "f", "f", "", "", "laugh", "laugh", "", "laugh", "laugh", "f", "f", "f", "", "", "laugh", "", "laugh", "laugh", "", "", "f", "laugh", "", "laugh", "laugh", "laugh",
+  "laugh", "laugh", "f", "f", "",
 }
 ns.REACTIONS_ACH = {
   "Grats!", "GZ!", "Impressive!", "Gay", "Nice!", "Tryhard", "Achiever", "Collector", "Big brain", "Completionist", "Sweaty", "Nerd!", "Clean!", "Legend", "Respect", "W", "Noted", "Pog", "Poggers", "Insane", "Show-off", "Ok, flex", "Hall of fame", "Wow", "Shiny!", "Stonks", "Goals", "Unreal", "Iconic", "Earned", "Big W", "GG", "Well played", "Chad move", "Neat", "Wholesome", "Trophy hunter", "Slay", "Proud", "Bravo!", "Mesterlig", "Konge!", "Rått!", "Nais!", "Sheesh!", "Gratz!", "Sick!", "Gamer", "Flawless", "Main char",
+  "PogU", "peepoClap", "EZ", "widepeepoHappy", "HYPERS",
 }
 
 function ns.ReactionList(item)
@@ -702,9 +707,11 @@ function ns.ReactionTag(item, idx)
   return "grats"
 end
 
-function ns.ReactionText(item, idx)
+function ns.ReactionText(item, idx, plain)
   local list = ns.ReactionList(item)
-  return list[tonumber(idx) or 1] or list[1]
+  local t = list[tonumber(idx) or 1] or list[1]
+  if plain or not ns.Emotes then return t end
+  return ns.Emotes:Render(t, 16)
 end
 
 local function findFeed(id)
