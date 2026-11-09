@@ -1,0 +1,54 @@
+name: Release Dungeon Journal
+
+# Standalone demo addon "Chillan? Dungeon Journal".
+# Change ChillanDungeonJournal/VERSION and push to main -> tag dj-vX.Y.Z and a
+# pre-release with the zip (pre-release, so WowUp keeps installing Chillan? itself).
+on:
+  push:
+    branches: [main]
+    paths: [ChillanDungeonJournal/VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: v
+        run: |
+          VERSION="dj-v$(tr -d '[:space:]' < ChillanDungeonJournal/VERSION)"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build zip
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          mkdir -p .release/ChillanDungeonJournal
+          rsync -a --exclude 'VERSION' ChillanDungeonJournal/ .release/ChillanDungeonJournal/
+          sed -i "s/@project-version@/${TAG#dj-v}/" .release/ChillanDungeonJournal/*.toc
+          cd .release
+          zip -r -q "ChillanDungeonJournal-${TAG}.zip" ChillanDungeonJournal
+
+      - name: Publish pre-release
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+          gh release create "$TAG" .release/ChillanDungeonJournal-${TAG}.zip \
+            --title "Chillan? Dungeon Journal ${TAG#dj-}" --prerelease --verify-tag \
+            --notes "Demo (Wailing Caverns). Download the zip and put the folder ChillanDungeonJournal in _forever_\\Interface\\AddOns. Open with /cdj."

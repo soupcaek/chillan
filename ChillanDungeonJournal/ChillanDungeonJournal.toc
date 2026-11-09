@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: Chillan|cffc8d1dc?|r Dungeon Journal
+## Notes: Dungeon journal demo for the Chillan? gang: quests and chains, bosses, the dungeon map and the entrance. Demo: Wailing Caverns.
+## Author: Henrik
+## Version: @project-version@
+## IconTexture: Interface\AddOns\ChillanDungeonJournal\Media\Textures\Logo
+## OptionalDeps: Chillan
+## SavedVariables: ChillanDJDB
+## AddonCompartmentFunc: ChillanDJ_OnCompartmentClick
+
+Core.lua
+Data\WailingCaverns.lua
+Map.lua
+UI.lua
