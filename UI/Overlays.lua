@@ -119,6 +119,7 @@ function O:UpdateMinibar()
         items[#items + 1] = { text = label, color = code ~= "AUTO" and ns.STATUS[code].color or nil,
           func = function() ns.Tracker:SetStatus(code) O:UpdateMinibar() end }
       end
+      items[#items + 1] = { text = "Layer hop – ask the gang for an invite", color = C.accent, func = function() ns.LayerHop:Request() end }
       UI.Menu(self, items, true)
     end)
     sb:SetScript("OnEnter", function(self)

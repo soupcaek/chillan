@@ -159,6 +159,8 @@ SlashCmdList.CHILLAN = function(msg)
     local L = ns.Tracker:UpdateLive()
     if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
     else ns.Print("Couldn't find your position here.") end
+  elseif cmd == "layer" or cmd == "hop" or cmd == "lag" then
+    ns.LayerHop:Request()
   elseif cmd == "emotes" or cmd == "emotar" then
     local E = ns.Emotes
     if E:Available() then
