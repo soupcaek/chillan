@@ -8,6 +8,7 @@ ns.CHANGELOG = {
     "Autocomplete: type :kek for suggestions with previews, or a name + Tab",
     "New emote reactions: PogChamp, peepoClap, OMEGALUL, Sadge, PepeHands, monkaS and more",
     "/chill emotes checks that the emotes are found",
+    "Stats: two rotating spotlight cards – First in the gang (now incl. mount, epic, dungeons), Level race, Next ding, Loot of the week, Deadliest zone, Enemy of the week, Hot streak, The gang this week, Dungeon records. New fact every 20 s, hover pauses, click for the next",
   } },
   { v = "0.21.0", date = "08.11", items = {
     "Chillan? sounds: a soft pop for new gang chat, a chime when you're @mentioned, a sad trombone when someone dies, and a pling when friends log in and out",

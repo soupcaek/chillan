@@ -666,15 +666,56 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   shame.last:SetPoint("BOTTOMLEFT", 12, 10)
   shame.last:SetPoint("RIGHT", -10, 0)
 
-  local firsts = card(10, "First in the gang")
-  firsts:SetPoint("TOPLEFT", shame, "BOTTOMLEFT", 0, -8)
-  firsts:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT")
-  firsts.text = UI.Text(firsts, 12, nil, C.text2)
-  firsts.text:SetPoint("TOPLEFT", 12, -30)
-  firsts.text:SetPoint("RIGHT", -10, 0)
-  firsts.text:SetWordWrap(true)
-  firsts.text:SetJustifyV("TOP")
-  firsts.text:SetSpacing(5)
+  -------------------------------------------------------------------------
+  -- Two rotating "spotlight" cards under the challenge and the wall of shame:
+  -- a new fun fact every 20 s (hover pauses, click shows the next one)
+  -------------------------------------------------------------------------
+  local spots = {}
+  local spotHolder = CreateFrame("Frame", nil, right)
+  spotHolder:SetPoint("TOPLEFT", shame, "BOTTOMLEFT", 0, -8)
+  spotHolder:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT")
+  for i = 1, 2 do
+    local cd = UI.Panel(spotHolder, C.card, C.line, false)
+    local btn = CreateFrame("Button", nil, cd)
+    btn:SetAllPoints()
+    cd.title = UI.Text(cd, 10, "semi", C.muted)
+    cd.title:SetPoint("TOPLEFT", 12, -12)
+    cd.title:SetPoint("RIGHT", -34, 0)
+    cd.page = UI.Text(cd, 10, nil, C.dim)
+    cd.page:SetPoint("TOPRIGHT", -10, -12)
+    cd.page:SetJustifyH("RIGHT")
+    cd.big = UI.Text(cd, 15, "semi", C.text)
+    cd.big:SetPoint("TOPLEFT", 12, -30)
+    cd.big:SetPoint("RIGHT", -10, 0)
+    cd.big:SetWordWrap(false)
+    cd.sub = UI.Text(cd, 11, nil, C.text2)
+    cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6)
+    cd.sub:SetPoint("RIGHT", -10, 0)
+    cd.sub:SetWordWrap(true)
+    cd.sub:SetJustifyV("TOP")
+    cd.sub:SetSpacing(4)
+    btn:SetScript("OnEnter", function()
+      cd.hover = true
+      cd:SetColors(C.cardHover, C.line)
+      local f = cd.fact
+      if f and f.item then
+        GameTooltip:SetOwner(cd, "ANCHOR_LEFT")
+        GameTooltip:SetHyperlink("item:" .. f.item)
+        GameTooltip:Show()
+      end
+    end)
+    btn:SetScript("OnLeave", function() cd.hover = false cd:SetColors(C.card, C.line) GameTooltip:Hide() end)
+    btn:SetScript("OnClick", function() tab:NextSpot(i) end)
+    spots[i] = cd
+  end
+  spotHolder:SetScript("OnSizeChanged", function(self, w, h)
+    local each = (h - 8) / 2
+    for i, cd in ipairs(spots) do
+      cd:ClearAllPoints()
+      cd:SetPoint("TOPLEFT", 0, -(i - 1) * (each + 8))
+      cd:SetSize(w, each)
+    end
+  end)
 
   function tab:Refresh()
     local people = ns:SortedPeople()
@@ -744,18 +785,211 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       shame.last:SetText("")
     end
 
-    local lines = {}
-    for _, key in ipairs({ "L10", "L20", "L30", "L40", "L50", "L60", "MOUNT" }) do
-      local f = ns.db.firsts[key]
-      if f then
+    tab:BuildSpots()
+    tab:ShowSpots()
+  end
+
+  -------------------------------------------------------------------------
+  -- spotlight facts (each returns nil when there's nothing to show yet)
+  -------------------------------------------------------------------------
+  local WEEK = 7 * 86400
+  local function shortNum(n)
+    n = n or 0
+    if n >= 1e6 then return string.format("%.1fM", n / 1e6) end
+    if n >= 1e4 then return string.format("%dk", math.floor(n / 1000)) end
+    return tostring(math.floor(n))
+  end
+  local function recent(p) return (ns.Now() - (p.lastSeen or 0)) < 14 * 86400 or p == ns.db.people[ns.pid] end
+  local function people() local out = {} for _, p in ipairs(ns:SortedPeople()) do if recent(p) then out[#out + 1] = p end end return out end
+
+  local FACTS = {
+    -- First in the gang (now with more milestones)
+    function()
+      local lines = {}
+      local function add(label, f)
+        if not f then return end
         local p = ns:GetPerson(f.pid) or {}
-        local c = (p.chars and p.chars[f.char]) or {}
-        local label = key == "MOUNT" and "Mount" or ("Level " .. key:sub(2))
         lines[#lines + 1] = ns.Colorize(label, C.muted) .. "  " .. ns:ShortWho(p, f.char)
       end
+      for _, lv in ipairs({ 60, 50, 40, 30, 20, 10 }) do add("Level " .. lv, ns.db.firsts["L" .. lv]) end
+      add("Mount", ns.db.firsts.MOUNT)
+      add("Epic", ns.db.firsts.EPIC)
+      local dgs = {}
+      for key, f in pairs(ns.db.firsts) do if key:sub(1, 3) == "DG:" then dgs[#dgs + 1] = { key:sub(4), f } end end
+      table.sort(dgs, function(a, b) return a[2].t > b[2].t end)
+      for i = 1, math.min(2, #dgs) do add(dgs[i][1], dgs[i][2]) end
+      if #lines == 0 then return nil end
+      return { title = "First in the gang", big = nil, sub = table.concat(lines, "\n", 1, math.min(#lines, 5)) }
+    end,
+    -- Level race: the two closest friends
+    function()
+      local list = {}
+      for _, p in ipairs(people()) do
+        local s3 = ns:PersonS3(p) or {}
+        local lvl = ns:PersonMaxLevel(p)
+        local frac = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or 0
+        if lvl and lvl > 0 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
+      end
+      table.sort(list, function(a, b) return a.v > b.v end)
+      local best
+      for i = 1, #list - 1 do
+        local d = list[i].v - list[i + 1].v
+        if not best or d < best.d then best = { a = list[i], b = list[i + 1], d = d } end
+      end
+      if not best then return nil end
+      local function fmt(x) return x.lvl .. " · " .. math.floor(x.frac * 100) .. " %" end
+      return { title = "Level race", big = ns:ShortWho(best.a.p) .. ns.Colorize("  vs  ", C.dim) .. ns:ShortWho(best.b.p),
+        sub = fmt(best.a) .. "  vs  " .. fmt(best.b) .. "\n" .. (best.d >= 1 and string.format("%.1f levels apart", best.d) or ("Only " .. math.max(1, math.floor(best.d * 100 + 0.5)) .. " % of a level apart")) }
+    end,
+    -- Next ding: who levels next at their current pace
+    function()
+      local best
+      for _, p in ipairs(people()) do
+        local s3 = ns:PersonS3(p) or {}
+        if ns:IsOnline(p) and s3.sessXP and s3.sessSec and s3.sessSec > 600 and s3.sessXP > 0 and s3.xp and s3.xpMax then
+          local xph = s3.sessXP / s3.sessSec * 3600
+          local eta = (s3.xpMax - s3.xp) / xph * 3600
+          if not best or eta < best.eta then best = { p = p, eta = eta, xph = xph } end
+        end
+      end
+      if not best then return nil end
+      local lvl = ns:PersonMaxLevel(best.p)
+      return { title = "Next ding", big = ns:ShortWho(best.p) .. ns.Colorize("  in ~" .. ns.Duration(best.eta), C.text2),
+        sub = "Level " .. lvl .. " to " .. (lvl + 1) .. "\n" .. shortNum(best.xph) .. " XP/h this session" }
+    end,
+    -- Loot of the week
+    function()
+      local best
+      for _, it in ipairs(ns.db.feed or {}) do
+        if it.kind == "LOOT" and (ns.Now() - (it.t or 0)) < WEEK then
+          local q = tonumber(it.b) or 0
+          if not best or q > best.q or (q == best.q and it.t > best.it.t) then best = { it = it, q = q } end
+        end
+      end
+      if not best then return nil end
+      local id = tonumber(best.it.a)
+      local name = id and ((C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or (GetItemInfo and GetItemInfo(id)))
+      local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[best.q]) or C.text
+      local p = ns:GetPerson(best.it.pid) or {}
+      return { title = "Loot of the week", item = id, big = ns.Colorize("[" .. (name or "item") .. "]", hexq),
+        sub = "Looted by " .. ns:ShortWho(p) .. " · " .. ns.Ago(best.it.t) }
+    end,
+    -- Deadliest zone this week
+    function()
+      local zones, who = {}, {}
+      for _, it in ipairs(ns.db.feed or {}) do
+        if it.kind == "DEAD" and it.a and it.a ~= "" and (ns.Now() - (it.t or 0)) < WEEK then
+          zones[it.a] = (zones[it.a] or 0) + 1
+          who[it.a] = who[it.a] or {}
+          who[it.a][it.pid] = (who[it.a][it.pid] or 0) + 1
+        end
+      end
+      local z, n = nil, 0
+      for k, v in pairs(zones) do if v > n then z, n = k, v end end
+      if not z then return nil end
+      local wp, wn = nil, 0
+      for pid, v in pairs(who[z]) do if v > wn then wp, wn = pid, v end end
+      return { title = "Deadliest zone", big = z,
+        sub = n .. " death" .. (n == 1 and "" or "s") .. " this week" .. (wp and ("\nMost: " .. ns:ShortWho(ns:GetPerson(wp) or {}) .. " (" .. wn .. ")") or "") }
+    end,
+    -- Enemy log: the newest tagged Alliance player
+    function()
+      local e
+      for _, x in pairs(ns.db.enemies or {}) do if not e or (x.t or 0) > (e.t or 0) then e = x end end
+      if not e then return nil end
+      local by = e.by and ns:GetPerson(e.by)
+      return { title = "Enemy of the week", big = ns.Colorize(e.name, C.red),
+        sub = ((e.note and e.note ~= "") and ("“" .. e.note .. "”\n") or "") .. "Tagged " .. ns.Ago(e.t) .. (by and (" by " .. ns:ShortWho(by)) or "") }
+    end,
+    -- Hot streak: most days in a row
+    function()
+      local bp, bv = nil, 0
+      for _, p in ipairs(people()) do
+        local s3 = ns:PersonS3(p) or {}
+        if (s3.streak or 0) > bv then bp, bv = p, s3.streak end
+      end
+      if not bp or bv < 2 then return nil end
+      return { title = "Hot streak", big = bv .. " days in a row", sub = ns:ShortWho(bp) .. " hasn't missed a day" }
+    end,
+    -- The gang this week, all together
+    function()
+      local xp, q, gold, lv = 0, 0, 0, 0
+      for _, p in ipairs(people()) do
+        local s3 = ns:PersonS3(p) or {}
+        if p == ns.db.people[ns.pid] or s3.wk == ns.WeekKey() then xp = xp + (s3.wXP or 0) end
+        q = q + ns:WeekStat(p, "Quests")
+        gold = gold + ns:WeekStat(p, "Gold")
+        lv = lv + ns:WeekStat(p, "Levels")
+      end
+      if xp == 0 and q == 0 then return nil end
+      return { title = "The gang this week", big = shortNum(xp) .. " XP",
+        sub = math.floor(q) .. " quests · " .. ns.Money(gold) .. "\n" .. math.floor(lv) .. " levels together" }
+    end,
+    -- Dungeon records
+    function()
+      local recs = ns.Extras:DungeonRecords()
+      if #recs == 0 then return nil end
+      table.sort(recs, function(a, b) return (a.item.t or 0) > (b.item.t or 0) end)
+      local lines = {}
+      for i = 1, math.min(3, #recs) do
+        lines[#lines + 1] = recs[i].name .. ns.Colorize("  " .. ns.Duration(recs[i].dur), C.accent)
+      end
+      return { title = "Dungeon records", sub = table.concat(lines, "\n") }
+    end,
+  }
+
+  local spotFacts, spotIdx = {}, { 1, 2 }
+  function tab:BuildSpots()
+    spotFacts = {}
+    for _, fn in ipairs(FACTS) do
+      local ok, f = pcall(fn)
+      if ok and f then spotFacts[#spotFacts + 1] = f end
     end
-    firsts.text:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("Nobody yet – who'll be first to level 10?", C.muted))
   end
+
+  local function paint(i)
+    local cd = spots[i]
+    local n = #spotFacts
+    if n == 0 then
+      cd.title:SetText(i == 1 and "SPOTLIGHT" or "")
+      cd.big:SetText(i == 1 and ns.Colorize("Play a bit – fun facts show up here", C.muted) or "")
+      cd.sub:SetText("") cd.page:SetText("") cd.fact = nil
+      return
+    end
+    local f = spotFacts[((spotIdx[i] - 1) % n) + 1]
+    cd.fact = f
+    cd.title:SetText((f.title or ""):upper())
+    cd.big:SetText(f.big or "")
+    cd.big:SetShown(f.big ~= nil)
+    cd.sub:ClearAllPoints()
+    if f.big then cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6) else cd.sub:SetPoint("TOPLEFT", 12, -30) end
+    cd.sub:SetPoint("RIGHT", -10, 0)
+    cd.sub:SetText(f.sub or "")
+    cd.page:SetText((((spotIdx[i] - 1) % n) + 1) .. "/" .. n)
+  end
+
+  function tab:ShowSpots()
+    -- the two cards never show the same fact
+    if #spotFacts >= 2 and ((spotIdx[1] - 1) % #spotFacts) == ((spotIdx[2] - 1) % #spotFacts) then spotIdx[2] = spotIdx[2] + 1 end
+    paint(1) paint(2)
+  end
+
+  function tab:NextSpot(i)
+    local n = #spotFacts
+    if n == 0 then return end
+    spotIdx[i] = spotIdx[i] + 1
+    local other = i == 1 and 2 or 1
+    if n >= 2 and ((spotIdx[i] - 1) % n) == ((spotIdx[other] - 1) % n) then spotIdx[i] = spotIdx[i] + 1 end
+    paint(i)
+  end
+
+  -- rotate every 20 s while the Stats tab is open (a card you're hovering waits)
+  C_Timer.NewTicker(20, function()
+    if not tab:IsVisible() then return end
+    tab:BuildSpots()
+    for i = 1, 2 do if not spots[i].hover then spotIdx[i] = spotIdx[i] + 2 end end
+    tab:ShowSpots()
+  end)
 
   function tab:SetPage(k, h)
     page = k
