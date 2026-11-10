@@ -39,25 +39,31 @@ function E:Available()
 end
 
 -- emote texture string at a given height (keeps the emote's shape)
-function E:Icon(word, h)
+-- link = true wraps the image in a |Hchillanemote:word|h link so Chillan's own message frames
+-- can show a tooltip with the emote name (":Pog:") on hover
+function E:Icon(word, h, link)
   if not self:Available() then return nil end
   local e = map[word]
   if not e then return nil end
   h = h or 18
   local w = math.floor(h * (e.w / math.max(1, e.h)) + 0.5)
-  return string.format("|T%s:%d:%d|t", e.path, h, w)
+  local icon = string.format("|T%s:%d:%d|t", e.path, h, w)
+  if link and not word:find("|", 1, true) then
+    icon = "|Hchillanemote:" .. word .. "|h" .. icon .. "|h"
+  end
+  return icon
 end
 
 -- replace emote words in plain text (no colour codes inside) with their images
-function E:Render(text, h)
+function E:Render(text, h, link)
   if type(text) ~= "string" or text == "" or not self:Available() then return text end
   return (text:gsub("%S+", function(word)
-    local icon = self:Icon(word, h)
+    local icon = self:Icon(word, h, link)
     if icon then return icon end
     -- "Kappa!" or "KEKW," – keep trailing punctuation
     local core, tail = word:match("^(.-)([%p]+)$")
     if core and core ~= "" then
-      icon = self:Icon(core, h)
+      icon = self:Icon(core, h, link)
       if icon then return icon .. tail end
     end
     return nil

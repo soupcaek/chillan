@@ -226,7 +226,7 @@ local function mentionColors()
 end
 
 -- emote images (Twitch Emotes v2) in plain chat text
-local function emo(t) return ns.Emotes and ns.Emotes:Render(t) or t end
+local function emo(t) return ns.Emotes and ns.Emotes:Render(t, nil, true) or t end
 
 local function colorMentions(plain, baseHex, map, pids)
   if not plain:find("@", 1, true) then return ns.Colorize(emo(plain), baseHex) end

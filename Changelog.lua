@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.23.2", date = "10.11", items = {
+    "Emotes: hover an emote in gang chat, the event window or Stats to see its name (:Pog:) and a bigger picture, like the Twitch Emotes addon",
+  } },
   { v = "0.23.1", date = "10.11", items = {
     "Stats: Wall of shame on top, then three rotating cards (the weekly challenge is now one of them)",
     "Legend book: the chapter text stays inside the page (scroll with the mouse wheel), many firsts become one line, no duplicate \"Most quests\"",

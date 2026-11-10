@@ -524,6 +524,15 @@ function UI.MessageFrame(parent, size)
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
       pcall(GameTooltip.SetHyperlink, GameTooltip, link)
       GameTooltip:Show()
+    elseif link:find("^chillanemote:") then
+      local word = link:match("^chillanemote:(.+)$")
+      if word and ns.Emotes then
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        local big = ns.Emotes:Icon(word, 40)
+        if big then GameTooltip:AddLine(big, 1, 1, 1) end
+        GameTooltip:AddLine(":" .. word .. ":", 1, 1, 1)
+        GameTooltip:Show()
+      end
     elseif link:find("^chillan:") then
       ns.PersonCard:Show(self, link:match("^chillan:(.+)$"), "cursor")
     elseif link:find("^chillanach:") then
