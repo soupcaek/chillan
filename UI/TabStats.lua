@@ -776,7 +776,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     cd.sub = UI.Text(cd, 11, nil, C.text2)
     cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6)
     cd.sub:SetPoint("RIGHT", -10, 0)
-    cd.sub:SetWordWrap(true)
+    cd.sub:SetWordWrap(false)
     cd.sub:SetJustifyV("TOP")
     cd.sub:SetSpacing(4)
     btn:SetScript("OnEnter", function()
@@ -901,25 +901,28 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       sub = sub .. "\n" .. daysLeft .. " d left" .. (pbest and (" · last week: " .. ns:PersonFirst(pbest)) or "")
       return { title = "Weekly challenge", big = chal.label, sub = sub }
     end,
-    -- First in the gang (now with more milestones)
+    -- First in the gang: the newest firsts on top (paint() cuts the list to what fits in the card)
     function()
-      local lines = {}
-      local function add(label, f)
-        if not f then return end
-        local p = ns:GetPerson(f.pid) or {}
-        lines[#lines + 1] = ns.Colorize(label, C.muted) .. "  " .. ns:ShortWho(p, f.char)
+      local all = {}
+      for key, f in pairs(ns.db.firsts or {}) do
+        local label
+        local lv = key:match("^L(%d+)$")
+        if lv then label = "Level " .. lv
+        elseif key == "MOUNT" then label = "Mount"
+        elseif key == "EPIC" then label = "Epic"
+        elseif key:sub(1, 3) == "DG:" then label = key:sub(4) end
+        if label and f.t then all[#all + 1] = { label = label, f = f } end
       end
-      for _, lv in ipairs({ 60, 50, 40, 30, 20, 10 }) do add("Level " .. lv, ns.db.firsts["L" .. lv]) end
-      add("Mount", ns.db.firsts.MOUNT)
-      add("Epic", ns.db.firsts.EPIC)
-      local dgs = {}
-      for key, f in pairs(ns.db.firsts) do if key:sub(1, 3) == "DG:" then dgs[#dgs + 1] = { key:sub(4), f } end end
-      table.sort(dgs, function(a, b) return a[2].t > b[2].t end)
-      for i = 1, math.min(2, #dgs) do add(dgs[i][1], dgs[i][2]) end
-      if #lines == 0 then return nil end
-      return { title = "First in the gang", big = nil, sub = table.concat(lines, "\n", 1, math.min(#lines, 5)) }
+      if #all == 0 then return nil end
+      table.sort(all, function(a, b) return a.f.t > b.f.t end)
+      local lines = {}
+      for _, e in ipairs(all) do
+        local p = ns:GetPerson(e.f.pid) or {}
+        lines[#lines + 1] = ns.Colorize(e.label, C.muted) .. "  " .. ns:ShortWho(p, e.f.char)
+      end
+      return { title = "First in the gang", big = nil, sub = table.concat(lines, "\n") }
     end,
-    -- Level race: the two closest friends
+    -- Level race: the two highest levels in the gang
     function()
       local list = {}
       for _, p in ipairs(people()) do
@@ -928,16 +931,33 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         local frac = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or 0
         if lvl and lvl > 0 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
       end
-      table.sort(list, function(a, b) return a.v > b.v end)
+      table.sort(list, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
+      if #list < 2 then return nil end
+      local a, b = list[1], list[2]
+      local d = a.v - b.v
+      local function fmt(x) return x.lvl .. " · " .. math.floor(x.frac * 100) .. " %" end
+      return { title = "Level race", big = ns:ShortWho(a.p) .. ns.Colorize("  leads  ", C.dim) .. ns:ShortWho(b.p),
+        sub = fmt(a) .. "  vs  " .. fmt(b) .. "\n" .. (d >= 1 and string.format("%.1f levels ahead", d) or ("Only " .. math.max(1, math.floor(d * 100 + 0.5)) .. " % of a level ahead")) }
+    end,
+    -- Neck and neck: the two closest in level further down the list (only when it is not the top two)
+    function()
+      local list = {}
+      for _, p in ipairs(people()) do
+        local s3 = ns:PersonS3(p) or {}
+        local lvl = ns:PersonMaxLevel(p)
+        local frac = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or 0
+        if lvl and lvl > 0 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
+      end
+      table.sort(list, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
       local best
-      for i = 1, #list - 1 do
+      for i = 2, #list - 1 do
         local d = list[i].v - list[i + 1].v
-        if not best or d < best.d then best = { a = list[i], b = list[i + 1], d = d } end
+        if d < 1 and (not best or d < best.d) then best = { a = list[i], b = list[i + 1], d = d } end
       end
       if not best then return nil end
       local function fmt(x) return x.lvl .. " · " .. math.floor(x.frac * 100) .. " %" end
-      return { title = "Level race", big = ns:ShortWho(best.a.p) .. ns.Colorize("  vs  ", C.dim) .. ns:ShortWho(best.b.p),
-        sub = fmt(best.a) .. "  vs  " .. fmt(best.b) .. "\n" .. (best.d >= 1 and string.format("%.1f levels apart", best.d) or ("Only " .. math.max(1, math.floor(best.d * 100 + 0.5)) .. " % of a level apart")) }
+      return { title = "Neck and neck", big = ns:ShortWho(best.a.p) .. ns.Colorize("  vs  ", C.dim) .. ns:ShortWho(best.b.p),
+        sub = fmt(best.a) .. "  vs  " .. fmt(best.b) .. "\nOnly " .. math.max(1, math.floor(best.d * 100 + 0.5)) .. " % of a level apart" }
     end,
     -- Next ding: who levels next at their current pace
     function()
@@ -1062,7 +1082,19 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     cd.sub:ClearAllPoints()
     if f.big then cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6) else cd.sub:SetPoint("TOPLEFT", 12, -30) end
     cd.sub:SetPoint("RIGHT", -10, 0)
-    cd.sub:SetText(f.sub or "")
+    -- one line per fact, never wrapped; cut to the lines that fit so nothing spills into the next card
+    local sub = f.sub or ""
+    local ch = cd:GetHeight() or 0
+    if ch < 40 then ch = 106 end -- not laid out yet
+    local room = ch - (f.big and 62 or 40)
+    local maxLines = math.max(1, math.floor(room / 15))
+    local lines, n = {}, 0
+    for line in (sub .. "\n"):gmatch("(.-)\n") do
+      n = n + 1
+      if n > maxLines then break end
+      lines[#lines + 1] = line
+    end
+    cd.sub:SetText(table.concat(lines, "\n"))
     cd.page:SetText((((spotIdx[i] - 1) % n) + 1) .. "/" .. n)
   end
 

@@ -5,11 +5,7 @@ ns.Titles = T
 local C = ns.C
 
 -- Mandag 00:00 denne uka (lokal tid)
-function ns.WeekStart()
-  local d = date("*t")
-  local daysSinceMonday = (d.wday + 5) % 7
-  return time({ year = d.year, month = d.month, day = d.day, hour = 0 }) - daysSinceMonday * 86400
-end
+function ns.WeekStart() return ns.MondayOf() end
 
 local function countFeed(kind, filter)
   local out, start = {}, ns.WeekStart()
@@ -39,23 +35,11 @@ T.DEFS = {
   { key = "night", name = "Night Owl", desc = "most playtime between 00 and 05", icon = "Clock", color = "B9AEDB", val = wk("Night"), fmt = "t", min = 600 },
   { key = "gold", name = "Gold Hog", desc = "most gold earned this week", icon = "Star", color = "E0C068", val = wk("Gold"), fmt = "g", min = 10000 },
   { key = "kills", name = "Bloodthirsty", desc = "most PvP kills this week", icon = "Target", color = "F2777A", val = wk("Kills"), fmt = "n", min = 1 },
-  { key = "loot", name = "Loot Goblin", desc = "most epic drops this week", icon = "Star", color = "A335EE", count = function() return countFeed("LOOT", function(it) return (tonumber(it.b) or 0) >= 4 end) end, fmt = "n" },
+  { key = "loot", name = "Loot Goblin", desc = "most epic drops this week", icon = "Star", color = "A335EE", count = function() return ns.Legend:Counts("loot") end, fmt = "n" },
   { key = "chat", name = "Chatterbox", desc = "most chat messages this week", icon = "Chat", color = "8FB8C9", fmt = "n", min = 4,
-    count = function()
-      local out, start = {}, ns.WeekStart()
-      for _, it in ipairs(ns.db.chat or {}) do if it.t and it.t >= start then out[it.pid] = (out[it.pid] or 0) + 1 end end
-      return out
-    end },
+    count = function() return ns.Legend:Counts("chat") end },
   { key = "grats", name = "Cheer Squad", desc = "most reactions given this week", icon = "Star", color = "F0A8D0", fmt = "n", min = 2,
-    count = function()
-      local out, start = {}, ns.WeekStart()
-      for _, it in ipairs(ns.db.feed or {}) do
-        if it.t and it.t >= start then
-          for _, r in ipairs(it.reacts or {}) do out[r.pid] = (out[r.pid] or 0) + 1 end
-        end
-      end
-      return out
-    end },
+    count = function() return ns.Legend:Counts("react") end },
 }
 T.byKey = {}
 for _, d in ipairs(T.DEFS) do T.byKey[d.key] = d end

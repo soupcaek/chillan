@@ -497,19 +497,21 @@ end
 -- Ukens konger og vinner (sjekkes etter innlogging, når data om forrige uke er synket)
 function A:CheckWeekKings()
   local pwk = ns.PrevWeekKey()
-  local function best(key)
+  -- same rules as the weekly titles: a minimum to count, ties go to the lowest id (same on every client)
+  local function best(key, min)
     local bp, bv = nil, 0
     for pid, p in pairs(ns.db.people) do
       local s = p.stats or {}
       local v = 0
       if s.prev and s.prev.wk == pwk then v = s.prev[key] or 0 elseif s.wk == pwk then v = s["w" .. key] or 0 end
-      if v > bv then bp, bv = pid, v end
+      if v > bv or (v == bv and v > 0 and bp and pid < bp) then bp, bv = pid, v end
     end
+    if bv <= (min or 0) then return nil end
     return bp
   end
-  if best("Quests") == ns.pid then ns.CntFlag("kingQuests") end
-  if best("Gold") == ns.pid then ns.CntFlag("kingGold") end
-  if best("Deaths") == ns.pid then ns.CntFlag("kingDeaths") end
+  if best("Quests", 3) == ns.pid then ns.CntFlag("kingQuests") end
+  if best("Gold", 10000) == ns.pid then ns.CntFlag("kingGold") end
+  if best("Deaths", 2) == ns.pid then ns.CntFlag("kingDeaths") end
   local s = me().stats or {}
   if s.prev and s.prev.wk == pwk and (s.prev.Deaths or 0) == 0 and (s.prev.Online or 0) >= 5 * 3600 then
     ns.CntFlag("weekNoDeath")

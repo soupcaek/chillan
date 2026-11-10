@@ -2,6 +2,17 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.24.0", date = "10.11", items = {
+    "Fix: the \"First in the gang\" card no longer spills into the next card – lines never wrap and only the ones that fit are shown, newest first",
+    "Legend book: the climber is now clearly \"most levels gained this week\" (no more \"nobody could catch…\"), and the highest level in the gang gets its own line",
+    "Legend book: \"firsts\" come from the gang's record book, so the same first can no longer be credited to two people; ties always go to the same person",
+    "Legend book: finished weeks keep their numbers (quests, time, gold, levels) even if nobody had the book open that week",
+    "Level race now shows the two highest levels in the gang; the closest pair further down is a separate \"Neck and neck\" card",
+    "Weekly titles Loot Goblin, Chatterbox and Cheer Squad now count the whole week (they used to lose the oldest events when the feed was trimmed)",
+    "Weekly kings (achievements) need a minimum like the titles, and ties are decided the same way for everyone",
+    "\"No. N in the gang\" on a ding is only shown for fresh dings (old ones from a sync counted everyone who had passed that level since)",
+    "A week that crosses New Year is now one week, not two",
+  } },
   { v = "0.23.3", date = "10.11", items = {
     "Fix: wide emotes were squeezed into thin slivers or cut off in the chat – width and height were swapped, so they now show in their real shape",
   } },

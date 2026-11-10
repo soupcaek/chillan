@@ -327,12 +327,32 @@ function ns.Clock(t)
   return date("%H:%M", t or ns.Now())
 end
 
+-- Monday 00:00 (local) of the week that t is in
+function ns.MondayOf(t)
+  local d = date("*t", t or ns.Now())
+  local back = (d.wday + 5) % 7 -- Monday = 0
+  return time({ year = d.year, month = d.month, day = d.day - back, hour = 0 })
+end
+
+-- "2026-45": year + Monday-based week number, taken from the Monday of that week, so a week that
+-- crosses New Year stays one week (plain %W would split it into "2026-52" and "2027-00").
+-- For every other week the key is identical to the old format.
+local weekKeyMemo, weekKeyN = {}, 0
 function ns.WeekKey(t)
-  return date("%Y-%W", t or ns.Now())
+  t = t or ns.Now()
+  local day = date("%Y%m%d", t)
+  local k = weekKeyMemo[day]
+  if not k then
+    k = date("%Y-%W", ns.MondayOf(t))
+    if weekKeyN >= 60 then weekKeyMemo, weekKeyN = {}, 0 end
+    weekKeyMemo[day] = k
+    weekKeyN = weekKeyN + 1
+  end
+  return k
 end
 
 function ns.PrevWeekKey()
-  return date("%Y-%W", ns.Now() - 7 * 86400)
+  return ns.WeekKey(ns.Now() - 7 * 86400)
 end
 
 local B36 = "0123456789abcdefghijklmnopqrstuvwxyz"

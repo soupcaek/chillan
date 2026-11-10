@@ -548,12 +548,15 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if ch and lvl and lvl > (ch.level or 0) then ch.level = lvl end
     if lvl then Data:AddHistoryPoint(pid, char, t, lvl, num(b)) end
     if lvl and FIRST_LEVELS[lvl] then item.first = setFirst("L" .. lvl, pid, char, t) end
-    -- plass i gjengen til dette levelet
-    local place = 0
-    for _, op in pairs(ns.db.people) do
-      if ns:PersonMaxLevel(op) >= (lvl or 0) then place = place + 1 end
+    -- place in the gang for this level. Only for a fresh ding: for an old one (history sync, replay)
+    -- everyone who has since passed that level would be counted too, and the number would be wrong.
+    if fresh(t) then
+      local place = 0
+      for _, op in pairs(ns.db.people) do
+        if ns:PersonMaxLevel(op) >= (lvl or 0) then place = place + 1 end
+      end
+      item.place = math.max(1, place)
     end
-    item.place = math.max(1, place)
   elseif kind == "MOUNT" then
     item.first = setFirst("MOUNT", pid, char, t)
   elseif kind == "LOOT" then
@@ -1109,7 +1112,8 @@ function Data:CurrentLeader()
   local best, bestV = nil, 0
   for _, p in ipairs(ns:SortedPeople()) do
     local v = ns:WeekStat(p, ch.key)
-    if v > bestV then best, bestV = p, v end
+    -- ties go to the lowest id, so everyone sees the same leader
+    if v > bestV or (v == bestV and v > 0 and best and p.pid < best.pid) then best, bestV = p, v end
   end
   return ch, best, bestV
 end
@@ -1123,7 +1127,7 @@ function Data:LastWeekWinner()
     local v = 0
     if s.prev and s.prev.wk == pwk then v = s.prev[ch.key] or 0
     elseif s.wk == pwk then v = s["w" .. ch.key] or 0 end
-    if v > bestV then best, bestV = p, v end
+    if v > bestV or (v == bestV and v > 0 and best and p.pid < best.pid) then best, bestV = p, v end
   end
   return ch, best, bestV, pwk
 end
