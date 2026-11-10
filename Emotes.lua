@@ -17,8 +17,9 @@ local function build()
   local function add(word, name)
     local v = pack[name]
     if type(v) ~= "string" or map[word] then return end
-    local path, w, h = v:match("^(.-):(%d+):(%d+)")
-    if not path then path, w, h = v, 28, 28 end
+    -- the pack stores "path:HEIGHT:WIDTH" (WoW's |T texture order), so wide emotes are e.g. ":28:56"
+    local path, h, w = v:match("^(.-):(%d+):(%d+)")
+    if not path then path, h, w = v, 28, 28 end
     map[word] = { path = path, w = tonumber(w) or 28, h = tonumber(h) or 28, name = name }
   end
   if type(words) == "table" then
@@ -47,6 +48,9 @@ function E:Icon(word, h, link)
   if not e then return nil end
   h = h or 18
   local w = math.floor(h * (e.w / math.max(1, e.h)) + 0.5)
+  -- very wide emotes: keep the shape but never wider than ~7 lines of text so they fit the chat
+  local maxW = math.floor(h * 7)
+  if w > maxW then h = math.max(8, math.floor(h * maxW / w + 0.5)) w = maxW end
   local icon = string.format("|T%s:%d:%d|t", e.path, h, w)
   if link and not word:find("|", 1, true) then
     icon = "|Hchillanemote:" .. word .. "|h" .. icon .. "|h"

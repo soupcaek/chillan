@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.23.3", date = "10.11", items = {
+    "Fix: wide emotes were squeezed into thin slivers or cut off in the chat – width and height were swapped, so they now show in their real shape",
+  } },
   { v = "0.23.2", date = "10.11", items = {
     "Emotes: hover an emote in gang chat, the event window or Stats to see its name (:Pog:) and a bigger picture, like the Twitch Emotes addon",
   } },
