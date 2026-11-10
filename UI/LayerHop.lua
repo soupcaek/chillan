@@ -32,7 +32,7 @@ function L:Request()
   end
   local id = Comm:NewId()
   self.mine = { id = id, t = ns.Now() }
-  Comm:Broadcast(Comm:Build("LH", id, ns.pid, Comm:MyFull()), 1)
+  Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now()), 1)
   ns.Print("Asked the gang for a layer-hop invite.")
   C_Timer.After(45, function()
     if self.mine and self.mine.id == id and not self.mine.by then
@@ -43,16 +43,18 @@ function L:Request()
 end
 
 -- someone in the gang wants a hop
-Comm:Handle("LH", function(f)
-  local id, pid, target = f[1], f[2], f[3]
+Comm:Handle("LQ", function(f)
+  local id, pid, target, at = f[1], f[2], f[3], tonumber(f[4])
   if not id or not pid or pid == ns.pid or not target or target == "" then return end
+  -- only fresh requests (never old ones that arrive late, e.g. right after login)
+  if not at or math.abs(ns.Now() - at) > 60 then return end
   if not canHelp() then return end
   L.open[id] = { pid = pid, target = target, t = ns.Now() }
   L:ShowAsk(id)
 end)
 
 -- someone took it: close the popup everywhere, tell the asker who's inviting
-Comm:Handle("LT", function(f)
+Comm:Handle("LK", function(f)
   local id, by = f[1], f[2]
   if not id then return end
   L.open[id] = nil
@@ -69,7 +71,7 @@ function L:Help(id)
   local r = self.open[id]
   if not r then return end
   self.open[id] = nil
-  Comm:Broadcast(Comm:Build("LT", id, ns.pid), 1)
+  Comm:Broadcast(Comm:Build("LK", id, ns.pid), 1)
   ns.Invite(r.target)
   if self.frame then self.frame:Hide() end
 end
@@ -123,8 +125,9 @@ function L:ShowAsk(id)
   local f = self.frame
   local p = ns:GetPerson(r.pid)
   f.id = id
-  f.title:SetText((p and ns:ShortWho(p) or "Someone") .. ns.Colorize(" asks for an invite to change layer", C.text))
-  f.sub:SetText("They join your group and your layer. You can leave the group whenever you like.")
+  local who = (p and ns:ShortWho(p)) or ns.Colorize(ns.ShortName(r.target), C.accent)
+  f.title:SetText(who .. ns.Colorize(" wants a layer-hop invite", C.text))
+  f.sub:SetText("They join your group and your layer.")
   f:Show()
   if ns.Sound then pcall(ns.Sound, "mention") end
   C_Timer.After(30, function() if f.id == id and f:IsShown() then f:Hide() end end)

@@ -3,6 +3,7 @@ local ADDON, ns = ...
 
 ns.CHANGELOG = {
   { v = "0.23.0", date = "10.11", items = {
+    "Fix: the layer-hop popup no longer shows up on login with \"Someone\" (it mixed up a level-history message) – it now always shows the name",
     "\"Since you last played\" card 10 s after login: dings, firsts, epics, gold achievements, dungeon runs and deaths while you were away, plus who's online and in your zone (Settings to turn off)",
     "Gear compare: everyone's equipped gear is shared (nothing from bags or bank). Hover a friend for \"Gear ilvl 27 · better in 3 slots\"; Compare has a new Gear view, slot by slot with item tooltips",
     "Legend book (Stats → Legend book): a chapter for every week, written from what the gang did – flip back through earlier weeks",
