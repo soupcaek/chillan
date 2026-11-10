@@ -45,20 +45,20 @@ function L:Add(item)
       local r = w.lv[pid] or { from = lvl - 1, to = lvl }
       r.from, r.to = math.min(r.from, lvl - 1), math.max(r.to, lvl)
       w.lv[pid] = r
-      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "level " .. lvl } end
+      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "reach level " .. lvl, short = "level " .. lvl } end
     end
   elseif k == "LOOT" then
     local q = tonumber(item.b) or 0
     if q >= 4 then
       w.loot[#w.loot + 1] = { pid = pid, id = tonumber(item.a), q = q }
-      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "an epic" } end
+      if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "loot an epic", short = "first epic" } end
     end
   elseif k == "MOUNT" then
     w.mounts[#w.mounts + 1] = pid
-    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "a mount" } end
+    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "get a mount", short = "first mount" } end
   elseif k == "DUNGEON" then
     w.runs[#w.runs + 1] = { pid = pid, name = item.a, dur = tonumber(item.b), deaths = tonumber(item.c) or 0, d = item.d }
-    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "clear " .. tostring(item.a) } end
+    if item.first then w.firsts[#w.firsts + 1] = { pid = pid, what = "clear " .. tostring(item.a), short = tostring(item.a) } end
   elseif k == "ACH" then
     w.ach[pid] = (w.ach[pid] or 0) + 1
   elseif k == "SOS" then
@@ -145,12 +145,23 @@ function L:Chapter(wk)
     }):format(name(climbPid), climbN, r.to)
   end
 
-  -- firsts
-  for _, f in ipairs(w.firsts) do
-    story[#story + 1] = pick({
-      "%s became the first in the gang to reach %s.",
-      "History was made: %s was first in the gang to %s.",
-    }):format(name(f.pid), f.what)
+  -- firsts: one line each when there are few, grouped per person when there are many
+  if #w.firsts > 0 and #w.firsts <= 2 then
+    for _, f in ipairs(w.firsts) do
+      story[#story + 1] = pick({
+        "%s was the first in the gang to %s.",
+        "History was made: %s was first in the gang to %s.",
+      }):format(name(f.pid), f.what)
+    end
+  elseif #w.firsts > 2 then
+    local by, order = {}, {}
+    for _, f in ipairs(w.firsts) do
+      if not by[f.pid] then by[f.pid] = {} order[#order + 1] = f.pid end
+      table.insert(by[f.pid], f.short or f.what)
+    end
+    local parts = {}
+    for _, pid in ipairs(order) do parts[#parts + 1] = name(pid) .. " (" .. table.concat(by[pid], ", ") .. ")" end
+    story[#story + 1] = "A week of firsts in the gang: " .. table.concat(parts, ", ") .. "."
   end
 
   -- the floor inspector
@@ -204,7 +215,11 @@ function L:Chapter(wk)
   if dPid then facts[#facts + 1] = { "Most deaths", name(dPid) .. " · " .. dN } end
   local a, an = maxOf(w.ach)
   if a then facts[#facts + 1] = { "Most achievements", name(a) .. " · " .. an } end
-  if snap.chal then facts[#facts + 1] = { snap.chal.label, name(snap.chal.pid) .. " · " .. snap.chal.text } end
+  if snap.chal then
+    local dup = false
+    for _, f in ipairs(facts) do if f[1] == snap.chal.label then dup = true end end
+    if not dup then facts[#facts + 1] = { snap.chal.label, name(snap.chal.pid) .. " · " .. snap.chal.text } end
+  end
 
   if #story == 0 then
     story[1] = pick({ "A quiet week. The calm before the storm?", "Not much happened this week – the gang was resting up." })
