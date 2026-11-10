@@ -738,9 +738,10 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   ch.last:SetPoint("TOPLEFT", 12, -70)
   ch.last:SetPoint("RIGHT", -10, 0)
 
+  -- the weekly challenge now rotates with the spotlight cards; wall of shame sits on top
+  ch:Hide()
   local shame = card(80, "Wall of shame (week)")
-  shame:SetPoint("TOPLEFT", ch, "BOTTOMLEFT", 0, -8)
-  shame:SetPoint("TOPRIGHT", ch, "BOTTOMRIGHT", 0, -8)
+  shame:SetPoint("TOPLEFT") shame:SetPoint("TOPRIGHT")
   shame.big = UI.Text(shame, 24, "bold", C.text)
   shame.big:SetPoint("TOPLEFT", 12, -28)
   shame.who = UI.Text(shame, 12, nil, C.text2)
@@ -758,7 +759,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local spotHolder = CreateFrame("Frame", nil, right)
   spotHolder:SetPoint("TOPLEFT", shame, "BOTTOMLEFT", 0, -8)
   spotHolder:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT")
-  for i = 1, 2 do
+  for i = 1, 3 do
     local cd = UI.Panel(spotHolder, C.card, C.line, false)
     local btn = CreateFrame("Button", nil, cd)
     btn:SetAllPoints()
@@ -793,7 +794,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     spots[i] = cd
   end
   spotHolder:SetScript("OnSizeChanged", function(self, w, h)
-    local each = (h - 8) / 2
+    local each = (h - 16) / 3
     for i, cd in ipairs(spots) do
       cd:ClearAllPoints()
       cd:SetPoint("TOPLEFT", 0, -(i - 1) * (each + 8))
@@ -889,6 +890,17 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local function people() local out = {} for _, p in ipairs(ns:SortedPeople()) do if recent(p) then out[#out + 1] = p end end return out end
 
   local FACTS = {
+    -- weekly challenge
+    function()
+      local chal, leader, v = ns.Data:CurrentLeader()
+      local wday = tonumber(date("%w"))
+      local daysLeft = (8 - wday) % 7
+      if daysLeft == 0 then daysLeft = 7 end
+      local sub = leader and ("Leader: " .. ns:ShortWho(leader) .. " – " .. chal.fmt(v)) or "No points yet"
+      local pch, pbest, pv = ns.Data:LastWeekWinner()
+      sub = sub .. "\n" .. daysLeft .. " d left" .. (pbest and (" · last week: " .. ns:PersonFirst(pbest)) or "")
+      return { title = "Weekly challenge", big = chal.label, sub = sub }
+    end,
     -- First in the gang (now with more milestones)
     function()
       local lines = {}
@@ -1024,7 +1036,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end,
   }
 
-  local spotFacts, spotIdx = {}, { 1, 2 }
+  local spotFacts, spotIdx = {}, { 1, 2, 3 }
   function tab:BuildSpots()
     spotFacts = {}
     for _, fn in ipairs(FACTS) do
@@ -1054,18 +1066,28 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     cd.page:SetText((((spotIdx[i] - 1) % n) + 1) .. "/" .. n)
   end
 
+  -- move card i forward until it shows a fact no other card shows
+  local function unique(i)
+    local n = #spotFacts
+    if n < 2 then return end
+    for _ = 1, n do
+      local clash = false
+      for j = 1, #spots do
+        if j ~= i and ((spotIdx[i] - 1) % n) == ((spotIdx[j] - 1) % n) then clash = true end
+      end
+      if not clash or n < #spots then return end
+      spotIdx[i] = spotIdx[i] + 1
+    end
+  end
+
   function tab:ShowSpots()
-    -- the two cards never show the same fact
-    if #spotFacts >= 2 and ((spotIdx[1] - 1) % #spotFacts) == ((spotIdx[2] - 1) % #spotFacts) then spotIdx[2] = spotIdx[2] + 1 end
-    paint(1) paint(2)
+    for i = 1, #spots do unique(i) paint(i) end
   end
 
   function tab:NextSpot(i)
-    local n = #spotFacts
-    if n == 0 then return end
+    if #spotFacts == 0 then return end
     spotIdx[i] = spotIdx[i] + 1
-    local other = i == 1 and 2 or 1
-    if n >= 2 and ((spotIdx[i] - 1) % n) == ((spotIdx[other] - 1) % n) then spotIdx[i] = spotIdx[i] + 1 end
+    unique(i)
     paint(i)
   end
 
@@ -1073,7 +1095,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   C_Timer.NewTicker(20, function()
     if not tab:IsVisible() then return end
     tab:BuildSpots()
-    for i = 1, 2 do if not spots[i].hover then spotIdx[i] = spotIdx[i] + 2 end end
+    for i = 1, #spots do if not spots[i].hover then spotIdx[i] = spotIdx[i] + #spots end end
     tab:ShowSpots()
   end)
 

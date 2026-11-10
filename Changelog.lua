@@ -3,6 +3,7 @@ local ADDON, ns = ...
 
 ns.CHANGELOG = {
   { v = "0.23.0", date = "10.11", items = {
+    "Stats: Wall of shame on top, then three rotating cards (the weekly challenge is now one of them)",
     "Legend book: the chapter text stays inside the page (scroll with the mouse wheel), many firsts become one line, no duplicate \"Most quests\"",
     "Fix: the layer-hop popup no longer shows up on login with \"Someone\" (it mixed up a level-history message) – it now always shows the name",
     "\"Since you last played\" card 10 s after login: dings, firsts, epics, gold achievements, dungeon runs and deaths while you were away, plus who's online and in your zone (Settings to turn off)",
