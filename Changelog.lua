@@ -2,10 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
-  { v = "0.23.0", date = "10.11", items = {
+  { v = "0.23.1", date = "10.11", items = {
     "Stats: Wall of shame on top, then three rotating cards (the weekly challenge is now one of them)",
     "Legend book: the chapter text stays inside the page (scroll with the mouse wheel), many firsts become one line, no duplicate \"Most quests\"",
     "Fix: the layer-hop popup no longer shows up on login with \"Someone\" (it mixed up a level-history message) – it now always shows the name",
+  } },
+  { v = "0.23.0", date = "10.11", items = {
     "\"Since you last played\" card 10 s after login: dings, firsts, epics, gold achievements, dungeon runs and deaths while you were away, plus who's online and in your zone (Settings to turn off)",
     "Gear compare: everyone's equipped gear is shared (nothing from bags or bank). Hover a friend for \"Gear ilvl 27 · better in 3 slots\"; Compare has a new Gear view, slot by slot with item tooltips",
     "Legend book (Stats → Legend book): a chapter for every week, written from what the gang did – flip back through earlier weeks",
