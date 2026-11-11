@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.6", date = "12.11", items = {
+    "Fix: loot in the feed and event window no longer gets stuck as \"(item 6504)\". It shows the real item link as soon as the game has loaded it",
+  } },
   { v = "0.25.5", date = "11.11", items = {
     "Fix: item links in gang chat show as normal [Name] links in the item's colour, instead of \"(name)\" or \"(item 251359)\". Items the game hasn't loaded yet show \"loading item…\" until they're ready",
   } },

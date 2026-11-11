@@ -540,7 +540,8 @@ function E:Init()
   ns:Listen("FEEDEVENT", function(text, item) E:Add("ev", text, nil, item) end)
   ns:Listen("ITEMINFO", function()
     for _, e in ipairs(E.entries) do
-      if e.chatItem then e.base = chatText(e.chatItem) e.text = render(e) end
+      if e.chatItem then e.base = chatText(e.chatItem) e.text = render(e)
+      elseif e.item and e.item.kind == "LOOT" then e.base = ns.FeedShort(e.item) e.text = render(e) end
     end
     E:Redraw()
   end)

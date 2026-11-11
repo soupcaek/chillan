@@ -123,8 +123,8 @@ function St:RecentLoot(p, n)
     local it = ns.db.feed[i]
     if it.pid == p.pid and it.kind == "LOOT" then
       local id = tonumber(it.a)
-      local name = id and C_Item and C_Item.GetItemInfo and (C_Item.GetItemInfo(id))
-      out[#out + 1] = name or ("item " .. tostring(it.a))
+      local name = ns.ItemLink(id) and C_Item and C_Item.GetItemInfo and (C_Item.GetItemInfo(id))
+      out[#out + 1] = name or "an item (loading…)"
       if #out >= (n or 3) then break end
     end
   end

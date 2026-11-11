@@ -35,13 +35,7 @@ function ns.FeedLine(it, withTime)
     end
   elseif it.kind == "LOOT" then
     icon, color = "Star", ns.QUALITY_HEX[tonumber(it.b) or 4] or C.purple
-    local id = tonumber(it.a)
-    local link = id and select(2, C_Item.GetItemInfo(id))
-    if not link and id then
-      if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
-      link = "[item " .. id .. "]"
-    end
-    text = "got " .. (link or "something nice")
+    text = "got " .. (ns.ItemLink(it.a) or ns.Colorize("an item (loading…)", C.dim))
   elseif it.kind == "MOUNT" then
     icon, color = "Star", C.amber
     text = it.first and ("got a mount – " .. ns.Colorize("first in the gang!", C.gold)) or "got a mount"
@@ -97,15 +91,8 @@ function ns.FeedShort(it)
   end
   if it.kind == "LOOT" then
     -- ekte item-lenke (riktig kvalitetsfarge + tooltip når du holder musa over)
-    local id = tonumber(it.a)
-    local q = tonumber(it.b) or 4
-    local qhex = ns.QUALITY_HEX[q] or ns.QUALITY_HEX[4]
-    local link = id and C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(id))
-    if not link and id then
-      if C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
-      link = "|Hitem:" .. id .. "|h" .. ns.Colorize("[item " .. id .. "]", qhex) .. "|h"
-    end
-    return I("Star", qhex) .. who .. " · " .. (link or ns.Colorize("nice drop", qhex))
+    local qhex = ns.QUALITY_HEX[tonumber(it.b) or 4] or ns.QUALITY_HEX[4]
+    return I("Star", qhex) .. who .. " · " .. (ns.ItemLink(it.a) or ns.Colorize("a nice drop (loading…)", C.dim))
   end
   if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
   if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" got a mount", C.text2) end

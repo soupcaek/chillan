@@ -202,6 +202,14 @@ local function itemInfo(id)
   return name, quality, link
 end
 
+-- the game's real link for an item id, or nil while it loads (chat and feed redraw when it arrives)
+function ns.ItemLink(id)
+  id = tonumber(id)
+  if not id then return nil end
+  local _, _, link = itemInfo(id)
+  if type(link) == "string" and link:find("|Hitem:", 1, true) then return link end
+end
+
 -- @names in class colour: lookup of every name a person can be mentioned by
 local function mentionColors()
   local map = { all = "E0C068", alle = "E0C068" }
