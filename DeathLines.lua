@@ -292,7 +292,11 @@ local function onCombat()
     last = { kind = "UNIT", name = srcName, guid = srcGUID, flags = srcFlags, at = GetTime() }
   end
 end
-pcall(function() ns:On("COMBAT_LOG_EVENT_UNFILTERED", onCombat) end)
+-- Clients on the Midnight addon rules (12.x engine, incl. WoW Forever) refuse this event in every
+-- context and flag the attempt as a blocked action, so only register where the old rules apply.
+if not issecretvalue and not C_DamageMeter then
+  pcall(function() ns:On("COMBAT_LOG_EVENT_UNFILTERED", onCombat) end)
+end
 
 local function isPlayer(l)
   if type(l.guid) == "string" and l.guid:find("^Player%-") then return true end

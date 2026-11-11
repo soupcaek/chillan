@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.1", date = "11.11", items = {
+    "Fix: Chillan no longer tries to read the combat log on WoW Forever (the game blocks it and could show an \"addon blocked\" warning). Death lines use your target to work out who killed you",
+  } },
   { v = "0.25.0", date = "11.11", items = {
     "New: \"Gratz on the ding!\" every time you level, with how long the level took and a button to see the level recap. Waits until you're out of combat",
     "New: level recap: time on the level (vs. the one before), XP per hour, deaths (Alliance vs. mobs), mobs killed, money gained, quests, best loot, who you played with, your gang ranking for that level, and achievements/dungeons. One click shares it in gang chat",
