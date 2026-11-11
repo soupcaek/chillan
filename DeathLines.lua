@@ -322,6 +322,10 @@ function D:Killer(given)
   if l.kind == "ENV" then
     return { cat = ENV[l.env or ""] or "FALL" }
   end
+  -- an Alliance hunter's/warlock's pet got the killing blow: that's a player kill
+  if type(l.guid) == "string" and l.guid:find("^Pet%-") then
+    return { cat = "PLAYER", killer = l.name .. " (pet)", extra = "someone's pet" }
+  end
   if isPlayer(l) then
     local extra
     if GetPlayerInfoByGUID and l.guid then

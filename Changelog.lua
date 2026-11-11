@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.3", date = "11.11", items = {
+    "Death lines: killed by an Alliance player's pet now counts as a player kill instead of a wild wolf or cat",
+  } },
   { v = "0.25.2", date = "11.11", items = {
     "Death lines work out who killed you in more ways: the game's own death recap, the breath and fatigue timers (drowning, exhaustion), a fall tracker, and your target",
     "New: /chill deathtest. After your next death, a window shows everything Chillan could and couldn't read, with text you can copy. /chill deathtest off stops it",
