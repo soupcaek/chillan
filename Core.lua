@@ -198,7 +198,8 @@ local function itemInfo(id)
     itemWaiting[id] = true
     if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
   end
-  return name, quality
+  if ns.isSecret(name) or ns.isSecret(link) then return nil end
+  return name, quality, link
 end
 
 -- @names in class colour: lookup of every name a person can be mentioned by
@@ -269,9 +270,14 @@ function ns.RenderChatText(text, baseHex)
   for s, id, e in text:gmatch("(){i:(%d+)}()") do
     if s > pos then out[#out + 1] = colorMentions(text:sub(pos, s - 1), baseHex, map, pids) end
     local nid = tonumber(id)
-    local name, q = itemInfo(nid)
-    local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[q or 1]) or "FFFFFF"
-    out[#out + 1] = "|Hitem:" .. id .. "|h" .. ns.Colorize("[" .. (name or "loading…") .. "]", name and hexq or ns.C.dim) .. "|h"
+    local name, q, link = itemInfo(nid)
+    if type(link) == "string" and link:find("|Hitem:", 1, true) then
+      -- the game's own link: the 12.x client redraws home-made item links as "(name)" / "(item 123)"
+      out[#out + 1] = link
+    else
+      -- not loaded yet: plain text until GET_ITEM_INFO_RECEIVED redraws the chat
+      out[#out + 1] = ns.Colorize("[loading item…]", ns.C.dim)
+    end
     pos = e
   end
   if pos <= #text then out[#out + 1] = colorMentions(text:sub(pos), baseHex, map, pids) end

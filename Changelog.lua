@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.5", date = "11.11", items = {
+    "Fix: item links in gang chat show as normal [Name] links in the item's colour, instead of \"(name)\" or \"(item 251359)\". Items the game hasn't loaded yet show \"loading item…\" until they're ready",
+  } },
   { v = "0.25.4", date = "11.11", items = {
     "Death lines now name what killed you from the game's own death recap, tested in Dustwallow (no target needed)",
     "Fix: dying no longer looks like drowning or exhaustion to the backup checks",
