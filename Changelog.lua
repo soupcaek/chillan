@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.4", date = "11.11", items = {
+    "Death lines now name what killed you from the game's own death recap, tested in Dustwallow (no target needed)",
+    "Fix: dying no longer looks like drowning or exhaustion to the backup checks",
+  } },
   { v = "0.25.3", date = "11.11", items = {
     "Death lines: killed by an Alliance player's pet now counts as a player kill instead of a wild wolf or cat",
   } },

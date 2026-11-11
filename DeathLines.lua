@@ -427,7 +427,10 @@ ns:On("MIRROR_TIMER_START", function(name)
   if type(name) == "string" and not sec(name) then mirror[name] = { on = true, at = GetTime() } end
 end)
 ns:On("MIRROR_TIMER_STOP", function(name)
-  if type(name) == "string" and not sec(name) then mirror[name] = { on = false, at = GetTime() } end
+  -- dying stops every timer, so only a timer that was actually running counts
+  if type(name) == "string" and not sec(name) and mirror[name] and mirror[name].on then
+    mirror[name] = { on = false, at = GetTime() }
+  end
 end)
 local function mirrorHit(name)
   local m = mirror[name]
@@ -474,11 +477,20 @@ local function readRecap(log)
   if sec(events) then log[#log + 1] = "GetRecapEvents: the whole list is SECRET" return end
   if type(events) ~= "table" then log[#log + 1] = "GetRecapEvents: " .. show(events) return end
   log[#log + 1] = "GetRecapEvents: " .. #events .. " events"
+  -- killing blow: the hit with overkill if there is one, else the newest (first on ties)
   local best, bestT
   for i, e in ipairs(events) do
     if type(e) == "table" and not sec(e) then
-      local t = e.timestamp
-      if not sec(t) and type(t) == "number" and (not bestT or t > bestT) then best, bestT = i, t end
+      local o = e.overkill
+      if not best and not sec(o) and type(o) == "number" and o > 0 then best = i end
+    end
+  end
+  if not best then
+    for i, e in ipairs(events) do
+      if type(e) == "table" and not sec(e) then
+        local t = e.timestamp
+        if not sec(t) and type(t) == "number" and (not bestT or t > bestT) then best, bestT = i, t end
+      end
     end
   end
   best = best or 1
@@ -498,6 +510,8 @@ local function readRecap(log)
   if type(e) ~= "table" or sec(e) then return end
   local env = e.environmentalType
   if env and not sec(env) and env ~= "" then return { kind = "ENV", env = env } end
+  -- environmental hit without a type: let the breath/fatigue/fall checks decide
+  if e.event == "ENVIRONMENTAL_DAMAGE" and not sec(e.event) then return end
   local name = e.sourceName
   if name and not sec(name) and name ~= "" then
     local guid = (not sec(e.sourceGUID)) and e.sourceGUID or nil
