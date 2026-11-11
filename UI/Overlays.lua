@@ -633,12 +633,19 @@ function O:ShowDing(item)
     parts[#parts + 1] = def.desc
     parts[#parts + 1] = tier.points .. " points"
   elseif dead then
-    d.kicker:SetText("DEAD!")
+    d.kicker:SetText(ns.Deaths and ns.Deaths:Kicker(item) or "DEAD!")
     d.kicker:SetTextColor(hex(C.red))
     d.icon:SetTexture(ns.TEX .. "IconSkull")
     d.icon:SetVertexColor(hex(C.red))
-    d.title:SetText(ns:PersonLabel(p, item.char) .. " died")
-    parts[#parts + 1] = "i " .. tostring(item.a or "unknown place")
+    local funny = ns.Deaths and ns.Deaths:Line(item, ns:ShortWho(p, item.char), C.text)
+    d.title:SetText(funny or (ns:PersonLabel(p, item.char) .. " died"))
+    if funny then
+      if item.d and item.d ~= "" and item.d ~= "player" and type(item.b) == "string" and item.b:find("^PLAYER") then
+        parts[#parts + 1] = tostring(item.c) .. " · " .. item.d .. " · added to the enemy log"
+      end
+    else
+      parts[#parts + 1] = "in " .. tostring(item.a or "unknown place")
+    end
     local total = ns:TotalStat(p, "Deaths")
     if total > 0 then parts[#parts + 1] = "death no. " .. math.floor(total + 1) end
   else

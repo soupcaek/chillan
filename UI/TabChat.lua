@@ -20,6 +20,15 @@ function ns.FeedLine(it, withTime)
     end
   elseif it.kind == "DEAD" then
     icon, color = "Skull", C.dim
+    local funny = ns.Deaths and ns.Deaths:Line(it, who, C.text2)
+    if funny then
+      local line = UI.InlineIcon(icon, color, 13) .. "  " .. funny
+      if it.reacts and #it.reacts > 0 then
+        line = line .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.red)
+      end
+      if withTime then line = line .. ns.Colorize("  " .. ns.Ago(it.t), C.dim) end
+      return line
+    end
     text = "died in " .. tostring(it.a or "?")
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.red)
@@ -76,7 +85,11 @@ function ns.FeedShort(it)
   local who = ns:PersonLinked(p, ns:ShortWho(p, it.char))
   local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
   if it.kind == "DING" then return I("Up", C.green) .. who .. ns.Colorize(" · level " .. tostring(it.a), C.text2) end
-  if it.kind == "DEAD" then return I("Skull", C.red) .. who .. ns.Colorize(" died · " .. tostring(it.a or "?"), C.text2) end
+  if it.kind == "DEAD" then
+    local funny = ns.Deaths and ns.Deaths:Line(it, who, C.text2)
+    if funny then return I("Skull", C.red) .. funny end
+    return I("Skull", C.red) .. who .. ns.Colorize(" died · " .. tostring(it.a or "?"), C.text2)
+  end
   if it.kind == "ACH" then
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B

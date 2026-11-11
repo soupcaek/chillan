@@ -14,6 +14,7 @@ Core.lua
 Emotes.lua
 Comm.lua
 Tracker.lua
+DeathLines.lua
 Data.lua
 Sync.lua
 Quests.lua
@@ -24,6 +25,7 @@ Badges.lua
 Gear.lua
 Briefing.lua
 Legend.lua
+LevelRecap.lua
 Changelog.lua
 Stats.lua
 Achievements.lua
@@ -44,6 +46,7 @@ UI\TabCompare.lua
 UI\Overlays.lua
 UI\LayerHop.lua
 UI\BriefingCard.lua
+UI\LevelRecapCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
 UI\EventWindow.lua

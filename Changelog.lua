@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.0", date = "11.11", items = {
+    "New: \"Gratz on the ding!\" every time you level, with how long the level took and a button to see the level recap. Waits until you're out of combat",
+    "New: level recap: time on the level (vs. the one before), XP per hour, deaths (Alliance vs. mobs), mobs killed, money gained, quests, best loot, who you played with, your gang ranking for that level, and achievements/dungeons. One click shares it in gang chat",
+    "New: funny death lines (200 of them, plenty of them spicy). They're picked by who killed you (Alliance, murlocs, turtles, raptors, falling, drowning and more) and shown in the death popup, the event window and the feed. You won't see the same line again until 10 others have been used",
+    "An Alliance player who kills you is added to the enemy log automatically",
+    "Settings: \"Level recap when you ding\" can be turned off",
+  } },
   { v = "0.24.0", date = "10.11", items = {
     "Fix: the \"First in the gang\" card no longer spills into the next card – lines never wrap and only the ones that fit are shown, newest first",
     "Legend book: the climber is now clearly \"most levels gained this week\" (no more \"nobody could catch…\"), and the highest level in the gang gets its own line",

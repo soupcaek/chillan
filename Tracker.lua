@@ -593,7 +593,25 @@ ns:On("PLAYER_DEAD", function()
   if loc.inInst then ns.CntFlag("deathDungeon") end
   if (ns.S(UnitLevel, "player") or 0) >= 60 then ns.CntFlag("deathAt60") end
   ns.db.cnt.levelsNoDeath = 0
-  Tracker:Event("DEAD", ns.Clean(zone, 40))
+  -- who/what killed me, and the funny line to go with it (picked here, so everyone sees the same)
+  local kb, kc, kd = "", "", ""
+  Tracker.lastKiller = nil
+  local k = ns.Deaths and ns.Deaths:Killer()
+  if k then
+    local idx = ns.Deaths:Pick(k.cat)
+    if idx then
+      kb, kc, kd = k.cat .. ":" .. idx, ns.Clean(k.killer or "", 40), ns.Clean(k.extra or "", 30)
+      Tracker.lastKiller = k
+      -- killed by an Alliance player: straight into the enemy log
+      if k.cat == "PLAYER" and k.killer and k.killer ~= "" then
+        local key = k.killer:lower()
+        if not (ns.db.enemies and ns.db.enemies[key]) then
+          pcall(ns.Data.AddEnemy, ns.Data, k.killer, "killed me in " .. tostring(zone) .. (k.extra and (" · " .. k.extra) or ""), false)
+        end
+      end
+    end
+  end
+  Tracker:Event("DEAD", ns.Clean(zone, 40), kb, kc, kd)
   Tracker:SendStats(2)
 end)
 
