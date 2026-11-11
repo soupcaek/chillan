@@ -105,16 +105,15 @@ end
 ns:On("PLAYER_DEAD", function()
   local r = R:Cur()
   r.deaths = r.deaths + 1
-  C_Timer.After(0.5, function()
-    local k = ns.Tracker.lastKiller
-    if k and k.cat == "PLAYER" and ns.Now() - (ns.Tracker.lastKillerAt or 0) < 5 then r.alli = r.alli + 1 end
-  end)
 end)
 
 -- my own feed events: best loot, achievements, dungeons
 local origEvent = ns.Tracker.Event
 ns.Tracker.Event = function(self, kind, a, b, c, d)
-  if kind == "DEAD" then ns.Tracker.lastKillerAt = ns.Now() end
+  if kind == "DEAD" then
+    ns.Tracker.lastKillerAt = ns.Now()
+    if type(b) == "string" and b:find("^PLAYER:") then R:Cur().alli = R:Cur().alli + 1 end
+  end
   origEvent(self, kind, a, b, c, d)
   local r = R:Cur()
   if kind == "LOOT" then

@@ -308,8 +308,8 @@ local function isPlayer(l)
 end
 
 -- returns { cat = "PLAYER"/"FALL"/.../"MOB"/family key, killer = name, extra = "Night Elf Rogue" } or nil
-function D:Killer()
-  local l = last
+function D:Killer(given)
+  local l = given or last
   if not l or GetTime() - l.at > 8 then
     -- fallback: a hostile target that was attacking me
     local t = ns.S(UnitName, "target")
@@ -404,4 +404,218 @@ function D:Kicker(item)
   if cat == "FIRE" then return "BURNED" end
   if cat == "FATIGUE" then return "EXHAUSTED" end
   return "DEAD!"
+end
+
+---------------------------------------------------------------------------
+-- No combat log on WoW Forever, so: the game's own death recap, breath/fatigue
+-- timers, a fall tracker and your target. D:Resolve picks the best of them.
+---------------------------------------------------------------------------
+local function sec(v) return ns.isSecret(v) end
+local function show(v)
+  if sec(v) then return "|cffF2777A<SECRET>|r" end
+  if v == nil then return "nil" end
+  return tostring(v)
+end
+
+-- breath / fatigue timers ("BREATH", "EXHAUSTION")
+local mirror = {}
+ns:On("MIRROR_TIMER_START", function(name)
+  if type(name) == "string" and not sec(name) then mirror[name] = { on = true, at = GetTime() } end
+end)
+ns:On("MIRROR_TIMER_STOP", function(name)
+  if type(name) == "string" and not sec(name) then mirror[name] = { on = false, at = GetTime() } end
+end)
+local function mirrorHit(name)
+  local m = mirror[name]
+  if not m then return false end
+  return m.on or (GetTime() - m.at < 1.5)
+end
+
+-- falling: when the last fall started/ended
+local fall = { on = false }
+C_Timer.NewTicker(0.2, function()
+  local f = ns.S(IsFalling)
+  if f and not fall.on then fall.on, fall.start = true, GetTime()
+  elseif not f and fall.on then fall.on, fall.stop = false, GetTime() end
+end)
+local function fellToDeath()
+  local now = GetTime()
+  if fall.on then return now - (fall.start or now) > 1.2 end
+  return fall.stop and fall.start and (now - fall.stop < 1.0) and (fall.stop - fall.start > 1.2) or false
+end
+
+-- your target, as a killer candidate
+local function targetInfo()
+  local name = ns.S(UnitName, "target")
+  local info = {
+    exists = ns.S(UnitExists, "target"),
+    rawSecret = UnitName and sec((UnitName("target"))) or false,
+    name = name,
+    hostile = ns.S(UnitCanAttack, "player", "target"),
+    onMe = ns.S(UnitIsUnit, "targettarget", "player"),
+    guid = ns.S(UnitGUID, "target"),
+    isPlayer = ns.S(UnitIsPlayer, "target"),
+  }
+  if name and info.hostile then info.l = { kind = "UNIT", name = name, guid = info.guid, at = GetTime() } end
+  return info
+end
+
+-- the game's death recap; returns the killing-blow event (or nil) and a log of what came back
+local function readRecap(log)
+  if not (C_DeathRecap and C_DeathRecap.GetRecapEvents) then log[#log + 1] = "C_DeathRecap: not available" return end
+  local okH, has = pcall(C_DeathRecap.HasRecapEvents)
+  log[#log + 1] = "HasRecapEvents: " .. (okH and show(has) or ("error: " .. tostring(has)))
+  local ok, events = pcall(C_DeathRecap.GetRecapEvents)
+  if not ok then log[#log + 1] = "GetRecapEvents error: " .. tostring(events) return end
+  if sec(events) then log[#log + 1] = "GetRecapEvents: the whole list is SECRET" return end
+  if type(events) ~= "table" then log[#log + 1] = "GetRecapEvents: " .. show(events) return end
+  log[#log + 1] = "GetRecapEvents: " .. #events .. " events"
+  local best, bestT
+  for i, e in ipairs(events) do
+    if type(e) == "table" and not sec(e) then
+      local t = e.timestamp
+      if not sec(t) and type(t) == "number" and (not bestT or t > bestT) then best, bestT = i, t end
+    end
+  end
+  best = best or 1
+  for i, e in ipairs(events) do
+    if i == best or i <= 3 then
+      log[#log + 1] = "  event " .. i .. (i == best and " (killing blow)" or "") .. ":"
+      if sec(e) then log[#log + 1] = "    <SECRET table>"
+      elseif type(e) == "table" then
+        local keys = {}
+        for k in pairs(e) do keys[#keys + 1] = tostring(k) end
+        table.sort(keys)
+        for _, k in ipairs(keys) do log[#log + 1] = "    " .. k .. " = " .. show(e[k]) end
+      end
+    end
+  end
+  local e = events[best]
+  if type(e) ~= "table" or sec(e) then return end
+  local env = e.environmentalType
+  if env and not sec(env) and env ~= "" then return { kind = "ENV", env = env } end
+  local name = e.sourceName
+  if name and not sec(name) and name ~= "" then
+    local guid = (not sec(e.sourceGUID)) and e.sourceGUID or nil
+    local flags = (not sec(e.sourceFlags)) and e.sourceFlags or nil
+    return { kind = "UNIT", name = name, guid = guid, flags = flags, at = GetTime() }
+  end
+end
+
+local function hasRecap()
+  if not (C_DeathRecap and C_DeathRecap.HasRecapEvents) then return false end
+  local ok, has = pcall(C_DeathRecap.HasRecapEvents)
+  return ok and has == true
+end
+
+-- work out who/what killed me, then call cb(k). k = { cat, killer, extra, source } or nil
+function D:Resolve(cb)
+  local log = { "Chillan? death test  ·  v" .. tostring(ns.VERSION) .. "  ·  " .. date("%d.%m %H:%M:%S"),
+    "Zone: " .. show(ns.S(GetRealZoneText)), "" }
+  log[#log + 1] = "|cffC8D1DCGame rules|r"
+  log[#log + 1] = "issecretvalue: " .. (issecretvalue and "yes (Midnight rules)" or "no")
+  log[#log + 1] = "Combat log: " .. ((not issecretvalue and not C_DamageMeter) and "listening" or "off (blocked on this client)")
+  log[#log + 1] = ""
+  log[#log + 1] = "|cffC8D1DCAt the moment of death|r"
+  local drown, tired, fell = mirrorHit("BREATH"), mirrorHit("EXHAUSTION"), fellToDeath()
+  log[#log + 1] = "Breath timer: " .. show(mirror.BREATH and (mirror.BREATH.on and "running" or string.format("stopped %.1fs ago", GetTime() - mirror.BREATH.at)) or "never seen")
+  log[#log + 1] = "Fatigue timer: " .. show(mirror.EXHAUSTION and (mirror.EXHAUSTION.on and "running" or string.format("stopped %.1fs ago", GetTime() - mirror.EXHAUSTION.at)) or "never seen")
+  log[#log + 1] = "Falling: " .. (fall.on and string.format("still falling (%.1fs)", GetTime() - (fall.start or GetTime()))
+    or (fall.stop and fall.start) and string.format("landed %.1fs ago after %.1fs", GetTime() - fall.stop, fall.stop - fall.start) or "no fall seen")
+  local t0 = targetInfo()
+  log[#log + 1] = "Target: exists=" .. show(t0.exists) .. "  name=" .. show(t0.name) .. (t0.rawSecret and " (name was secret)" or "")
+    .. "  hostile=" .. show(t0.hostile) .. "  targeting me=" .. show(t0.onMe) .. "  player=" .. show(t0.isPlayer)
+  local start, tries = GetTime(), 0
+  local function finish()
+    local t1 = targetInfo()
+    log[#log + 1] = ""
+    log[#log + 1] = string.format("|cffC8D1DCDeath recap|r  (waited %.1fs, %d checks)", GetTime() - start, tries)
+    local r = readRecap(log)
+    log[#log + 1] = ""
+    log[#log + 1] = "|cffC8D1DCTarget after waiting|r: name=" .. show(t1.name) .. "  hostile=" .. show(t1.hostile) .. "  targeting me=" .. show(t1.onMe)
+    -- pick: recap > breath/fatigue/fall > target (at death, then after waiting)
+    local k, src
+    if r then k, src = D:Killer(r), "death recap"
+    elseif drown then k, src = { cat = "DROWN" }, "breath timer"
+    elseif tired then k, src = { cat = "FATIGUE" }, "fatigue timer"
+    elseif fell then k, src = { cat = "FALL" }, "fall tracker"
+    elseif t0.l and t0.onMe then k, src = D:Killer(t0.l), "target (attacking me)"
+    elseif t1.l and t1.onMe then k, src = D:Killer(t1.l), "target after waiting"
+    elseif t0.l then k, src = D:Killer(t0.l), "target (hostile, not sure it was attacking me)"
+    elseif last and GetTime() - last.at < 12 then k, src = D:Killer(), "combat log"
+    end
+    if k then k.source = src end
+    log[#log + 1] = ""
+    log[#log + 1] = "|cffC8D1DCResult|r"
+    log[#log + 1] = k and ("Source: " .. src .. "   category: " .. tostring(k.cat) .. "   killer: " .. tostring(k.killer or "-") .. "   extra: " .. tostring(k.extra or "-"))
+      or "Nothing found: plain death line"
+    ns.db.deathDebug = log
+    pcall(cb, k)
+    if ns.db.deathTest then C_Timer.After(1, function() D:ShowTest() end) end
+  end
+  local function poll()
+    tries = tries + 1
+    if hasRecap() or GetTime() - start >= 3 then finish() else C_Timer.After(0.25, poll) end
+  end
+  C_Timer.After(0.1, poll)
+end
+
+---------------------------------------------------------------------------
+-- /chill deathtest: popup with everything the probe saw at the last death
+---------------------------------------------------------------------------
+local testFrame
+function D:ShowTest()
+  local UI, C = ns.UI, ns.C
+  if not testFrame then
+    local f = CreateFrame("Frame", "ChillanDeathTest", UIParent)
+    f:SetSize(620, 460)
+    f:SetFrameStrata("DIALOG")
+    f:EnableMouse(true)
+    UI.Movable(f, "deathtest", function(fr) fr:SetPoint("CENTER", UIParent, "CENTER", 0, 60) end)
+    f.panel = UI.OverlayPanel(f, C.window, C.activeLine, false)
+    f.panel:SetAllPoints()
+    f.panel:SetFrameLevel(f:GetFrameLevel())
+    f.kicker = UI.Text(f, 11, "semi", C.accent)
+    f.kicker:SetPoint("TOPLEFT", 20, -18)
+    f.kicker:SetText("DEATH TEST")
+    f.title = UI.Text(f, 16, "bold", C.text)
+    f.title:SetPoint("TOPLEFT", f.kicker, "BOTTOMLEFT", 0, -4)
+    f.hint = UI.Text(f, 11, nil, C.dim)
+    f.hint:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -4)
+    f.hint:SetText("Click the text, press Ctrl+A then Ctrl+C to copy it, and paste it to Claude.")
+    local sf = CreateFrame("ScrollFrame", "ChillanDeathTestScroll", f, "UIPanelScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT", 20, -82)
+    sf:SetPoint("BOTTOMRIGHT", -38, 66)
+    local eb = CreateFrame("EditBox", nil, sf)
+    eb:SetMultiLine(true)
+    eb:SetAutoFocus(false)
+    eb:SetFontObject(ChatFontNormal)
+    eb:SetWidth(550)
+    eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    eb:SetScript("OnTextChanged", function(self, user) if user then self:SetText(f.raw or "") end end)
+    sf:SetScrollChild(eb)
+    f.eb = eb
+    f.arm = UI.Button(f, 200, 32, "", "ghost", function()
+      ns.db.deathTest = not ns.db.deathTest
+      D:ShowTest()
+    end)
+    f.arm:SetPoint("BOTTOMLEFT", 20, 20)
+    f.close = UI.Button(f, 120, 32, "Close", "primary", function() f:Hide() end)
+    f.close:SetPoint("BOTTOMRIGHT", -20, 20)
+    testFrame = f
+  end
+  local f = testFrame
+  local log = ns.db.deathDebug
+  if log then
+    f.title:SetText("What Chillan saw at your last death")
+    f.raw = table.concat(log, "\n")
+  else
+    f.title:SetText("No death recorded yet")
+    f.raw = "Die once (sorry) and this window opens by itself with the report.\n\n"
+      .. "issecretvalue: " .. (issecretvalue and "yes (Midnight rules)" or "no") .. "\n"
+      .. "C_DeathRecap: " .. ((C_DeathRecap and C_DeathRecap.GetRecapEvents) and "available" or "not available")
+  end
+  f.eb:SetText(f.raw)
+  f.arm:SetLabel(ns.db.deathTest and "Auto-open after death: ON" or "Auto-open after death: OFF")
+  f:Show()
 end
