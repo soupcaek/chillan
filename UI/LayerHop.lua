@@ -130,18 +130,20 @@ function L:Request()
   self.mine = m
   -- the player search must be the first thing this click does: the game allows it only straight
   -- from a click, and anything sent before it in the same click gets it blocked
-  if #hosts == 0 then self:AskLayerSwap(m) end
-  C_Timer.After(0.1, function()
-    Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
-  end)
+  if #hosts == 0 then
+    -- nobody in the gang can move us: don't bother them, go straight to LayerSwap users
+    m.noGang = true
+    self:AskLayerSwap(m)
+  else
+    C_Timer.After(0.1, function()
+      Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
+    end)
+  end
   if #hosts > 0 then
     local names = {}
     for i, p in ipairs(hosts) do if i <= 3 then names[#names + 1] = ns:ShortWho(p) end end
     ns.Print("Layer hop: asking the gang (" .. table.concat(names, ", ") .. (#hosts > 3 and " …" or "")
       .. " can move you" .. (from and (" off " .. label(from)) or "") .. ").")
-  else
-    -- nobody in the gang stands on another layer here: ask LayerSwap users right away (this click)
-    ns.Print("Layer hop: nobody in the gang is on another layer in this zone – asking LayerSwap users here too.")
   end
   ns:Fire("LAYERHOP")
   C_Timer.After(12, function()
@@ -176,7 +178,8 @@ Comm:Handle("LQ", function(f)
   -- only someone in the same zone can move them
   local myMap = zoneMap()
   if askerMap and myMap and askerMap ~= myMap then L.open[id] = nil return end
-  if S().layerHost ~= false and mine then
+  if not mine then L.open[id] = nil return end   -- can't tell whether I'd move them
+  if S().layerHost ~= false then
     -- several of us may hear it: a random short wait, and the first one claims it
     C_Timer.After(0.3 + math.random() * 1.7, function()
       if L.open[id] and canHelp() then L:Help(id, true) end
@@ -387,7 +390,8 @@ end
 function L:AskBook(m)
   local names = self:BookNames(m)
   if #names == 0 then
-    ns.Print("Layer hop: no LayerSwap users known in this zone yet. Chillan learns them as players nearby ask for hops – try again in a few minutes.")
+    ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, and " or "")
+      .. "no LayerSwap users are known in this zone yet. Chillan learns them as players nearby ask for hops – try again in a few minutes.")
     return
   end
   self:Whisper(m, names)
@@ -411,7 +415,8 @@ function L:Whisper(m, names)
     end
     first = false
     if names[i] and i <= 30 then C_Timer.After(1, burst)
-    else ns.Print("Layer hop: asked " .. sent .. " player" .. (sent == 1 and "" or "s") .. " here – any LayerSwap host on another layer will invite you.") end
+    else ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. sent
+      .. " LayerSwap user" .. (sent == 1 and "" or "s") .. " in this zone – a host on another layer will invite you.") end
   end
   burst()
 end

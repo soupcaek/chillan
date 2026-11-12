@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.5", date = "12.11", items = {
+    "Layer hop: the gang is only asked when someone is known to be on another layer in your zone – no more pointless invites from friends on your own layer",
+  } },
   { v = "0.28.4", date = "12.11", items = {
     "Layer hop: if the game blocks the player search, Chillan notices it every time (also when the game reports it a moment late), stops trying for a week and asks the LayerSwap users it knows",
   } },
