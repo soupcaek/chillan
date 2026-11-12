@@ -225,7 +225,7 @@ end
 local who = nil   -- { m, at, muted }
 
 local function unmute()
-  if who and who.muted then pcall(who.muted.RegisterEvent, who.muted, "WHO_LIST_UPDATE") end
+  for _, f in ipairs((who and who.muted) or {}) do pcall(f.RegisterEvent, f, "WHO_LIST_UPDATE") end
   if who then who.muted = nil end
 end
 
@@ -237,10 +237,17 @@ function L:AskLayerSwap(m)
   local zone = ns.S(GetRealZoneText) or ""
   local text = zone ~= "" and ('z-"' .. zone .. '"') or ""
   who = { m = m, at = GetTime() }
-  -- keep the Friends window from popping up with our search
-  local ff = FriendsFrame
-  if ff and not ff:IsShown() and ff.IsEventRegistered and ff:IsEventRegistered("WHO_LIST_UPDATE") then
-    if pcall(ff.UnregisterEvent, ff, "WHO_LIST_UPDATE") then who.muted = ff end
+  -- keep the game's own who lists (Forever's group finder, the Friends window) out of our search
+  who.muted = {}
+  for _, name in ipairs({ "LFGWhoListFrame", "FriendsFrame" }) do
+    local f = _G[name]
+    if type(f) == "table" and f.IsEventRegistered and f.IsVisible then
+      local okR, reg = pcall(f.IsEventRegistered, f, "WHO_LIST_UPDATE")
+      local okV, seen = pcall(f.IsVisible, f)
+      if okR and reg == true and okV and seen ~= true and pcall(f.UnregisterEvent, f, "WHO_LIST_UPDATE") then
+        who.muted[#who.muted + 1] = f
+      end
+    end
   end
   if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
   local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
@@ -295,9 +302,11 @@ function L:WhoResults(via)
   -- shuffle so the same few players aren't always asked first
   for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
   local line, sent, i = lsLine(m), 0, 1
+  local first = true
   local function burst()
     if L.mine ~= m or m.joinedAt then return end
-    for _ = 1, 3 do
+    -- the game takes about 10 addon messages at once, then about one a second
+    for _ = 1, (first and 8 or 1) do
       local name = names[i]
       if not name or i > 30 then break end
       i = i + 1
@@ -307,6 +316,7 @@ function L:WhoResults(via)
         m.whispered[norm(name)] = true
       end
     end
+    first = false
     if names[i] and i <= 30 then C_Timer.After(1, burst)
     else ns.Print("Layer hop: asked " .. sent .. " player" .. (sent == 1 and "" or "s") .. " here – any LayerSwap host on another layer will invite you.") end
   end
