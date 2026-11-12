@@ -133,8 +133,34 @@ T.DEFS = {
     return n .. (n == 1 and " day" or " days"), "in a row"
   end },
 }
+-- action buttons: same size as the stat tiles, a coloured edge and an icon; left-click does it
+T.ACTIONS = {
+  { key = "act_layer", name = "Layer hop", icon = "Radar", color = "7FB8FF",
+    tip = "Left-click: move to another layer (a LayerSwap host or a gang member on another layer invites you)",
+    get = function()
+      if ns.LayerHop and ns.LayerHop.TileState then return ns.LayerHop:TileState() end
+      return "Layer hop", "Click to hop"
+    end,
+    click = function() ns.LayerHop:Request() end },
+  { key = "act_sos", name = "SOS – need help", icon = "SOS", color = "F2777A",
+    tip = "Left-click: tell the gang you need help, with your zone and position",
+    get = function() return "SOS", "Need help? Click" end,
+    click = function() ns.Data:SOS() end },
+  { key = "act_stats", name = "Open Stats", icon = "Board", color = "C8D1DC",
+    tip = "Left-click: open the Stats page",
+    get = function() return "Stats", "Open the board" end,
+    click = function() ns.Window:Toggle("stats") end },
+  { key = "act_trophies", name = "Open Trophies", icon = "Trophy", color = "E0C068",
+    tip = "Left-click: open the Trophies page",
+    get = function()
+      local pts = ns.Ach and ns.Ach.Points and select(2, pcall(ns.Ach.Points, ns.Ach, ns.pid))
+      return "Trophies", type(pts) == "number" and (ns.Num(pts) .. " points") or "Open your trophies"
+    end,
+    click = function() ns.Window:Toggle("ach") end },
+}
 T.byKey = {}
 for _, d in ipairs(T.DEFS) do T.byKey[d.key] = d end
+for _, d in ipairs(T.ACTIONS) do d.action = true T.byKey[d.key] = d end
 
 function T:List()
   local S = ns.db.settings
@@ -163,6 +189,17 @@ end
 
 function T:OpenMenu(anchor)
   local items = {}
+  local function head(text) items[#items + 1] = { text = text, color = C.muted, func = function() end } end
+  head("BUTTONS")
+  for _, d in ipairs(self.ACTIONS) do
+    local on = self:IsPinned(d.key)
+    items[#items + 1] = {
+      text = (on and "Remove: " or "Add: ") .. d.name,
+      color = on and C.green or C.text2,
+      func = function() T:Toggle(d.key) end,
+    }
+  end
+  head("STATS")
   for _, d in ipairs(self.DEFS) do
     local on = self:IsPinned(d.key)
     items[#items + 1] = {
@@ -194,9 +231,24 @@ local function makeTile(i)
   t.k:SetPoint("BOTTOMLEFT", 9, 7)
   t.k:SetPoint("RIGHT", -6, 0)
   t.k:SetWordWrap(false)
+  -- action tiles: a coloured edge on the left and an icon on the right
+  t.edge = t:CreateTexture(nil, "ARTWORK")
+  t.edge:SetPoint("TOPLEFT", 2, -6)
+  t.edge:SetPoint("BOTTOMLEFT", 2, 6)
+  t.edge:SetWidth(2)
+  t.edge:Hide()
+  t.icon = t:CreateTexture(nil, "ARTWORK")
+  t.icon:SetSize(16, 16)
+  t.icon:SetPoint("TOPRIGHT", -8, -8)
+  t.icon:Hide()
   t:SetScript("OnClick", function(self, btn)
+    local d = self.key and T.byKey[self.key]
     if btn == "RightButton" then
       if self.key then T:Toggle(self.key) end
+    elseif d and d.click then
+      -- straight from the click: some actions (the layer hop's zone search) only work that way
+      d.click()
+      C_Timer.After(0.2, function() T:Update() end)
     else
       ns.Window:OpenPlayer(ns.pid)
     end
@@ -205,7 +257,7 @@ local function makeTile(i)
     local d = self.key and T.byKey[self.key]
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(d and d.name or "Chillan?", 1, 1, 1)
-    GameTooltip:AddLine("Left-click: My page  ·  Right-click: remove", 0.52, 0.55, 0.57)
+    GameTooltip:AddLine((d and d.tip) and (d.tip .. "  ·  Right-click: remove") or "Left-click: My page  ·  Right-click: remove", 0.52, 0.55, 0.57, true)
     GameTooltip:Show()
   end)
   t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -222,6 +274,18 @@ function T:Update()
       t.v:SetText(v or "–")
       t.v:SetTextColor(hex(col or C.text))
       t.k:SetText(sub or "")
+      if d.action then
+        t.edge:SetColorTexture(hex(d.color))
+        t.edge:Show()
+        t.icon:SetTexture(ns.TEX .. "Icon" .. d.icon)
+        t.icon:SetVertexColor(hex(d.color))
+        t.icon:Show()
+        t.v:SetPoint("RIGHT", -28, 0)
+      else
+        t.edge:Hide()
+        t.icon:Hide()
+        t.v:SetPoint("RIGHT", -6, 0)
+      end
     end
   end
 end
@@ -309,6 +373,8 @@ function T:Init()
   m:HookScript("OnHide", function() T:Layout() end)
   ns:Listen("MINIBAR", function() T:Layout() end)
   ns:Listen("DATA", function() T:Update() end)
+  ns:Listen("LAYERHOP", function() T:Update() end)
+  ns:Listen("LAYER", function() T:Update() end)
   ns:On("PLAYER_REGEN_DISABLED", function() holder:SetAlpha(0.3) end)
   ns:On("PLAYER_REGEN_ENABLED", function() holder:SetAlpha(1) end)
   C_Timer.NewTicker(2, function()

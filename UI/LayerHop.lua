@@ -196,6 +196,7 @@ Comm:Handle("LK", function(f)
     L.mine.by = by
     local p = ns:GetPerson(by)
     ns.Print((p and ns:ShortWho(p) or "Someone") .. " is inviting you for a layer hop.")
+    ns:Fire("LAYERHOP")
   end
 end)
 
@@ -457,9 +458,11 @@ function L:Whisper(m, names)
       if ok and (res == nil or res == 0 or res == true) then
         sent = sent + 1
         m.whispered[norm(name)] = true
+        m.sent = (m.sent or 0) + 1
       end
     end
     first = false
+    ns:Fire("LAYERHOP")
     if names[i] and i <= 30 then C_Timer.After(1, burst)
     else ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. sent
       .. " player" .. (sent == 1 and "" or "s") .. " (" .. (L.lastKnown or 0) .. " known LayerSwap users) – a LayerSwap host on another layer will invite you.") end
@@ -581,6 +584,7 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter)
   if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
   m.host = inviter
   m.joinedAt = GetTime()
+  ns:Fire("LAYERHOP")
   local myM = m
   -- Forever may ask to confirm the move ("shard transfer"): confirm it, we asked for this
   C_Timer.After(0.5, function()
@@ -593,6 +597,7 @@ end)
 local function done(m, newKey)
   if L.mine ~= m or m.moved then return end
   m.moved = true
+  ns:Fire("LAYERHOP")
   ns.Print("Layer hop: |cff9BE08Ayou're on " .. label(newKey) .. " now|r" .. (m.from and (" (was " .. label(m.from) .. ")") or "")
     .. ". Leaving the group in " .. LEAVE_AFTER .. " s – the layer stays.")
   if ns.Sound then pcall(ns.Sound, "chat") end
@@ -630,6 +635,26 @@ function L:Verify(m)
   local members = GetNumGroupMembers and GetNumGroupMembers() or 0
   if inGroup() and members <= 2 and not inCombat() then leave() end
   ns:Fire("LAYERHOP")
+end
+
+-- what the Layer hop tile shows: big line, small line, colour
+function L:TileState()
+  local cur = ns.Layer and ns.Layer:CurrentLabel()
+  local m = self.mine
+  if not m then
+    return cur or "Layer ?", cur and "Click to hop" or "Click to hop (mouse over an NPC to read it)"
+  end
+  if m.moved then return cur or "Moved", "Moved! Leaving group soon", "9BE08A" end
+  if m.joinedAt then return cur or "Joining", "Joined – checking the move…", "E0C068" end
+  if m.by then
+    local p = ns:GetPerson(m.by)
+    return cur or "Layer ?", "Invite from " .. ((p and ns:PersonFirst(p)) or "the gang") .. "…", "E0C068"
+  end
+  if m.mode == "ls" then
+    if m.sent then return cur or "Layer ?", "Asked " .. m.sent .. " – waiting…", "E0C068" end
+    return cur or "Layer ?", "Searching the zone…", "E0C068"
+  end
+  return cur or "Layer ?", "Asking the gang…", "E0C068"
 end
 
 ---------------------------------------------------------------------------

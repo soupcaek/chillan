@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.0", date = "12.11", items = {
+    "Buttons under the bar: the + menu now has a Buttons section – Layer hop, SOS, Open Stats and Open Trophies – next to the stat tiles",
+    "The Layer hop button shows your layer and what's happening (searching, asked 12, invite from …, moved!) – one click hops",
+  } },
   { v = "0.28.8", date = "12.11", items = {
     "Layer hop works like LayerSwap: the click searches your zone first (the game only allows that straight from a click), then asks the LayerSwap users it finds – a host on another layer invites you",
     "If a gang member in your zone is on another layer they're asked first; no invite within 10 s and the LayerSwap users your click found are asked automatically",
