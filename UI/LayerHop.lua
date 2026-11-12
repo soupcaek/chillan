@@ -266,6 +266,38 @@ local function seedFromLayerSwap()
   end
 end
 
+-- players who wrote in a chat channel lately: real players, perhaps LayerSwap users (only they can
+-- read our hidden ask). Zone channels (General) are tied to our zone; custom ones (like "layer") aren't.
+local chatters = {}   -- name -> { at, map }
+ns:On("CHAT_MSG_CHANNEL", function(text, sender, _, _, _, _, zoneChannelID)
+  if secret(sender) or type(sender) ~= "string" or sender == "" then return end
+  local me = ns.S(UnitName, "player")
+  if type(me) == "string" and norm(sender) == norm(me) then return end
+  if isGangChar(sender) then return end
+  local zoned = not secret(zoneChannelID) and type(zoneChannelID) == "number" and zoneChannelID > 0
+  chatters[sender] = { at = time(), map = zoned and zoneMap() or nil }
+end)
+local function chatterNames(m, skip, out, limit)
+  local list, t = {}, time()
+  for name, c in pairs(chatters) do
+    if t - c.at > 3600 then chatters[name] = nil
+    elseif not skip[norm(name)] and (not c.map or not m.map or c.map == m.map) then
+      list[#list + 1] = { name = name, c = c }
+    end
+  end
+  -- zone channel first (they're in our zone for sure), then the newest
+  table.sort(list, function(a, b)
+    local za, zb = a.c.map and 1 or 0, b.c.map and 1 or 0
+    if za ~= zb then return za > zb end
+    return a.c.at > b.c.at
+  end)
+  for _, x in ipairs(list) do
+    if #out >= limit then break end
+    out[#out + 1] = x.name
+    skip[norm(x.name)] = true
+  end
+end
+
 -- the LayerSwap users of this zone on another layer, hosts and the most recent first
 function L:BookNames(m)
   pruneBook()
@@ -280,8 +312,10 @@ function L:BookNames(m)
     if ha ~= hb then return ha > hb end
     return (a.e.at or 0) > (b.e.at or 0)
   end)
-  local names = {}
-  for i, x in ipairs(out) do if i <= 30 then names[#names + 1] = x.name end end
+  local names, skip = {}, {}
+  for i, x in ipairs(out) do if i <= 30 then names[#names + 1] = x.name skip[norm(x.name)] = true end end
+  L.lastKnown = #names
+  chatterNames(m, skip, names, 30)
   return names
 end
 
@@ -376,6 +410,7 @@ function L:WhoResults(via)
   end
   who = nil
   if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
+  m.pooled = true
   -- shuffle so the same few players aren't always asked first
   for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
   -- known LayerSwap hosts first
@@ -388,16 +423,24 @@ end
 
 -- asks the LayerSwap users we already know of in this zone (no search needed)
 function L:AskBook(m)
+  if not m.pooled then
+    -- ask the gang for the LayerSwap users they know in this zone, then whisper
+    m.pooled = true
+    Comm:Broadcast(Comm:Build("LB", m.id, ns.pid, m.map or ""), 1)
+    C_Timer.After(2, function() if L.mine == m and not m.joinedAt then L:AskBook(m) end end)
+    return
+  end
   local names = self:BookNames(m)
   if #names == 0 then
     ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, and " or "")
-      .. "no LayerSwap users are known in this zone yet. Chillan learns them as players nearby ask for hops – try again in a few minutes.")
+      .. "nobody to ask yet: no LayerSwap users known and nobody seen in chat channels here. Chillan learns them as players nearby ask for hops or chat – try again in a few minutes.")
     return
   end
   self:Whisper(m, names)
 end
 
 function L:Whisper(m, names)
+  m.asked = true
   local line, sent, i = lsLine(m), 0, 1
   local first = true
   local function burst()
@@ -416,10 +459,55 @@ function L:Whisper(m, names)
     first = false
     if names[i] and i <= 30 then C_Timer.After(1, burst)
     else ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. sent
-      .. " LayerSwap user" .. (sent == 1 and "" or "s") .. " in this zone – a host on another layer will invite you.") end
+      .. " player" .. (sent == 1 and "" or "s") .. " (" .. (L.lastKnown or 0) .. " known LayerSwap users) – a LayerSwap host on another layer will invite you.") end
   end
   burst()
 end
+
+-- a gang member asks which LayerSwap users we know in their zone: "name|layer|h;..." (fits one message)
+Comm:Handle("LB", function(f)
+  local id, pid, map = f[1], f[2], tonumber(f[3] or "")
+  if not id or not pid or pid == ns.pid then return end
+  seedFromLayerSwap()
+  pruneBook()
+  local parts, len = {}, 0
+  local list = {}
+  for name, e in pairs(book()) do
+    if not map or not e.zone or e.zone == map then list[#list + 1] = { name = name, e = e } end
+  end
+  table.sort(list, function(a, b)
+    local ha, hb = a.e.host and 1 or 0, b.e.host and 1 or 0
+    if ha ~= hb then return ha > hb end
+    return (a.e.at or 0) > (b.e.at or 0)
+  end)
+  for _, x in ipairs(list) do
+    local item = x.name:gsub("[|;~]", "") .. "|" .. (x.e.layer or "") .. "|" .. (x.e.host and "h" or "")
+    if len + #item + 1 > 190 then break end
+    parts[#parts + 1] = item
+    len = len + #item + 1
+  end
+  if #parts == 0 then return end
+  C_Timer.After(math.random() * 0.8, function()
+    Comm:Broadcast(Comm:Build("LR", id, map or "", table.concat(parts, ";")), 1)
+  end)
+end)
+
+Comm:Handle("LR", function(f)
+  local id, map, list = f[1], tonumber(f[2] or ""), f[3]
+  if not id or type(list) ~= "string" then return end
+  -- everyone keeps what the gang knows; it costs nothing and helps the next hop
+  local m, late = L.mine, {}
+  for item in list:gmatch("[^;]+") do
+    local name, layer, h = item:match("^([^|]+)|([^|]*)|(%a*)$")
+    if name then
+      learn(name, layer ~= "" and layer or nil, map, h == "h" or nil)
+      -- my hop already went out: ask these too, if they're on another layer
+      if m and m.id == id and m.asked and not m.joinedAt and not m.whispered[norm(name)]
+        and not (m.from and layer == m.from) then late[#late + 1] = name end
+    end
+  end
+  if #late > 0 then L:Whisper(m, late) end
+end)
 
 -- hosting for LayerSwap users (opt-in), with LayerSwap's own limits
 local hosted, lastHosted = {}, {}
@@ -559,7 +647,9 @@ function L:Slash(rest)
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
       .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
       .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
-    ns.Print("LayerSwap users known nearby: " .. pruneBook() .. ".")
+    local nc = 0
+    for _, c in pairs(chatters) do if time() - c.at < 3600 then nc = nc + 1 end end
+    ns.Print("LayerSwap users known: " .. pruneBook() .. ". Players seen in chat channels (last hour): " .. nc .. ".")
     local w = L.lastWho
     if w then
       ns.Print("Last player search: " .. date("%H:%M:%S", w.at) .. " · " .. tostring(w.how)
