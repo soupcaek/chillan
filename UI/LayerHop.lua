@@ -128,7 +128,12 @@ function L:Request()
   local id = Comm:NewId()
   m = { id = id, t = ns.Now(), from = from, map = map, mode = "gang", whispered = {} }
   self.mine = m
-  Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
+  -- the player search must be the first thing this click does: the game allows it only straight
+  -- from a click, and anything sent before it in the same click gets it blocked
+  if #hosts == 0 then self:AskLayerSwap(m) end
+  C_Timer.After(0.1, function()
+    Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
+  end)
   if #hosts > 0 then
     local names = {}
     for i, p in ipairs(hosts) do if i <= 3 then names[#names + 1] = ns:ShortWho(p) end end
@@ -137,7 +142,6 @@ function L:Request()
   else
     -- nobody in the gang stands on another layer here: ask LayerSwap users right away (this click)
     ns.Print("Layer hop: nobody in the gang is on another layer in this zone – asking LayerSwap users here too.")
-    self:AskLayerSwap(m)
   end
   ns:Fire("LAYERHOP")
   C_Timer.After(12, function()
@@ -249,7 +253,6 @@ function L:AskLayerSwap(m)
       end
     end
   end
-  if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
   local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
   local ok, err = false, nil
   if m.map then
@@ -260,6 +263,7 @@ function L:AskLayerSwap(m)
     ok, err = pcall(C_FriendList.SendWho, text, origin)
     who.how = text
   end
+  if ok and C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
   L.lastWho = { at = time(), how = who.how, err = (not ok) and tostring(err) or nil }
   if not ok then unmute() who = nil ns.Print("Layer hop: the game refused the player search (" .. tostring(err) .. ").") return end
   -- the answer can come late, or without the event: look at what the game holds after a few seconds
@@ -495,3 +499,10 @@ function L:ShowAsk(id)
   if ns.Sound then pcall(ns.Sound, "mention") end
   C_Timer.After(30, function() if f.id == id and f:IsShown() then f:Hide() end end)
 end
+
+-- the game blocked a call of ours during a player search: say so in /chill layer status
+ns:On("ADDON_ACTION_BLOCKED", function(addon)
+  if addon == ADDON and who and L.lastWho and GetTime() - (who.at or 0) < 2 then
+    L.lastWho.err = "blocked by the game"
+  end
+end)

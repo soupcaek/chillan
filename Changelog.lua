@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.2", date = "12.11", items = {
+    "Fix: Layer hop's search for LayerSwap users was blocked by the game – it now runs first thing in your click, like LayerSwap's own",
+  } },
   { v = "0.28.1", date = "13.11", items = {
     "Companion 2.0.1: WoWUp can now update Chillan while the companion is running (it no longer keeps the addon folder busy)",
     "Layer hop: the search for LayerSwap users in your zone now reads the answer reliably and asks 8 players at once, and /chill layer status shows the last search",
