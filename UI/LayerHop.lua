@@ -226,7 +226,64 @@ local function lsLine(m)
   return "inv layer " .. table.concat(parts, " ") .. ">"
 end
 
+-- LayerSwap users we know of, learned without any search: every LayerSwap user who asks for a hop
+-- nearby whispers the players of the zone (us too) and names the layer it leaves; every host that
+-- answers our ask says its layer. ns.db.lsBook[name] = { at, layer, zone, host }
+local BOOK_TTL, BOOK_MAX = 3 * 3600, 400
+local function book()
+  ns.db.lsBook = ns.db.lsBook or {}
+  return ns.db.lsBook
+end
+local function learn(name, layer, zone, host)
+  if type(name) ~= "string" or name == "" or secret(name) or isGangChar(name) then return end
+  local b = book()
+  local e = b[name] or {}
+  e.at = time()
+  if layer and layer ~= "" then e.layer = layer end
+  if zone then e.zone = tonumber(zone) or e.zone end
+  if host ~= nil then e.host = host or nil end
+  b[name] = e
+end
+L.Learn = learn
+local function pruneBook()
+  local b, n, t = book(), 0, time()
+  for name, e in pairs(b) do
+    if type(e) ~= "table" or t - (e.at or 0) > BOOK_TTL then b[name] = nil else n = n + 1 end
+  end
+  return n
+end
+-- LayerSwap's own list, when LayerSwap runs too
+local function seedFromLayerSwap()
+  local db = rawget(_G, "LayerSwapDB")
+  if type(db) ~= "table" or type(db.book) ~= "table" then return end
+  for name, e in pairs(db.book) do
+    if type(e) == "table" and type(e.at) == "number" and time() - e.at < BOOK_TTL then
+      learn(name, type(e.layer) == "string" and e.layer:match("^(%d+)") or nil, e.zone, e.host and true or nil)
+    end
+  end
+end
+
+-- the LayerSwap users of this zone on another layer, hosts and the most recent first
+function L:BookNames(m)
+  pruneBook()
+  local out = {}
+  for name, e in pairs(book()) do
+    if (not m.map or not e.zone or e.zone == m.map) and not (m.from and e.layer == m.from) then
+      out[#out + 1] = { name = name, e = e }
+    end
+  end
+  table.sort(out, function(a, b)
+    local ha, hb = a.e.host and 1 or 0, b.e.host and 1 or 0
+    if ha ~= hb then return ha > hb end
+    return (a.e.at or 0) > (b.e.at or 0)
+  end)
+  local names = {}
+  for i, x in ipairs(out) do if i <= 30 then names[#names + 1] = x.name end end
+  return names
+end
+
 local who = nil   -- { m, at, muted }
+local whoBlocking = false
 
 local function unmute()
   for _, f in ipairs((who and who.muted) or {}) do pcall(f.RegisterEvent, f, "WHO_LIST_UPDATE") end
@@ -235,9 +292,13 @@ end
 
 -- one /who of the zone (only works from a click), then hidden whispers to who it found
 function L:AskLayerSwap(m)
-  if not (C_FriendList and C_FriendList.SendWho) then return end
   m.mode = "ls"
   m.t = ns.Now()
+  seedFromLayerSwap()
+  local blockedAt = ns.db.whoBlockedAt
+  if not (C_FriendList and C_FriendList.SendWho) or (blockedAt and time() - blockedAt < 7 * 86400) then
+    return self:AskBook(m)
+  end
   local zone = ns.S(GetRealZoneText) or ""
   local text = zone ~= "" and ('z-"' .. zone .. '"') or ""
   who = { m = m, at = GetTime() }
@@ -255,13 +316,23 @@ function L:AskLayerSwap(m)
   end
   local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
   local ok, err = false, nil
+  whoBlocking, who.blocked = true, false
   if m.map then
     ok, err = pcall(C_FriendList.SendWho, text, origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { m.map } })
     who.how = "map " .. tostring(m.map)
   end
-  if not ok then
+  if not ok and not who.blocked then
     ok, err = pcall(C_FriendList.SendWho, text, origin)
     who.how = text
+  end
+  whoBlocking = false
+  if who.blocked then
+    -- this game won't let Chillan search for players: remember it, and use the users we know of
+    ns.db.whoBlockedAt = time()
+    L.lastWho = { at = time(), how = who.how, err = "blocked by the game – using known LayerSwap users" }
+    unmute()
+    who = nil
+    return self:AskBook(m)
   end
   if ok and C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
   L.lastWho = { at = time(), how = who.how, err = (not ok) and tostring(err) or nil }
@@ -302,9 +373,27 @@ function L:WhoResults(via)
   end
   who = nil
   if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
-  if #names == 0 then ns.Print("Layer hop: the search found nobody else in the zone to ask.") return end
   -- shuffle so the same few players aren't always asked first
   for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
+  -- known LayerSwap hosts first
+  local seen, all = {}, {}
+  for _, nm in ipairs(L:BookNames(m)) do if not seen[norm(nm)] then seen[norm(nm)] = true all[#all + 1] = nm end end
+  for _, nm in ipairs(names) do if not seen[norm(nm)] then seen[norm(nm)] = true all[#all + 1] = nm end end
+  if #all == 0 then ns.Print("Layer hop: the search found nobody else in the zone to ask.") return end
+  L:Whisper(m, all)
+end
+
+-- asks the LayerSwap users we already know of in this zone (no search needed)
+function L:AskBook(m)
+  local names = self:BookNames(m)
+  if #names == 0 then
+    ns.Print("Layer hop: no LayerSwap users known in this zone yet. Chillan learns them as players nearby ask for hops – try again in a few minutes.")
+    return
+  end
+  self:Whisper(m, names)
+end
+
+function L:Whisper(m, names)
   local line, sent, i = lsLine(m), 0, 1
   local first = true
   local function burst()
@@ -370,6 +459,16 @@ end
 
 ns:On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
   if prefix ~= LS_PREFIX or secret(sender) or type(sender) ~= "string" then return end
+  if secret(text) or type(text) ~= "string" then return end
+  -- an ask names the asker's zone and the layer it leaves (= the one it stands on)
+  local body = text:find("inv layer", 1, true) and text:match("<LS([^<>]*)>")
+  if body then
+    learn(sender, body:match("not%s+(%d+)%-%d+"), body:match("^%s*(%d+)"), nil)
+  else
+    -- a LayerSwap user heard an ask: "heard <asker>|<layer>|<zone>|<h or ->"
+    local _, layer, zone, host = text:match("^heard (.-)|([^|]*)|([^|]*)|([^|]*)$")
+    if layer then learn(sender, layer:match("^(%d+)"), zone ~= "-" and zone or nil, host == "h") end
+  end
   if channel ~= "WHISPER" then return end
   onLayerSwap(text, sender)
 end)
@@ -455,6 +554,7 @@ function L:Slash(rest)
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
       .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
       .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
+    ns.Print("LayerSwap users known nearby: " .. pruneBook() .. ".")
     local w = L.lastWho
     if w then
       ns.Print("Last player search: " .. date("%H:%M:%S", w.at) .. " · " .. tostring(w.how)
@@ -502,7 +602,5 @@ end
 
 -- the game blocked a call of ours during a player search: say so in /chill layer status
 ns:On("ADDON_ACTION_BLOCKED", function(addon)
-  if addon == ADDON and who and L.lastWho and GetTime() - (who.at or 0) < 2 then
-    L.lastWho.err = "blocked by the game"
-  end
+  if addon == ADDON and whoBlocking and who then who.blocked = true end
 end)
