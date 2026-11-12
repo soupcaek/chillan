@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.4", date = "12.11", items = {
+    "Layer hop: if the game blocks the player search, Chillan notices it every time (also when the game reports it a moment late), stops trying for a week and asks the LayerSwap users it knows",
+  } },
   { v = "0.28.3", date = "12.11", items = {
     "Layer hop: when the game won't let Chillan search for players, it asks the LayerSwap users it already knows in your zone instead – Chillan learns them by itself as they ask for hops nearby (and from LayerSwap's own list if you have it)",
     "/chill layer status shows how many LayerSwap users Chillan knows nearby",

@@ -601,6 +601,17 @@ function L:ShowAsk(id)
 end
 
 -- the game blocked a call of ours during a player search: say so in /chill layer status
+-- the game blocks our player search (the event can come during the call or just after it):
+-- remember it for a week and ask the LayerSwap users we know of instead
 ns:On("ADDON_ACTION_BLOCKED", function(addon)
-  if addon == ADDON and whoBlocking and who then who.blocked = true end
+  if addon ~= ADDON or not who then return end
+  if whoBlocking then who.blocked = true return end
+  if GetTime() - (who.at or 0) > 3 or who.done then return end
+  local m = who.m
+  who.done = true
+  ns.db.whoBlockedAt = time()
+  L.lastWho = { at = time(), how = who.how, err = "blocked by the game – using known LayerSwap users" }
+  unmute()
+  who = nil
+  if L.mine == m and not m.joinedAt then L:AskBook(m) end
 end)
