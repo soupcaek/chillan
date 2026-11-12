@@ -29,7 +29,7 @@ from relay import post
 from savedvars import find_saved_files, game_root_from, read_discord
 
 APP = "Chillan companion"
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 HOME = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ChillanCompanion")
 INSTALL_DIR = os.path.join(os.environ.get("LOCALAPPDATA", HOME), "ChillanCompanion")
 INSTALLED_EXE = os.path.join(INSTALL_DIR, "ChillanCompanion.exe")
@@ -200,7 +200,7 @@ def install_from(src_exe):
         set_autostart(True)
     except Exception as ex:
         log("autostart failed: %r" % ex)
-    subprocess.Popen([INSTALLED_EXE, "--installed"], close_fds=True)
+    subprocess.Popen([INSTALLED_EXE, "--installed"], close_fds=True, cwd=INSTALL_DIR)
     return True
 
 
@@ -219,7 +219,7 @@ def maybe_install():
         cfg["source_exe"] = me
         cfg["game_root"] = game_root_from(me)
         save_json(CFG_PATH, cfg)
-        subprocess.Popen([INSTALLED_EXE], close_fds=True)  # already installed: just open it
+        subprocess.Popen([INSTALLED_EXE], close_fds=True, cwd=INSTALL_DIR)  # already installed: just open it
         return True
     log("installing %s from %s" % (VERSION, me))
     return install_from(me)
@@ -461,7 +461,7 @@ class Engine:
             if v and version_tuple(v) > version_tuple(VERSION):
                 log("update %s -> %s" % (VERSION, v))
                 self.save_state()
-                subprocess.Popen([src, "--update"], close_fds=True)
+                subprocess.Popen([src, "--update"], close_fds=True, cwd=INSTALL_DIR)
                 os._exit(0)
 
     def start(self):
@@ -631,7 +631,21 @@ class App:
         self.root.mainloop()
 
 
+def leave_addon_folder():
+    """Never keep WoW's addon folder as our working folder: Windows then counts it as in use,
+    and WoWUp can't replace Chillan while the companion runs."""
+    for d in (INSTALL_DIR, HOME, os.environ.get("TEMP")):
+        try:
+            if d:
+                os.makedirs(d, exist_ok=True)
+                os.chdir(d)
+                return
+        except OSError:
+            pass
+
+
 if __name__ == "__main__":
+    leave_addon_folder()
     log("start %s %s" % (VERSION, " ".join(sys.argv[1:])))
     if "--update" in sys.argv:
         time.sleep(2)  # let the old copy exit
