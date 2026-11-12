@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.26.2", date = "12.11", items = {
+    "Discord: when you log in, Chillan relays what the gang did while you were offline, and the bot sums it up in one catch-up card",
+  } },
   { v = "0.26.1", date = "12.11", items = {
     "Discord relay: the code strip uses bigger cells so the companion can read it on more screens, and /chill discord test keeps it up for 8 seconds",
   } },

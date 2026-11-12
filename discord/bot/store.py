@@ -29,6 +29,16 @@ class Store:
                                (kind, since, limit)).fetchall()
         return [json.loads(r[0]) for r in rows]
 
+    def range(self, since, until):
+        rows = self.db.execute("SELECT json FROM events WHERE t>=? AND t<? AND kind NOT IN ('TEST','STATUS') ORDER BY t",
+                               (int(since), int(until))).fetchall()
+        return [json.loads(r[0]) for r in rows]
+
+    def all(self, limit=20000):
+        rows = self.db.execute("SELECT json FROM events WHERE kind NOT IN ('TEST','STATUS') ORDER BY t DESC LIMIT ?",
+                               (limit,)).fetchall()
+        return [json.loads(r[0]) for r in reversed(rows)]
+
     def get(self, k, default=None):
         r = self.db.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone()
         return r[0] if r else default

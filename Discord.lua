@@ -410,12 +410,57 @@ ns:On("PLAYER_LOGOUT", function()
   end
 end)
 
+---------------------------------------------------------------------------
+-- catch-up: what the gang did while this PC wasn't relaying (synced in at login)
+---------------------------------------------------------------------------
+local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = true }
+local CATCHUP_MAX = 40
+
+function X:CatchUp()
+  if not X:Enabled() then return 0 end
+  local d = db()
+  if not d.since then d.since = ns.Now() return 0 end
+  local done = {}
+  for _, o in ipairs(d.out) do done[o.id] = true end
+  local todo = {}
+  for _, it in ipairs(ns.db.feed or {}) do
+    -- fresh events go out live through FEEDEVENT; this is for the ones synced in afterwards
+    if RELAYED[it.kind] and it.t and it.t > d.since and ns.Now() - it.t > 120 and not done[tostring(it.id)] then
+      todo[#todo + 1] = it
+    end
+  end
+  table.sort(todo, function(a, b) return a.t < b.t end)
+  while #todo > CATCHUP_MAX do table.remove(todo, 1) end
+  local n = 0
+  for _, it in ipairs(todo) do
+    local ok, e = pcall(X.FromItem, X, it)
+    if ok and e then
+      e.cu = 1
+      X:Send(e, true, 0.35)
+      n = n + 1
+    else
+      -- remember it anyway so it isn't checked again
+      d.out[#d.out + 1] = { id = tostring(it.id), t = it.t, j = "" }
+    end
+  end
+  return n
+end
+
+ns:On("PLAYER_LOGIN", function()
+  local d = db()
+  if d.on and not d.since then d.since = ns.Now() end
+  -- give the history sync time to bring in what happened while we were away
+  C_Timer.After(90, function() X:CatchUp() end)
+  C_Timer.After(240, function() X:CatchUp() end)
+end)
+
 -- /chill discord [on|off|test|flush]
 function X:Slash(rest)
   rest = (rest or ""):lower()
   local d = db()
   if rest == "on" then
     d.on = true
+    d.since = d.since or ns.Now()
     ns.Print("Discord relay |cff9BE08Aon|r. Keep the Chillan companion running on this PC. Events flash as a small code strip at the top of the screen.")
     C_Timer.After(1, function() X:PushStatus(true) end)
   elseif rest == "off" then
