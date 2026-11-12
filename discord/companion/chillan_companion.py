@@ -24,12 +24,12 @@ from relay import post
 from savedvars import find_saved_files, read_discord
 
 APP = "Chillan companion"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 HOME = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ChillanCompanion")
 CFG_PATH = os.path.join(HOME, "config.json")
 STATE_PATH = os.path.join(HOME, "state.json")
 LOG_PATH = os.path.join(HOME, "log.txt")
-SCAN_ROWS = 64          # strip lives in the top rows of the WoW window
+SCAN_ROWS = 110         # strip lives in the top rows of the WoW window
 SCAN_EVERY = 0.12       # seconds between screen reads
 FILE_EVERY = 3.0        # seconds between saved-file checks
 STATUS_MIN_GAP = 30     # seconds between two status relays
@@ -147,6 +147,7 @@ class Engine:
         self.file_mtime = 0
         self.stats = {"strips": 0, "sent": 0, "failed": 0, "last": "nothing yet", "wow": False, "file": "not found"}
         self.lock = threading.Lock()
+        self.last_frame = None
         if not self.cfg.get("saved_file"):
             files = find_saved_files()
             if files:
@@ -234,6 +235,7 @@ class Engine:
                     time.sleep(1)
                     continue
                 img = np.frombuffer(shot.bgra, np.uint8).reshape(shot.height, shot.width, 4)[:, :, :3]
+                self.last_frame = img
                 for data in find_strips(img):
                     self.stats["strips"] += 1
                     try:
@@ -391,8 +393,24 @@ class App:
             ok = post(save_hook, json.dumps(e, ensure_ascii=False))
             messagebox.showinfo(APP, "Sent! Check #chillan-feed." if ok else "Discord said no. Check the webhook link.")
 
+        def debug_pic():
+            img = self.eng.last_frame
+            if img is None:
+                messagebox.showwarning(APP, "Haven't seen the WoW window yet. Start WoW (not minimised) and try again.")
+                return
+            from PIL import Image
+            d = os.path.join(HOME, "debug")
+            os.makedirs(d, exist_ok=True)
+            path = os.path.join(d, time.strftime("strip-%Y%m%d-%H%M%S.png"))
+            Image.fromarray(np.ascontiguousarray(img[:, :, ::-1])).save(path)
+            found = find_strips(img)
+            messagebox.showinfo(APP, "Saved %s\n\nStrips readable in it: %d\n\nSend this picture to Claude." % (path, len(found)))
+            if IS_WIN:
+                os.startfile(d)
+
         bb = ttk.Frame(w)
         bb.grid(row=7, column=0, columnspan=3, sticky="e", **pad)
+        ttk.Button(bb, text="Save debug picture", command=debug_pic).pack(side="left", padx=(0, 6))
         ttk.Button(bb, text="Send test to Discord", command=test).pack(side="left")
         ttk.Button(bb, text="Save", command=save).pack(side="left", padx=6)
         ttk.Button(bb, text="Hide", command=w.withdraw).pack(side="left")

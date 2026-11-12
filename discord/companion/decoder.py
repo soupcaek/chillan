@@ -28,50 +28,69 @@ def _binary(img: np.ndarray) -> np.ndarray:
     return img > 128
 
 
-def _col_value(bw, x0, y0, cs, col):
-    """Read the 16 data bits of one column (sampling each cell's centre)."""
-    cx = x0 + col * cs + cs // 2
+def _col_value(bw, x0, y0, csx, csy, col):
+    """Read the 16 data bits of one column, sampling each cell's centre (cell sizes may be fractional)."""
+    cx = int(x0 + (col + 0.5) * csx)
     if cx >= bw.shape[1]:
         return None
     v = 0
     for r in range(1, 17):
-        cy = y0 + r * cs + cs // 2
+        cy = int(y0 + (r + 0.5) * csy)
         if cy >= bw.shape[0]:
             return None
         v = (v << 1) | int(bw[cy, cx])
     # borders must be white
-    if not bw[y0 + cs // 2, cx] or not bw[y0 + 17 * cs + cs // 2, cx]:
+    if not bw[int(y0 + 0.5 * csy), cx] or not bw[min(bw.shape[0] - 1, int(y0 + 17.5 * csy)), cx]:
         return None
     return v
 
 
+def _read(bw, x0, y0, csx, csy):
+    if _col_value(bw, x0, y0, csx, csy, 0) != 0xFFFF:
+        return None, None
+    if _col_value(bw, x0, y0, csx, csy, 1) != SYNC1 or _col_value(bw, x0, y0, csx, csy, 2) != SYNC2:
+        return None, None
+    n = _col_value(bw, x0, y0, csx, csy, 3)
+    if n is None or n == 0 or n > 4000:
+        return None, None
+    data = bytearray()
+    for i in range((n + 1) // 2):
+        v = _col_value(bw, x0, y0, csx, csy, 4 + i)
+        if v is None:
+            return None, n
+        data += bytes((v >> 8, v & 0xFF))
+    data = bytes(data[:n])
+    crc = _col_value(bw, x0, y0, csx, csy, 4 + (n + 1) // 2)
+    if crc is not None and crc == crc16(data):
+        return data, n
+    return None, n
+
+
 def _try_at(bw, x0, y0, max_cs=6):
     """Try to decode a strip whose top-left cell starts at (x0, y0)."""
-    # column 0 is all white: its height gives the cell size
+    # column 0 is all white: its height gives the cell height
     h = 0
     while y0 + h < bw.shape[0] and bw[y0 + h, x0]:
         h += 1
-    for cs in range(1, max_cs + 1):
-        if abs(h - ROWS * cs) > max(1, cs // 2):
-            continue
-        if _col_value(bw, x0, y0, cs, 0) != 0xFFFF:
-            continue
-        if _col_value(bw, x0, y0, cs, 1) != SYNC1 or _col_value(bw, x0, y0, cs, 2) != SYNC2:
-            continue
-        n = _col_value(bw, x0, y0, cs, 3)
-        if n is None or n == 0 or n > 4000:
-            continue
-        data = bytearray()
-        for i in range((n + 1) // 2):
-            v = _col_value(bw, x0, y0, cs, 4 + i)
-            if v is None:
-                break
-            data += bytes((v >> 8, v & 0xFF))
-        else:
-            data = bytes(data[:n])
-            crc = _col_value(bw, x0, y0, cs, 4 + (n + 1) // 2)
-            if crc is not None and crc == crc16(data):
-                return data
+    csy = h / ROWS
+    if csy < 0.9 or csy > max_cs + 0.5:
+        return None
+    # the top border runs across every column: its length gives the cell width once we know the column count
+    row = bw[int(y0 + 0.5 * csy)]
+    run = 0
+    while x0 + run < bw.shape[1] and row[x0 + run]:
+        run += 1
+    for csx in (csy, round(csy) or 1.0):
+        data, n = _read(bw, x0, y0, csx, csy)
+        if data is not None:
+            return data
+        if n:
+            ncols = 4 + (n + 1) // 2 + 1
+            fit = run / ncols
+            if abs(fit - csx) <= 0.25 * csx:
+                data, _ = _read(bw, x0, y0, fit, csy)
+                if data is not None:
+                    return data
     return None
 
 

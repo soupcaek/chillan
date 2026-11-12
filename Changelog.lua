@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.26.1", date = "12.11", items = {
+    "Discord relay: the code strip uses bigger cells so the companion can read it on more screens, and /chill discord test keeps it up for 8 seconds",
+  } },
   { v = "0.26.0", date = "12.11", items = {
     "New: Discord feed. Deaths (with the funny lines), dings, level recaps, blue-or-better loot, achievements and dungeon runs can be posted to your Discord by the Chillan companion and bot. Only the person running the companion needs /chill discord on",
     "/chill discord on | off | test | flush",

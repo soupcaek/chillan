@@ -11,7 +11,7 @@ local X = {}
 ns.Discord = X
 
 local STRIP_VERSION = 1
-local CELL = 2            -- physical pixels per code cell
+local CELL = 3            -- physical pixels per code cell (2 blurred on some screens)
 local ROWS = 16           -- data rows per column (2 bytes)
 local MAX_BYTES = 560     -- payload limit per strip
 local SHOW_FOR = 0.7      -- seconds a strip stays on screen
@@ -272,7 +272,6 @@ local function cellTex()
   if not t then
     t = strip:CreateTexture(nil, "ARTWORK")
     t:SetColorTexture(1, 1, 1, 1)
-    if t.SetSnapToPixelGrid then t:SetSnapToPixelGrid(false) t:SetTexelSnappingBias(0) end
     pool[used] = t
   end
   t:Show()
@@ -329,8 +328,8 @@ local function nextStrip()
   local s = table.remove(queue, 1)
   if not s then return end
   busy = true
-  draw(X:Encode(s))
-  C_Timer.After(SHOW_FOR, function()
+  draw(X:Encode(s.text))
+  C_Timer.After(s.hold or SHOW_FOR, function()
     if strip then strip:Hide() end
     C_Timer.After(GAP, function()
       busy = false
@@ -359,20 +358,20 @@ local function fit(e)
   return #s <= MAX_BYTES and s or nil
 end
 
-local function flash(e)
+local function flash(e, hold)
   if not X:Enabled() then return end
   local s = fit(e)
   if not s then return end
-  queue[#queue + 1] = s
+  queue[#queue + 1] = { text = s, hold = hold }
   if #queue > 30 then table.remove(queue, 1) end
   nextStrip()
 end
 
-function X:Send(e, live)
+function X:Send(e, live, hold)
   if not e then return end
   if not X:Enabled() then return end
   outbox(e)
-  if live ~= false then flash(e) end
+  if live ~= false then flash(e, hold) end
 end
 
 ---------------------------------------------------------------------------
@@ -430,8 +429,8 @@ function X:Slash(rest)
     local e = personInfo(ns.pid, me.main)
     e.v, e.k, e.id, e.t = STRIP_VERSION, "TEST", "T" .. tostring(ns.Now()), ns.Now()
     e.tx = "Test from Chillan? Bjørn Stian says hi. æøå ÆØÅ"
-    X:Send(e)
-    ns.Print("Test strip sent. The companion should show it within a second, and Discord should get a test card.")
+    X:Send(e, true, 8)
+    ns.Print("Test strip sent: it stays at the top of the screen for 8 seconds. The companion should count it, and Discord should get a test card.")
   elseif rest == "flush" then
     ns.Print("Saving now so the companion picks up everything in the outbox…")
     C_Timer.After(0.5, function() ReloadUI() end)
