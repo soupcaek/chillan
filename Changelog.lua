@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.25.7", date = "12.11", items = {
+    "Death lines: the 116 clean ones are gone, replaced by new spicy ones. All 200 now have some bite, and every mob family (murlocs, raptors, gnolls, Defias…) keeps its own lines",
+  } },
   { v = "0.25.6", date = "12.11", items = {
     "Fix: loot in the feed and event window no longer gets stuck as \"(item 6504)\". It shows the real item link as soon as the game has loaded it",
   } },
