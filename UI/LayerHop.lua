@@ -244,23 +244,37 @@ function L:AskLayerSwap(m)
   end
   if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
   local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
-  local ok = false
+  local ok, err = false, nil
   if m.map then
-    ok = pcall(C_FriendList.SendWho, text, origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { m.map } })
+    ok, err = pcall(C_FriendList.SendWho, text, origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { m.map } })
+    who.how = "map " .. tostring(m.map)
   end
-  if not ok then ok = pcall(C_FriendList.SendWho, text, origin) end
-  if not ok then unmute() who = nil ns.Print("Layer hop: the game refused the player search.") return end
-  C_Timer.After(6, function()
+  if not ok then
+    ok, err = pcall(C_FriendList.SendWho, text, origin)
+    who.how = text
+  end
+  L.lastWho = { at = time(), how = who.how, err = (not ok) and tostring(err) or nil }
+  if not ok then unmute() who = nil ns.Print("Layer hop: the game refused the player search (" .. tostring(err) .. ").") return end
+  -- the answer can come late, or without the event: look at what the game holds after a few seconds
+  C_Timer.After(4, function() if who and who.m == m and not who.done then L:WhoResults("late") end end)
+  C_Timer.After(10, function()
     if who and who.m == m and not who.done then
+      local okN, n = pcall(C_FriendList.GetNumWhoResults)
+      if okN and type(n) == "number" and not secret(n) and n > 0 then L:WhoResults("timeout") return end
       unmute()
       who = nil
-      ns.Print("Layer hop: the player search got no answer – try again in a moment.")
+      L.lastWho.result = "no answer"
+      ns.Print("Layer hop: the player search got no answer (the game allows one search every few seconds) – click Layer hop again in a moment.")
     end
   end)
 end
 
-ns:On("WHO_LIST_UPDATE", function()
+ns:On("WHO_LIST_UPDATE", function() L:WhoResults("event") end)
+
+function L:WhoResults(via)
   if not who or who.done then return end
+  local okN0, n0 = pcall(C_FriendList.GetNumWhoResults)
+  if via == "late" and not (okN0 and type(n0) == "number" and not secret(n0) and n0 > 0) then return end
   who.done = true
   local m = who.m
   unmute()
@@ -276,7 +290,8 @@ ns:On("WHO_LIST_UPDATE", function()
     end
   end
   who = nil
-  if #names == 0 then ns.Print("Layer hop: found nobody else in the zone to ask.") return end
+  if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
+  if #names == 0 then ns.Print("Layer hop: the search found nobody else in the zone to ask.") return end
   -- shuffle so the same few players aren't always asked first
   for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
   local line, sent, i = lsLine(m), 0, 1
@@ -296,7 +311,7 @@ ns:On("WHO_LIST_UPDATE", function()
     else ns.Print("Layer hop: asked " .. sent .. " player" .. (sent == 1 and "" or "s") .. " here – any LayerSwap host on another layer will invite you.") end
   end
   burst()
-end)
+end
 
 -- hosting for LayerSwap users (opt-in), with LayerSwap's own limits
 local hosted, lastHosted = {}, {}
@@ -426,6 +441,11 @@ function L:Slash(rest)
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
       .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
       .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
+    local w = L.lastWho
+    if w then
+      ns.Print("Last player search: " .. date("%H:%M:%S", w.at) .. " · " .. tostring(w.how)
+        .. " · " .. (w.err and ("refused: " .. w.err) or (w.result or "waiting")))
+    end
     return
   end
   self:Request()
