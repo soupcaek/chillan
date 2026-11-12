@@ -251,4 +251,6 @@ COMMANDS = [
 def commands_card():
     return {"title": "Chillan? bot commands", "color": GOLD,
             "description": "\n".join("**%s** · %s" % c for c in COMMANDS)
-            + "\n\nEvery morning at 08:00: yesterday's recap. Mondays at 08:00: the weekly summary. Deaths, dings, loot, achievements and dungeon runs are posted here as they happen."}
+            + "\n\nEvery morning at 08:00: yesterday's recap. Mondays at 08:00: the weekly summary. Deaths, dings, loot, achievements and dungeon runs are posted here as they happen."
+            + "\n\n**Help the feed:** double-click `ChillanCompanion.exe` once. It's in your WoW folder under "
+            + "`_forever_\\Interface\\AddOns\\Chillan\\Companion`. It installs itself, starts with Windows and only reads Chillan's saved data, never your screen."}

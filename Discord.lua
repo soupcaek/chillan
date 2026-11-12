@@ -477,6 +477,7 @@ local function takeLink(ver, url)
   if d.link and not had then
     ns.Print("The gang's Discord feed is set up. To help post to it, run the Chillan companion once: "
       .. "|cffE0C068Interface\\AddOns\\Chillan\\Companion\\ChillanCompanion.exe|r in your WoW folder. It never looks at your screen.")
+    ns:Fire("DISCORD_LINK")
   end
 end
 

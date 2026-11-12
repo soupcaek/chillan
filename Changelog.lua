@@ -6,6 +6,7 @@ ns.CHANGELOG = {
     "Discord feed for the whole gang: the relay link is shared in game, so everyone's Chillan saves events for the feed with no setup",
     "The Chillan companion now comes with Chillan (Companion folder). Run it once: it installs itself, starts with Windows, updates itself, and only reads Chillan's saved data, never your screen",
     "Live posting (reading the WoW window) stays on only where it's switched on, and now also works when WoW is behind other windows",
+    "A one-time card tells you where the companion is, with the path ready to copy",
   } },
   { v = "0.26.3", date = "12.11", items = {
     "Discord relay: the black-and-white strip is replaced by a 3-pixel dark line in the top-left corner, shown for 0.4 s. Gang status is only sent when someone logs in, logs out or levels (at most every 5 minutes). Needs companion 1.1.0",

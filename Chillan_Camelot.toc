@@ -48,6 +48,7 @@ UI\Overlays.lua
 UI\LayerHop.lua
 UI\BriefingCard.lua
 UI\LevelRecapCard.lua
+UI\CompanionCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
 UI\EventWindow.lua
