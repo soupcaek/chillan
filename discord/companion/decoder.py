@@ -1,15 +1,16 @@
-"""Find and decode Chillan's code strip in a screenshot of the top of the WoW window.
+"""Read Chillan's stealth code line from a screenshot of the top of the WoW window.
 
-Strip layout (in cells, see Discord.lua): a black quiet zone, then columns of 18 cells:
-row 0 and row 17 white, rows 1..16 = 16 data bits (MSB at the top).
-Column 0 = all white, column 1 = 0xAAAA, column 2 = 0x5555, column 3 = payload length,
-then 2 payload bytes per column, then CRC-16/CCITT-FALSE of the payload.
+Layout (see Discord.lua): one row of cells, CELL_W x CELL_H physical pixels, starting at the
+window's top-left. Each cell's R, G, B is one of four dark shades (2 bits each, 6 bits a cell).
+Cells 0-3: marker (bright, dark, bright, dark). Cells 4-7: calibration (shade 0, 1, 2, 3).
+Then the bit stream of [length hi, length lo, payload..., crc hi, crc lo], 6 bits per cell in
+R(2) G(2) B(2) order, most significant bit first. CRC-16/CCITT-FALSE over the payload.
 """
 import numpy as np
 
-ROWS = 18          # 16 data rows + top and bottom border
-SYNC1, SYNC2 = 0xAAAA, 0x5555
-MIN_RUN_CELLS = 8  # the top border is at least this many cells wide
+CELL_W, CELL_H = 2, 3
+HEADER = 8
+MIN_GAP = 30  # bright vs dark marker must differ by at least this much (0-255)
 
 
 def crc16(data: bytes) -> int:
@@ -21,105 +22,77 @@ def crc16(data: bytes) -> int:
     return crc
 
 
-def _binary(img: np.ndarray) -> np.ndarray:
-    """RGB/RGBA/grey image -> boolean 'white' mask."""
-    if img.ndim == 3:
-        img = img[:, :, :3].astype(np.uint16).sum(axis=2) // 3
-    return img > 128
+def _decode_row(px, cw):
+    """px: (W, 3) RGB samples of one pixel row. cw: cell width in pixels (may be fractional)."""
+    W = px.shape[0]
 
+    def cell(i):
+        x = int((i + 0.5) * cw)
+        return px[x].astype(np.int32) if x < W else None
 
-def _col_value(bw, x0, y0, csx, csy, col):
-    """Read the 16 data bits of one column, sampling each cell's centre (cell sizes may be fractional)."""
-    cx = int(x0 + (col + 0.5) * csx)
-    if cx >= bw.shape[1]:
+    head = [cell(i) for i in range(HEADER)]
+    if any(h is None for h in head):
         return None
-    v = 0
-    for r in range(1, 17):
-        cy = int(y0 + (r + 0.5) * csy)
-        if cy >= bw.shape[0]:
-            return None
-        v = (v << 1) | int(bw[cy, cx])
-    # borders must be white
-    if not bw[int(y0 + 0.5 * csy), cx] or not bw[min(bw.shape[0] - 1, int(y0 + 17.5 * csy)), cx]:
+    hi, lo = head[0], head[1]
+    if (hi - lo).min() < MIN_GAP or (head[2] - head[3]).min() < MIN_GAP:
         return None
-    return v
-
-
-def _read(bw, x0, y0, csx, csy):
-    if _col_value(bw, x0, y0, csx, csy, 0) != 0xFFFF:
-        return None, None
-    if _col_value(bw, x0, y0, csx, csy, 1) != SYNC1 or _col_value(bw, x0, y0, csx, csy, 2) != SYNC2:
-        return None, None
-    n = _col_value(bw, x0, y0, csx, csy, 3)
-    if n is None or n == 0 or n > 4000:
-        return None, None
-    data = bytearray()
-    for i in range((n + 1) // 2):
-        v = _col_value(bw, x0, y0, csx, csy, 4 + i)
-        if v is None:
-            return None, n
-        data += bytes((v >> 8, v & 0xFF))
-    data = bytes(data[:n])
-    crc = _col_value(bw, x0, y0, csx, csy, 4 + (n + 1) // 2)
-    if crc is not None and crc == crc16(data):
-        return data, n
-    return None, n
-
-
-def _try_at(bw, x0, y0, max_cs=6):
-    """Try to decode a strip whose top-left cell starts at (x0, y0)."""
-    # column 0 is all white: its height gives the cell height
-    h = 0
-    while y0 + h < bw.shape[0] and bw[y0 + h, x0]:
-        h += 1
-    csy = h / ROWS
-    if csy < 0.9 or csy > max_cs + 0.5:
+    if np.abs(head[0] - head[2]).max() > 12 or np.abs(head[1] - head[3]).max() > 12:
         return None
-    # the top border runs across every column: its length gives the cell width once we know the column count
-    row = bw[int(y0 + 0.5 * csy)]
-    run = 0
-    while x0 + run < bw.shape[1] and row[x0 + run]:
-        run += 1
-    for csx in (csy, round(csy) or 1.0):
-        data, n = _read(bw, x0, y0, csx, csy)
-        if data is not None:
-            return data
-        if n:
-            ncols = 4 + (n + 1) // 2 + 1
-            fit = run / ncols
-            if abs(fit - csx) <= 0.25 * csx:
-                data, _ = _read(bw, x0, y0, fit, csy)
-                if data is not None:
-                    return data
-    return None
+    ref = np.stack(head[4:8])  # shade index -> (R, G, B) as captured
+    # calibration must rise on every channel
+    if (np.diff(ref, axis=0) < 6).any():
+        return None
+
+    def shades(c):
+        return [int(np.argmin(np.abs(ref[:, ch] - c[ch]))) for ch in range(3)]
+
+    bits = []
+
+    def take(nbits, start_cell):
+        """Make sure `bits` holds at least nbits, reading cells from start_cell on."""
+        i = start_cell + len(bits) // 6
+        while len(bits) < nbits:
+            c = cell(i)
+            if c is None:
+                return False
+            for s in shades(c):
+                bits.extend(((s >> 1) & 1, s & 1))
+            i += 1
+        return True
+
+    def byte(k):
+        v = 0
+        for b in bits[k * 8:(k + 1) * 8]:
+            v = (v << 1) | b
+        return v
+
+    if not take(16, HEADER):
+        return None
+    n = (byte(0) << 8) | byte(1)
+    if n == 0 or n > 2000:
+        return None
+    if not take((n + 4) * 8, HEADER):
+        return None
+    data = bytes(byte(2 + k) for k in range(n))
+    crc = (byte(2 + n) << 8) | byte(3 + n)
+    return data if crc == crc16(data) else None
 
 
-def find_strips(img: np.ndarray, max_cs: int = 6):
-    """Return a list of decoded payloads (bytes) found in the image."""
-    bw = _binary(img)
-    H, W = bw.shape
+def find_strips(img: np.ndarray, max_rows: int = 8):
+    """img: top rows of the WoW client area (H x W x 3, RGB or BGR - the shades are grey-ish so
+    channel order only matters for the calibration, which is per channel). Returns payloads."""
+    if img.ndim != 3:
+        return []
     found = []
-    seen_rows = set()
-    for y in range(H):
-        row = bw[y]
-        if not row.any():
-            continue
-        # white runs in this row
-        padded = np.concatenate(([False], row, [False]))
-        d = np.diff(padded.astype(np.int8))
-        starts = np.where(d == 1)[0]
-        ends = np.where(d == -1)[0]
-        for s, e in zip(starts, ends):
-            if e - s < MIN_RUN_CELLS:
-                continue
-            # the top border must have black above it (quiet zone)
-            if y > 0 and bw[y - 1, s:e].any():
-                continue
-            key = (y, s)
-            if key in seen_rows:
-                continue
-            seen_rows.add(key)
-            data = _try_at(bw, s, y, max_cs)
-            if data is not None:
-                found.append(data)
+    for y in range(min(max_rows, img.shape[0])):
+        row = img[y, :, :3]
+        for x0 in range(0, 3):
+            for cw in (CELL_W, CELL_W * 1.25, CELL_W * 1.5, CELL_W * 2):
+                data = _decode_row(row[x0:], cw)
+                if data is not None:
+                    if data not in found:
+                        found.append(data)
+                    break
+            if found:
+                return found
     return found

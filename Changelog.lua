@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.26.3", date = "12.11", items = {
+    "Discord relay: the black-and-white strip is replaced by a 3-pixel dark line in the top-left corner, shown for 0.4 s. Gang status is only sent when someone logs in, logs out or levels (at most every 5 minutes). Needs companion 1.1.0",
+  } },
   { v = "0.26.2", date = "12.11", items = {
     "Discord: when you log in, Chillan relays what the gang did while you were offline, and the bot sums it up in one catch-up card",
   } },

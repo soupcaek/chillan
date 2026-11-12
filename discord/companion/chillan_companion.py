@@ -24,12 +24,12 @@ from relay import post
 from savedvars import find_saved_files, read_discord
 
 APP = "Chillan companion"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 HOME = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ChillanCompanion")
 CFG_PATH = os.path.join(HOME, "config.json")
 STATE_PATH = os.path.join(HOME, "state.json")
 LOG_PATH = os.path.join(HOME, "log.txt")
-SCAN_ROWS = 110         # strip lives in the top rows of the WoW window
+SCAN_ROWS = 8           # the code line lives in the top few rows of the WoW window
 SCAN_EVERY = 0.12       # seconds between screen reads
 FILE_EVERY = 3.0        # seconds between saved-file checks
 STATUS_MIN_GAP = 30     # seconds between two status relays
@@ -234,7 +234,7 @@ class Engine:
                 except Exception:
                     time.sleep(1)
                     continue
-                img = np.frombuffer(shot.bgra, np.uint8).reshape(shot.height, shot.width, 4)[:, :, :3]
+                img = np.frombuffer(shot.bgra, np.uint8).reshape(shot.height, shot.width, 4)[:, :, 2::-1]
                 self.last_frame = img
                 for data in find_strips(img):
                     self.stats["strips"] += 1
@@ -402,7 +402,7 @@ class App:
             d = os.path.join(HOME, "debug")
             os.makedirs(d, exist_ok=True)
             path = os.path.join(d, time.strftime("strip-%Y%m%d-%H%M%S.png"))
-            Image.fromarray(np.ascontiguousarray(img[:, :, ::-1])).save(path)
+            Image.fromarray(np.ascontiguousarray(img)).resize((img.shape[1], img.shape[0] * 8), Image.NEAREST).save(path)
             found = find_strips(img)
             messagebox.showinfo(APP, "Saved %s\n\nStrips readable in it: %d\n\nSend this picture to Claude." % (path, len(found)))
             if IS_WIN:

@@ -11,11 +11,11 @@ local X = {}
 ns.Discord = X
 
 local STRIP_VERSION = 1
-local CELL = 3            -- physical pixels per code cell (2 blurred on some screens)
-local ROWS = 16           -- data rows per column (2 bytes)
+local CELL_W, CELL_H = 2, 3  -- physical pixels per code cell
+local LEVELS = { 0, 24, 48, 72 } -- the four dark shades per colour channel (0-255)
 local MAX_BYTES = 560     -- payload limit per strip
-local SHOW_FOR = 0.7      -- seconds a strip stays on screen
-local GAP = 0.25          -- pause between two strips
+local SHOW_FOR = 0.4      -- seconds a strip stays on screen
+local GAP = 0.15          -- pause between two strips
 local OUTBOX_MAX = 400
 local STATUS_EVERY = 60
 
@@ -238,11 +238,12 @@ local function outbox(e)
 end
 
 ---------------------------------------------------------------------------
--- the code strip
--- Layout (cells): quiet zone of black around everything; row 0 and row 17 are white borders on
--- every column; column 0 is all white, columns 1–2 are fixed sync patterns (0xAAAA, 0x5555),
--- column 3 holds the payload length, then 2 payload bytes per column, then the CRC column.
--- Bits: top row of the 16 = most significant bit of the first byte of that column.
+-- the code line ("stealth strip")
+-- One row of cells, CELL_W x CELL_H physical pixels each, at the very top-left of the screen.
+-- Each cell's R, G and B are one of four dark shades, so a cell carries 6 bits.
+-- Cells 1-4: marker (bright, dark, bright, dark), cells 5-8: calibration (shade 0,1,2,3 on all
+-- channels), then the bytes [length hi, length lo, payload…, crc hi, crc lo] as a bit stream,
+-- 6 bits per cell in R(2) G(2) B(2) order, most significant bit first.
 ---------------------------------------------------------------------------
 local strip, pool, used = nil, {}, 0
 local queue, busy = {}, false
@@ -259,68 +260,58 @@ local function makeStrip()
   f:SetFrameStrata("TOOLTIP")
   f:SetFrameLevel(9999)
   if f.SetIgnoreParentScale then f:SetIgnoreParentScale(true) end
-  f.bg = f:CreateTexture(nil, "BACKGROUND")
-  f.bg:SetAllPoints()
-  f.bg:SetColorTexture(0, 0, 0, 1)
   f:Hide()
   return f
 end
 
-local function cellTex()
-  used = used + 1
-  local t = pool[used]
+local function cellTex(i)
+  local t = pool[i]
   if not t then
     t = strip:CreateTexture(nil, "ARTWORK")
-    t:SetColorTexture(1, 1, 1, 1)
-    pool[used] = t
+    pool[i] = t
   end
   t:Show()
   return t
 end
 
--- columns of 16-bit values -> textures (vertical runs of white merged into one texture)
-local function draw(cols)
+-- payload string -> list of cells {r, g, b} as shade indexes 0-3
+function X:Encode(s)
+  local bytes = { s:byte(1, -1) }
+  local n = #bytes
+  local crc = crc16(bytes)
+  local stream = { math.floor(n / 256), n % 256 }
+  for i = 1, n do stream[#stream + 1] = bytes[i] end
+  stream[#stream + 1] = math.floor(crc / 256)
+  stream[#stream + 1] = crc % 256
+  local bits = {}
+  for _, b in ipairs(stream) do
+    for k = 7, 0, -1 do bits[#bits + 1] = math.floor(b / 2 ^ k) % 2 end
+  end
+  while #bits % 6 ~= 0 do bits[#bits + 1] = 0 end
+  local cells = { { 3, 3, 3 }, { 0, 0, 0 }, { 3, 3, 3 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 1 }, { 2, 2, 2 }, { 3, 3, 3 } }
+  for i = 1, #bits, 6 do
+    cells[#cells + 1] = { bits[i] * 2 + bits[i + 1], bits[i + 2] * 2 + bits[i + 3], bits[i + 4] * 2 + bits[i + 5] }
+  end
+  return cells
+end
+
+local function draw(cells)
   strip = strip or makeStrip()
   local _, physH = physSize()
   strip:SetScale(768 / physH) -- 1 unit = 1 physical pixel (parent scale ignored)
   for i = 1, used do pool[i]:Hide() end
-  used = 0
-  local quiet = 2
-  local ncols = #cols
-  local wCells, hCells = ncols + quiet * 2, ROWS + 2 + quiet * 2
-  strip:SetSize(wCells * CELL, hCells * CELL)
-  local physW = physSize()
+  used = #cells
+  strip:SetSize(#cells * CELL_W, CELL_H)
   strip:ClearAllPoints()
-  strip:SetPoint("TOPLEFT", UIParent, "TOPLEFT", math.floor((physW - wCells * CELL) / 2), 0)
-  for ci, v in ipairs(cols) do
-    local x = (quiet + ci - 1) * CELL
-    -- rows: 0 border, 1..16 bits (MSB first), 17 border
-    local bits = { 1 }
-    for r = 15, 0, -1 do bits[#bits + 1] = math.floor(v / 2 ^ r) % 2 end
-    bits[#bits + 1] = 1
-    local r = 1
-    while r <= #bits do
-      if bits[r] == 1 then
-        local s = r
-        while r + 1 <= #bits and bits[r + 1] == 1 do r = r + 1 end
-        local t = cellTex()
-        t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", strip, "TOPLEFT", x, -((quiet + s - 1) * CELL))
-        t:SetSize(CELL, (r - s + 1) * CELL)
-      end
-      r = r + 1
-    end
+  strip:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+  for i, c in ipairs(cells) do
+    local t = cellTex(i)
+    t:SetColorTexture(LEVELS[c[1] + 1] / 255, LEVELS[c[2] + 1] / 255, LEVELS[c[3] + 1] / 255, 1)
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", strip, "TOPLEFT", (i - 1) * CELL_W, 0)
+    t:SetSize(CELL_W, CELL_H)
   end
   strip:Show()
-end
-
--- payload string -> list of 16-bit column values
-function X:Encode(s)
-  local bytes = { s:byte(1, -1) }
-  local cols = { 0xFFFF, 0xAAAA, 0x5555, #bytes }
-  for i = 1, #bytes, 2 do cols[#cols + 1] = bytes[i] * 256 + (bytes[i + 1] or 0) end
-  cols[#cols + 1] = crc16(bytes)
-  return cols
 end
 
 local function nextStrip()
@@ -382,10 +373,12 @@ local lastStatus, lastStatusAt = nil, 0
 function X:PushStatus(force)
   if not X:Enabled() then return end
   local st = X:Status()
-  local sig = json(st.g)
-  if not force and sig == lastStatus and ns.Now() - lastStatusAt < 600 then return end
-  lastStatus, lastStatusAt = sig, ns.Now()
+  local key = {}
+  for _, r in ipairs(st.g) do key[#key + 1] = r[1] .. ":" .. r[4] .. ":" .. r[6] end
+  local sig = table.concat(key, ",")
   db().status = json(st)
+  if not force and (sig == lastStatus or ns.Now() - lastStatusAt < 300) then return end
+  lastStatus, lastStatusAt = sig, ns.Now()
   flash(st)
 end
 
@@ -475,7 +468,7 @@ function X:Slash(rest)
     e.v, e.k, e.id, e.t = STRIP_VERSION, "TEST", "T" .. tostring(ns.Now()), ns.Now()
     e.tx = "Test from Chillan? Bjørn Stian says hi. æøå ÆØÅ"
     X:Send(e, true, 8)
-    ns.Print("Test strip sent: it stays at the top of the screen for 8 seconds. The companion should count it, and Discord should get a test card.")
+    ns.Print("Test sent: a thin dark line sits at the very top-left of the screen for 8 seconds. The companion should count it, and Discord should get a test card.")
   elseif rest == "flush" then
     ns.Print("Saving now so the companion picks up everything in the outbox…")
     C_Timer.After(0.5, function() ReloadUI() end)
