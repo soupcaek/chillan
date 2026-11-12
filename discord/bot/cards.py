@@ -72,6 +72,16 @@ def card(e):
             fields.append({"name": "Killed by", "value": e["kc"] + (" · " + e["kx"] if e.get("kx") else ""), "inline": True})
         return {"author": {"name": (e.get("kick") or "DEAD").upper()}, "description": "**%s**" % (e.get("tx") or (who(e) + " died.")),
                 "color": RED, "fields": fields, "footer": footer(e), "timestamp": iso(e.get("t"))}
+    if k == "KILL":
+        revenge = e.get("cat") == "REVENGE"
+        f = []
+        if e.get("vi"):
+            f.append({"name": "Victim", "value": e["vi"] + (" · " + e["vx"] if e.get("vx") else ""), "inline": True})
+        if e.get("z"):
+            f.append({"name": "Where", "value": e["z"], "inline": True})
+        return {"author": {"name": (e.get("kick") or ("REVENGE!" if revenge else "ALLIANCE DOWN")).upper()},
+                "description": "**%s**" % (e.get("tx") or (who(e) + " killed " + str(e.get("vi") or "an Alliance player"))),
+                "color": 0xFF8A3D if revenge else GOLD, "fields": f, "footer": footer(e), "timestamp": iso(e.get("t"))}
     if k == "DING":
         lines = []
         if e.get("first"):

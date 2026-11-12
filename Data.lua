@@ -577,6 +577,24 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     end
   elseif kind == "DEAD" then
     if not p.deathAt or t > p.deathAt then p.deathAt, p.deathZone = t, a end
+  elseif kind == "KILL" then
+    -- a group kill: everyone in on it gets the honour message. Fold them into one feed item.
+    for i = #ns.db.feed, 1, -1 do
+      local it = ns.db.feed[i]
+      if it.kind == "KILL" and it.c == c and math.abs((it.t or 0) - (t or 0)) < 120 then
+        if it.pid ~= pid then
+          it.w = it.w or {}
+          local have = false
+          for _, w in ipairs(it.w) do if w[1] == pid then have = true end end
+          if not have then
+            it.w[#it.w + 1] = { pid, char }
+            ns:MarkDirty()
+            if ns.Discord and ns.Discord.SendMerge then pcall(ns.Discord.SendMerge, ns.Discord, it, pid, char) end
+          end
+        end
+        return
+      end
+    end
   end
   ns.PushCapped(ns.db.feed, item, 150)
   table.sort(ns.db.feed, function(x, y) return x.t < y.t end)
@@ -590,6 +608,9 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     elseif kind == "DEAD" and pid ~= ns.pid then
       ns:Fire("DING", item)
       ns.Sound("dead")
+    elseif kind == "KILL" and pid ~= ns.pid then
+      ns:Fire("DING", item)
+      ns.Sound("ding")
     elseif kind == "ACH" then
       -- bronse vises bare i chatten, sølv og oppover får popup
       if b == "S" or b == "G" or b == "L" then
@@ -686,6 +707,15 @@ ns.REACTIONS_ACH = {
   "PogU", "peepoClap", "EZ", "widepeepoHappy", "HYPERS",
 }
 
+-- Alliance kills
+ns.REACTIONS_KILL = {
+  "For the Horde!", "Lok'tar!", "Get rekt", "EZ", "GG no re", "Zug zug", "Nice gank!", "Delicious", "Alliance tears",
+  "Sit down", "Stay down", "Next!", "Too easy", "Who's next?", "Honor!", "Bloodthirsty", "Brutal", "Savage!",
+  "Clean kill", "Feed me more", "Another one", "Big W", "Bye bitch", "Corpse camp?", "Respect", "Monster",
+  "Lmao", "He had a family", "Report incoming", "Skill issue", "Throka'nok!", "Blood and thunder!",
+  "KEKW", "EZ Clap", "Pog", "HYPERS",
+}
+
 -- SOS: the cheeky answers (the popup also has "Reply: on my way")
 ns.REACTIONS_SOS = {
   "Get rekt", "Skill issue", "Run!", "Hide!", "lol gl", "Not my problem", "Bring friends", "Call the guards",
@@ -696,6 +726,7 @@ ns.REACTIONS_SOS = {
 function ns.ReactionList(item)
   if item and item.kind == "SOS" then return ns.REACTIONS_SOS end
   if item and item.kind == "DEAD" then return ns.REACTIONS_DEAD end
+  if item and item.kind == "KILL" then return ns.REACTIONS_KILL end
   if item and item.kind == "ACH" then return ns.REACTIONS_ACH end
   return ns.REACTIONS
 end

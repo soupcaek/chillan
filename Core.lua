@@ -767,3 +767,10 @@ ns.STATUS = {
   OFFLINE = { label = "Offline", color = "858B92" },
 }
 ns.MANUAL_STATUS = { "AUTO", "LFG", "HELP", "DND" }
+
+-- "a {c}" -> "an Undead Rogue" / "a Night Elf Hunter"
+function ns.Article(line, word)
+  return (line:gsub("(%f[%a][aA]) {c}", function(a)
+    return a .. (word:match("^[AEIOUaeiou]") and "n" or "") .. " " .. word
+  end))
+end

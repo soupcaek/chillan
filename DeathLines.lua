@@ -395,7 +395,9 @@ function D:Line(item, nameText, baseHex)
   line = line:gsub("{n}", function() return nameText end)
   line = line:gsub("{k}", function() return k end)
   line = line:gsub("{z}", function() return zone end)
-  line = line:gsub("{c}", function() return item.d ~= "" and item.d or "player" end)
+  local cx = item.d ~= "" and item.d or "player"
+  line = ns.Article(line, cx)
+  line = line:gsub("{c}", function() return cx end)
   if baseHex then line = "|cff" .. baseHex .. line .. "|r" end
   return line
 end

@@ -115,11 +115,50 @@ async def handle(text):
         catchup.append(e)
         schedule_catchup()
         return
+    if e.get("k") == "KILL" and await merge_kill(e):
+        return
     fresh = e.get("k") == "TEST" or time.time() - int(e.get("t") or 0) <= MAX_AGE
     d = cards.card(e)
     if d and fresh:
         ch = await feed_channel()
         await ch.send(embed=embed(d))
+
+
+recent_kills = {}  # victim -> {"msg", "names", "t", "card"} for folding group kills into one card
+KILL_WINDOW = 120
+
+
+async def merge_kill(e):
+    """True if this kill belongs to a card already posted (then that card is updated instead)."""
+    key = str(e.get("vi") or "").lower()
+    if not key:
+        return False
+    now_t = int(e.get("t") or time.time())
+    for k in [k for k, r in recent_kills.items() if time.time() - r["seen"] > 3600]:
+        recent_kills.pop(k, None)
+    r = recent_kills.get(key)
+    if r and abs(now_t - r["t"]) <= KILL_WINDOW:
+        name = cards.who(e)
+        if name not in r["names"]:
+            r["names"].append(name)
+            d = dict(r["card"])
+            d["fields"] = [f for f in d.get("fields", []) if f.get("name") != "In on it"] + [
+                {"name": "In on it", "value": ", ".join(r["names"]), "inline": False}]
+            r["card"] = d
+            try:
+                await r["msg"].edit(embed=embed(d))
+            except discord.HTTPException:
+                pass
+        return True
+    if e.get("merge"):
+        return True  # the first report never arrived here: nothing to attach to, stats still count it
+    d = cards.card(e)
+    if not d or time.time() - now_t > MAX_AGE:
+        return True
+    ch = await feed_channel()
+    msg = await ch.send(embed=embed(d))
+    recent_kills[key] = {"msg": msg, "names": [cards.who(e)], "t": now_t, "card": d, "seen": time.time()}
+    return True
 
 
 def schedule_catchup():

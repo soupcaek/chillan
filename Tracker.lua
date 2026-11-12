@@ -615,7 +615,10 @@ ns:On("PLAYER_DEAD", function()
     end
     Tracker:Event("DEAD", ns.Clean(dzone, 40), kb, kc, kd)
   end
-  if ns.Deaths and ns.Deaths.Resolve then
+  -- battlegrounds and arenas: no death posts (only world PvP and PvE count)
+  if ns.Kills and ns.Kills:InPvPInstance() then
+    -- nothing posted
+  elseif ns.Deaths and ns.Deaths.Resolve then
     ns.Deaths:Resolve(post)
   else
     post(nil)

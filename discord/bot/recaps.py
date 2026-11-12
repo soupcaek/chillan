@@ -10,6 +10,8 @@ AWARD_LINES = {
     "punching": ["is the Alliance's favourite chew toy", "got farmed for honor all day", "is basically an Alliance daily quest"],
     "goblin": ["has suspiciously good luck", "rolled need on everything, probably", "is swimming in purples"],
     "dungeon": ["lives in dungeons now", "forgot the outside world exists"],
+    "hunter": ["made the Alliance regret logging in", "is a one-man war crime", "farmed Alliance like honor was going out of style",
+               "has a body count, and it's all Alliance"],
 }
 
 
@@ -28,7 +30,7 @@ def summarize(events):
     def p(e):
         key = e.get("p") or who(e)
         d = people.setdefault(key, {"name": who(e), "cl": e.get("cl"), "levels": [], "deaths": [], "alli": 0,
-                                    "loot": [], "ach": [], "dg": []})
+                                    "loot": [], "ach": [], "dg": [], "kills": []})
         if e.get("cl"):
             d["cl"] = e["cl"]
         return d
@@ -48,6 +50,8 @@ def summarize(events):
             p(e)["ach"].append(e)
         elif k == "DUNGEON":
             p(e)["dg"].append(e)
+        elif k == "KILL":
+            p(e)["kills"].append(e)
     return people
 
 
@@ -76,6 +80,14 @@ def _body(people, rng, max_loot=5):
         per = sorted(((d["name"], len(d["deaths"])) for d in people.values() if d["deaths"]), key=lambda x: -x[1])
         lines.append("**Deaths:** %d · %s" % (len(deaths), ", ".join("%s %d" % x for x in per)))
         lines.append("> " + (rng.choice(deaths).get("tx") or "Someone died."))
+    kills = [e for d in people.values() for e in d["kills"]]
+    if kills:
+        per = sorted(((d["name"], len(d["kills"])) for d in people.values() if d["kills"]), key=lambda x: -x[1])
+        lines.append("**Alliance kills:** %d · %s" % (len({str(e.get("vi")) + str(int(e.get("t") or 0) // 120) for e in kills}),
+                                                       ", ".join("%s %d" % x for x in per)))
+        best = [e for e in kills if e.get("tx")]
+        if best:
+            lines.append("> " + rng.choice(best)["tx"])
     loot = sorted((e for d in people.values() for e in d["loot"]), key=lambda e: -int(e.get("q") or 0))
     if loot:
         lines.append("**Loot:** " + ", ".join("%s %s" % (who(e), _loot_link(e)) for e in loot[:max_loot])
@@ -106,6 +118,10 @@ def _awards(people, rng, weekly=False):
     if bag:
         out.append({"name": "🎯 Alliance punching bag", "inline": True,
                     "value": "**%s** %s (%d)" % (bag[0]["name"], rng.choice(AWARD_LINES["punching"]), bag[1])})
+    hunter = _top(people, lambda d: len(d["kills"]))
+    if hunter:
+        out.append({"name": "🗡️ Alliance hunter", "inline": True,
+                    "value": "**%s** %s (%s)" % (hunter[0]["name"], rng.choice(AWARD_LINES["hunter"]), _n(hunter[1], "kill"))})
     goblin = _top(people, lambda d: len(d["loot"]))
     if goblin:
         out.append({"name": "💰 Loot goblin", "inline": True,
@@ -120,7 +136,7 @@ def _awards(people, rng, weekly=False):
 
 def daily_card(events, label, seed):
     people = summarize(events)
-    if not any(d["levels"] or d["deaths"] or d["loot"] or d["ach"] or d["dg"] for d in people.values()):
+    if not any(d["levels"] or d["deaths"] or d["loot"] or d["ach"] or d["dg"] or d["kills"] for d in people.values()):
         return None
     rng = _rng(seed)
     return {"author": {"name": "DAILY RECAP"}, "title": "Yesterday in the gang · %s" % label,
@@ -129,7 +145,7 @@ def daily_card(events, label, seed):
 
 def weekly_card(events, label, seed, status=None):
     people = summarize(events)
-    if not any(d["levels"] or d["deaths"] or d["loot"] or d["ach"] or d["dg"] for d in people.values()):
+    if not any(d["levels"] or d["deaths"] or d["loot"] or d["ach"] or d["dg"] or d["kills"] for d in people.values()):
         return None
     rng = _rng(seed)
     lines = _body(people, rng, max_loot=8)
@@ -191,9 +207,11 @@ def whois_card(name, status, events, last_seen=None, now=None):
     loot = [e for e in mine if e.get("k") == "LOOT"]
     ach = [e for e in mine if e.get("k") == "ACH"]
     dgs = [e for e in mine if e.get("k") == "DUNGEON"]
+    kills = [e for e in mine if e.get("k") == "KILL"]
     f = [
         {"name": "Deaths", "value": "%d (%d this week, %d to Alliance)" % (len(deaths), sum(1 for e in deaths if int(e.get("t") or 0) >= week),
                                                                           sum(1 for e in deaths if e.get("cat") == "PLAYER")), "inline": True},
+        {"name": "Alliance kills", "value": "%d (%d this week)" % (len(kills), sum(1 for e in kills if int(e.get("t") or 0) >= week)), "inline": True},
         {"name": "Levels this week", "value": str(sum(1 for e in dings if int(e.get("t") or 0) >= week)), "inline": True},
         {"name": "Achievements", "value": str(len(ach)), "inline": True},
         {"name": "Dungeon runs", "value": str(len(dgs)), "inline": True},
@@ -218,18 +236,20 @@ def stats_card(name, status, events, now=None):
         title = "Stats · %s" % (row[0] if row else who(mine[-1]))
     else:
         title = "Gang stats"
-    kinds = [("DEAD", "Deaths"), ("DING", "Dings"), ("LOOT", "Loot (blue+)"), ("ACH", "Achievements"), ("DUNGEON", "Dungeon runs")]
+    kinds = [("DEAD", "Deaths"), ("KILL", "Alliance kills"), ("DING", "Dings"), ("LOOT", "Loot (blue+)"), ("ACH", "Achievements"),
+             ("DUNGEON", "Dungeon runs")]
     lines = ["`%-14s %6s %6s`" % ("", "all", "week")]
     for k, label in kinds:
         allk = [e for e in events if e.get("k") == k]
         lines.append("`%-14s %6d %6d`" % (label, len(allk), sum(1 for e in allk if int(e.get("t") or 0) >= week)))
     alli = sum(1 for e in events if e.get("k") == "DEAD" and e.get("cat") == "PLAYER")
-    lines.append("`%-14s %6d %6s`" % ("By Alliance", alli, ""))
+    lines.append("`%-14s %6d %6s`" % ("Died to Alli", alli, ""))
     out = {"title": title, "description": "\n".join(lines), "color": GOLD}
     if not name:
         people = summarize(events)
         leaders = []
-        for label, key in (("Most deaths", lambda d: len(d["deaths"])), ("Most dings", lambda d: len(d["levels"])),
+        for label, key in (("Most deaths", lambda d: len(d["deaths"])), ("Most Alliance kills", lambda d: len(d["kills"])),
+                           ("Most dings", lambda d: len(d["levels"])),
                            ("Most loot", lambda d: len(d["loot"])), ("Most runs", lambda d: len(d["dg"]))):
             t = _top(people, key)
             if t:
@@ -251,6 +271,6 @@ COMMANDS = [
 def commands_card():
     return {"title": "Chillan? bot commands", "color": GOLD,
             "description": "\n".join("**%s** · %s" % c for c in COMMANDS)
-            + "\n\nEvery morning at 08:00: yesterday's recap. Mondays at 08:00: the weekly summary. Deaths, dings, loot, achievements and dungeon runs are posted here as they happen."
+            + "\n\nEvery morning at 08:00: yesterday's recap. Mondays at 08:00: the weekly summary. Deaths, Alliance kills, dings, loot, achievements and dungeon runs are posted here as they happen."
             + "\n\n**Help the feed:** double-click `ChillanCompanion.exe` once. It's in your WoW folder under "
             + "`_forever_\\Interface\\AddOns\\Chillan\\Companion`. It installs itself, starts with Windows and only reads Chillan's saved data, never your screen."}

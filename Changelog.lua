@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.0", date = "13.11", items = {
+    "Alliance kills: every honorable kill pops up for the gang with one of 100 spicy lines, and goes to the feed, Discord, recaps and stats",
+    "Group kills become one message naming everyone who was in on it",
+    "Kill someone who killed one of us before, and you get a revenge line instead",
+    "No death or kill messages inside battlegrounds or arenas",
+  } },
   { v = "0.27.0", date = "12.11", items = {
     "Discord feed for the whole gang: the relay link is shared in game, so everyone's Chillan saves events for the feed with no setup",
     "The Chillan companion now comes with Chillan (Companion folder). Run it once: it installs itself, starts with Windows, updates itself, and only reads Chillan's saved data, never your screen",

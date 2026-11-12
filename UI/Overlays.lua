@@ -632,6 +632,15 @@ function O:ShowDing(item)
     d.title:SetText(ns:ShortWho(p, item.char) .. " unlocked " .. ns.Colorize("«" .. def.name .. "»", tier.color))
     parts[#parts + 1] = def.desc
     parts[#parts + 1] = tier.points .. " points"
+  elseif item.kind == "KILL" and ns.Kills then
+    d.kicker:SetText(ns.Kills:Kicker(item))
+    d.kicker:SetTextColor(hex(C.gold))
+    d.icon:SetTexture(ns.TEX .. "IconTarget")
+    d.icon:SetVertexColor(hex(C.gold))
+    local funny = ns.Kills:Line(item, ns.Kills:Names(item, true), C.text)
+    d.title:SetText(funny or (ns:PersonLabel(p, item.char) .. " killed " .. tostring(item.c)))
+    if item.d and item.d ~= "" then parts[#parts + 1] = tostring(item.c) .. " · " .. item.d end
+    parts[#parts + 1] = "in " .. tostring(item.a or "?")
   elseif dead then
     d.kicker:SetText(ns.Deaths and ns.Deaths:Kicker(item) or "DEAD!")
     d.kicker:SetTextColor(hex(C.red))

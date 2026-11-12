@@ -15,6 +15,7 @@ Emotes.lua
 Comm.lua
 Tracker.lua
 DeathLines.lua
+KillLines.lua
 Data.lua
 Sync.lua
 Quests.lua

@@ -139,6 +139,16 @@ function X:FromItem(item)
     e.tx = line and plain(line) or (e.n .. " died in " .. (e.z ~= "" and e.z or "?") .. ".")
     e.kick = ns.Deaths and ns.Deaths.Kicker and plain(ns.Deaths:Kicker(item)) or nil
     return e
+  elseif k == "KILL" then
+    local e = base("KILL", item)
+    e.z = plain(item.a or "")
+    e.vi = plain(item.c or "")
+    e.vx = item.d ~= "" and plain(item.d) or nil
+    e.cat = type(item.b) == "string" and item.b:match("^([%u_]+):") or "KILL"
+    local line = ns.Kills and ns.Kills:Line(item, e.n, "FFFFFF")
+    e.tx = line and plain(line) or (e.n .. " killed " .. tostring(e.vi) .. ".")
+    e.kick = ns.Kills and plain(ns.Kills:Kicker(item)) or nil
+    return e
   elseif k == "DING" then
     local e = base("DING", item)
     e.l = tonumber(item.a) or e.l
@@ -182,6 +192,15 @@ function X:FromItem(item)
     if #names > 1 then e.with = names end
     return e
   end
+end
+
+-- someone else was in on a kill that's already in the feed: tell the bot, it adds the name
+function X:SendMerge(item, pid, char)
+  local e = personInfo(pid, char)
+  e.v, e.k, e.t = STRIP_VERSION, "KILL", ns.Now()
+  e.id = tostring(item.id) .. "+" .. tostring(pid)
+  e.vi, e.z, e.merge = plain(item.c or ""), plain(item.a or ""), 1
+  X:Send(e)
 end
 
 -- own level recap (only the dinging player has it)
@@ -409,7 +428,7 @@ end)
 ---------------------------------------------------------------------------
 -- catch-up: what the gang did while this PC wasn't relaying (synced in at login)
 ---------------------------------------------------------------------------
-local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = true }
+local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = true, KILL = true }
 local CATCHUP_MAX = 40
 
 function X:CatchUp()
