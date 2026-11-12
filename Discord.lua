@@ -484,6 +484,18 @@ function X:ShareLink()
   ns.Comm:Broadcast(ns.Comm:Build("DW", d.linkVer, d.link), 3)
 end
 
+-- someone just came online: hand them the link directly (they missed the login broadcast)
+local sentTo = {}
+function X:ShareLinkTo(target)
+  local d = db()
+  if not (d.link and d.linkVer and target) or not (ns.Comm and ns.Comm.SendTo) then return end
+  if sentTo[target] and ns.Now() - sentTo[target] < 600 then return end
+  sentTo[target] = ns.Now()
+  C_Timer.After(3 + math.random() * 5, function()
+    ns.Comm:SendTo(target, ns.Comm:Build("DW", d.linkVer, d.link), 3)
+  end)
+end
+
 local function takeLink(ver, url)
   local d = db()
   ver = tonumber(ver)

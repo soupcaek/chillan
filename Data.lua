@@ -436,6 +436,7 @@ Comm:Handle("HI", function(f, sender, channel)
     end
   end
   Data:CheckVersion(f[4], pid)
+  if not wasOnline and ns.Discord and ns.Discord.ShareLinkTo then ns.Discord:ShareLinkTo(sender) end
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
   if channel == "GUILD" or channel == "PARTY" or channel == "RAID" then channel = "WHISPER" end
