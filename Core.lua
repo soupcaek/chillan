@@ -219,7 +219,14 @@ local function mentionColors()
     local r, g, b = ns.ClassColor(main.class)
     local col = string.format("%02X%02X%02X", math.floor(r * 255), math.floor(g * 255), math.floor(b * 255))
     local alias = ns:PersonAlias(p)
-    if alias and alias ~= "" then map[alias:lower()] = col pids[alias:lower()] = pid end
+    if alias and alias ~= "" then
+      map[alias:lower()] = col pids[alias:lower()] = pid
+      local first = alias:match("^([%w\128-\255]+)")
+      if first and #first >= 3 and first ~= alias then
+        map[first:lower()] = map[first:lower()] or col
+        pids[first:lower()] = pids[first:lower()] or pid
+      end
+    end
     for _, c in pairs(p.chars or {}) do
       if c.name then
         local cr, cg, cb = ns.ClassColor(c.class or main.class)
@@ -231,6 +238,10 @@ local function mentionColors()
       end
     end
   end
+  local sorted = {}
+  for n in pairs(map) do sorted[#sorted + 1] = n end
+  table.sort(sorted, function(a, b) return #a > #b end)
+  map.__sorted = sorted
   return map, pids
 end
 
@@ -243,14 +254,14 @@ local function colorMentions(plain, baseHex, map, pids)
   while true do
     local at = plain:find("@", pos, true)
     if not at then break end
-    -- try "two words", then "one word" after the @
-    local two = plain:match("^@(%S+ %S+)", at)
-    local one = plain:match("^@(%S+)", at)
+    -- longest known name right after the @ (aliases can be several words, e.g. "Eirik / LINK")
     local name, col
-    if two and map[two:lower():gsub("[%p]+$", "")] then
-      name = two:gsub("[%p]+$", "") col = map[name:lower()]
-    elseif one and map[one:lower():gsub("[%p]+$", "")] then
-      name = one:gsub("[%p]+$", "") col = map[name:lower()]
+    local rest = plain:sub(at + 1):lower()
+    for _, n in ipairs(map.__sorted) do
+      if rest:sub(1, #n) == n and not rest:sub(#n + 1, #n + 1):match("[%w]") then
+        name = plain:sub(at + 1, at + #n) col = map[n]
+        break
+      end
     end
     if name then
       if at > pos then out[#out + 1] = ns.Colorize(emo(plain:sub(pos, at - 1)), baseHex) end
@@ -271,7 +282,7 @@ end
 -- class colour and real item links
 function ns.RenderChatText(text, baseHex)
   text = text or ""
-  local map, pids = {}, {}
+  local map, pids = { __sorted = {} }, {}
   if text:find("@", 1, true) then map, pids = mentionColors() end
   if not text:find("{i:", 1, true) then return colorMentions(text, baseHex, map, pids) end
   local out, pos = {}, 1
@@ -594,7 +605,11 @@ local function lowerTrim(s) return (s or ""):lower():gsub("^%s+", ""):gsub("%s+$
 
 function ns.MyMentionNames()
   local names = {}
-  if ns.db.alias and ns.db.alias ~= "" then names[#names + 1] = lowerTrim(ns.db.alias) end
+  if ns.db.alias and ns.db.alias ~= "" then
+    names[#names + 1] = lowerTrim(ns.db.alias)
+    local first = ns.db.alias:match("^([%w\128-\255]+)")
+    if first and #first >= 3 then names[#names + 1] = lowerTrim(first) end
+  end
   local me = ns.db.people[ns.pid]
   for _, c in pairs(me and me.chars or {}) do
     if c.name then
