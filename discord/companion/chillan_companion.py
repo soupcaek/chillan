@@ -24,7 +24,7 @@ from relay import post
 from savedvars import find_saved_files, read_discord
 
 APP = "Chillan companion"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 HOME = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ChillanCompanion")
 CFG_PATH = os.path.join(HOME, "config.json")
 STATE_PATH = os.path.join(HOME, "state.json")
@@ -120,8 +120,8 @@ def set_autostart(on):
                          winreg.KEY_SET_VALUE)
     try:
         if on:
-            exe = sys.executable if getattr(sys, "frozen", False) else '"%s" "%s"' % (sys.executable, os.path.abspath(__file__))
-            winreg.SetValueEx(key, "ChillanCompanion", 0, winreg.REG_SZ, exe if exe.startswith('"') else '"%s"' % exe)
+            exe = '"%s"' % sys.executable if getattr(sys, "frozen", False) else '"%s" "%s"' % (sys.executable, os.path.abspath(__file__))
+            winreg.SetValueEx(key, "ChillanCompanion", 0, winreg.REG_SZ, exe + " --tray")
         else:
             try:
                 winreg.DeleteValue(key, "ChillanCompanion")
@@ -420,11 +420,30 @@ class App:
     def run(self):
         self.eng.start()
         self.tray()
-        if not self.eng.cfg.get("webhook"):
+        # started by hand: show the window; started with Windows (--tray): stay in the tray
+        if "--tray" not in sys.argv or not self.eng.cfg.get("webhook"):
             self.show_settings()
+        if self.eng.cfg.get("autostart"):
+            try:
+                set_autostart(True)  # keep the startup entry current (adds --tray)
+            except Exception:
+                pass
         self.root.mainloop()
 
 
+def single_instance():
+    """True if no other companion is running (a named mutex on Windows)."""
+    if not IS_WIN:
+        return True
+    ctypes.windll.kernel32.CreateMutexW(None, False, "ChillanCompanionSingleInstance")
+    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
+
+
 if __name__ == "__main__":
-    log("start %s" % VERSION)
+    log("start %s %s" % (VERSION, " ".join(sys.argv[1:])))
+    if not single_instance():
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showinfo(APP, "The Chillan companion is already running.\n\nLook for the round C? icon in the system tray (the ^ arrow next to the clock) and double-click it.")
+        sys.exit(0)
     App().run()
