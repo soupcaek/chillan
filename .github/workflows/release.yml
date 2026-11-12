@@ -51,7 +51,7 @@ jobs:
           TAG="${{ steps.v.outputs.tag }}"
           mkdir -p .release/Chillan
           rsync -a --exclude '.git*' --exclude '.github' --exclude '.release' \
-            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' ./ .release/Chillan/
+            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' ./ .release/Chillan/
           sed -i "s/@project-version@/${TAG#v}/" .release/Chillan/*.toc
           cd .release
           # Samme innhold i to navn: "-forever" for WowUp som kjenner Forever,

@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.26.0", date = "12.11", items = {
+    "New: Discord feed. Deaths (with the funny lines), dings, level recaps, blue-or-better loot, achievements and dungeon runs can be posted to your Discord by the Chillan companion and bot. Only the person running the companion needs /chill discord on",
+    "/chill discord on | off | test | flush",
+  } },
   { v = "0.25.7", date = "12.11", items = {
     "Death lines: the 116 clean ones are gone, replaced by new spicy ones. All 200 now have some bite, and every mob family (murlocs, raptors, gnolls, Defias…) keeps its own lines",
   } },

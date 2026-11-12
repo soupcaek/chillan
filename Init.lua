@@ -177,6 +177,8 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Window:Select("ideas")
   elseif cmd == "oppsett" or cmd == "settings" then
     ns.Window:Toggle("settings")
+  elseif cmd == "discord" then
+    ns.Discord:Slash(rest)
   elseif cmd == "deathtest" or cmd == "dodstest" then
     if rest == "off" then ns.db.deathTest = false ns.Print("Death test off.")
     else ns.db.deathTest = true ns.Deaths:ShowTest() end

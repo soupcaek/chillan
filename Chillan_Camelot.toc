@@ -26,6 +26,7 @@ Gear.lua
 Briefing.lua
 Legend.lua
 LevelRecap.lua
+Discord.lua
 Changelog.lua
 Stats.lua
 Achievements.lua
