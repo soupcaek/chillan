@@ -5,7 +5,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local T = {}
 ns.Tiles = T
 
-local MAX = 8
+local MAX = 9   -- 3 x 3
 local PER_ROW = 3
 local W, H, GAP = 124, 44, 0   -- cards sit flush under the bar, sharing its background
 

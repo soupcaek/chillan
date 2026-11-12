@@ -720,6 +720,37 @@ local function buildLootPatterns()
   end
 end
 
+-- blue (rare) and better drops go to the gang. Two ways in, so none is missed:
+--  1) the loot line in chat ("You receive loot: …")
+--  2) the bags themselves: in a dungeon the game can hide loot lines from addons (Midnight
+--     engine), so a new blue+ item that shows up in the bags counts too
+local LOOT_MIN = 3
+local lootSeen = {}      -- itemID -> GetTime() of the last post (one post per drop)
+
+local function qualityOf(itemID, link)
+  local q = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(itemID)
+  if type(q) == "number" and not ns.isSecret(q) then return q end
+  if type(link) == "string" then
+    local n = link:match("|cnIQ(%d)")
+    if n then return tonumber(n) end
+    local hexc = link:match("|cff(%x%x%x%x%x%x)")
+    local byHex = { ["1eff00"] = 2, ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
+    if hexc and byHex[hexc:lower()] then return byHex[hexc:lower()] end
+  end
+  return nil
+end
+
+local function postLoot(itemID, quality)
+  if not itemID or not quality or quality < math.min(ns.db.settings.lootMinQuality or LOOT_MIN, LOOT_MIN) then return end
+  if quality > 5 then return end   -- no heirlooms / tokens
+  local last = lootSeen[itemID]
+  if last and GetTime() - last < 20 then return end
+  lootSeen[itemID] = GetTime()
+  Tracker:Event("LOOT", itemID, quality)
+  if quality >= 4 then ns.Cnt("epics") end
+end
+Tracker.PostLoot = postLoot
+
 ns:On("CHAT_MSG_LOOT", function(text)
   if type(text) ~= "string" or ns.isSecret(text) then return end
   if not lootPatterns then buildLootPatterns() end
@@ -728,15 +759,79 @@ ns:On("CHAT_MSG_LOOT", function(text)
     if link then
       local itemID = tonumber(link:match("item:(%d+)"))
       if not itemID then return end
-      local quality = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(itemID)
-      if quality and quality >= (ns.db.settings.lootMinQuality or 4) then
-        Tracker:Event("LOOT", itemID, quality)
-        if quality >= 4 then ns.Cnt("epics") end
+      local q = qualityOf(itemID, link)
+      if q then postLoot(itemID, q)
+      else
+        -- item not in the cache yet: ask once more in a moment
+        C_Timer.After(1.5, function() postLoot(itemID, qualityOf(itemID, link)) end)
       end
       return
     end
   end
 end)
+
+-- the bags (plus what you wear, so swapping gear isn't "new"): count blue+ items
+local bagCount, bagReady = nil, false
+local busy = {}          -- bank, mail, trade, merchant, auction house open: items arriving there aren't drops
+local function countBags()
+  local out = {}
+  local api = C_Container
+  if not api or not api.GetContainerNumSlots then return nil end
+  for bag = 0, 4 do
+    local okN, n = pcall(api.GetContainerNumSlots, bag)
+    for slot = 1, (okN and type(n) == "number" and n or 0) do
+      local okI, info = pcall(api.GetContainerItemInfo, bag, slot)
+      if okI and type(info) == "table" and info.itemID and not ns.isSecret(info.itemID)
+        and type(info.quality) == "number" and not ns.isSecret(info.quality) and info.quality >= LOOT_MIN then
+        out[info.itemID] = (out[info.itemID] or 0) + (info.stackCount or 1)
+      end
+    end
+  end
+  for slot = 1, 19 do
+    local ok, id = pcall(GetInventoryItemID, "player", slot)
+    if ok and type(id) == "number" and not ns.isSecret(id) then out[id] = (out[id] or 0) + 1 end
+  end
+  return out
+end
+
+local function isBusy()
+  for _, v in pairs(busy) do if v then return true end end
+  return false
+end
+
+local function rescan(post)
+  local now = countBags()
+  if not now then return end
+  if post and bagCount and bagReady and not isBusy() then
+    for id, n in pairs(now) do
+      if n > (bagCount[id] or 0) then
+        -- give the loot line a moment to post it first (no double post)
+        C_Timer.After(2, function()
+          local okQ, q = pcall(qualityOf, id)
+          if okQ and q and q >= LOOT_MIN then postLoot(id, q) end
+        end)
+      end
+    end
+  end
+  bagCount = now
+end
+
+local bagWait = false
+ns:On("BAG_UPDATE_DELAYED", function()
+  if bagWait then return end
+  bagWait = true
+  C_Timer.After(0.5, function() bagWait = false rescan(true) end)
+end)
+ns:On("PLAYER_ENTERING_WORLD", function()
+  bagReady = false
+  C_Timer.After(5, function() rescan(false) bagReady = true end)
+end)
+for open, close in pairs({ BANKFRAME_OPENED = "BANKFRAME_CLOSED", MAIL_SHOW = "MAIL_CLOSED", TRADE_SHOW = "TRADE_CLOSED",
+  MERCHANT_SHOW = "MERCHANT_CLOSED", AUCTION_HOUSE_SHOW = "AUCTION_HOUSE_CLOSED", GUILDBANKFRAME_OPENED = "GUILDBANKFRAME_CLOSED" }) do
+  ns:On(open, function() busy[open] = true end)
+  -- after closing: take the new contents as the baseline, nothing from there is a drop
+  ns:On(close, function() busy[open] = nil C_Timer.After(1, function() rescan(false) end) end)
+end
 
 ns:On("PLAYER_CAMPING", function()
   Tracker:SaveSession()

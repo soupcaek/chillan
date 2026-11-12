@@ -399,9 +399,21 @@ local function sendBN(id, msg)
     return true
   end
   if result == 3 or result == 8 then return false, false end -- struping: prøv igjen
+  if result == 11 then return false, false, true end            -- encounter lockdown: wait
   Comm.stats.failed = Comm.stats.failed + 1
   Comm.stats.lastErr = "BN: " .. tostring(result)
   return false, true
+end
+
+-- Midnight engine (12.0): during an instance encounter the game refuses addon messages
+-- (result 11 AddOnMessageLockdown, or C_ChatInfo.InChatMessagingLockdown() is true). Messages
+-- then wait in the queue until the lockdown ends, instead of being thrown away.
+local LOCKDOWN = (Enum and Enum.SendAddonMessageResult and Enum.SendAddonMessageResult.AddOnMessageLockdown) or 11
+function Comm:InLockdown()
+  local f = C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
+  if not f then return false end
+  local ok, locked = pcall(f)
+  return ok and locked == true
 end
 
 local function trySend(item)
@@ -429,6 +441,10 @@ local function trySend(item)
   local ok, result = pcall(fn, ns.PREFIX, item.msg, item.chatType, target)
   if not ok then Comm.stats.failed = Comm.stats.failed + 1 Comm.stats.lastErr = tostring(result) return false, true end
   if result == nil or result == true or result == 0 then Comm.stats.sent = Comm.stats.sent + 1 return true end
+  if result == LOCKDOWN then
+    Comm.stats.lockdown = (Comm.stats.lockdown or 0) + 1
+    return false, false, true
+  end
   if item.chatType == "CHANNEL" and result == 7 then
     Comm.chanBlockedAt = ns.Now() -- InvalidChannel: kanalen tar ikke imot addon-meldinger
     return false, true
@@ -459,6 +475,9 @@ ticker:SetScript("OnUpdate", function(_, dt)
   elapsedSend = elapsedSend + dt
   if elapsedSend < 0.1 or tokens <= 0 then return end
   elapsedSend = 0
+  -- locked down (boss fight in an instance): keep everything queued, try again after
+  if Comm.lockedUntil and GetTime() < Comm.lockedUntil then return end
+  if Comm:InLockdown() then Comm.lockedUntil = GetTime() + 1 return end
   local t = now()
   for p = 1, 3 do
     local q = queue[p]
@@ -468,7 +487,12 @@ ticker:SetScript("OnUpdate", function(_, dt)
     for i = 1, #q do
       local item = q[i]
       if not item.notBefore or item.notBefore <= t then
-        local sent, drop = trySend(item)
+        local sent, drop, locked = trySend(item)
+        if locked then
+          -- not the message's fault: keep it (and its place), pause the queue a moment
+          Comm.lockedUntil = GetTime() + 2
+          return
+        end
         if sent or drop then
           table.remove(q, i)
           if sent then tokens = tokens - 1 end

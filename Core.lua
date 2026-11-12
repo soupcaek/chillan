@@ -475,7 +475,7 @@ local DEFAULTS = {
   version = 1,
   settings = {
     minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true, briefing = true, levelRecap = true,
-    onlineToasts = true, lootMinQuality = 4, minimapButton = true, minimapAngle = 200,
+    onlineToasts = true, lootMinQuality = 3, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
     accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
@@ -500,6 +500,11 @@ function ns:InitDB()
   if not ChillanDB.pid then ChillanDB.pid = ns.RandomId(8) end
   ns.db = ChillanDB
   ns.pid = ChillanDB.pid
+  -- 0.29.1: blue (rare) drops are always shared with the gang
+  if not ChillanDB.migr0291 then
+    ChillanDB.migr0291 = true
+    ChillanDB.settings.lootMinQuality = 3
+  end
   -- 0.12: class colour is the new default accent (grey was the old default)
   if not ChillanDB.migr012 then
     if ChillanDB.settings.accent == "grey" then ChillanDB.settings.accent = "class" end

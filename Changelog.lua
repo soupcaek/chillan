@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.1", date = "13.11", items = {
+    "Fix: deaths (and everything else) during a dungeon boss fight reach the gang right after the fight – the game blocks addon messages mid-fight, and they used to get thrown away and only show up much later",
+    "Blue drops and better are always shared now, also when the game hides the loot line in dungeons (Chillan spots the new item in your bags) and when an item wasn't loaded yet",
+    "Up to 9 tiles and buttons under the bar (3 x 3)",
+  } },
   { v = "0.29.0", date = "12.11", items = {
     "Buttons under the bar: the + menu now has a Buttons section – Layer hop, SOS, Open Stats and Open Trophies – next to the stat tiles",
     "The Layer hop button shows your layer and what's happening (searching, asked 12, invite from …, moved!) – one click hops",
