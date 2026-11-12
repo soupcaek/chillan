@@ -206,6 +206,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Offline friends on the map (last known spot, dimmed)", "mapPinsOffline", function() ns:Fire("MAP_PINS") end },
     { "Gang notes on the map", "mapNotes", function() ns:Fire("MAP_PINS") end, "Alt + right-click the world map to add one. Right-click your own note to remove it." },
     { "Share blue drops in the feed (not just epics)", "blueLoot", function(v) S().lootMinQuality = v and 3 or 4 end },
+    { "Layer hop: invite gang members by myself", "layerHost", nil, "When a friend in your zone on another layer asks for a hop, Chillan invites them (only when you're solo, out of combat and not in a dungeon). They leave by themselves." },
+    { "Layer hop: also host LayerSwap users", "layerStrangers", nil, "Invite players running the LayerSwap addon who ask for another layer in your zone. At most 6 per 10 minutes, only when you're solo." },
   })
 
   function tab:Refresh()

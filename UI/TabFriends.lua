@@ -131,6 +131,10 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     if online then
       local z = L.zone or ""
       if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
+      if L.layer and not L.inInst and ns.Layer then
+        local mine = ns.Layer:Current()
+        z = z .. ns.Colorize("  ·  " .. ns.Layer.Label(L.layer), (mine and mine == L.layer) and "9BE08A" or "9BA1A8")
+      end
       row.zone:SetText(z)
       local coords = (L.x and L.y) and string.format("  ·  %.0f, %.0f", L.x * 100, L.y * 100) or ""
       row.time:SetText("Online " .. ns.Duration(ns.Now() - (L.session or ns.Now())) .. coords)

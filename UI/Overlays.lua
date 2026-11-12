@@ -119,7 +119,7 @@ function O:UpdateMinibar()
         items[#items + 1] = { text = label, color = code ~= "AUTO" and ns.STATUS[code].color or nil,
           func = function() ns.Tracker:SetStatus(code) O:UpdateMinibar() end }
       end
-      items[#items + 1] = { text = "Layer hop – ask the gang for an invite", color = C.accent, func = function() ns.LayerHop:Request() end }
+      items[#items + 1] = { text = "Layer hop – move to another layer", color = C.accent, func = function() ns.LayerHop:Request() end }
       UI.Menu(self, items, true)
     end)
     sb:SetScript("OnEnter", function(self)
@@ -127,6 +127,8 @@ function O:UpdateMinibar()
       GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
       GameTooltip:AddLine("Your status")
       GameTooltip:AddLine(ns.db.statusOverride and "Set by you – click to change" or "Automatic – click to set LFG, Needs help or Do not disturb", 0.6, 0.63, 0.66, true)
+      local cur = ns.Layer and ns.Layer:CurrentLabel()
+      GameTooltip:AddLine("Layer: " .. (cur or "unknown – target or mouse over an NPC"), 0.6, 0.63, 0.66, true)
       GameTooltip:Show()
     end)
     sb:SetScript("OnLeave", function(self) self.text:SetTextColor(hex(C.text2)) GameTooltip:Hide() end)
@@ -136,7 +138,8 @@ function O:UpdateMinibar()
   local st = ns.Tracker:Status()
   local info = ns.STATUS[st] or ns.STATUS.QUEST
   m.status.dot:SetVertexColor(hex(info.color))
-  m.status.text:SetText(SHORT[st] or info.label)
+  local lay = ns.Layer and ns.Layer:CurrentLabel()
+  m.status.text:SetText((SHORT[st] or info.label) .. (lay and ("  ·  " .. lay) or ""))
   m.status:SetWidth(m.status.text:GetStringWidth() + 18)
   m.countX, m.statusX = x, w - 8
   m.status:ClearAllPoints()
@@ -951,3 +954,6 @@ function O:Init()
   ns:Listen("SOS", function(item) O:ShowSOS(item) end)
   ns:Listen("SHOW_SUMMARY", function(sum, previous) O:ShowSummary(sum, previous) end)
 end
+
+-- the layer shown next to your status follows what the creatures around you say
+ns:Listen("LAYER", function() if O.UpdateMinibar then pcall(O.UpdateMinibar, O) end end)

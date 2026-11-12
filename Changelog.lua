@@ -8,6 +8,9 @@ ns.CHANGELOG = {
     "Kill someone who killed one of us before, and you get a revenge line instead",
     "No death or kill messages inside battlegrounds or arenas",
     "Gang members who log in later now get the Discord relay link (and the companion card) straight away",
+    "Layer hop 2.0: Chillan reads which layer you're on (target or mouse over an NPC) and shows it next to your status and next to everyone's zone in the gang list",
+    "One click on Layer hop: a gang member in your zone on another layer invites you by themselves, you accept, Chillan checks you moved and leaves the group 30 s later (the layer stays)",
+    "No gang member on another layer? The same click asks players in the zone who run LayerSwap. Hosting for LayerSwap users is opt-in in Settings",
     "@mentions work for nicknames with spaces or symbols (like \"Eirik / LINK\"), and the first word alone works too",
   } },
   { v = "0.27.0", date = "12.11", items = {

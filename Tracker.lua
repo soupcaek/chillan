@@ -130,6 +130,7 @@ function Tracker:UpdateLive()
   L.zone, L.sub, L.inInst = loc.zone, loc.sub, loc.inInst
   L.mapID, L.x, L.y, L.cont, L.wx, L.wy = loc.mapID, loc.x, loc.y, loc.cont, loc.wx, loc.wy
   L.status = self:Status()
+  L.layer = (not L.inInst and ns.Layer and ns.Layer:Current()) or nil
   L.session = session.start
   me.heard = ns.Now()
   me.lastSeen = ns.Now()
@@ -147,7 +148,8 @@ function Tracker:BuildST()
     ns.Clean(L.zone, 32), ns.Clean(L.sub, 32), L.status, ns.Now() - session.start,
     L.inInst, L.mapID or "", L.x and math.floor(L.x * 1000) or "", L.y and math.floor(L.y * 1000) or "",
     L.cont or "", L.wx and math.floor(L.wx) or "", L.wy and math.floor(L.wy) or "",
-    ns.Clean(c.name or "", 40), ns.VERSION, ns.Clean(ns.db.alias or "", 20))
+    ns.Clean(c.name or "", 40), ns.VERSION, ns.Clean(ns.db.alias or "", 20),
+    (not L.inInst and ns.Layer and ns.Layer:Current()) or "")
 end
 
 ---------------------------------------------------------------------------
@@ -340,11 +342,11 @@ end
 -- minutt som «jeg er her». Posisjon på kartet oppdateres maks hvert 40. sekund.
 -- Mindre bakgrunnstrafikk = chat og dings kommer raskere fram.
 local lastST = { at = 0, key = nil, pos = nil }
--- PROTO~kode~ST~pid~char~class~race~level~zone~sub~status~session~inInst~mapID~x~y~cont~wx~wy~name~version~alias
+-- PROTO~kode~ST~pid~char~class~race~level~zone~sub~status~session~inInst~mapID~x~y~cont~wx~wy~name~version~alias~layer
 local function stKey(msg)
   local f = ns.Split(msg, "~")
   local key = table.concat({ f[5] or "", f[8] or "", f[9] or "", f[10] or "", f[11] or "", f[13] or "", f[14] or "",
-    f[20] or "", f[21] or "", f[22] or "" }, "|")
+    f[20] or "", f[21] or "", f[22] or "", f[23] or "" }, "|")
   return key, (f[15] or "") .. "," .. (f[16] or "")
 end
 

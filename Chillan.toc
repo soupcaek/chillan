@@ -16,6 +16,7 @@ Comm.lua
 Tracker.lua
 DeathLines.lua
 KillLines.lua
+Layer.lua
 Data.lua
 Sync.lua
 Quests.lua

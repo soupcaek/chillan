@@ -1,56 +1,185 @@
--- Chillan? – layer hop: ask the gang for a group invite to change layer.
--- In WoW Forever you move to the inviter's layer by joining their group, and stay there
--- while you stay in the group (leaving sends you back). There is no other way for addons.
+-- Chillan? – layer hop: change layer by joining the group of someone on another layer.
+-- In WoW Forever you move to the leader's layer when you join their group (Blizzard's "shard
+-- transfer"), and on live Forever the new layer stays after you leave again.
+--
+-- 1) The gang: every Chillan knows its own layer (Layer.lua) and shares it with its status.
+--    A hop asks the gang; a friend in the same zone on another layer invites by itself
+--    (setting "layerHost"), the asker accepts, checks that it moved, and leaves 30 s later.
+-- 2) LayerSwap users: when nobody in the gang can help, the same click asks the players in
+--    the zone who run the LayerSwap addon, in LayerSwap's own hidden whisper format.
+--    Hosting for them is opt-in (setting "layerStrangers"), with LayerSwap's own limits.
 local ADDON, ns = ...
 local UI, C, hex, Comm = ns.UI, ns.C, ns.hex, ns.Comm
 
 local L = {}
 ns.LayerHop = L
-L.mine = nil      -- my open request { id, t }
+L.mine = nil      -- my open request { id, t, from, map, mode, whispered, joinedAt, host }
 L.open = {}       -- requests from others I can answer: id -> { pid, target, t }
 
+local LS_PREFIX = "LayerSwap"
+local REQUEST_TTL = 90
+local VERIFY_AFTER = 15     -- no move this long after joining: the host stood on our layer
+local LEAVE_AFTER = 30      -- after a confirmed move, leave the host's group
+local HOST_MAX, HOST_WINDOW, HOST_PER_PLAYER = 6, 600, 60
+local ZONE_MAP = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
+
+local function secret(v) return ns.isSecret and ns.isSecret(v) end
+local function S() return ns.db.settings end
+
+local function inGroup() return IsInGroup and IsInGroup() and true or false end
+local function inCombat()
+  if InCombatLockdown and InCombatLockdown() then return true end
+  return ns.S(UnitAffectingCombat, "player") and true or false
+end
+local function inInstance() return (ns.S(IsInInstance)) and true or false end
+
 local function canHelp()
-  if IsInGroup and IsInGroup() then return false end
-  if IsInInstance and IsInInstance() then return false end
-  if InCombatLockdown and InCombatLockdown() then return false end
-  return true
+  return not inGroup() and not inInstance() and not inCombat() and not ns.S(UnitIsDeadOrGhost, "player")
 end
 
--- I want to change layer
+-- the zone-level map we stand in (a city or cave map counts as its zone), like LayerSwap
+local function zoneMap()
+  if not (C_Map and C_Map.GetBestMapForUnit) then return nil end
+  local ok, id = pcall(C_Map.GetBestMapForUnit, "player")
+  if not ok or secret(id) or type(id) ~= "number" or id <= 0 then return nil end
+  local zone = id
+  for _ = 1, 6 do
+    local found, info = pcall(C_Map.GetMapInfo, zone)
+    if not found or type(info) ~= "table" or secret(info.mapType) or type(info.mapType) ~= "number" then break end
+    if info.mapType == ZONE_MAP then return zone end
+    local up = info.parentMapID
+    if info.mapType < ZONE_MAP or secret(up) or type(up) ~= "number" or up <= 0 then break end
+    zone = up
+  end
+  return id
+end
+L.ZoneMap = zoneMap
+
+local function mapPos(map)
+  if not map then return nil end
+  local ok, pos = pcall(C_Map.GetPlayerMapPosition, map, "player")
+  if not ok or not pos then return nil end
+  local x, y = pos:GetXY()
+  if not x or secret(x) or secret(y) or (x == 0 and y == 0) then return nil end
+  return x, y
+end
+
+local function norm(name)
+  if type(name) ~= "string" then return "" end
+  return (ns.ShortName(name) or name):lower():gsub("[%s%-]", "")
+end
+
+local function isGangChar(name)
+  local short = norm(name)
+  if short == "" then return false end
+  for pid, p in pairs(ns.db.people or {}) do
+    if pid ~= ns.pid then
+      for key, c in pairs(p.chars or {}) do
+        if norm((c and c.name) or key) == short then return true end
+      end
+    end
+  end
+  return false
+end
+
+local function leave()
+  local fn = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
+  if fn then pcall(fn) end
+end
+
+local function label(key) return (ns.Layer and ns.Layer.Label(key)) or "a new layer" end
+
+-- gang members who could move me: online, same zone, known layer that isn't mine
+function L:GangHosts()
+  local mine, map = ns.Layer and ns.Layer:Current(), zoneMap()
+  local myZone = ns.Tracker:Me().live and ns.Tracker:Me().live.zone
+  local out = {}
+  for pid, p in pairs(ns.db.people or {}) do
+    local lv = p.live
+    if pid ~= ns.pid and p.main and ns:IsOnline(p) and lv and lv.layer and not lv.inInst
+      and lv.layer ~= mine and lv.zone and lv.zone == myZone then
+      out[#out + 1] = p
+    end
+  end
+  return out, mine, map
+end
+
+---------------------------------------------------------------------------
+-- asking
+---------------------------------------------------------------------------
 function L:Request()
-  if IsInGroup and IsInGroup() then
+  if inGroup() then
     ns.Print("Leave your group first – you change layer by joining someone's group.")
     return
   end
-  if IsInInstance and IsInInstance() then
-    ns.Print("You can't change layer inside a dungeon.")
+  if inInstance() then ns.Print("You can't change layer inside a dungeon.") return end
+  if inCombat() then ns.Print("Not in combat.") return end
+  local m = self.mine
+  -- a second click while the gang couldn't help: ask the LayerSwap users in the zone
+  if m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL then
+    if m.mode == "gang" and ns.Now() - m.t >= 8 then
+      self:AskLayerSwap(m)
+    else
+      ns.Print("Already asking for a layer hop…")
+    end
     return
   end
-  if self.mine and ns.Now() - self.mine.t < 30 then
-    ns.Print("Already asked – wait a little (layer changes also have a cooldown in the game).")
-    return
-  end
+  local hosts, from, map = self:GangHosts()
   local id = Comm:NewId()
-  self.mine = { id = id, t = ns.Now() }
-  Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now()), 1)
-  ns.Print("Asked the gang for a layer-hop invite.")
-  C_Timer.After(45, function()
-    if self.mine and self.mine.id == id and not self.mine.by then
-      ns.Print("Nobody could invite you for a layer hop right now.")
+  m = { id = id, t = ns.Now(), from = from, map = map, mode = "gang", whispered = {} }
+  self.mine = m
+  Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
+  if #hosts > 0 then
+    local names = {}
+    for i, p in ipairs(hosts) do if i <= 3 then names[#names + 1] = ns:ShortWho(p) end end
+    ns.Print("Layer hop: asking the gang (" .. table.concat(names, ", ") .. (#hosts > 3 and " …" or "")
+      .. " can move you" .. (from and (" off " .. label(from)) or "") .. ").")
+  else
+    -- nobody in the gang stands on another layer here: ask LayerSwap users right away (this click)
+    ns.Print("Layer hop: nobody in the gang is on another layer in this zone – asking LayerSwap users here too.")
+    self:AskLayerSwap(m)
+  end
+  ns:Fire("LAYERHOP")
+  C_Timer.After(12, function()
+    if self.mine == m and not m.by and not m.joinedAt and m.mode == "gang" then
+      ns.Print("Layer hop: no gang invite yet. |cffE0C068Click again|r to also ask LayerSwap users in the zone.")
+    end
+  end)
+  C_Timer.After(REQUEST_TTL, function()
+    if self.mine == m and not m.joinedAt then
+      ns.Print("Layer hop: nobody could invite you right now. Busier zones have more layers.")
       self.mine = nil
+      ns:Fire("LAYERHOP")
     end
   end)
 end
 
--- someone in the gang wants a hop
+---------------------------------------------------------------------------
+-- helping the gang
+---------------------------------------------------------------------------
 Comm:Handle("LQ", function(f)
   local id, pid, target, at = f[1], f[2], f[3], tonumber(f[4])
   if not id or not pid or pid == ns.pid or not target or target == "" then return end
   -- only fresh requests (never old ones that arrive late, e.g. right after login)
   if not at or math.abs(ns.Now() - at) > 60 then return end
   if not canHelp() then return end
+  local askerLayer, askerMap = f[5], tonumber(f[6] or "")
+  local mine = ns.Layer and ns.Layer:Current()
   L.open[id] = { pid = pid, target = target, t = ns.Now() }
-  L:ShowAsk(id)
+  if askerLayer == nil then L:ShowAsk(id) return end     -- asker on an older Chillan
+  -- I'm on their layer: inviting would change nothing
+  if mine and askerLayer ~= "" and mine == askerLayer then L.open[id] = nil return end
+  -- only someone in the same zone can move them
+  local myMap = zoneMap()
+  if askerMap and myMap and askerMap ~= myMap then L.open[id] = nil return end
+  if S().layerHost ~= false and mine then
+    -- several of us may hear it: a random short wait, and the first one claims it
+    C_Timer.After(0.3 + math.random() * 1.7, function()
+      if L.open[id] and canHelp() then L:Help(id, true) end
+    end)
+  else
+    L:ShowAsk(id)
+  end
 end)
 
 -- someone took it: close the popup everywhere, tell the asker who's inviting
@@ -61,46 +190,250 @@ Comm:Handle("LK", function(f)
   if L.frame and L.frame.id == id then L.frame:Hide() end
   if L.mine and L.mine.id == id and by and by ~= ns.pid and not L.mine.by then
     L.mine.by = by
-    L.mine.t = ns.Now()
     local p = ns:GetPerson(by)
     ns.Print((p and ns:ShortWho(p) or "Someone") .. " is inviting you for a layer hop.")
   end
 end)
 
-function L:Help(id)
+function L:Help(id, auto)
   local r = self.open[id]
   if not r then return end
   self.open[id] = nil
   Comm:Broadcast(Comm:Build("LK", id, ns.pid), 1)
   ns.Invite(r.target)
   if self.frame then self.frame:Hide() end
+  if auto then
+    local p = ns:GetPerson(r.pid)
+    ns.Print("Layer hop: invited " .. ((p and ns:ShortWho(p)) or ns.ShortName(r.target)) .. " to your layer. They leave by themselves.")
+  end
 end
 
--- the asker accepts the gang invite automatically (only while a request is open)
-local function isGangChar(name)
-  if not name or name == "" then return false end
-  local short = ns.ShortName(name):lower():gsub("[%s%-]", "")
-  for pid, p in pairs(ns.db.people or {}) do
-    if pid ~= ns.pid then
-      for key, c in pairs(p.chars or {}) do
-        local n = ((c and c.name) or ns.ShortName(key) or ""):lower():gsub("[%s%-]", "")
-        if n == short then return true end
-      end
+---------------------------------------------------------------------------
+-- LayerSwap users: their hidden whisper "inv layer <LS map not 1234-0 48.2,42.5>"
+---------------------------------------------------------------------------
+if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, LS_PREFIX) end
+
+local function lsLine(m)
+  local parts = { "<LS" }
+  if m.map then parts[#parts + 1] = tostring(m.map) end
+  if m.from then parts[#parts + 1] = "not " .. m.from .. "-0" end
+  local x, y = mapPos(m.map)
+  if m.map and x then parts[#parts + 1] = string.format("%.1f,%.1f", x * 100, y * 100) end
+  return "inv layer " .. table.concat(parts, " ") .. ">"
+end
+
+local who = nil   -- { m, at, muted }
+
+local function unmute()
+  if who and who.muted then pcall(who.muted.RegisterEvent, who.muted, "WHO_LIST_UPDATE") end
+  if who then who.muted = nil end
+end
+
+-- one /who of the zone (only works from a click), then hidden whispers to who it found
+function L:AskLayerSwap(m)
+  if not (C_FriendList and C_FriendList.SendWho) then return end
+  m.mode = "ls"
+  m.t = ns.Now()
+  local zone = ns.S(GetRealZoneText) or ""
+  local text = zone ~= "" and ('z-"' .. zone .. '"') or ""
+  who = { m = m, at = GetTime() }
+  -- keep the Friends window from popping up with our search
+  local ff = FriendsFrame
+  if ff and not ff:IsShown() and ff.IsEventRegistered and ff:IsEventRegistered("WHO_LIST_UPDATE") then
+    if pcall(ff.UnregisterEvent, ff, "WHO_LIST_UPDATE") then who.muted = ff end
+  end
+  if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
+  local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
+  local ok = false
+  if m.map then
+    ok = pcall(C_FriendList.SendWho, text, origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { m.map } })
+  end
+  if not ok then ok = pcall(C_FriendList.SendWho, text, origin) end
+  if not ok then unmute() who = nil ns.Print("Layer hop: the game refused the player search.") return end
+  C_Timer.After(6, function()
+    if who and who.m == m and not who.done then
+      unmute()
+      who = nil
+      ns.Print("Layer hop: the player search got no answer – try again in a moment.")
+    end
+  end)
+end
+
+ns:On("WHO_LIST_UPDATE", function()
+  if not who or who.done then return end
+  who.done = true
+  local m = who.m
+  unmute()
+  local okN, n = pcall(C_FriendList.GetNumWhoResults)
+  if not okN or secret(n) or type(n) ~= "number" then n = 0 end
+  local me = norm(ns.S(UnitName, "player") or "")
+  local names = {}
+  for i = 1, math.min(n, 50) do
+    local okI, info = pcall(C_FriendList.GetWhoInfo, i)
+    local name = okI and type(info) == "table" and info.fullName
+    if type(name) == "string" and not secret(name) and name ~= "" and norm(name) ~= me and not isGangChar(name) then
+      names[#names + 1] = name
     end
   end
-  return false
-end
-
-ns:On("PARTY_INVITE_REQUEST", function(inviter)
-  local m = L.mine
-  if not m or ns.Now() - m.t > 60 then return end
-  if not isGangChar(inviter) then return end
-  if AcceptGroup then AcceptGroup() end
-  if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
-  L.mine = nil
+  who = nil
+  if #names == 0 then ns.Print("Layer hop: found nobody else in the zone to ask.") return end
+  -- shuffle so the same few players aren't always asked first
+  for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
+  local line, sent, i = lsLine(m), 0, 1
+  local function burst()
+    if L.mine ~= m or m.joinedAt then return end
+    for _ = 1, 3 do
+      local name = names[i]
+      if not name or i > 30 then break end
+      i = i + 1
+      local ok, res = pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
+      if ok and (res == nil or res == 0 or res == true) then
+        sent = sent + 1
+        m.whispered[norm(name)] = true
+      end
+    end
+    if names[i] and i <= 30 then C_Timer.After(1, burst)
+    else ns.Print("Layer hop: asked " .. sent .. " player" .. (sent == 1 and "" or "s") .. " here – any LayerSwap host on another layer will invite you.") end
+  end
+  burst()
 end)
 
--- small popup for the helpers
+-- hosting for LayerSwap users (opt-in), with LayerSwap's own limits
+local hosted, lastHosted = {}, {}
+
+local function hostRoom()
+  local t, n = GetTime(), 0
+  for i = #hosted, 1, -1 do
+    if t - hosted[i] > HOST_WINDOW then table.remove(hosted, i) else n = n + 1 end
+  end
+  return n < HOST_MAX
+end
+
+local function onLayerSwap(text, sender)
+  if not S().layerStrangers or type(text) ~= "string" or secret(text) then return end
+  if not text:find("inv layer", 1, true) then return end
+  local body = text:match("<LS([^<>]*)>")
+  if not body then return end
+  local mine = ns.Layer and ns.Layer:Current()
+  if not mine or not canHelp() or ns.Layer.transferAt and GetTime() - ns.Layer.transferAt < 10 then return end
+  local zone = tonumber(body:match("^%s*(%d+)%s") or body:match("^%s*(%d+)%s*$") or "")
+  local myMap = zoneMap()
+  if not zone or not myMap or zone ~= myMap then return end
+  local want = body:match("want%s+(%d+)%-%d+")
+  if want and want ~= mine then return end
+  for id in body:gmatch("not%s+(%d+)%-%d+") do if id == mine then return end end
+  if isGangChar(sender) then return end
+  local key = norm(sender)
+  if lastHosted[key] and GetTime() - lastHosted[key] < HOST_PER_PLAYER then return end
+  if not hostRoom() then return end
+  lastHosted[key] = GetTime()
+  hosted[#hosted + 1] = GetTime()
+  -- tell their LayerSwap we heard it (it then leaves our group by itself once moved)
+  pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX,
+    "heard " .. sender .. "|" .. mine .. "-0|" .. tostring(myMap) .. "|h", "WHISPER", sender)
+  C_Timer.After(0.5 + math.random(), function()
+    if canHelp() then
+      ns.Invite(sender)
+      ns.Print("Layer hop: invited " .. ns.ShortName(sender) .. " (LayerSwap user) to your layer.")
+    end
+  end)
+end
+
+ns:On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
+  if prefix ~= LS_PREFIX or secret(sender) or type(sender) ~= "string" then return end
+  if channel ~= "WHISPER" then return end
+  onLayerSwap(text, sender)
+end)
+
+---------------------------------------------------------------------------
+-- joining, checking it worked, leaving
+---------------------------------------------------------------------------
+ns:On("PARTY_INVITE_REQUEST", function(inviter)
+  local m = L.mine
+  if not m or m.joinedAt or ns.Now() - m.t > REQUEST_TTL then return end
+  if secret(inviter) or type(inviter) ~= "string" then return end
+  if not (isGangChar(inviter) or m.whispered[norm(inviter)]) then return end
+  if AcceptGroup then AcceptGroup() end
+  if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
+  m.host = inviter
+  m.joinedAt = GetTime()
+  local myM = m
+  -- Forever may ask to confirm the move ("shard transfer"): confirm it, we asked for this
+  C_Timer.After(0.5, function()
+    local prompt = _G.ShardTransferImminentFrame
+    if L.mine == myM and prompt and prompt:IsShown() then pcall(prompt.Click, prompt, "LeftButton", true) end
+  end)
+  C_Timer.After(VERIFY_AFTER, function() L:Verify(myM) end)
+end)
+
+local function done(m, newKey)
+  if L.mine ~= m or m.moved then return end
+  m.moved = true
+  ns.Print("Layer hop: |cff9BE08Ayou're on " .. label(newKey) .. " now|r" .. (m.from and (" (was " .. label(m.from) .. ")") or "")
+    .. ". Leaving the group in " .. LEAVE_AFTER .. " s – the layer stays.")
+  if ns.Sound then pcall(ns.Sound, "chat") end
+  C_Timer.After(LEAVE_AFTER, function()
+    if L.mine == m then L.mine = nil end
+    local members = GetNumGroupMembers and GetNumGroupMembers() or 0
+    if inGroup() and members <= 2 and not inCombat() and not inInstance() then leave() end
+    ns:Fire("LAYERHOP")
+  end)
+end
+
+-- the game moved us (or a new layer shows in the creatures around us)
+ns:Listen("LAYER", function(key, old)
+  local m = L.mine
+  if m and m.joinedAt and key and key ~= m.from then done(m, key) end
+end)
+ns:Listen("LAYER_TRANSFER", function()
+  local m = L.mine
+  if m and m.joinedAt then m.transfer = GetTime() end
+end)
+
+function L:Verify(m)
+  if self.mine ~= m or m.moved then return end
+  if m.transfer and not m.from then done(m, ns.Layer and ns.Layer:Current()) return end
+  if m.transfer then
+    -- moved, but the creatures haven't shown the new layer yet: give it a little longer
+    C_Timer.After(10, function()
+      if self.mine == m and not m.moved then done(m, ns.Layer and ns.Layer:Current()) end
+    end)
+    return
+  end
+  local host = m.host and ns.ShortName(m.host) or "The host"
+  ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
+  self.mine = nil
+  local members = GetNumGroupMembers and GetNumGroupMembers() or 0
+  if inGroup() and members <= 2 and not inCombat() then leave() end
+  ns:Fire("LAYERHOP")
+end
+
+---------------------------------------------------------------------------
+-- settings by slash: /chill layer host on|off, /chill layer strangers on|off
+---------------------------------------------------------------------------
+function L:Slash(rest)
+  rest = (rest or ""):lower()
+  local what, onoff = rest:match("^(%a+)%s*(%a*)$")
+  if what == "host" or what == "strangers" then
+    local key = what == "host" and "layerHost" or "layerStrangers"
+    if onoff == "on" then S()[key] = true elseif onoff == "off" then S()[key] = false else S()[key] = not S()[key] end
+    ns.Print((what == "host" and "Auto-invite gang members for layer hops: " or "Host layer hops for LayerSwap users (strangers): ")
+      .. (S()[key] and "|cff9BE08Aon|r" or "off"))
+    return
+  end
+  if what == "status" or what == "info" then
+    local cur = ns.Layer and ns.Layer:Current()
+    ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
+      .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
+      .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
+    return
+  end
+  self:Request()
+end
+
+---------------------------------------------------------------------------
+-- popup for helpers who invite by hand (auto-invite off, or an older asker)
+---------------------------------------------------------------------------
 function L:ShowAsk(id)
   local r = self.open[id]
   if not r then return end

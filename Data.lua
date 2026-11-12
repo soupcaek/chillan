@@ -45,6 +45,8 @@ Comm:Handle("ST", function(f, sender, channel)
   if f[17] and f[17] ~= "" and (f[18] and f[18] ~= "") then c.name = f[17] end
   if f[18] and f[18] ~= "" then p.version = f[18] Data:CheckVersion(f[18], pid) end
   if f[19] and f[19] ~= "" then p.alias = f[19] end
+  -- layer (0.28+): what this friend last read from the creatures around them
+  if f[20] ~= nil then L.layer = (f[20] ~= "" and not L.inInst) and f[20] or nil end
   p.heard = ns.Now()
   p.lastSeen = ns.Now()
   local r = ns.db.roster[sender]
