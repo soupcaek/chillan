@@ -116,12 +116,12 @@ class _Lua:
 
 
 def read_discord(path):
-    """Return {'out': [json strings], 'status': json string or None} from Chillan.lua."""
+    """Return {'out': [json strings], 'status': json string or None, 'link': webhook or None} from Chillan.lua."""
     with open(path, "rb") as f:
         text = f.read().decode("utf-8", "surrogateescape")
     m = re.search(r'\["discord"\]\s*=\s*\{', text)
     if not m:
-        return {"out": [], "status": None}
+        return {"out": [], "status": None, "link": None}
     p = _Lua(text, m.end() - 1)
     d = p.table()
     out = []
@@ -129,13 +129,31 @@ def read_discord(path):
         if isinstance(e, dict) and isinstance(e.get("j"), str):
             out.append(e["j"])
     st = d.get("status") if isinstance(d, dict) else None
-    return {"out": out, "status": st if isinstance(st, str) else None}
+    link = d.get("link") if isinstance(d, dict) else None
+    return {"out": out, "status": st if isinstance(st, str) else None,
+            "link": link if isinstance(link, str) and link.startswith("https://discord.com/api/webhooks/") else None}
+
+
+def game_root_from(path):
+    """If path is inside <game>/Interface/AddOns/..., return <game> (e.g. ..._forever_)."""
+    parts = os.path.abspath(path).replace("\\", "/").split("/")
+    low = [p.lower() for p in parts]
+    if "interface" in low:
+        i = len(low) - 1 - low[::-1].index("interface")
+        if i + 1 < len(low) and low[i + 1] == "addons":
+            return "/".join(parts[:i]) or None
+    return None
 
 
 def find_saved_files(roots=None):
     """Look for WTF/Account/*/SavedVariables/Chillan.lua under the usual WoW folders."""
     found = []
-    roots = roots or []
+    roots = list(roots or [])
+    if roots:
+        for root in roots:
+            found += glob.glob(os.path.join(root, "WTF", "Account", "*", "SavedVariables", "Chillan.lua"))
+        if found:
+            return sorted(set(found))
     if not roots:
         for drive in "CDEFGH":
             for base in (r"\Program Files (x86)\World of Warcraft", r"\Program Files\World of Warcraft",

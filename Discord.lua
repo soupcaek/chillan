@@ -227,7 +227,10 @@ local function db()
   return d
 end
 
+-- live: flash code lines for the companion (only the PC that turned it on)
 function X:Enabled() return db().on == true end
+-- relaying: keep an outbox in the saved data (anyone who has the gang's relay link)
+function X:Relaying() return db().on == true or (type(db().link) == "string" and db().link ~= "") end
 
 local function outbox(e)
   local d = db()
@@ -360,9 +363,9 @@ end
 
 function X:Send(e, live, hold)
   if not e then return end
-  if not X:Enabled() then return end
+  if not X:Relaying() then return end
   outbox(e)
-  if live ~= false then flash(e, hold) end
+  if live ~= false and X:Enabled() then flash(e, hold) end
 end
 
 ---------------------------------------------------------------------------
@@ -371,7 +374,7 @@ end
 local lastStatus, lastStatusAt = nil, 0
 
 function X:PushStatus(force)
-  if not X:Enabled() then return end
+  if not X:Relaying() then return end
   local st = X:Status()
   local key = {}
   for _, r in ipairs(st.g) do key[#key + 1] = r[1] .. ":" .. r[4] .. ":" .. r[6] end
@@ -379,7 +382,7 @@ function X:PushStatus(force)
   db().status = json(st)
   if not force and (sig == lastStatus or ns.Now() - lastStatusAt < 300) then return end
   lastStatus, lastStatusAt = sig, ns.Now()
-  flash(st)
+  if X:Enabled() then flash(st) end
 end
 
 ns:Listen("FEEDEVENT", function(_, item)
@@ -397,7 +400,7 @@ C_Timer.NewTicker(STATUS_EVERY, function() X:PushStatus(false) end)
 
 -- the game writes saved data just after this: make sure the status is current
 ns:On("PLAYER_LOGOUT", function()
-  if X:Enabled() then
+  if X:Relaying() then
     local st = X:Status()
     db().status = json(st)
   end
@@ -410,7 +413,7 @@ local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = t
 local CATCHUP_MAX = 40
 
 function X:CatchUp()
-  if not X:Enabled() then return 0 end
+  if not X:Relaying() then return 0 end
   local d = db()
   if not d.since then d.since = ns.Now() return 0 end
   local done = {}
@@ -441,14 +444,49 @@ end
 
 ns:On("PLAYER_LOGIN", function()
   local d = db()
-  if d.on and not d.since then d.since = ns.Now() end
+  if X:Relaying() and not d.since then d.since = ns.Now() end
+  -- pass the relay link on to gang members who don't have the newest one
+  C_Timer.After(45, function() X:ShareLink() end)
   -- give the history sync time to bring in what happened while we were away
   C_Timer.After(90, function() X:CatchUp() end)
   C_Timer.After(240, function() X:CatchUp() end)
 end)
 
+---------------------------------------------------------------------------
+-- the gang's relay link (a Discord webhook into the hidden raw channel)
+-- set once by whoever owns the Discord side, then shared in game with everyone,
+-- so every companion can pick it up from its own Chillan data with no setup
+---------------------------------------------------------------------------
+local LINK_PREFIX = "^https://discord%.com/api/webhooks/%d+/[%w_%-]+$"
+
+function X:ShareLink()
+  local d = db()
+  if not (d.link and d.linkVer) or not ns.Comm then return end
+  ns.Comm:Broadcast(ns.Comm:Build("DW", d.linkVer, d.link), 3)
+end
+
+local function takeLink(ver, url)
+  local d = db()
+  ver = tonumber(ver)
+  if not ver or type(url) ~= "string" then return end
+  if url ~= "" and not url:match(LINK_PREFIX) then return end
+  if d.linkVer and ver <= d.linkVer then return end
+  local had = d.link
+  d.link, d.linkVer = (url ~= "" and url or nil), ver
+  if not d.since and d.link then d.since = ns.Now() end
+  if d.link and not had then
+    ns.Print("The gang's Discord feed is set up. To help post to it, run the Chillan companion once: "
+      .. "|cffE0C068Interface\\AddOns\\Chillan\\Companion\\ChillanCompanion.exe|r in your WoW folder. It never looks at your screen.")
+  end
+end
+
+if ns.Comm and ns.Comm.Handle then
+  ns.Comm:Handle("DW", function(f) takeLink(f[1], f[2]) end)
+end
+
 -- /chill discord [on|off|test|flush]
 function X:Slash(rest)
+  X.rawArg = rest or ""
   rest = (rest or ""):lower()
   local d = db()
   if rest == "on" then
@@ -469,11 +507,28 @@ function X:Slash(rest)
     e.tx = "Test from Chillan? Bjørn Stian says hi. æøå ÆØÅ"
     X:Send(e, true, 8)
     ns.Print("Test sent: a thin dark line sits at the very top-left of the screen for 8 seconds. The companion should count it, and Discord should get a test card.")
+  elseif rest:match("^link") then
+    local url = rest:match("^link%s+(%S+)")
+    -- slash text is lower-cased above; webhook tokens are case-sensitive, so take the raw text
+    if url then url = (X.rawArg or ""):match("(https://%S+)") end
+    if url == nil and rest:match("^link%s+clear") then
+      d.link, d.linkVer = nil, ns.Now()
+      ns.Comm:Broadcast(ns.Comm:Build("DW", d.linkVer, ""), 3)
+      ns.Print("Relay link removed for the whole gang.")
+    elseif url then
+      if not url:match(LINK_PREFIX) then ns.Print("That doesn't look like a Discord webhook link.") return end
+      d.link, d.linkVer = url, ns.Now()
+      d.since = d.since or ns.Now()
+      X:ShareLink()
+      ns.Print("Relay link saved and shared with the gang. Everyone's Chillan now keeps events for the Discord feed.")
+    else
+      ns.Print("Relay link: " .. (d.link and ("set (…" .. d.link:sub(-6) .. ")") or "not set") .. ". Set it with /chill discord link <webhook>.")
+    end
   elseif rest == "flush" then
     ns.Print("Saving now so the companion picks up everything in the outbox…")
     C_Timer.After(0.5, function() ReloadUI() end)
   else
-    ns.Print("Discord relay is " .. (d.on and "|cff9BE08Aon|r" or "off") .. ". Outbox: " .. #d.out
-      .. " events. Commands: /chill discord on | off | test | flush")
+    ns.Print("Live relay on this PC: " .. (d.on and "|cff9BE08Aon|r" or "off") .. ". Saving events for Discord: "
+      .. (X:Relaying() and "yes" or "no") .. ". Outbox: " .. #d.out .. " events. Commands: /chill discord on | off | test | flush | link <webhook>")
   end
 end

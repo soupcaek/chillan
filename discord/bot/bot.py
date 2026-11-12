@@ -96,6 +96,10 @@ async def handle(text):
     if not isinstance(e, dict):
         return
     if e.get("k") == "STATUS":
+        # several PCs may send a status (live, or from saved data at logout): keep the newest
+        if int(e.get("t") or 0) < int(store.get("status_t", 0) or 0):
+            return
+        store.set("status_t", int(e.get("t") or 0))
         now = int(time.time())
         for r in e.get("g") or []:
             if len(r) > 6 and r[5]:

@@ -27,7 +27,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          grep -oP 'VERSION = "\K[0-9.]+' discord/companion/chillan_companion.py > discord/companion/dist/version.txt
           gh release delete companion --yes --cleanup-tag || true
-          gh release create companion discord/companion/dist/ChillanCompanion.exe \
+          gh release create companion discord/companion/dist/ChillanCompanion.exe discord/companion/dist/version.txt \
             --title "Chillan companion (Windows)" --prerelease \
             --notes "Relays Chillan? events from WoW to Discord. Download ChillanCompanion.exe, run it, paste the raw-channel webhook. Windows may warn because the program isn't signed: More info → Run anyway."
