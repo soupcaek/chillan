@@ -109,28 +109,27 @@ end
 -- asking
 ---------------------------------------------------------------------------
 function L:Request()
+  local m = self.mine
+  local pending = m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL
+  -- the zone search must be the very first thing a click does: the game allows it only straight
+  -- from a click or a typed command (tested: the same search typed works, after other work it's blocked)
+  if (not pending or m.mode == "gang") and not (IsInGroup and IsInGroup()) and not (InCombatLockdown and InCombatLockdown()) then
+    self:StartSearch()
+  end
   if inGroup() then
     ns.Print("Leave your group first – you change layer by joining someone's group.")
     return
   end
   if inInstance() then ns.Print("You can't change layer inside a dungeon.") return end
   if inCombat() then ns.Print("Not in combat.") return end
-  local m = self.mine
-  -- a second click while the gang couldn't help: ask the LayerSwap users in the zone
-  if m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL then
-    if m.mode == "gang" and ns.Now() - m.t >= 8 then
-      self:AskLayerSwap(m)
-    else
-      ns.Print("Already asking for a layer hop…")
-    end
+  if pending then
+    if m.mode == "gang" then self:AskLayerSwap(m) else ns.Print("Already asking for a layer hop…") end
     return
   end
   local hosts, from, map = self:GangHosts()
   local id = Comm:NewId()
   m = { id = id, t = ns.Now(), from = from, map = map, mode = "gang", whispered = {} }
   self.mine = m
-  -- the player search must be the first thing this click does: the game allows it only straight
-  -- from a click, and anything sent before it in the same click gets it blocked
   if #hosts == 0 then
     -- nobody in the gang can move us: don't bother them, go straight to LayerSwap users
     m.noGang = true
@@ -139,19 +138,16 @@ function L:Request()
     C_Timer.After(0.1, function()
       Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
     end)
-  end
-  if #hosts > 0 then
     local names = {}
     for i, p in ipairs(hosts) do if i <= 3 then names[#names + 1] = ns:ShortWho(p) end end
     ns.Print("Layer hop: asking the gang (" .. table.concat(names, ", ") .. (#hosts > 3 and " …" or "")
       .. " can move you" .. (from and (" off " .. label(from)) or "") .. ").")
+    -- no gang invite after a while: the LayerSwap users this click found get the ask
+    C_Timer.After(10, function()
+      if self.mine == m and not m.by and not m.joinedAt and m.mode == "gang" then self:AskLayerSwap(m) end
+    end)
   end
   ns:Fire("LAYERHOP")
-  C_Timer.After(12, function()
-    if self.mine == m and not m.by and not m.joinedAt and m.mode == "gang" then
-      ns.Print("Layer hop: no gang invite yet. |cffE0C068Click again|r to also ask LayerSwap users in the zone.")
-    end
-  end)
   C_Timer.After(REQUEST_TTL, function()
     if self.mine == m and not m.joinedAt then
       ns.Print("Layer hop: nobody could invite you right now. Busier zones have more layers.")
@@ -300,7 +296,7 @@ local function chatterNames(m, skip, out, limit)
 end
 
 -- the LayerSwap users of this zone on another layer, hosts and the most recent first
-function L:BookNames(m)
+function L:BookNames(m, knownOnly)
   pruneBook()
   local out = {}
   for name, e in pairs(book()) do
@@ -316,11 +312,11 @@ function L:BookNames(m)
   local names, skip = {}, {}
   for i, x in ipairs(out) do if i <= 30 then names[#names + 1] = x.name skip[norm(x.name)] = true end end
   L.lastKnown = #names
-  chatterNames(m, skip, names, 30)
+  if not knownOnly then chatterNames(m, skip, names, 30) end
   return names
 end
 
-local who = nil   -- { m, at, muted }
+local who = nil          -- the zone search in flight or just answered: { at, how, muted, done, names }
 local whoBlocking = false
 
 local function unmute()
@@ -328,75 +324,67 @@ local function unmute()
   if who then who.muted = nil end
 end
 
--- one /who of the zone (only works from a click), then hidden whispers to who it found
-function L:AskLayerSwap(m)
-  m.mode = "ls"
-  m.t = ns.Now()
-  seedFromLayerSwap()
-  local blockedAt = ns.db.whoBlockedAt
-  if not (C_FriendList and C_FriendList.SendWho) or (blockedAt and time() - blockedAt < 7 * 86400) then
-    return self:AskBook(m)
+-- the zone search: called first thing in a click (see Request). Its answer is kept for the hop.
+function L:StartSearch()
+  if not (C_FriendList and C_FriendList.SendWho) then return false end
+  if who and not who.done and GetTime() - who.at < 10 then return true end
+  local okC, map = pcall(C_Map.GetBestMapForUnit, "player")
+  local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
+  local w = { at = GetTime() }
+  who = w
+  whoBlocking = true
+  local ok, err = false, nil
+  if okC and type(map) == "number" and not secret(map) then
+    ok, err = pcall(C_FriendList.SendWho, "", origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { map } })
+    w.how = "map " .. map
   end
-  local zone = ns.S(GetRealZoneText) or ""
-  local text = zone ~= "" and ('z-"' .. zone .. '"') or ""
-  who = { m = m, at = GetTime() }
-  -- keep the game's own who lists (Forever's group finder, the Friends window) out of our search
-  who.muted = {}
+  if not ok and not w.blocked then
+    local zone = ns.S(GetRealZoneText) or ""
+    ok, err = pcall(C_FriendList.SendWho, zone ~= "" and ('z-"' .. zone .. '"') or "", origin)
+    w.how = zone
+  end
+  whoBlocking = false
+  L.lastWho = { at = time(), how = w.how }
+  if w.blocked or not ok then
+    L.lastWho.err = w.blocked and "blocked by the game" or tostring(err)
+    who = nil
+    return false
+  end
+  -- keep the game's own who lists (Forever's group finder, the Friends window) from popping up
+  w.muted = {}
   for _, name in ipairs({ "LFGWhoListFrame", "FriendsFrame" }) do
     local f = _G[name]
     if type(f) == "table" and f.IsEventRegistered and f.IsVisible then
       local okR, reg = pcall(f.IsEventRegistered, f, "WHO_LIST_UPDATE")
       local okV, seen = pcall(f.IsVisible, f)
       if okR and reg == true and okV and seen ~= true and pcall(f.UnregisterEvent, f, "WHO_LIST_UPDATE") then
-        who.muted[#who.muted + 1] = f
+        w.muted[#w.muted + 1] = f
       end
     end
   end
-  local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
-  local ok, err = false, nil
-  whoBlocking, who.blocked = true, false
-  if m.map then
-    ok, err = pcall(C_FriendList.SendWho, text, origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { m.map } })
-    who.how = "map " .. tostring(m.map)
-  end
-  if not ok and not who.blocked then
-    ok, err = pcall(C_FriendList.SendWho, text, origin)
-    who.how = text
-  end
-  whoBlocking = false
-  if who.blocked then
-    -- this game won't let Chillan search for players: remember it, and use the users we know of
-    ns.db.whoBlockedAt = time()
-    L.lastWho = { at = time(), how = who.how, err = "blocked by the game – using known LayerSwap users" }
-    unmute()
-    who = nil
-    return self:AskBook(m)
-  end
-  if ok and C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
-  L.lastWho = { at = time(), how = who.how, err = (not ok) and tostring(err) or nil }
-  if not ok then unmute() who = nil ns.Print("Layer hop: the game refused the player search (" .. tostring(err) .. ").") return end
-  -- the answer can come late, or without the event: look at what the game holds after a few seconds
-  C_Timer.After(4, function() if who and who.m == m and not who.done then L:WhoResults("late") end end)
-  C_Timer.After(10, function()
-    if who and who.m == m and not who.done then
+  if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
+  C_Timer.After(3, function() if who == w and not w.done then L:WhoResults("late") end end)
+  C_Timer.After(8, function()
+    if who == w and not w.done then
       local okN, n = pcall(C_FriendList.GetNumWhoResults)
       if okN and type(n) == "number" and not secret(n) and n > 0 then L:WhoResults("timeout") return end
       unmute()
-      who = nil
+      w.done, w.names = true, {}
       L.lastWho.result = "no answer"
-      ns.Print("Layer hop: the player search got no answer (the game allows one search every few seconds) – click Layer hop again in a moment.")
+      L:OnSearch()
     end
   end)
+  return true
 end
 
 ns:On("WHO_LIST_UPDATE", function() L:WhoResults("event") end)
 
 function L:WhoResults(via)
-  if not who or who.done then return end
+  local w = who
+  if not w or w.done then return end
   local okN0, n0 = pcall(C_FriendList.GetNumWhoResults)
   if via == "late" and not (okN0 and type(n0) == "number" and not secret(n0) and n0 > 0) then return end
-  who.done = true
-  local m = who.m
+  w.done = true
   unmute()
   local okN, n = pcall(C_FriendList.GetNumWhoResults)
   if not okN or secret(n) or type(n) ~= "number" then n = 0 end
@@ -409,17 +397,31 @@ function L:WhoResults(via)
       names[#names + 1] = name
     end
   end
-  who = nil
-  if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
-  m.pooled = true
-  -- shuffle so the same few players aren't always asked first
   for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
-  -- known LayerSwap hosts first
+  w.names = names
+  if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
+  L:OnSearch()
+end
+
+-- the search answered: a hop already waiting for it gets asked now
+function L:OnSearch()
+  local m = self.mine
+  if m and m.mode == "ls" and not m.asked and not m.joinedAt then self:AskLayerSwap(m) end
+end
+
+-- ask LayerSwap users: known hosts first, then the players this click's search found
+function L:AskLayerSwap(m)
+  m.mode = "ls"
+  m.t = ns.Now()
+  seedFromLayerSwap()
+  local w = who
+  if w and not w.done and GetTime() - w.at < 10 then return end   -- OnSearch comes back here
   local seen, all = {}, {}
-  for _, nm in ipairs(L:BookNames(m)) do if not seen[norm(nm)] then seen[norm(nm)] = true all[#all + 1] = nm end end
-  for _, nm in ipairs(names) do if not seen[norm(nm)] then seen[norm(nm)] = true all[#all + 1] = nm end end
-  if #all == 0 then ns.Print("Layer hop: the search found nobody else in the zone to ask.") return end
-  L:Whisper(m, all)
+  local function add(nm) if not seen[norm(nm)] then seen[norm(nm)] = true all[#all + 1] = nm end end
+  for _, nm in ipairs(L:BookNames(m, true)) do add(nm) end
+  if w and w.names and GetTime() - w.at < 120 then for _, nm in ipairs(w.names) do add(nm) end end
+  if #all == 0 then return self:AskBook(m) end
+  self:Whisper(m, all)
 end
 
 -- asks the LayerSwap users we already know of in this zone (no search needed)
@@ -698,19 +700,9 @@ function L:ShowAsk(id)
 end
 
 -- the game blocked a call of ours during a player search: say so in /chill layer status
--- the game blocks our player search (the event can come during the call or just after it):
--- remember it for a week and ask the LayerSwap users we know of instead
+-- the game blocks our zone search (the event comes during the call)
 ns:On("ADDON_ACTION_BLOCKED", function(addon)
-  if addon ~= ADDON or not who then return end
-  if whoBlocking then who.blocked = true return end
-  if GetTime() - (who.at or 0) > 3 or who.done then return end
-  local m = who.m
-  who.done = true
-  ns.db.whoBlockedAt = time()
-  L.lastWho = { at = time(), how = who.how, err = "blocked by the game – using known LayerSwap users" }
-  unmute()
-  who = nil
-  if L.mine == m and not m.joinedAt then L:AskBook(m) end
+  if addon == ADDON and whoBlocking and who then who.blocked = true end
 end)
 
 ---------------------------------------------------------------------------

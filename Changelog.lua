@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.8", date = "12.11", items = {
+    "Layer hop works like LayerSwap: the click searches your zone first (the game only allows that straight from a click), then asks the LayerSwap users it finds – a host on another layer invites you",
+    "If a gang member in your zone is on another layer they're asked first; no invite within 10 s and the LayerSwap users your click found are asked automatically",
+  } },
   { v = "0.28.7", date = "12.11", items = {
     "Test command for the layer hop player search: /chillwho",
   } },
