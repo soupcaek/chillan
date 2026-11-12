@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.28.7", date = "12.11", items = {
+    "Test command for the layer hop player search: /chillwho",
+  } },
   { v = "0.28.6", date = "12.11", items = {
     "Layer hop without LayerSwap: the gang pools the LayerSwap users each Chillan has learned, and players who chatted in a channel in your zone are asked too (only LayerSwap users can read the request – nobody sees anything)",
   } },

@@ -17,6 +17,7 @@ L.mine = nil      -- my open request { id, t, from, map, mode, whispered, joined
 L.open = {}       -- requests from others I can answer: id -> { pid, target, t }
 
 local LS_PREFIX = "LayerSwap"
+local function testWhoLater(how) if L.TestWho then L.TestWho(how) end end
 local REQUEST_TTL = 90
 local VERIFY_AFTER = 15     -- no move this long after joining: the host stood on our layer
 local LEAVE_AFTER = 30      -- after a confirmed move, leave the host's group
@@ -642,6 +643,7 @@ function L:Slash(rest)
       .. (S()[key] and "|cff9BE08Aon|r" or "off"))
     return
   end
+  if what == "test" then testWhoLater("typed /chill layer test") return end
   if what == "status" or what == "info" then
     local cur = ns.Layer and ns.Layer:Current()
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
@@ -710,3 +712,32 @@ ns:On("ADDON_ACTION_BLOCKED", function(addon)
   who = nil
   if L.mine == m and not m.joinedAt then L:AskBook(m) end
 end)
+
+---------------------------------------------------------------------------
+-- test: does the game let Chillan search for players at all? (/chillwho, /chill layer test)
+-- The search is the very first thing the command does.
+---------------------------------------------------------------------------
+local probe
+local function testWho(how)
+  local okC, map = pcall(C_Map.GetBestMapForUnit, "player")
+  local origin = (Enum and Enum.SocialWhoOrigin and Enum.SocialWhoOrigin.Social) or 1
+  probe = { at = GetTime(), how = how, blocked = false, results = nil }
+  whoBlocking = true
+  local ok, err = pcall(C_FriendList.SendWho, "", origin,
+    { classIDs = {}, raceIDs = {}, uiMapIDs = { (okC and type(map) == "number") and map or 0 } })
+  whoBlocking = false
+  probe.err = (not ok) and tostring(err) or nil
+  local p = probe
+  C_Timer.After(4, function()
+    local okN, n = pcall(C_FriendList.GetNumWhoResults)
+    p.results = okN and n or "?"
+    ns.Print("Player search test (" .. p.how .. "): " .. (p.blocked and "|cffF2777ABLOCKED by the game|r"
+      or p.err and ("error: " .. p.err) or ("|cff9BE08Aok|r – " .. tostring(p.results) .. " results")) .. ".")
+  end)
+end
+ns:On("ADDON_ACTION_BLOCKED", function(addon)
+  if addon == ADDON and probe and GetTime() - probe.at < 3 then probe.blocked = true end
+end)
+SLASH_CHILLANWHO1 = "/chillwho"
+SlashCmdList.CHILLANWHO = function() testWho("typed /chillwho") end
+L.TestWho = testWho
