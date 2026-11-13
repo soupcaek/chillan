@@ -584,7 +584,10 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     -- a group kill: everyone in on it gets the honour message. Fold them into one feed item.
     for i = #ns.db.feed, 1, -1 do
       local it = ns.db.feed[i]
-      if it.kind == "KILL" and it.c == c and math.abs((it.t or 0) - (t or 0)) < 120 then
+      -- named victim: same kill if someone else reports it within 2 min; unnamed (the game hid the
+      -- line): only within 15 s. My own second kill is never folded into my first.
+      local window = (c and c ~= "") and 120 or 15
+      if it.kind == "KILL" and it.c == c and it.pid ~= pid and math.abs((it.t or 0) - (t or 0)) < window then
         if it.pid ~= pid then
           it.w = it.w or {}
           local have = false

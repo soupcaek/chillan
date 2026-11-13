@@ -247,20 +247,129 @@ function K:VictimFrom(text)
   end
 end
 
-local lastVictim, lastAt = nil, 0
-ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
+-- A kill is spotted three ways, so one the game hides still counts:
+--  1) the honour line in chat ("X dies, honorable kill") – names the victim
+--  2) PLAYER_PVP_KILLS_CHANGED – the game's own kill counter went up
+--  3) the session kill count (GetPVPSessionStats) went up – checked every few seconds
+-- In a fight the game can hide chat lines from addons, so 2) and 3) post the kill with the
+-- enemy you had targeted (if it's dead) when no honour line came.
+K.diag = { honour = 0, hidden = 0, counter = 0, session = 0, posted = 0 }
+local lastVictim, lastAt, lastPostAt = nil, 0, 0
+
+local function postKill(victim, via)
   if K:InPvPInstance() then return end
-  local victim = K:VictimFrom(text)
-  if not victim then return end
-  if victim == lastVictim and GetTime() - lastAt < 10 then return end
-  lastVictim, lastAt = victim, GetTime()
-  local short = ns.ShortName(victim)
-  local s = seen[victim] or seen[short]
+  victim = victim or ""
+  if victim ~= "" and victim == lastVictim and GetTime() - lastAt < 10 then return end
+  if victim == "" and GetTime() - lastPostAt < 5 then return end   -- the named post already went out
+  lastVictim, lastAt, lastPostAt = victim, GetTime(), GetTime()
+  local short = victim ~= "" and ns.ShortName(victim) or ""
+  local s = short ~= "" and (seen[victim] or seen[short]) or nil
   local extra = s and GetTime() - s.at < 600 and s.txt or ""
   local zone = ns.Clean(ns.S(GetRealZoneText) or "", 40)
-  local enemy = ns.db.enemies and ns.db.enemies[short:lower()]
+  local enemy = short ~= "" and ns.db.enemies and ns.db.enemies[short:lower()]
   local cat = enemy and "REVENGE" or "KILL"
   if enemy then enemy.revenge = (enemy.revenge or 0) + 1 end
   local idx = K:Pick(cat)
+  K.diag.posted = K.diag.posted + 1
+  K.diag.last = via
   ns.Tracker:Event("KILL", zone, cat .. ":" .. idx, ns.Clean(short, 40), ns.Clean(extra, 30))
+end
+K.PostKill = postKill
+
+-- the enemy player you were fighting: your target if it's a dead enemy player, else the last one seen
+local lastFoe
+local function noteFoe(unit)
+  if not ns.S(UnitIsPlayer, unit) or not ns.S(UnitCanAttack, "player", unit) then return end
+  local name = ns.S(UnitName, unit)
+  if type(name) == "string" and name ~= "" then lastFoe = { name = name, at = GetTime() } end
+end
+ns:On("PLAYER_TARGET_CHANGED", function() noteFoe("target") end)
+ns:On("UNIT_HEALTH", function(unit) if unit == "target" then noteFoe("target") end end)
+local function foeName()
+  if ns.S(UnitIsPlayer, "target") and ns.S(UnitCanAttack, "player", "target") and ns.S(UnitIsDead, "target") then
+    local n = ns.S(UnitName, "target")
+    if type(n) == "string" and n ~= "" then return n end
+  end
+  if lastFoe and GetTime() - lastFoe.at < 20 then return lastFoe.name end
+  return ""
+end
+
+ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
+  if ns.isSecret(text) then K.diag.hidden = K.diag.hidden + 1 return end
+  K.diag.honour = K.diag.honour + 1
+  local victim = K:VictimFrom(text)
+  if victim then postKill(victim, "honour line") end
 end)
+
+-- Count kills so each is posted once: the game's kill count says how many kills happened, the
+-- honour lines say which ones were already posted. Kills the count shows but no line named get
+-- posted with the enemy we were fighting.
+local owed, credit, creditAt = 0, 0, 0
+local function settle()
+  if GetTime() - creditAt > 30 then credit = 0 end
+  while owed > 0 do
+    owed = owed - 1
+    lastPostAt = 0                       -- a counted kill is a kill of its own
+    postKill(foeName(), "kill count")
+  end
+end
+
+local sessionHK
+local function sessionKills()
+  if not GetPVPSessionStats then return nil end
+  local ok, hk = pcall(GetPVPSessionStats)
+  if ok and type(hk) == "number" and not ns.isSecret(hk) then return hk end
+end
+
+local function checkCount(via)
+  local hk = sessionKills()
+  if not hk then
+    -- no readable count: one counter event = one kill
+    if via == "kill counter" then
+      if credit > 0 then credit = credit - 1 else owed = owed + 1 end
+      C_Timer.After(2, settle)
+    end
+    return
+  end
+  if sessionHK and hk > sessionHK then
+    local d = hk - sessionHK
+    K.diag.session = K.diag.session + d
+    local use = math.min(credit, d)
+    credit, owed = credit - use, owed + (d - use)
+    -- give a late honour line a moment to name the kill first
+    C_Timer.After(2, settle)
+  end
+  sessionHK = hk
+end
+
+-- an honour line named a kill: it pays for one kill of the count
+local namedPost = postKill
+postKill = function(victim, via)
+  if via == "honour line" then
+    if owed > 0 then owed = owed - 1 else credit, creditAt = credit + 1, GetTime() end
+  end
+  return namedPost(victim, via)
+end
+K.PostKill = postKill
+
+ns:On("PLAYER_PVP_KILLS_CHANGED", function()
+  K.diag.counter = K.diag.counter + 1
+  C_Timer.After(0.3, function() checkCount("kill counter") end)
+end)
+
+local poll = CreateFrame("Frame")
+local acc = 0
+poll:SetScript("OnUpdate", function(_, dt)
+  acc = acc + dt
+  if acc < 3 then return end
+  acc = 0
+  checkCount("poll")
+end)
+
+-- /chill kills: what the kill detection has seen this session
+function K:Report()
+  local d = self.diag
+  ns.Print(("Kill detection this session: honour lines %d (hidden by the game %d), kill counter %d, session count %d, posted %d%s. Honorable kills today: %s.")
+    :format(d.honour, d.hidden, d.counter, d.session, d.posted, d.last and (" (last via " .. d.last .. ")") or "",
+      tostring(sessionKills() or "?")))
+end

@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.2", date = "13.11", items = {
+    "Layer hop asks the players in your zone first (the search also lists players elsewhere, who can't move you), up to 49, and stops as soon as an invite comes",
+    "Layer hop reads the LayerSwap hosts' answers: no invite after a round tells you why (on your layer / not hosting / nobody answered), and clicking again starts a fresh round",
+    "No more 'No player named … is currently playing' lines from layer hop asks to players who logged off",
+    "Alliance kills are caught even when the game hides the honour line mid-fight (Chillan watches the kill count) – /chill kills shows what it saw",
+    "Enchanting shards, trade goods and reagents are no longer posted as drops",
+  } },
   { v = "0.29.1", date = "13.11", items = {
     "Fix: deaths (and everything else) during a dungeon boss fight reach the gang right after the fight – the game blocks addon messages mid-fight, and they used to get thrown away and only show up much later",
     "Blue drops and better are always shared now, also when the game hides the loot line in dungeons (Chillan spots the new item in your bags) and when an item wasn't loaded yet",

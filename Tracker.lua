@@ -740,9 +740,21 @@ local function qualityOf(itemID, link)
   return nil
 end
 
+-- materials aren't drops worth a post: enchanting shards (Small Glowing / Radiant Shard …),
+-- trade goods and reagents, whatever their colour
+local SKIP_CLASS = { [5] = true, [7] = true }   -- 5 reagent, 7 trade goods (tradeskill)
+local function isMaterial(itemID)
+  local f = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+  if not f then return false end
+  local ok, _, _, _, _, _, classID = pcall(f, itemID)
+  return ok and type(classID) == "number" and not ns.isSecret(classID) and SKIP_CLASS[classID] or false
+end
+Tracker.IsMaterial = isMaterial
+
 local function postLoot(itemID, quality)
   if not itemID or not quality or quality < math.min(ns.db.settings.lootMinQuality or LOOT_MIN, LOOT_MIN) then return end
   if quality > 5 then return end   -- no heirlooms / tokens
+  if isMaterial(itemID) then return end
   local last = lootSeen[itemID]
   if last and GetTime() - last < 20 then return end
   lootSeen[itemID] = GetTime()

@@ -110,6 +110,10 @@ end
 ---------------------------------------------------------------------------
 function L:Request()
   local m = self.mine
+  -- a round of asks that's done without an invite: a new click starts a fresh round
+  if m and m.mode == "ls" and m.doneAt and not m.joinedAt and not m.by and GetTime() - m.doneAt > 3 then
+    self.mine, m = nil, nil
+  end
   local pending = m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL
   -- the zone search must be the very first thing a click does: the game allows it only straight
   -- from a click or a typed command (tested: the same search typed works, after other work it's blocked)
@@ -313,7 +317,7 @@ function L:BookNames(m, knownOnly)
   local names, skip = {}, {}
   for i, x in ipairs(out) do if i <= 30 then names[#names + 1] = x.name skip[norm(x.name)] = true end end
   L.lastKnown = #names
-  if not knownOnly then chatterNames(m, skip, names, 30) end
+  -- (players seen in chat channels are not asked: General only holds our own layer)
   return names
 end
 
@@ -390,17 +394,47 @@ function L:WhoResults(via)
   local okN, n = pcall(C_FriendList.GetNumWhoResults)
   if not okN or secret(n) or type(n) ~= "number" then n = 0 end
   local me = norm(ns.S(UnitName, "player") or "")
-  local names = {}
+  -- the search also lists players elsewhere: the ones in our zone first (only they can move us)
+  local zoneNames = {}
+  local zn = ns.S(GetRealZoneText)
+  if type(zn) == "string" and zn ~= "" then zoneNames[zn] = true end
+  zn = ns.S(GetZoneText)
+  if type(zn) == "string" and zn ~= "" then zoneNames[zn] = true end
+  local zm = zoneMap()
+  local okM, mi = pcall(C_Map.GetMapInfo, zm or 0)
+  if okM and type(mi) == "table" and type(mi.name) == "string" and not secret(mi.name) then zoneNames[mi.name] = true end
+  local here, away, seen = {}, {}, {}
   for i = 1, math.min(n, 50) do
     local okI, info = pcall(C_FriendList.GetWhoInfo, i)
     local name = okI and type(info) == "table" and info.fullName
-    if type(name) == "string" and not secret(name) and name ~= "" and norm(name) ~= me and not isGangChar(name) then
-      names[#names + 1] = name
+    if type(name) == "string" and not secret(name) and name ~= "" and not seen[name]
+      and norm(name) ~= me and not isGangChar(name) then
+      seen[name] = true
+      local area = info.area
+      if type(area) == "string" and not secret(area) and zoneNames[area] then here[#here + 1] = name
+      else away[#away + 1] = name end
     end
   end
-  for i = #names, 2, -1 do local j = math.random(i) names[i], names[j] = names[j], names[i] end
+  local function shuffle(t) for i = #t, 2, -1 do local j = math.random(i) t[i], t[j] = t[j], t[i] end end
+  shuffle(here) shuffle(away)
+  -- players asked in the last hours who never answered go last (LayerSwap does the same)
+  local asked = ns.db.lsAsked or {}
+  local function fresh(list)
+    local a, b = {}, {}
+    for _, nm in ipairs(list) do
+      local at = asked[nm]
+      if at and time() - at < 6 * 3600 then b[#b + 1] = nm else a[#a + 1] = nm end
+    end
+    for _, nm in ipairs(b) do a[#a + 1] = nm end
+    return a
+  end
+  local names = fresh(here)
+  w.inZone = #names
+  for _, nm in ipairs(fresh(away)) do names[#names + 1] = nm end
   w.names = names
-  if L.lastWho then L.lastWho.result = n .. " found, " .. #names .. " to ask (" .. via .. ")" end
+  if L.lastWho then
+    L.lastWho.result = n .. " found, " .. w.inZone .. " in your zone, " .. #names .. " to ask (" .. via .. ")"
+  end
   L:OnSearch()
 end
 
@@ -443,31 +477,117 @@ function L:AskBook(m)
   self:Whisper(m, names)
 end
 
+local ASK_MAX = 49
 function L:Whisper(m, names)
   m.asked = true
+  m.replies = m.replies or {}
   local line, sent, i = lsLine(m), 0, 1
-  local first = true
+  ns.db.lsAsked = ns.db.lsAsked or {}
+  local nAsked = 0
+  for nm, at in pairs(ns.db.lsAsked) do
+    if time() - at > 6 * 3600 then ns.db.lsAsked[nm] = nil else nAsked = nAsked + 1 end
+  end
+  if nAsked > 2000 then ns.db.lsAsked = {} end
   local function burst()
     if L.mine ~= m or m.joinedAt then return end
-    -- the game takes about 10 addon messages at once, then about one a second
-    for _ = 1, (first and 8 or 1) do
+    -- like LayerSwap: 8 at a time, a second apart, until an invite comes or everyone's asked
+    for _ = 1, 8 do
       local name = names[i]
-      if not name or i > 30 then break end
+      if not name or (m.sent or 0) >= ASK_MAX then break end
       i = i + 1
-      local ok, res = pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
-      if ok and (res == nil or res == 0 or res == true) then
-        sent = sent + 1
-        m.whispered[norm(name)] = true
-        m.sent = (m.sent or 0) + 1
+      if not m.whispered[norm(name)] then
+        local ok, res = pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
+        if ok and not secret(res) and res == 3 then                        -- the game's budget: try again next second
+          i = i - 1
+          m.throttled = (m.throttled or 0) + 1
+          break
+        end
+        if ok and (res == nil or res == 0 or res == true) then
+          sent = sent + 1
+          m.whispered[norm(name)] = true
+          m.sent = (m.sent or 0) + 1
+          ns.db.lsAsked[name] = time()
+          L.sentTo[norm(name)] = GetTime()
+        end
       end
     end
-    first = false
     ns:Fire("LAYERHOP")
-    if names[i] and i <= 30 then C_Timer.After(1, burst)
-    else ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. sent
-      .. " player" .. (sent == 1 and "" or "s") .. " (" .. (L.lastKnown or 0) .. " known LayerSwap users) – a LayerSwap host on another layer will invite you.") end
+    if names[i] and (m.sent or 0) < ASK_MAX and (m.throttled or 0) < 30 then C_Timer.After(1, burst) return end
+    m.doneAt = GetTime()
+    local w = who
+    ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. (m.sent or sent)
+      .. " player" .. ((m.sent or sent) == 1 and "" or "s")
+      .. ((w and w.inZone) and (" (" .. w.inZone .. " in your zone)") or "") .. " – waiting for a LayerSwap host on another layer.")
+    -- what came back, so a hop without an invite says why
+    local mm = m
+    C_Timer.After(12, function()
+      if L.mine ~= mm or mm.joinedAt or mm.by then return end
+      local same, other, busy, quiet = 0, 0, 0, 0
+      for _, r in pairs(mm.replies) do
+        if r.same then same = same + 1 elseif r.host and r.layer then other = other + 1
+        elseif r.host then busy = busy + 1 else quiet = quiet + 1 end
+      end
+      local total = same + other + busy + quiet
+      if total == 0 then
+        ns.Print("Layer hop: no LayerSwap user answered here. Click Layer hop again to ask the next players, or try a busier zone.")
+      else
+        ns.Print("Layer hop: " .. total .. " LayerSwap user" .. (total == 1 and "" or "s") .. " answered – "
+          .. same .. " on your layer, " .. other .. " hosting on another layer, " .. (busy + quiet) .. " not able to host right now. Click Layer hop again to ask more.")
+      end
+    end)
   end
   burst()
+end
+
+-- "No player named 'X' is currently playing." for someone we just asked: hide the line (it's ours,
+-- not the player's) and forget that name, as LayerSwap does
+L.sentTo = {}
+local notFoundPattern
+local function notPlaying(text)
+  if type(text) ~= "string" or secret(text) then return nil end
+  if not notFoundPattern then
+    local g = ERR_CHAT_PLAYER_NOT_FOUND_S
+    if type(g) ~= "string" or secret(g) then return nil end
+    notFoundPattern = "^" .. g:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("%%%%s", "(.+)") .. "$"
+  end
+  return text:match(notFoundPattern)
+end
+local function systemFilter(_, _, text, ...)
+  local name = notPlaying(text)
+  if not name then return false end
+  local key = norm(name)
+  local at = L.sentTo[key]
+  if not at or GetTime() - at > 15 then return false end
+  local b = ns.db.lsBook
+  if b then for nm in pairs(b) do if norm(nm) == key then b[nm] = nil end end end
+  return true
+end
+if ChatFrame_AddMessageEventFilter then ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", systemFilter) end
+L.NotPlaying = notPlaying
+
+-- a LayerSwap user answered our ask: "heard <me>|<their layer>|<zone>|<h or ->"
+local function onHeardReply(sender, layer, zone, host)
+  local m = L.mine
+  if not m or not m.asked or m.joinedAt then return end
+  m.replies = m.replies or {}
+  local key = layer and layer:match("^(%d+)")
+  local r = { host = host, layer = key, same = (key and m.from and key == m.from) and true or nil }
+  m.replies[sender] = r
+  ns.db.lsAsked = ns.db.lsAsked or {}
+  ns.db.lsAsked[sender] = nil        -- answered: not "asked without an answer"
+  -- a host that didn't say its layer: ask once more without the "not my layer" part, as LayerSwap does
+  if host and not key and not r.anyway then
+    r.anyway = true
+    C_Timer.After(6, function()
+      if L.mine ~= m or m.joinedAt or m.by then return end
+      local x, y = mapPos(m.map)
+      local line = "inv layer <LS" .. (m.map and (" " .. m.map) or "")
+        .. ((m.map and x) and string.format(" %.1f,%.1f", x * 100, y * 100) or "") .. ">"
+      L.sentTo[norm(sender)] = GetTime()
+      pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", sender)
+    end)
+  end
+  ns:Fire("LAYERHOP")
 end
 
 -- a gang member asks which LayerSwap users we know in their zone: "name|layer|h;..." (fits one message)
@@ -565,8 +685,14 @@ ns:On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
     learn(sender, body:match("not%s+(%d+)%-%d+"), body:match("^%s*(%d+)"), nil)
   else
     -- a LayerSwap user heard an ask: "heard <asker>|<layer>|<zone>|<h or ->"
-    local _, layer, zone, host = text:match("^heard (.-)|([^|]*)|([^|]*)|([^|]*)$")
-    if layer then learn(sender, layer:match("^(%d+)"), zone ~= "-" and zone or nil, host == "h") end
+    local target, layer, zone, host = text:match("^heard (.-)|([^|]*)|([^|]*)|([^|]*)$")
+    if layer then
+      learn(sender, layer:match("^(%d+)"), zone ~= "-" and zone or nil, host == "h")
+      local me = ns.S(UnitName, "player")
+      if channel == "WHISPER" and type(me) == "string" and norm(target) == norm(me) then
+        onHeardReply(sender, layer ~= "" and layer or nil, zone, host == "h")
+      end
+    end
   end
   if channel ~= "WHISPER" then return end
   onLayerSwap(text, sender)
@@ -651,7 +777,11 @@ function L:TileState()
     return cur or "Layer ?", "Invite from " .. ((p and ns:PersonFirst(p)) or "the gang") .. "…", "E0C068"
   end
   if m.mode == "ls" then
-    if m.sent then return cur or "Layer ?", "Asked " .. m.sent .. " – waiting…", "E0C068" end
+    if m.sent then
+      local n = 0
+      for _ in pairs(m.replies or {}) do n = n + 1 end
+      return cur or "Layer ?", "Asked " .. m.sent .. (n > 0 and (", " .. n .. " answered") or "") .. "…", "E0C068"
+    end
     return cur or "Layer ?", "Searching the zone…", "E0C068"
   end
   return cur or "Layer ?", "Asking the gang…", "E0C068"
