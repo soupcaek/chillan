@@ -17,6 +17,7 @@ Tracker.lua
 DeathLines.lua
 KillLines.lua
 Layer.lua
+CuntList.lua
 Data.lua
 Sync.lua
 Quests.lua
@@ -42,6 +43,7 @@ UI\TabAch.lua
 UI\TabIdeas.lua
 UI\TabMap.lua
 UI\TabMore.lua
+UI\TabCunts.lua
 UI\TabSettings.lua
 UI\TabChangelog.lua
 UI\TabPlayer.lua

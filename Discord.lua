@@ -149,6 +149,11 @@ function X:FromItem(item)
     e.tx = line and plain(line) or (e.n .. " killed " .. tostring(e.vi) .. ".")
     e.kick = ns.Kills and plain(ns.Kills:Kicker(item)) or nil
     return e
+  elseif k == "CUNT" then
+    local e = base("CUNT", item)
+    e.vi = plain(item.a or "")
+    e.rs = plain(item.b or "")
+    return e
   elseif k == "DING" then
     local e = base("DING", item)
     e.l = tonumber(item.a) or e.l
@@ -380,6 +385,14 @@ local function flash(e, hold)
   nextStrip()
 end
 
+-- someone came off the Cunt List: tell the bot (no post, /cunts leaves them out)
+function X:SendUncunt(name)
+  local e = personInfo(ns.pid, ns.Comm:MyFull())
+  e.v, e.k, e.id, e.t = STRIP_VERSION, "UNCUNT", ns.Comm:NewId(), ns.Now()
+  e.vi = plain(name or "")
+  self:Send(e, false)
+end
+
 function X:Send(e, live, hold)
   if not e then return end
   if not X:Relaying() then return end
@@ -428,7 +441,7 @@ end)
 ---------------------------------------------------------------------------
 -- catch-up: what the gang did while this PC wasn't relaying (synced in at login)
 ---------------------------------------------------------------------------
-local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = true, KILL = true }
+local RELAYED = { DEAD = true, DING = true, LOOT = true, ACH = true, DUNGEON = true, KILL = true, CUNT = true }
 local CATCHUP_MAX = 40
 
 function X:CatchUp()

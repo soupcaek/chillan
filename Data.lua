@@ -521,6 +521,7 @@ Comm:Handle("SQ", function(f, sender)
       n = n + 1
     end
   end
+  if ns.Cunts then ns.Cunts:SyncTo(sender) end
 end)
 
 ---------------------------------------------------------------------------
@@ -630,6 +631,10 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
       ns:Fire("TOAST", { kind = "enemy", pid = pid,
         title = "Enemy spotted: " .. tostring(a),
         text = ns:PersonLabel(p) .. " sees them in " .. tostring(b) })
+    elseif kind == "CUNT" and pid ~= ns.pid then
+      ns:Fire("TOAST", { kind = "enemy", pid = pid,
+        title = ns:PersonLabel(p) .. " added " .. tostring(a) .. " to the Cunt List",
+        text = tostring(b or "") })
     elseif kind == "MOUNT" and item.first then
       ns:Fire("TOAST", { kind = "star", pid = pid, title = ns:PersonLabel(p) .. " got a mount!", text = "First in the gang" })
     end

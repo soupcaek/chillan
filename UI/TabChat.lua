@@ -58,6 +58,9 @@ function ns.FeedLine(it, withTime)
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.purple)
     end
+  elseif it.kind == "CUNT" then
+    icon, color = "Skull", C.red
+    text = "put " .. ns.Colorize(tostring(it.a), C.red) .. " on the Cunt List" .. ns.Colorize(" – " .. tostring(it.b or ""), C.dim)
   elseif it.kind == "ENSEEN" then
     icon, color = "Target", C.red
     text = "saw the enemy " .. tostring(it.a) .. " in " .. tostring(it.b or "?")
@@ -108,6 +111,7 @@ function ns.FeedShort(it)
   end
   if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
   if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" got a mount", C.text2) end
+  if it.kind == "CUNT" then return I("Skull", C.red) .. who .. ns.Colorize(" put ", C.text2) .. ns.Colorize(tostring(it.a), C.red) .. ns.Colorize(" on the Cunt List", C.text2) end
   if it.kind == "ENSEEN" then return I("Target", C.red) .. "Enemy " .. tostring(it.a) .. ns.Colorize(" seen by", C.text2) .. who end
   if it.kind == "DUNGEON" then
     local bosses = tonumber(((it.d or ""):match("^(%d+)")))

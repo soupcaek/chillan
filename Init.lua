@@ -159,6 +159,8 @@ SlashCmdList.CHILLAN = function(msg)
     local L = ns.Tracker:UpdateLive()
     if L.mapID and L.x then ns.Extras:AddNote(L.mapID, L.x, L.y, "text", rest, 3)
     else ns.Print("Couldn't find your position here.") end
+  elseif cmd == "cunt" or cmd == "cunts" then
+    ns.Cunts:Slash(rest)
   elseif cmd == "kills" then
     ns.Kills:Report()
   elseif cmd == "layer" or cmd == "hop" or cmd == "lag" then

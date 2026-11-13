@@ -293,6 +293,18 @@ async def deaths(inter: discord.Interaction):
     await inter.response.send_message(embed=embed(cards.deaths_card(all_d, week)))
 
 
+@tree.command(name="cunts", description="The Cunt List: ninja looters and general dicks")
+async def cunts(inter: discord.Interaction):
+    gone = {}
+    for u in store.events("UNCUNT", 0, 5000):
+        k = (u.get("vi") or "").lower()
+        gone[k] = max(gone.get(k, 0), int(u.get("t") or 0))
+    entries = sorted((e for e in store.events("CUNT", 0, 5000)
+                      if int(e.get("t") or 0) > gone.get((e.get("vi") or "").lower(), 0)),
+                     key=lambda e: -int(e.get("t") or 0))
+    await inter.response.send_message(embed=embed(cards.cunts_card(entries)))
+
+
 @tree.command(name="levels", description="The race to 60")
 async def levels(inter: discord.Interaction):
     await inter.response.send_message(embed=embed(cards.levels_card(current_status())))

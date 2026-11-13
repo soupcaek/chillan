@@ -72,6 +72,11 @@ def card(e):
             fields.append({"name": "Killed by", "value": e["kc"] + (" · " + e["kx"] if e.get("kx") else ""), "inline": True})
         return {"author": {"name": (e.get("kick") or "DEAD").upper()}, "description": "**%s**" % (e.get("tx") or (who(e) + " died.")),
                 "color": RED, "fields": fields, "footer": footer(e), "timestamp": iso(e.get("t"))}
+    if k == "CUNT":
+        return {"author": {"name": "THE CUNT LIST"},
+                "description": "**%s** put **%s** on the Cunt List" % (who(e), e.get("vi") or "someone"),
+                "color": RED, "fields": [{"name": "Why", "value": e.get("rs") or "no reason given", "inline": False}],
+                "footer": footer(e), "timestamp": iso(e.get("t"))}
     if k == "KILL":
         revenge = e.get("cat") == "REVENGE"
         f = []
@@ -197,3 +202,19 @@ def loot_card(loot):
         ago = dur(max(0, now - int(e.get("t") or now)))
         lines.append("**%s** · %s (%s) · %s ago" % (who(e), link, qn, ago))
     return {"title": "Recent loot", "description": "\n".join(lines) or "No loot posted yet.", "color": QUALITY[3][0]}
+
+
+def cunts_card(entries):
+    """entries: CUNT events, newest first (one per name)."""
+    lines, seen, now = [], set(), time.time()
+    for e in entries:
+        key = (e.get("vi") or "").lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        ago = dur(max(0, now - int(e.get("t") or now)))
+        lines.append("**%s** – %s  _(%s, %s ago)_" % (e.get("vi"), e.get("rs") or "?", who(e), ago))
+        if len(lines) >= 25:
+            break
+    return {"title": "The Cunt List", "description": "\n".join(lines) or "Nobody on the list yet.", "color": RED,
+            "footer": {"text": "Add people in game: right-click their name → Add to the Cunt List"}}

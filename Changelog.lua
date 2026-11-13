@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.0", date = "15.11", items = {
+    "The Cunt List: right-click a player's name or portrait → «Add to the Cunt List», say why, and the whole gang has it",
+    "Warnings when someone on the list invites you, joins your group or gets targeted, red lines in their tooltip, and a [Cunt] tag on their chat lines and whispers",
+    "New Cunts page: every entry with reason, who added it and when; search, add notes ('did it again'), and remove the ones you added. Also /chill cunt <name>",
+    "New entries go to the feed and Discord (/cunts in Discord lists them)",
+  } },
   { v = "0.29.5", date = "15.11", items = {
     "Fix: the level recap and 'Gratz' box no longer pop up out of nowhere when changing zone – a ding in combat (when the game hides the level) is now handled right away, and a loading screen no longer resets your level record",
   } },
