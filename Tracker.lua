@@ -742,14 +742,16 @@ local function qualityOf(itemID, link)
   return nil
 end
 
--- materials aren't drops worth a post: enchanting shards (Small Glowing / Radiant Shard …),
--- trade goods and reagents, whatever their colour
-local SKIP_CLASS = { [5] = true, [7] = true }   -- 5 reagent, 7 trade goods (tradeskill)
+-- only things worth showing off get posted: gear (weapons, armour), recipes, mounts and pets.
+-- Not materials (enchanting shards …), writs, quest items, consumables, containers – whatever their colour.
 local function isMaterial(itemID)
   local f = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
   if not f then return false end
-  local ok, _, _, _, _, _, classID = pcall(f, itemID)
-  return ok and type(classID) == "number" and not ns.isSecret(classID) and SKIP_CLASS[classID] or false
+  local ok, _, _, _, _, _, classID, subID = pcall(f, itemID)
+  if not ok or type(classID) ~= "number" or ns.isSecret(classID) then return false end
+  if classID == 2 or classID == 4 or classID == 9 or classID == 17 then return false end   -- weapon, armour, recipe, battle pet
+  if classID == 15 and (subID == 2 or subID == 5) then return false end                     -- companion pet, mount
+  return true
 end
 Tracker.IsMaterial = isMaterial
 

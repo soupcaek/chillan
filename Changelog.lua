@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.4", date = "14.11", items = {
+    "Only gear, recipes, mounts and pets are posted as drops – writs, quest items, consumables and materials no longer show up, whatever their colour",
+  } },
   { v = "0.29.3", date = "14.11", items = {
     "Item links in the gang chat and feed work like in normal chat: Ctrl-click opens the dressing room, a plain click shows the item, Shift-click links it",
     "Drops are only posted when they really came from looting (a corpse, chest, loot roll or quest reward) – crafting, mail, the auction house, trades, vendors and the bank no longer count as new gear",
