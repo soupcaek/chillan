@@ -558,8 +558,8 @@ function UI.MessageFrame(parent, size)
     end
   end)
   m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() ns.PersonCard:Hide() end)
-  m:SetScript("OnHyperlinkClick", function(_, link)
-    if type(link) == "string" and link:find("^item:") then ns.ShiftLinkItem(link) return end
+  m:SetScript("OnHyperlinkClick", function(_, link, text, button)
+    if type(link) == "string" and link:find("^item:") then ns.ItemLinkClick(link, text, button) return end
     ns.PersonCard:OnLinkClick(link)
   end)
   return m
@@ -691,6 +691,22 @@ end
 -- Item links: shift-click an item while a Chillan chat input is active puts the link there;
 -- shift-click an item in Chillan chat links it on into normal WoW chat.
 ---------------------------------------------------------------------------
+-- an item link in our chat/feed clicked: Ctrl = dressing room (wardrobe preview), Shift = link it
+-- in chat, plain click = the item's tooltip – the same as in the normal chat window
+function ns.ItemLinkClick(link, text, button)
+  if type(link) ~= "string" then return end
+  local id = link:match("^item:(%d+)")
+  local full = id and ((C_Item and C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(tonumber(id))))
+    or (GetItemInfo and select(2, GetItemInfo(tonumber(id)))))
+  if IsModifiedClick and IsModifiedClick("DRESSUP") then
+    local fn = DressUpItemLink or DressUpLink
+    if fn then pcall(fn, full or link) end
+    return
+  end
+  if IsModifiedClick and IsModifiedClick("CHATLINK") then return ns.ShiftLinkItem(link) end
+  if SetItemRef then pcall(SetItemRef, link, text or full or link, button or "LeftButton") end
+end
+
 function ns.ShiftLinkItem(link)
   if not IsModifiedClick or not IsModifiedClick("CHATLINK") then return end
   local id = link:match("^item:(%d+)")

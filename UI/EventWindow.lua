@@ -281,9 +281,9 @@ function E:Create()
   m:SetSpacing(3)
   m:SetPoint("TOPLEFT", sep, "BOTTOMLEFT", 2, -6)
   m:SetPoint("BOTTOMRIGHT", input, "TOPRIGHT", 12, 6)
-  m:SetScript("OnHyperlinkClick", function(_, link, text)
+  m:SetScript("OnHyperlinkClick", function(_, link, text, button)
     if type(link) == "string" and link:find("^item:") then
-      ns.ShiftLinkItem(link)
+      ns.ItemLinkClick(link, text, button)
       return
     end
     if ns.PersonCard:OnLinkClick(link) then return end
