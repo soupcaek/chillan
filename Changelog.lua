@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.3", date = "14.11", items = {
+    "Drops are only posted when they really came from looting (a corpse, chest, loot roll or quest reward) – crafting, mail, the auction house, trades, vendors and the bank no longer count as new gear",
+  } },
   { v = "0.29.2", date = "13.11", items = {
     "Layer hop asks the players in your zone first (the search also lists players elsewhere, who can't move you), up to 49, and stops as soon as an invite comes",
     "Layer hop reads the LayerSwap hosts' answers: no invite after a round tells you why (on your layer / not hosting / nobody answered), and clicking again starts a fresh round",

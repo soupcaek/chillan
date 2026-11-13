@@ -708,14 +708,16 @@ end)
 
 -- Loot: del episke (eller blå, om valgt) ting du får
 local lootPatterns
+local lootPushed = {}
 local function buildLootPatterns()
-  lootPatterns = {}
+  lootPatterns, lootPushed = {}, {}
   for _, key in ipairs({ "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE" }) do
     local s = _G[key]
     if type(s) == "string" then
       -- "%s" i Blizzards tekst blir til (.+), "%d" til tall
       local pat = s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%s", "(.+)"):gsub("%%d", "%%d+")
       lootPatterns[#lootPatterns + 1] = "^" .. pat
+      lootPushed[#lootPatterns] = key:find("PUSHED") and true or nil
     end
   end
 end
@@ -766,11 +768,14 @@ Tracker.PostLoot = postLoot
 ns:On("CHAT_MSG_LOOT", function(text)
   if type(text) ~= "string" or ns.isSecret(text) then return end
   if not lootPatterns then buildLootPatterns() end
-  for _, pat in ipairs(lootPatterns) do
+  for i, pat in ipairs(lootPatterns) do
     local link = text:match(pat)
     if link then
       local itemID = tonumber(link:match("item:(%d+)"))
       if not itemID then return end
+      -- "You receive item: …" (pushed) also shows for vendor buys and mail: only count it as loot
+      -- when no mailbox, vendor, auction house, trade or bank is (or just was) open
+      if lootPushed[i] and Tracker.Busy and Tracker.Busy() then return end
       local q = qualityOf(itemID, link)
       if q then postLoot(itemID, q)
       else
@@ -806,15 +811,28 @@ local function countBags()
   return out
 end
 
+local busyUntil = 0
 local function isBusy()
   for _, v in pairs(busy) do if v then return true end end
-  return false
+  return GetTime() < busyUntil
 end
+Tracker.Busy = isBusy
+
+-- the bags only count right after real looting: a loot window (corpse, chest, herb), a loot roll,
+-- a quest reward, or a loot line the game hid from us. Crafting, mail, the auction house, trades,
+-- vendors and the bank never open a loot window, so items from there are never "new gear".
+local lootSignalAt = 0
+for _, ev in ipairs({ "LOOT_OPENED", "LOOT_READY", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "LOOT_ROLLS_COMPLETE",
+  "QUEST_TURNED_IN", "QUEST_LOOT_RECEIVED", "ENCOUNTER_LOOT_RECEIVED" }) do
+  ns:On(ev, function() lootSignalAt = GetTime() end)
+end
+ns:On("CHAT_MSG_LOOT", function(text) if ns.isSecret(text) then lootSignalAt = GetTime() end end)
+local function justLooted() return GetTime() - lootSignalAt < 6 end
 
 local function rescan(post)
   local now = countBags()
   if not now then return end
-  if post and bagCount and bagReady and not isBusy() then
+  if post and bagCount and bagReady and not isBusy() and justLooted() then
     for id, n in pairs(now) do
       if n > (bagCount[id] or 0) then
         -- give the loot line a moment to post it first (no double post)
@@ -842,7 +860,11 @@ for open, close in pairs({ BANKFRAME_OPENED = "BANKFRAME_CLOSED", MAIL_SHOW = "M
   MERCHANT_SHOW = "MERCHANT_CLOSED", AUCTION_HOUSE_SHOW = "AUCTION_HOUSE_CLOSED", GUILDBANKFRAME_OPENED = "GUILDBANKFRAME_CLOSED" }) do
   ns:On(open, function() busy[open] = true end)
   -- after closing: take the new contents as the baseline, nothing from there is a drop
-  ns:On(close, function() busy[open] = nil C_Timer.After(1, function() rescan(false) end) end)
+  ns:On(close, function()
+    busy[open] = nil
+    busyUntil = GetTime() + 3
+    C_Timer.After(1, function() rescan(false) end)
+  end)
 end
 
 ns:On("PLAYER_CAMPING", function()
