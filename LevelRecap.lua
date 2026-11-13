@@ -9,14 +9,20 @@ local function key() return ns.Comm:MyFull() end
 -- the record for the level you're on now
 function R:Cur()
   ns.db.lvlRec = ns.db.lvlRec or {}
-  local lvl = ns.S(UnitLevel, "player") or 1
   local r = ns.db.lvlRec[key()]
+  local lvl = ns.S(UnitLevel, "player")
+  -- the level can be unreadable for a moment (loading screen, mid-fight): keep the record as it is
+  if type(lvl) ~= "number" or lvl < 1 then
+    if r then return r end
+    lvl = 1
+  end
   if r and lvl == r.lvl + 1 then
     -- UnitLevel can report the new level a moment before PLAYER_LEVEL_UP: keep the old record
     -- for a few seconds so the ding handler can finish it; if the event never comes, finish it here
     r.dingSeen = r.dingSeen or ns.Now()
     if ns.Now() - r.dingSeen < 10 then return r end
-    R:Finish(lvl)
+    -- the ding itself was missed: close the record quietly (no ding box out of the blue)
+    R:Finish(lvl, true)
     return ns.db.lvlRec[key()]
   end
   if not r or r.lvl ~= lvl then
@@ -191,7 +197,7 @@ function R:Build(r, newLevel, levelTime, xpMax)
 end
 
 -- finish the record for the level just completed, start the next one, show the ding box
-function R:Finish(level)
+function R:Finish(level, quiet)
   ns.db.lvlRec = ns.db.lvlRec or {}
   local r = ns.db.lvlRec[key()]
   if not r or r.lvl >= level then return end
@@ -203,15 +209,16 @@ function R:Finish(level)
   ns.db.lastRecap = recap
   ns.db.lvlRec[key()] = { lvl = level, start = ns.Now(), secs = 0, deaths = 0, alli = 0, kills = 0, mobs = {}, money = 0, repairs = 0,
     quests = 0, questXP = 0, mobXP = 0, zones = {}, with = {}, ach = 0, dgs = {}, sessions = 1, xpMax = xpMax }
-  if ns.db.settings.levelRecap ~= false and level == r.lvl + 1 then
+  if not quiet and ns.db.settings.levelRecap ~= false and level == r.lvl + 1 then
     C_Timer.After(1.5, function() ns:Fire("LEVEL_RECAP", recap) end)
   end
 end
 
 -- PLAYER_LEVEL_UP (Tracker has already stored the /played time for the level)
-ns:On("PLAYER_LEVEL_UP", function(level)
-  if ns.isSecret(level) or type(level) ~= "number" then return end
-  R:Finish(level)
+-- the ding (Tracker has already stored the /played time for the level; it also handles a ding
+-- whose number the game hid mid-fight)
+ns:Listen("LEVELUP", function(level)
+  if type(level) == "number" then R:Finish(level) end
 end)
 
 -- remember how much XP the current level needs (UnitXPMax is the new level's after a ding)

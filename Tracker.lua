@@ -551,9 +551,13 @@ function Tracker:TimeThisLevel()
   return c.playedLevel + math.max(0, ns.Now() - c.playedLevelAt)
 end
 
-ns:On("PLAYER_LEVEL_UP", function(level)
-  if ns.isSecret(level) then return end
+-- one ding, handled once: PLAYER_LEVEL_UP, or (when the game hides the number mid-fight) the level
+-- as soon as it can be read again
+local function onLevelUp(level)
+  if type(level) ~= "number" then return end
   local c = Tracker:MyChar()
+  if c.dingDone and c.dingDone >= level then return end
+  c.dingDone = level
   c.level = level
   c.hist = c.hist or {}
   table.insert(c.hist, { t = ns.Now(), l = level, p = c.played })
@@ -572,6 +576,21 @@ ns:On("PLAYER_LEVEL_UP", function(level)
   session.lastDingAt = ns.Now()
   Tracker:Event("DING", level, Tracker:PlayedNow() or "")
   Tracker:SendStatusSoon()
+  ns:Fire("LEVELUP", level)
+end
+
+ns:On("PLAYER_LEVEL_UP", function(level)
+  if not ns.isSecret(level) and type(level) == "number" then return onLevelUp(level) end
+  -- the number is hidden (combat): read our level as soon as the game shows it again
+  local before = Tracker:MyChar().dingDone or 0
+  local tries = 0
+  local function poll()
+    tries = tries + 1
+    local l = ns.S(UnitLevel, "player")
+    if type(l) == "number" and l > before then return onLevelUp(l) end
+    if tries < 60 then C_Timer.After(1, poll) end
+  end
+  C_Timer.After(0.5, poll)
 end)
 
 ns:On("PLAYER_DEAD", function()

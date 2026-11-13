@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.29.5", date = "15.11", items = {
+    "Fix: the level recap and 'Gratz' box no longer pop up out of nowhere when changing zone – a ding in combat (when the game hides the level) is now handled right away, and a loading screen no longer resets your level record",
+  } },
   { v = "0.29.4", date = "14.11", items = {
     "Only gear, recipes, mounts and pets are posted as drops – writs, quest items, consumables and materials no longer show up, whatever their colour",
   } },
