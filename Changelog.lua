@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.3", date = "15.11", items = {
+    "New setting: size of popups (ding, reactions, toasts, SOS, ready check, level recap) – Settings → Appearance. Try 80 % on a 1080p screen; «Show a test popup» to see it",
+  } },
   { v = "0.30.2", date = "15.11", items = {
     "New look: the Chillan? seal in the addon list, on the minimap button and in the window header",
   } },

@@ -168,7 +168,21 @@ end
 function UI.IsLocked() return ns.db and ns.db.settings.locked end
 
 -- target = rammen som faktisk flyttes (f.eks. et anker for en stabel med varsler)
+-- popups (toasts, ding/react box, SOS, ready check, level recap …) share one size setting, so smaller
+-- screens (1080p) can shrink them. The event window has its own size.
+UI.popupFrames = {}
+local NOT_POPUP = { eventwin = true, briefing = true }
+function UI.PopupScale() return (ns.db and ns.db.settings and ns.db.settings.popupScale) or 1 end
+function UI.ApplyPopupScale()
+  local sc = UI.PopupScale()
+  for f in pairs(UI.popupFrames) do pcall(f.SetScale, f, sc) end
+end
+
 function UI.Movable(frame, key, defaultPos, target)
+  if not NOT_POPUP[key] then
+    UI.popupFrames[frame] = true
+    pcall(frame.SetScale, frame, UI.PopupScale())
+  end
   target = target or frame
   target.posKey = key
   target.defaultPos = defaultPos

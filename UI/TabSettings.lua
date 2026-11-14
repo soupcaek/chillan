@@ -11,7 +11,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   scroll:SetPoint("TOPLEFT", 0, -4)
   scroll:SetPoint("BOTTOMRIGHT", 0, 4)
   local content = CreateFrame("Frame", nil, scroll)
-  content:SetSize(700, 900)
+  content:SetSize(700, 980)
   scroll:SetScrollChild(content)
   scroll:EnableMouseWheel(true)
   scroll:SetScript("OnMouseWheel", function(self, d)
@@ -151,11 +151,28 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   reloadBtn = UI.Button(content, 240, 28, "Apply theme (reloads the UI)", "primary", function() ReloadUI() end)
   reloadBtn:SetPoint("LEFT", opacity, "RIGHT", 30, -2)
 
+  -- smaller screens (1080p): shrink the popups
+  local psize = UI.Slider(content, 300, 0.6, 1.3, 0.05,
+    function() return S().popupScale or 1 end,
+    function(v) S().popupScale = v UI.ApplyPopupScale() end,
+    function(v) return math.floor(v * 100 + 0.5) .. " %" end)
+  psize.label:SetText("Size of popups (ding, reactions, toasts, SOS, ready check) – try 80 % on 1080p")
+  psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
+  local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
+    -- a pretend ding of your own (not sent to anyone) and a toast
+    if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then
+      local c = ns.Tracker:MyChar()
+      ns.Overlays:ShowDing({ kind = "DING", id = "popup-test", pid = ns.pid, char = c and c.name, a = (c and c.level) or 1, t = ns.Now(), test = true })
+    end
+    ns:Fire("TOAST", { kind = "online", title = "Popup size test", text = "This is how big popups are now." })
+  end)
+  ptest:SetPoint("LEFT", psize, "RIGHT", 30, -2)
+
   -------------------------------------------------------------------------
   -- Two columns below
   -------------------------------------------------------------------------
   local left = CreateFrame("Frame", nil, content)
-  left:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -22)
+  left:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -22)
   left:SetSize(330, 10)
   local right = CreateFrame("Frame", nil, content)
   right:SetPoint("TOPLEFT", left, "TOPRIGHT", 24, 0)
@@ -218,6 +235,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
       sw.dot:SetVertexColor(hex(ns.AccentHex(sw.key, S().theme)))
     end
     opacity:Refresh()
+    psize:Refresh()
     reloadBtn:SetShown((S().theme or "graphite") ~= applied.theme or (S().accent or "class") ~= applied.accent)
   end
 end)
