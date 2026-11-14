@@ -8,6 +8,7 @@ answers /gang, /deaths, /levels and /loot.
 Settings come from environment variables (see chillan-bot.env.example).
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -247,6 +248,25 @@ async def process(msg):
         pass
 
 
+async def set_avatar():
+    """Use avatar.png (next to this file) as the bot's picture; only when it changed (Discord rate-limits this)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png")
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return
+    digest = hashlib.sha1(data).hexdigest()
+    if store.get("avatar_sha") == digest:
+        return
+    try:
+        await client.user.edit(avatar=data)
+        store.set("avatar_sha", digest)
+        log.info("bot avatar updated")
+    except discord.HTTPException:
+        log.exception("could not update the bot avatar (Discord allows only a few changes per hour)")
+
+
 @client.event
 async def on_ready():
     log.info("logged in as %s", client.user)
@@ -257,6 +277,7 @@ async def on_ready():
         await pin_commands()
     except discord.HTTPException:
         log.exception("could not pin the command list")
+    await set_avatar()
     if not scheduler_started:
         scheduler_started = True
         client.loop.create_task(scheduler())

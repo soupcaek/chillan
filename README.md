@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/chillan-seal-512.png" width="160" alt="Chillan? seal"></p>
+
 # Chillan?
 
 Sosial addon for vennegjengen i **WoW Forever**: hvem er online og hvor, gjengchat, statistikk og race til 60, ding med gratulasjoner, mats-tavle, avstemning og avtaler, feed, SOS, fiendelogg og mer – på tvers av guilds.

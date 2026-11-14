@@ -51,7 +51,7 @@ jobs:
           TAG="${{ steps.v.outputs.tag }}"
           mkdir -p .release/Chillan
           rsync -a --exclude '.git*' --exclude '.github' --exclude '.release' \
-            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' ./ .release/Chillan/
+            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' --exclude 'brand' --exclude '.previews' ./ .release/Chillan/
           sed -i "s/@project-version@/${TAG#v}/" .release/Chillan/*.toc
           # the Discord companion rides along, so every gang member already has it
           mkdir -p .release/Chillan/Companion

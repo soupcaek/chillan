@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.2", date = "15.11", items = {
+    "New look: the Chillan? seal in the addon list, on the minimap button and in the window header",
+  } },
   { v = "0.30.1", date = "15.11", items = {
     "Cunts page: the text at the top no longer runs under the «Add your target» button",
   } },
