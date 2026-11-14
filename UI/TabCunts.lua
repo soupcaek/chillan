@@ -6,10 +6,6 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
   local head = UI.Text(tab, 16, "semi", C.text)
   head:SetPoint("TOPLEFT", 4, -2)
   head:SetText("The Cunt List")
-  local sub = UI.Text(tab, 11, nil, C.dim)
-  sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
-  sub:SetText("Ninja looters and general dicks. Right-click a player's name or portrait to add them – the whole gang gets warned.")
-
   local add = UI.Button(tab, 150, 28, "Add your target", "secondary", function()
     local n = ns.S(UnitIsPlayer, "target") and ns.S(UnitName, "target")
     if type(n) ~= "string" or n == "" then ns.Print("Target a player first (or right-click their name in chat).") return end
@@ -17,6 +13,15 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
   end)
   add:SetIcon("Plus", 13)
   add:SetPoint("TOPRIGHT", -4, 0)
+
+  -- the subtitle stays left of the button and wraps instead of running under it
+  head:SetPoint("RIGHT", add, "LEFT", -12, 0)
+  local sub = UI.Text(tab, 11, nil, C.dim)
+  sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
+  sub:SetPoint("RIGHT", add, "LEFT", -12, 0)
+  sub:SetJustifyH("LEFT")
+  sub:SetWordWrap(true)
+  sub:SetText("Ninja looters and general dicks. Right-click a player's name or portrait to add them – the whole gang gets warned.")
 
   local search = UI.EditBox(tab, 100, 30, "Search names and reasons …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.1", date = "15.11", items = {
+    "Cunts page: the text at the top no longer runs under the «Add your target» button",
+  } },
   { v = "0.30.0", date = "15.11", items = {
     "The Cunt List: right-click a player's name or portrait → «Add to the Cunt List», say why, and the whole gang has it",
     "Warnings when someone on the list invites you, joins your group or gets targeted, red lines in their tooltip, and a [Cunt] tag on their chat lines and whispers",
