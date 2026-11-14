@@ -365,7 +365,9 @@ function T:Init()
   self.holder = holder
 
   -- "+"-knapp på minibaren
-  local plus = UI.IconButton(m, 22, "Plus", "Pin stats under the bar", function(b) T:OpenMenu(b) end)
+  local plus = UI.IconButton(m, 24, "Plus", "Pin buttons and stats under the bar", function(b) T:OpenMenu(b) end)
+  plus:SetIcon("Plus", 16)          -- bigger "+" than the default half-size icon
+  plus.icon:SetVertexColor(hex(C.accent))
   plus:SetScript("OnClick", function(b) T:OpenMenu(b) end)
   m.plus = plus
 

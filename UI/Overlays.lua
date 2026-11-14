@@ -145,7 +145,7 @@ function O:UpdateMinibar()
   m.status:ClearAllPoints()
   m.status:SetPoint("LEFT", m.statusX, 0)
   w = w + m.status:GetWidth() + 2
-  if m.plus then w = w + 22 end
+  if m.plus then w = w + 24 end
   m.naturalW = w
   if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() else self:FitMinibar() end
 end
@@ -228,7 +228,7 @@ function O:UpdateMinibarExtras()
   -- latest event from the gang fills the spare room (fades out after a minute)
   local ev = self.lastEvent
   local evAge = ev and (GetTime() - ev.at) or 999
-  local rightEdge = m:GetWidth() - (m.plus and 28 or 8)
+  local rightEdge = m:GetWidth() - (m.plus and 30 or 8)
   if ev and evAge < 75 then
     -- while an event is fresh it takes the place of "N online" (the avatars still show who's on)
     m.count:Hide()
