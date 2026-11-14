@@ -156,8 +156,11 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     function() return S().popupScale or 1 end,
     function(v) S().popupScale = v UI.ApplyPopupScale() end,
     function(v) return math.floor(v * 100 + 0.5) .. " %" end)
-  psize.label:SetText("Size of popups (ding, reactions, toasts, SOS, ready check) – try 80 % on 1080p")
+  psize.label:SetText("Size of popups")
   psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
+  local phint = UI.Text(content, 10, nil, C.dim)
+  phint:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -6)
+  phint:SetText("Ding, reactions, toasts, SOS, ready check – try 80 % on 1080p")
   local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
     -- a pretend ding of your own (not sent to anyone) and a toast
     if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then
@@ -172,7 +175,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   -- Two columns below
   -------------------------------------------------------------------------
   local left = CreateFrame("Frame", nil, content)
-  left:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -22)
+  left:SetPoint("TOPLEFT", phint, "BOTTOMLEFT", 0, -18)
   left:SetSize(330, 10)
   local right = CreateFrame("Frame", nil, content)
   right:SetPoint("TOPLEFT", left, "TOPRIGHT", 24, 0)

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.4", date = "14.11", items = {
+    "Settings: the popup size slider's text no longer overlaps its value",
+  } },
   { v = "0.30.3", date = "15.11", items = {
     "New setting: size of popups (ding, reactions, toasts, SOS, ready check, level recap) – Settings → Appearance. Try 80 % on a 1080p screen; «Show a test popup» to see it",
   } },
