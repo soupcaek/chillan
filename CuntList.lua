@@ -283,6 +283,22 @@ function CL:AskAdd(name)
     end)
 end
 
+-- add someone who isn't around: type the name and the reason
+function CL:AskAddByName()
+  ns.UI.Prompt("Add someone to the Cunt List",
+    { { label = "Character name", placeholder = "e.g. Ninja Bob" },
+      { label = "Why are they on the list?", placeholder = "e.g. ninja looted the Whitemane boots" } },
+    function(name, reason)
+      name = (name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+      if name == "" or not reason or ns.Clean(reason, MAX_REASON) == "" then return true end   -- both are needed
+      if CL:Get(name) then
+        CL:Note(keyOf(name), reason)
+      else
+        CL:Add(name, reason)
+      end
+    end)
+end
+
 local function menuName(ctx)
   if type(ctx) ~= "table" then return nil end
   local name = ctx.name

@@ -14,11 +14,16 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
   add:SetIcon("Plus", 13)
   add:SetPoint("TOPRIGHT", -4, 0)
 
+  -- anyone, by name: no target needed
+  local byName = UI.Button(tab, 130, 28, "Add by name", "secondary", function() ns.Cunts:AskAddByName() end)
+  byName:SetIcon("Plus", 13)
+  byName:SetPoint("RIGHT", add, "LEFT", -8, 0)
+
   -- the subtitle stays left of the button and wraps instead of running under it
-  head:SetPoint("RIGHT", add, "LEFT", -12, 0)
+  head:SetPoint("RIGHT", byName, "LEFT", -12, 0)
   local sub = UI.Text(tab, 11, nil, C.dim)
   sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
-  sub:SetPoint("RIGHT", add, "LEFT", -12, 0)
+  sub:SetPoint("RIGHT", byName, "LEFT", -12, 0)
   sub:SetJustifyH("LEFT")
   sub:SetWordWrap(true)
   sub:SetText("Ninja looters and general dicks. Right-click a player's name or portrait to add them – the whole gang gets warned.")

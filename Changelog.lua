@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.5", date = "15.11", items = {
+    "Cunt List: «Add by name» – add someone without targeting them, just type the name and why",
+  } },
   { v = "0.30.4", date = "14.11", items = {
     "Settings: the popup size slider's text no longer overlaps its value",
   } },
