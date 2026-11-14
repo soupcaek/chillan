@@ -283,21 +283,76 @@ function CL:AskAdd(name)
     end)
 end
 
--- add someone who isn't around: type the name and the reason
+-- a character name: letters (accents too), one or two words, no digits or symbols
+local function looksLikeName(n)
+  if type(n) ~= "string" then return false end
+  n = n:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+  if #n < 2 or #n > 26 then return false end
+  local words = 0
+  for word in n:gmatch("[^ ]+") do
+    words = words + 1
+    if not word:find("^[%a\128-\255]+$") then return false end   -- letters only (accents too)
+  end
+  return words >= 1 and words <= 2, n
+end
+CL.LooksLikeName = looksLikeName
+
+-- add someone who isn't around: type the name and the reason. The game is asked whether that
+-- player exists (a player search, straight from the click on Add); not found → you're asked
+-- whether to add them anyway (they may just be offline).
+local pendingName
 function CL:AskAddByName()
   ns.UI.Prompt("Add someone to the Cunt List",
     { { label = "Character name", placeholder = "e.g. Ninja Bob" },
       { label = "Why are they on the list?", placeholder = "e.g. ninja looted the Whitemane boots" } },
     function(name, reason)
-      name = (name or ""):gsub("^%s+", ""):gsub("%s+$", "")
-      if name == "" or not reason or ns.Clean(reason, MAX_REASON) == "" then return true end   -- both are needed
-      if CL:Get(name) then
-        CL:Note(keyOf(name), reason)
-      else
-        CL:Add(name, reason)
+      local ok, clean = looksLikeName(name)
+      reason = ns.Clean(reason or "", MAX_REASON)
+      if not ok or reason == "" then
+        if not ok and (name or "") ~= "" then ns.Print("«" .. tostring(name) .. "» isn't a character name.") end
+        return true
       end
+      if CL:Get(clean) then CL:Note(keyOf(clean), reason) return end
+      -- is that a real player? search for them by name
+      pendingName = { name = clean, reason = reason, at = GetTime() }
+      local sent = C_FriendList and C_FriendList.SendWho and pcall(C_FriendList.SendWho, 'n-"' .. clean .. '"')
+      if not sent then pendingName = nil return CL:Add(clean, reason) end
+      if C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
+      ns.Print("Looking for " .. clean .. " …")
+      local p = pendingName
+      C_Timer.After(5, function()
+        if pendingName == p then pendingName = nil CL:AskAnyway(p) end
+      end)
     end)
 end
+
+function CL:AskAnyway(p)
+  ns.UI.Prompt(p.name .. " isn't online (or the name is wrong). Add anyway?",
+    { { label = "Name, as it is spelled in game", placeholder = p.name } },
+    function(name)
+      local ok, clean = looksLikeName((name and name ~= "") and name or p.name)
+      if not ok then return true end
+      CL:Add(clean, p.reason)
+    end)
+end
+
+ns:On("WHO_LIST_UPDATE", function()
+  local p = pendingName
+  if not p or GetTime() - p.at > 5 then return end
+  local okN, n = pcall(C_FriendList.GetNumWhoResults)
+  if not okN or type(n) ~= "number" or secret(n) then return end
+  for i = 1, math.min(n, 50) do
+    local okI, info = pcall(C_FriendList.GetWhoInfo, i)
+    local full = okI and type(info) == "table" and info.fullName
+    if type(full) == "string" and not secret(full) and keyOf(full) == keyOf(p.name) then
+      pendingName = nil
+      CL:Add(full, p.reason)       -- with the name spelled the way the game spells it
+      return
+    end
+  end
+  pendingName = nil
+  CL:AskAnyway(p)
+end)
 
 local function menuName(ctx)
   if type(ctx) ~= "table" then return nil end
@@ -316,6 +371,7 @@ if Menu and Menu.ModifyMenu then
     "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_FRIEND", "MENU_UNIT_CHAT_ROSTER", "MENU_UNIT_ENEMY_PLAYER",
     "MENU_UNIT_COMMUNITIES_GUILD_MEMBER", "MENU_UNIT_COMMUNITIES_MEMBER" }) do
     pcall(Menu.ModifyMenu, tag, function(owner, root, ctx)
+      if type(ctx) == "table" and ctx.unit and not ns.S(UnitIsPlayer, ctx.unit) then return end   -- NPCs: no
       local name = menuName(ctx)
       if not name or keyOf(name) == keyOf(me or UnitName("player")) then return end
       local listed = CL:Get(name)
@@ -336,5 +392,7 @@ function CL:Slash(rest)
     if ns.Window then ns.Window:Create() ns.Window.frame:Show() ns.Window:Select("cunts") end
     return
   end
-  CL:AskAdd(rest)
+  local ok, clean = looksLikeName(rest)
+  if not ok then ns.Print("«" .. rest .. "» isn't a character name.") return end
+  CL:AskAdd(clean)
 end

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.30.6", date = "15.11", items = {
+    "Cunt List: players only – no 'Add to the Cunt List' on NPCs, names must be real character names, and «Add by name» looks the player up first (not online? you're asked whether to add them anyway)",
+  } },
   { v = "0.30.5", date = "15.11", items = {
     "Cunt List: «Add by name» – add someone without targeting them, just type the name and why",
   } },
