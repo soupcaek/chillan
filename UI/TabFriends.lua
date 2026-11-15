@@ -106,7 +106,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   measure:Hide()
   local measureSub = UI.Text(tab, 12, nil, C.dim)
   measureSub:Hide()
-  local function nameText(p) return ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid) end
+  local function nameText(p)
+    return ns:PersonLabel(p) .. " " .. ns.Titles:Badge(p.pid) .. (ns:IsMuted(p.pid) and ns.Colorize("  muted", C.dim) or "")
+  end
 
   local ROW_PARTS = { "panel", "avatar", "name", "sub", "zone", "time", "invite", "whisper", "wp", "pill" }
   local function updateRow(row, p)
@@ -198,11 +200,13 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   end
   quick.info = UI.Text(quick, 12, nil, C.text2)
   quick.info:SetPoint("BOTTOMLEFT", 14, 16)
-  quick.info:SetPoint("RIGHT", -230, 0)
+  quick.info:SetPoint("RIGHT", -316, 0)
   quick.open = UI.Button(quick, 120, 30, "Open player ›", "primary")
   quick.open:SetPoint("BOTTOMRIGHT", -12, 10)
   quick.wh = UI.Button(quick, 70, 30, "Whisper", "secondary")
   quick.wh:SetPoint("RIGHT", quick.open, "LEFT", -8, 0)
+  quick.mute = UI.Button(quick, 78, 30, "Mute", "ghost")
+  quick.mute:SetPoint("RIGHT", quick.wh, "LEFT", -8, 0)
 
   local function fillQuick(p)
     local s3 = ns:PersonS3(p) or {}
@@ -230,6 +234,13 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     local target = (p.live and p.live.char) or p.main
     quick.wh:SetScript("OnClick", function() ns.Whisper(target) end)
     quick.wh:SetShown(p.pid ~= ns.pid)
+    quick.mute:SetShown(p.pid ~= ns.pid)
+    quick.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
+    quick.mute:SetScript("OnClick", function()
+      ns:SetMuted(p.pid, not ns:IsMuted(p.pid))
+      quick.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
+      tab:Refresh()
+    end)
     quick.open:SetScript("OnClick", function() quick:Hide() ns.Window:OpenPlayer(p.pid) end)
   end
 

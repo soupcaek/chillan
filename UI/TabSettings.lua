@@ -11,7 +11,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   scroll:SetPoint("TOPLEFT", 0, -4)
   scroll:SetPoint("BOTTOMRIGHT", 0, 4)
   local content = CreateFrame("Frame", nil, scroll)
-  content:SetSize(700, 980)
+  content:SetSize(700, 1180)
   scroll:SetScrollChild(content)
   scroll:EnableMouseWheel(true)
   scroll:SetScript("OnMouseWheel", function(self, d)
@@ -199,6 +199,55 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   end)
   resetPos:SetPoint("TOPLEFT", lastW, "BOTTOMLEFT", 0, -8)
 
+  -------------------------------------------------------------------------
+  -- Do not disturb + muted friends (left column, under the layout buttons)
+  -------------------------------------------------------------------------
+  local qh = section(left, resetPos, "Quiet", 22)
+  local dnd = UI.Check(left, "Do not disturb (mutes every popup and sound)",
+    function() return ns:IsDND() end,
+    function(v) ns.Tracker:SetStatus(v and "DND" or "AUTO") end)
+  dnd:SetWidth(320)
+  dnd:SetPoint("TOPLEFT", qh, "BOTTOMLEFT", 0, -8)
+  dnd:HookScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine("Do not disturb", 1, 1, 1)
+    GameTooltip:AddLine("Sets your status to Do not disturb. Everything still lands in the feed and the normal chat window – just no popups or sounds, @mentions included. Same as picking the status on the Friends page.", 0.75, 0.78, 0.82, true)
+    GameTooltip:Show()
+  end)
+  dnd:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  checks[#checks + 1] = dnd
+  local mutedHint = hint(left, dnd, "Muted friends: no popups or sounds from them.\nMute someone from their row or profile.")
+  local mutedRows = {}
+  for i = 1, 12 do
+    local r = CreateFrame("Frame", nil, left)
+    r:SetSize(320, 24)
+    r:SetPoint("TOPLEFT", mutedHint, "BOTTOMLEFT", 0, -6 - (i - 1) * 26)
+    r.name = UI.Text(r, 12, nil, C.text)
+    r.name:SetPoint("LEFT")
+    r.btn = UI.Button(r, 76, 22, "Unmute", "ghost")
+    r.btn:SetPoint("LEFT", 200, 0)
+    r:Hide()
+    mutedRows[i] = r
+  end
+  local function refreshMuted()
+    local list = {}
+    for pid in pairs(ns.db.muted or {}) do
+      local p = ns:GetPerson(pid)
+      if p then list[#list + 1] = p end
+    end
+    table.sort(list, function(a, b) return (ns:PersonFirst(a) or "") < (ns:PersonFirst(b) or "") end)
+    for i, r in ipairs(mutedRows) do
+      local p = list[i]
+      r:SetShown(p ~= nil)
+      if p then
+        r.name:SetText(ns:PersonLabel(p))
+        r.btn:SetScript("OnClick", function() ns:SetMuted(p.pid, false) tab:Refresh() end)
+      end
+    end
+    mutedHint:SetText(#list == 0 and "Muted friends: none. Mute someone from their row on the\nFriends page or their profile – no popups or sounds from them."
+      or "Muted friends – no popups or sounds from them:")
+  end
+
   local nh = section(right, nil, "Notifications")
   local lastN = checkList(right, nh, {
     { "Sounds", "sounds" },
@@ -232,6 +281,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   function tab:Refresh()
     S().blueLoot = (S().lootMinQuality or 4) <= 3
     for _, cb in ipairs(checks) do cb:Refresh() end
+    refreshMuted()
     for _, card in ipairs(themeCards) do card.ring:SetShown((S().theme or "graphite") == card.key) end
     for _, sw in ipairs(swatches) do
       sw.ring:SetShown((S().accent or "class") == sw.key)

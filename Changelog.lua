@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.32.0", date = "15.11", items = {
+    "Mute friends: Mute on their row (click the row) or their profile. No popups or sounds from them – dings, deaths, achievements, kills, SOS, logins, reactions, chat pops. Their stuff still shows in the feed, stats and the normal WoW chat window, and their @mentions of you still come through. Only you know who you've muted",
+    "Do not disturb: picking the status (Friends page or Settings → Quiet) mutes every popup and sound, @mentions included, until you switch it off",
+    "Settings → Quiet lists everyone you've muted, with Unmute buttons",
+  } },
   { v = "0.31.1", date = "15.11", items = {
     "Stats cards: the rest got the same treatment – Next ding is now XP bars for the two closest, Deadliest zones shows the two worst as bars, Hot streak shows the top two, Enemy of the week wraps the note instead of cutting it, and Dungeon records / First in the gang are tidy rows (name left, time or first right)",
     "Stats cards: bars are a bit tighter so two always fit in a card",

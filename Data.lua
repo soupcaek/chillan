@@ -62,7 +62,7 @@ Comm:Handle("ST", function(f, sender, channel)
     and (not p.announcedSession or math.abs(sessKey - p.announcedSession) > 2)
   p.announcedSession = sessKey
   if not wasOnline and freshLogin then
-    if ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("online") end
+    if ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("online", pid) end
     do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logged in" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Login", ns.C.green, 12) .. "  " .. ns:ShortWho(p) .. ns.Colorize(" logged in", ns.C.text2))
@@ -104,7 +104,7 @@ Comm:Handle("BY", function(f, sender)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
   local p = ns.db.people[pid]
-  if p and ns:IsOnline(p) and ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("offline") end
+  if p and ns:IsOnline(p) and ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("offline", pid) end
   if p then
     p.heard, p.via, p.byeAt = nil, nil, ns.Now()
     p.lastSeen = ns.Now()
@@ -630,27 +630,27 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     -- egne dings og dødsfall får ingen popup hos deg selv (bare achievements)
     if kind == "DING" and pid ~= ns.pid then
       ns:Fire("DING", item)
-      ns.Sound("ding")
+      ns.Sound("ding", pid)
     elseif kind == "DEAD" and pid ~= ns.pid then
       ns:Fire("DING", item)
-      ns.Sound("dead")
+      ns.Sound("dead", pid)
     elseif kind == "KILL" and pid ~= ns.pid then
       -- group kill: everyone in the group reports it and the first report wins. Wait a moment, and
       -- skip the popup if my own report was folded into this one (I was in on the kill myself).
       C_Timer.After(4, function()
         for _, w in ipairs(item.w or {}) do if w[1] == ns.pid then return end end
         ns:Fire("DING", item)
-        ns.Sound("ding")
+        ns.Sound("ding", pid)
       end)
     elseif kind == "ACH" then
       -- bronse vises bare i chatten, sølv og oppover får popup
       if b == "S" or b == "G" or b == "L" then
         ns:Fire("DING", item)
-        ns.Sound("ding")
+        ns.Sound("ding", pid)
       end
     elseif kind == "SOS" and pid ~= ns.pid then
       ns:Fire("SOS", item)
-      ns.Sound("sos")
+      ns.Sound("sos", pid)
     elseif kind == "ENSEEN" then
       ns:Fire("TOAST", { kind = "enemy", pid = pid,
         title = "Enemy spotted: " .. tostring(a),
@@ -688,11 +688,11 @@ local function addChat(id, pid, char, t, text)
   -- lite «pop» for nye meldinger fra andre (ikke i kamp, ikke historikk, ikke når du blir nevnt)
   if pid ~= ns.pid and not item.mention and (ns.Now() - t) < 60 and not quiet()
     and ns.db.settings.chatSound and not InCombatLockdown() then
-    ns.Sound("chat")
+    ns.Sound("chat", pid)
   end
   if item.mention and fresh(t) and not quiet() then
     local p = ns:GetPerson(pid) or {}
-    if ns.db.settings.mentionSound then ns.Sound("mention") end
+    if ns.db.settings.mentionSound then ns.Sound("mention", pid) end
     ns:Fire("TOAST", { kind = "mention", pid = pid, char = char,
       title = ns:PersonLabel(p, char) .. " mentioned you", text = ns.Clean(text, 90) })
   end
@@ -838,8 +838,9 @@ Comm:Handle("RX", function(f)
     -- samle gratulasjonene til ett varsel
     -- alias (Adee, Henrik) instead of the character's first name (Ret, Lil)
     local rname = (rp and ns:PersonAlias(rp)) or ns.FirstName(f[3])
-    reactBuffer[#reactBuffer + 1] = rname .. " (" .. ns.ReactionText(item, idx) .. ")"
-    if #reactBuffer == 1 then
+    -- muted friends' reactions are still saved on the item (feed), just no popup or sound
+    if not ns:Silenced(f[2]) then reactBuffer[#reactBuffer + 1] = rname .. " (" .. ns.ReactionText(item, idx) .. ")" end
+    if #reactBuffer == 1 and not ns:Silenced(f[2]) then
       C_Timer.After(4, function()
         local names = reactBuffer
         reactBuffer = {}
@@ -926,7 +927,7 @@ Comm:Handle("MH", function(f, sender)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
     title = ns:PersonLabel(ns:GetPerson(f[1], true), f[2]) .. " has what you need",
     text = post and post.text or "Mats" })
-  ns.Sound("notify")
+  ns.Sound("notify", f[1])
 end)
 
 function Data:ExpireMats()
@@ -1158,7 +1159,7 @@ Comm:Handle("CR", function(f, sender)
   local p = ns:GetPerson(f[1], true)
   ns:Fire("TOAST", { kind = "craft", pid = f[1], char = f[2] ~= "" and f[2] or sender, sticky = true,
     title = ns:PersonLabel(p) .. " asks for a craft", text = (f[3] and f[3] ~= "") and f[3] or "Get in touch in game" })
-  ns.Sound("notify")
+  ns.Sound("notify", f[1])
 end)
 
 ---------------------------------------------------------------------------

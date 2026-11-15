@@ -99,7 +99,38 @@ function ns:Listen(name, fn)
   listeners[name] = listeners[name] or {}
   table.insert(listeners[name], fn)
 end
+---------------------------------------------------------------------------
+-- Mute and Do not disturb (local only, friends never see it)
+-- Muted friend: no popups and no sounds from them. Their events still land in the feed,
+-- stats and the normal WoW chat window, and their @mentions of you still come through.
+-- Do not disturb (your own status): every popup and sound is muted, mentions included.
+---------------------------------------------------------------------------
+function ns:IsDND() return ns.db and ns.db.statusOverride == "DND" or false end
+function ns:IsMuted(pid)
+  return (pid and pid ~= ns.pid and ns.db and ns.db.muted and ns.db.muted[pid]) and true or false
+end
+function ns:SetMuted(pid, on)
+  if not pid or pid == ns.pid then return end
+  ns.db.muted = ns.db.muted or {}
+  ns.db.muted[pid] = on and true or nil
+  local p = ns:GetPerson(pid)
+  ns.Print((on and "Muted " or "Unmuted ") .. (p and ns:PersonFirst(p) or "friend")
+    .. (on and " – no popups or sounds from them (the feed still shows everything)." or "."))
+  ns:MarkDirty()
+end
+-- true when a popup/sound from pid (kind = popup or sound kind) should be skipped
+function ns:Silenced(pid, kind)
+  if ns:IsDND() then return true end
+  if kind == "mention" then return false end
+  return ns:IsMuted(pid)
+end
+local POPUP_EVENTS = { DING = true, TOAST = true, SOS = true }
+
 function ns:Fire(name, ...)
+  if POPUP_EVENTS[name] then
+    local x = ...
+    if type(x) == "table" and ns:Silenced(x.pid, x.kind) then return end
+  end
   local list = listeners[name]
   if not list then return end
   for i = 1, #list do
@@ -445,8 +476,9 @@ local CUSTOM_SOUNDS = { chat = "Chat", mention = "Mention", dead = "Dead", onlin
 local FALLBACK = { chat = "notify", mention = "notify", online = "notify", offline = false }
 local lastSoundAt = {}
 
-function ns.Sound(kind)
+function ns.Sound(kind, pid)
   if not (ns.db and ns.db.settings.sounds) then return end
+  if ns:Silenced(pid, kind) then return end
   -- samme lyd maks hvert 1,5 sek (flere meldinger på rad = ett «pop»)
   local now = GetTime()
   if lastSoundAt[kind] and (now - lastSoundAt[kind]) < 1.5 then return end

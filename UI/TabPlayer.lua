@@ -18,10 +18,10 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
   avatar:SetPoint("TOPLEFT", back, "BOTTOMLEFT", 0, -10)
   local name = UI.Text(tab, 18, "bold", C.text)
   name:SetPoint("TOPLEFT", avatar, "TOPRIGHT", 12, -1)
-  name:SetPoint("RIGHT", -200, 0)
+  name:SetPoint("RIGHT", -410, 0)
   local sub = UI.Text(tab, 12, nil, C.text2)
   sub:SetPoint("BOTTOMLEFT", avatar, "BOTTOMRIGHT", 12, 1)
-  sub:SetPoint("RIGHT", -200, 0)
+  sub:SetPoint("RIGHT", -410, 0)
 
   local invite = UI.Button(tab, 80, 30, "Invite", "primary")
   invite:SetPoint("TOPRIGHT", -16, -62)
@@ -30,6 +30,9 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
   local compare = UI.Button(tab, 110, 30, "Compare", "ghost")
   compare:SetIcon("Compare", 14)
   compare:SetPoint("RIGHT", whisper, "LEFT", -8, 0)
+  -- mute: no popups or sounds from this friend (feed still shows everything)
+  local mute = UI.Button(tab, 80, 30, "Mute", "ghost")
+  mute:SetPoint("RIGHT", compare, "LEFT", -8, 0)
 
   -------------------------------------------------------------------------
   -- Fire store tall
@@ -180,6 +183,9 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
     whisper:SetShown(not me) invite:SetShown(not me and online)
     compare:SetShown(not me)
     compare:SetScript("OnClick", function() ns.Window:OpenCompare(p.pid) end)
+    mute:SetShown(not me)
+    mute:SetLabel(ns:IsMuted(pid) and "Unmute" or "Mute")
+    mute:SetScript("OnClick", function() ns:SetMuted(pid, not ns:IsMuted(pid)) tab:Refresh() end)
     local tl = {}
     for _, def in ipairs(ns.Titles:For(p.pid)) do tl[#tl + 1] = def.name end
     if #tl > 0 then name:SetText(ns:PersonLabel(p) .. "  " .. ns.Titles:Badge(p.pid) .. " " .. ns.Colorize(table.concat(tl, ", "), C.gold)) end
