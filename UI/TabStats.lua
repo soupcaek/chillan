@@ -727,6 +727,79 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     return cd
   end
 
+  -------------------------------------------------------------------------
+  -- Bar rows: "name ......... value" with an optional thin bar under it.
+  -- Used by the wall of shame and the spotlight cards so data gets the
+  -- card's height instead of being squeezed (and cut) into one text line.
+  -------------------------------------------------------------------------
+  local ROW_H, BAR_ROW_H = 16, 26
+  local function getRow(cd, k)
+    cd.rows = cd.rows or {}
+    local r = cd.rows[k]
+    if r then return r end
+    r = {}
+    r.value = UI.Text(cd, 11, nil, C.text2)
+    r.value:SetJustifyH("RIGHT")
+    r.label = UI.Text(cd, 12, nil, C.text)
+    r.bg = cd:CreateTexture(nil, "ARTWORK")
+    r.bg:SetColorTexture(hex(C.input))
+    r.fill = cd:CreateTexture(nil, "ARTWORK", nil, 1)
+    cd.rows[k] = r
+    return r
+  end
+  local function hideRows(cd, from)
+    for k = from or 1, #(cd.rows or {}) do
+      local r = cd.rows[k]
+      r.label:Hide() r.value:Hide() r.bg:Hide() r.fill:Hide()
+    end
+  end
+  -- rows = { { label =, value =, frac = 0..1 (nil: no bar), color = hex }, ... }
+  -- draws from y (px below the card top) and only the rows that fit in room; returns the new y
+  local function drawRows(cd, rows, y, room)
+    local w = (cd:GetWidth() or 0) - 24
+    if w < 60 then w = RIGHT_W - 24 end
+    local shown = 0
+    for k, spec in ipairs(rows or {}) do
+      local h = spec.frac and BAR_ROW_H or ROW_H
+      if h > room then break end
+      local r = getRow(cd, k)
+      r.value:ClearAllPoints()
+      r.value:SetPoint("TOPRIGHT", -12, -y)
+      r.value:SetText(spec.value or "")
+      r.label:ClearAllPoints()
+      r.label:SetPoint("TOPLEFT", 12, -y)
+      r.label:SetPoint("RIGHT", r.value, "LEFT", -6, 0)
+      r.label:SetText(spec.label or "")
+      r.label:Show() r.value:Show()
+      if spec.frac then
+        local f = math.max(0, math.min(1, spec.frac))
+        r.bg:ClearAllPoints()
+        r.bg:SetPoint("TOPLEFT", 12, -(y + 16))
+        r.bg:SetPoint("TOPRIGHT", -12, -(y + 16))
+        r.bg:SetHeight(4)
+        r.fill:ClearAllPoints()
+        r.fill:SetPoint("TOPLEFT", r.bg, "TOPLEFT")
+        r.fill:SetHeight(4)
+        r.fill:SetWidth(math.max(1, w * f))
+        r.fill:SetColorTexture(hex(spec.color or C.accent))
+        r.bg:Show()
+        r.fill:SetShown(f > 0)
+      else
+        r.bg:Hide() r.fill:Hide()
+      end
+      y, room, shown = y + h, room - h, k
+    end
+    hideRows(cd, shown + 1)
+    return y
+  end
+  local function commas(n)
+    local s = tostring(math.floor(n or 0))
+    local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+    return (out:gsub("^,", ""))
+  end
+  local function goldOnly(copper) return commas(math.floor((copper or 0) / 10000)) .. "g" end
+  local function classHexOf(p) local c = ns:PersonChar(p) or {} return ns.ClassHex(c.class) end
+
   local ch = card(92, "Weekly challenge")
   ch:SetPoint("TOPLEFT") ch:SetPoint("TOPRIGHT")
   ch.main = UI.Text(ch, 14, "semi", C.text)
@@ -740,16 +813,31 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
 
   -- the weekly challenge now rotates with the spotlight cards; wall of shame sits on top
   ch:Hide()
-  local shame = card(80, "Wall of shame (week)")
+  -- Wall of shame: the two worst this week as bars, gang total top right, details on hover
+  local shame = card(30 + 2 * BAR_ROW_H + 8, "Wall of shame (week)")
   shame:SetPoint("TOPLEFT") shame:SetPoint("TOPRIGHT")
-  shame.big = UI.Text(shame, 24, "bold", C.text)
-  shame.big:SetPoint("TOPLEFT", 12, -28)
-  shame.who = UI.Text(shame, 12, nil, C.text2)
-  shame.who:SetPoint("BOTTOMLEFT", shame.big, "BOTTOMRIGHT", 8, 3)
-  shame.who:SetPoint("RIGHT", -10, 0)
-  shame.last = UI.Text(shame, 11, nil, C.muted)
-  shame.last:SetPoint("BOTTOMLEFT", 12, 10)
-  shame.last:SetPoint("RIGHT", -10, 0)
+  shame.total = UI.Text(shame, 10, nil, C.dim)
+  shame.total:SetPoint("TOPRIGHT", -12, -12)
+  shame.total:SetJustifyH("RIGHT")
+  shame.empty = UI.Text(shame, 13, "semi", C.text2)
+  shame.empty:SetPoint("TOPLEFT", 12, -32)
+  local shameBtn = CreateFrame("Button", nil, shame)
+  shameBtn:SetAllPoints()
+  shameBtn:SetScript("OnEnter", function()
+    shame:SetColors(C.cardHover, C.line)
+    local list = shame.list or {}
+    if #list == 0 then return end
+    GameTooltip:SetOwner(shame, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Wall of shame – this week")
+    for k = 1, math.min(5, #list) do
+      local e = list[k]
+      GameTooltip:AddDoubleLine(k .. ". " .. ns:ShortWho(e.p), math.floor(e.v) .. " deaths", 1, 1, 1, 0.8, 0.8, 0.8)
+    end
+    local w = list[1].p
+    if w.deathZone then GameTooltip:AddLine("Last death: " .. w.deathZone .. ", " .. ns.Ago(w.deathAt), 0.6, 0.6, 0.6) end
+    GameTooltip:Show()
+  end)
+  shameBtn:SetScript("OnLeave", function() shame:SetColors(C.card, C.line) GameTooltip:Hide() end)
 
   -------------------------------------------------------------------------
   -- Two rotating "spotlight" cards under the challenge and the wall of shame:
@@ -856,20 +944,28 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end
 
     -- Flest dødsfall denne uka
-    local worst, wv = nil, 0
+    local dlist, dtotal = {}, 0
     for _, p in ipairs(people) do
       local d = ns:WeekStat(p, "Deaths")
-      if d > wv then worst, wv = p, d end
+      if d > 0 then dlist[#dlist + 1] = { p = p, v = d } dtotal = dtotal + d end
     end
-    if worst then
-      local wc = ns:PersonChar(worst) or {}
-      shame.big:SetText(math.floor(wv))
-      shame.who:SetText("deaths · " .. ns:ShortWho(worst))
-      shame.last:SetText(worst.deathZone and ("Last: " .. worst.deathZone .. ", " .. ns.Ago(worst.deathAt)) or "")
+    table.sort(dlist, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
+    shame.list = dlist
+    if #dlist > 0 then
+      local rows = {}
+      for k = 1, math.min(2, #dlist) do
+        local e = dlist[k]
+        rows[k] = { label = ns:ShortWho(e.p), value = math.floor(e.v) .. (k == 1 and " deaths" or ""),
+          frac = e.v / dlist[1].v, color = k == 1 and C.red or C.dim }
+      end
+      shame.total:SetText(math.floor(dtotal) .. " TOTAL")
+      shame.empty:Hide()
+      drawRows(shame, rows, 30, 2 * BAR_ROW_H)
     else
-      shame.big:SetText("0")
-      shame.who:SetText("deaths – impressive")
-      shame.last:SetText("")
+      shame.total:SetText("")
+      shame.empty:SetText("0 deaths – impressive")
+      shame.empty:Show()
+      hideRows(shame)
     end
 
     tab:BuildSpots()
@@ -889,6 +985,11 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local function recent(p) return (ns.Now() - (p.lastSeen or 0)) < 14 * 86400 or p == ns.db.people[ns.pid] end
   local function people() local out = {} for _, p in ipairs(ns:SortedPeople()) do if recent(p) then out[#out + 1] = p end end return out end
 
+  -- level + progress into that level as a class-coloured bar
+  local function lvlRow(x)
+    return { label = ns:ShortWho(x.p), value = x.lvl .. " · " .. math.floor(x.frac * 100) .. "%", frac = x.frac, color = classHexOf(x.p) }
+  end
+
   local FACTS = {
     -- weekly challenge
     function()
@@ -896,10 +997,22 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       local wday = tonumber(date("%w"))
       local daysLeft = (8 - wday) % 7
       if daysLeft == 0 then daysLeft = 7 end
-      local sub = leader and ("Leader: " .. ns:ShortWho(leader) .. " – " .. chal.fmt(v)) or "No points yet"
       local pch, pbest, pv = ns.Data:LastWeekWinner()
-      sub = sub .. "\n" .. daysLeft .. " d left" .. (pbest and (" · last week: " .. ns:PersonFirst(pbest)) or "")
-      return { title = "Weekly challenge", big = chal.label, sub = sub }
+      local foot = daysLeft .. " d left" .. (pbest and (" · last week: " .. ns:PersonFirst(pbest)) or "")
+      local rank = {}
+      for _, p in ipairs(ns:SortedPeople()) do
+        local x = ns:WeekStat(p, chal.key)
+        if x > 0 then rank[#rank + 1] = { p = p, v = x } end
+      end
+      table.sort(rank, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
+      if #rank == 0 then
+        return { title = "Weekly challenge", big = chal.label, sub = "No points yet\n" .. foot }
+      end
+      local rows = {}
+      for k = 1, math.min(3, #rank) do
+        rows[k] = { label = k .. ". " .. ns:ShortWho(rank[k].p), value = chal.fmt(rank[k].v) }
+      end
+      return { title = "Challenge · " .. chal.label, rows = rows, foot = foot }
     end,
     -- First in the gang: the newest firsts on top (paint() cuts the list to what fits in the card)
     function()
@@ -935,9 +1048,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       if #list < 2 then return nil end
       local a, b = list[1], list[2]
       local d = a.v - b.v
-      local function fmt(x) return x.lvl .. " · " .. math.floor(x.frac * 100) .. " %" end
-      return { title = "Level race", big = ns:ShortWho(a.p) .. ns.Colorize("  leads  ", C.dim) .. ns:ShortWho(b.p),
-        sub = fmt(a) .. "  vs  " .. fmt(b) .. "\n" .. (d >= 1 and string.format("%.1f levels ahead", d) or ("Only " .. math.max(1, math.floor(d * 100 + 0.5)) .. " % of a level ahead")) }
+      return { title = "Level race", rows = { lvlRow(a), lvlRow(b) },
+        foot = d >= 1 and string.format("%.1f levels ahead", d) or ("Only " .. math.max(1, math.floor(d * 100 + 0.5)) .. " % of a level ahead") }
     end,
     -- Neck and neck: the two closest in level further down the list (only when it is not the top two)
     function()
@@ -955,9 +1067,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         if d < 1 and (not best or d < best.d) then best = { a = list[i], b = list[i + 1], d = d } end
       end
       if not best then return nil end
-      local function fmt(x) return x.lvl .. " · " .. math.floor(x.frac * 100) .. " %" end
-      return { title = "Neck and neck", big = ns:ShortWho(best.a.p) .. ns.Colorize("  vs  ", C.dim) .. ns:ShortWho(best.b.p),
-        sub = fmt(best.a) .. "  vs  " .. fmt(best.b) .. "\nOnly " .. math.max(1, math.floor(best.d * 100 + 0.5)) .. " % of a level apart" }
+      return { title = "Neck and neck", rows = { lvlRow(best.a), lvlRow(best.b) },
+        foot = "Only " .. math.max(1, math.floor(best.d * 100 + 0.5)) .. " % of a level apart" }
     end,
     -- Next ding: who levels next at their current pace
     function()
@@ -1040,8 +1151,21 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         lv = lv + ns:WeekStat(p, "Levels")
       end
       if xp == 0 and q == 0 then return nil end
-      return { title = "The gang this week", big = shortNum(xp) .. " XP",
-        sub = math.floor(q) .. " quests · " .. ns.Money(gold) .. "\n" .. math.floor(lv) .. " levels together" }
+      -- last week's quest total, so the bar shows how close we are to beating it
+      local pwk, lq = ns.PrevWeekKey(), 0
+      for _, p in ipairs(people()) do
+        local s = p.stats or {}
+        if s.prev and s.prev.wk == pwk then lq = lq + (s.prev.Quests or 0)
+        elseif s.wk == pwk then lq = lq + (s.wQuests or 0) end
+      end
+      local rows = {}
+      if lq > 0 then
+        rows[1] = { label = "Quests", value = commas(q) .. " / " .. commas(lq) .. " last wk", frac = q / lq, color = q >= lq and C.green or C.accent }
+      else
+        rows[1] = { label = "Quests", value = commas(q) }
+      end
+      rows[2] = { label = goldOnly(gold) .. " looted", value = math.floor(lv) .. " levels" }
+      return { title = "The gang this week", big = shortNum(xp) .. " XP", rows = rows }
     end,
     -- Dungeon records
     function()
@@ -1071,7 +1195,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     if n == 0 then
       cd.title:SetText(i == 1 and "SPOTLIGHT" or "")
       cd.big:SetText(i == 1 and ns.Colorize("Play a bit – fun facts show up here", C.muted) or "")
-      cd.sub:SetText("") cd.page:SetText("") cd.fact = nil
+      cd.sub:SetText("") cd.page:SetText("") cd.fact = nil hideRows(cd)
       return
     end
     local f = spotFacts[((spotIdx[i] - 1) % n) + 1]
@@ -1079,6 +1203,20 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     cd.title:SetText((f.title or ""):upper())
     cd.big:SetText(f.big or "")
     cd.big:SetShown(f.big ~= nil)
+    cd.page:SetText((((spotIdx[i] - 1) % n) + 1) .. " of " .. n)
+    if f.rows then
+      -- data card: bars/rows fill the height, footer only if there is room left
+      local ch = cd:GetHeight() or 0
+      if ch < 40 then ch = 106 end
+      local y = f.big and 54 or 30
+      y = drawRows(cd, f.rows, y, ch - y - 8)
+      cd.sub:ClearAllPoints()
+      cd.sub:SetPoint("BOTTOMLEFT", 12, 9)
+      cd.sub:SetPoint("RIGHT", -10, 0)
+      cd.sub:SetText((f.foot and ch - y - 8 >= 16) and ns.Colorize(f.foot, C.muted) or "")
+      return
+    end
+    hideRows(cd)
     cd.sub:ClearAllPoints()
     if f.big then cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6) else cd.sub:SetPoint("TOPLEFT", 12, -30) end
     cd.sub:SetPoint("RIGHT", -10, 0)
@@ -1088,14 +1226,12 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     if ch < 40 then ch = 106 end -- not laid out yet
     local room = ch - (f.big and 62 or 40)
     local maxLines = math.max(1, math.floor(room / 15))
-    local lines, n = {}, 0
+    local lines = {}
     for line in (sub .. "\n"):gmatch("(.-)\n") do
-      n = n + 1
-      if n > maxLines then break end
+      if #lines >= maxLines then break end
       lines[#lines + 1] = line
     end
     cd.sub:SetText(table.concat(lines, "\n"))
-    cd.page:SetText((((spotIdx[i] - 1) % n) + 1) .. "/" .. n)
   end
 
   -- move card i forward until it shows a fact no other card shows

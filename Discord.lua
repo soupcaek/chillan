@@ -175,7 +175,7 @@ function X:FromItem(item)
     local d = ns.Ach and ns.Ach.byId[item.a]
     local tier = d and ns.Ach.TIERS[d.tier]
     e.an = d and d.name or tostring(item.a)
-    e.ad = d and d.desc and plain(d.desc) or nil
+    e.ad = (item.c and item.c ~= "" and plain(item.c)) or (d and d.desc and plain(d.desc)) or nil
     e.at = tier and tier.name or nil
     return e
   elseif k == "DUNGEON" then

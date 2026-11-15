@@ -2,6 +2,16 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.31.0", date = "15.11", items = {
+    "Stats cards redone: no more cut-off text. Wall of shame shows the two worst as bars with the gang total (hover for top 5 and the last death), Neck and neck and Level race show class-coloured XP bars, the weekly challenge shows the top 3, and The gang this week shows quests against last week",
+    "Stats cards: the counter in the corner now shows which card you're on («2 of 9») – it used to show a line count",
+    "Weekly challenge: the winner is now decided only once everyone who played that week has synced their final numbers (or by Thursday at the latest), and then locked, so playing at different times no longer gives the wrong winner",
+    "Weekly stats sync: last week's levels and PvP kills no longer get wiped or carried into the new week, and friends who are offline now pass on levels and kills too",
+    "«Winner of the week» now says what was won (e.g. Most quests – 333 quests) in chat, the popup and Discord",
+    "Kills: reactions to your kill now say «X reacted to your kill – You killed Y in Z» (it used to say «On level <zone>»), and you no longer get the kill popup for a group kill you were in on yourself",
+    "Friends opens on «All» instead of «Online only»",
+    "Removed the Quests tab",
+  } },
   { v = "0.30.7", date = "15.11", items = {
     "Bigger «+» on the bar for pinning buttons and stats",
   } },

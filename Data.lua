@@ -114,6 +114,29 @@ Comm:Handle("BY", function(f, sender)
   ns:MarkDirty()
 end)
 
+-- Weekly numbers arrive in three messages (SS, S2, SC). Two rules keep them honest:
+-- 1) when a person's week key changes, every weekly number from the old week is cleared
+--    (otherwise last week's levels/kills were read as this week's), and
+-- 2) replacing last week's snapshot keeps the fields another message filled in for the same week
+--    (SS and SC used to wipe the Levels/Kills that S2 had set, so "Most levels" lost data).
+-- returns false when the message is from an older week than we already hold (stale relay): skip its weekly numbers
+local function setWeek(s, wk)
+  if not wk or wk == "" then return true end
+  if s.wk and wk < s.wk then return false end
+  if wk ~= s.wk then
+    s.wk = wk
+    s.wOnline, s.wQuests, s.wGold, s.wDeaths = 0, 0, 0, 0
+    s.wLevels, s.wKills, s.wNight = 0, 0, 0
+  end
+  return true
+end
+local function setPrev(s, wk, fields)
+  if not wk or wk == "" then return end
+  if s.prev and s.prev.wk ~= wk and s.prev.wk > wk then return end -- never go back to an older week
+  if not s.prev or s.prev.wk ~= wk then s.prev = { wk = wk } end
+  for k, v in pairs(fields) do if v ~= nil then s.prev[k] = v end end
+end
+
 Comm:Handle("SS", function(f, sender)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
@@ -125,12 +148,12 @@ Comm:Handle("SS", function(f, sender)
   if num(f[3]) then c.played = num(f[3]) c.playedAt = ns.Now() end
   local s = p.stats or {}
   p.stats = s
-  s.wk = f[4]
-  s.wOnline, s.wQuests, s.wGold, s.wDeaths = num(f[5]) or 0, num(f[6]) or 0, num(f[7]) or 0, num(f[8]) or 0
-  s.tOnline, s.tQuests, s.tGold, s.tDeaths = num(f[9]) or 0, num(f[10]) or 0, num(f[11]) or 0, num(f[12]) or 0
-  if f[13] and f[13] ~= "" then
-    s.prev = { wk = f[13], Online = num(f[14]) or 0, Quests = num(f[15]) or 0, Gold = num(f[16]) or 0, Deaths = num(f[17]) or 0 }
+  if setWeek(s, f[4]) then
+    s.wOnline, s.wQuests, s.wGold, s.wDeaths = num(f[5]) or 0, num(f[6]) or 0, num(f[7]) or 0, num(f[8]) or 0
   end
+  s.tOnline, s.tQuests, s.tGold, s.tDeaths = num(f[9]) or 0, num(f[10]) or 0, num(f[11]) or 0, num(f[12]) or 0
+  setPrev(s, f[13], { Online = num(f[14]) or 0, Quests = num(f[15]) or 0, Gold = num(f[16]) or 0, Deaths = num(f[17]) or 0 })
+  p.statsAt = ns.Now()
   if f[18] and f[18] ~= "" then p.deathZone = f[18] end
   if num(f[19]) then p.deathAt = ago2t(f[19]) end
   p.main = p.main or char
@@ -143,19 +166,11 @@ Comm:Handle("S2", function(f)
   local p = ns:GetPerson(pid, true)
   local s = p.stats or {}
   p.stats = s
-  if f[2] and f[2] ~= "" and f[2] ~= s.wk then
-    -- new week from this person: old weekly numbers must not be read as this week's
-    s.wk = f[2]
-    s.wOnline, s.wQuests, s.wGold, s.wDeaths, s.wNight = 0, 0, 0, 0, 0
-  end
-  s.wLevels, s.wKills = num(f[3]) or 0, num(f[4]) or 0
+  if setWeek(s, f[2]) then s.wLevels, s.wKills = num(f[3]) or 0, num(f[4]) or 0 end
   s.tLevels, s.tKills = num(f[5]) or 0, num(f[6]) or 0
   s.tLongest = num(f[7]) or s.tLongest
   if f[11] and f[11] ~= "" then s.wNight = num(f[11]) or 0 end
-  if f[8] and f[8] ~= "" then
-    s.prev = s.prev or { wk = f[8] }
-    if s.prev.wk == f[8] then s.prev.Levels, s.prev.Kills = num(f[9]) or 0, num(f[10]) or 0 end
-  end
+  setPrev(s, f[8], { Levels = num(f[9]) or 0, Kills = num(f[10]) or 0 })
   ns:MarkDirty()
 end)
 
@@ -216,7 +231,8 @@ local function buildSC(pid, p)
     c.level or 0, ns:PersonPlayed(p), ns.Now() - (p.lastSeen or ns.Now()),
     s.wk or "", s.wOnline or 0, s.wQuests or 0, s.wGold or 0, s.wDeaths or 0,
     s.tOnline or 0, s.tQuests or 0, s.tGold or 0, s.tDeaths or 0,
-    pv.wk or "", pv.Online or 0, pv.Quests or 0, pv.Gold or 0, pv.Deaths or 0)
+    pv.wk or "", pv.Online or 0, pv.Quests or 0, pv.Gold or 0, pv.Deaths or 0,
+    s.wLevels or 0, s.wKills or 0, pv.Levels or "", pv.Kills or "")
 end
 
 Comm:Handle("SC", function(f)
@@ -244,12 +260,15 @@ Comm:Handle("SC", function(f)
   p.lastSeen = lastSeen
   local s = p.stats or {}
   p.stats = s
-  s.wk = f[9]
-  s.wOnline, s.wQuests, s.wGold, s.wDeaths = num(f[10]) or 0, num(f[11]) or 0, num(f[12]) or 0, num(f[13]) or 0
-  s.tOnline, s.tQuests, s.tGold, s.tDeaths = num(f[14]) or 0, num(f[15]) or 0, num(f[16]) or 0, num(f[17]) or 0
-  if f[18] and f[18] ~= "" then
-    s.prev = { wk = f[18], Online = num(f[19]) or 0, Quests = num(f[20]) or 0, Gold = num(f[21]) or 0, Deaths = num(f[22]) or 0 }
+  if setWeek(s, f[9]) then
+    s.wOnline, s.wQuests, s.wGold, s.wDeaths = num(f[10]) or 0, num(f[11]) or 0, num(f[12]) or 0, num(f[13]) or 0
+    -- levels/kills only come from newer clients; older ones leave what we already had
+    if num(f[23]) then s.wLevels, s.wKills = num(f[23]), num(f[24]) or 0 end
   end
+  s.tOnline, s.tQuests, s.tGold, s.tDeaths = num(f[14]) or 0, num(f[15]) or 0, num(f[16]) or 0, num(f[17]) or 0
+  setPrev(s, f[18], { Online = num(f[19]) or 0, Quests = num(f[20]) or 0, Gold = num(f[21]) or 0, Deaths = num(f[22]) or 0,
+    Levels = num(f[25]), Kills = num(f[26]) })
+  p.statsAt = ns.Now()
   ns:MarkDirty()
 end)
 
@@ -616,8 +635,13 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
       ns:Fire("DING", item)
       ns.Sound("dead")
     elseif kind == "KILL" and pid ~= ns.pid then
-      ns:Fire("DING", item)
-      ns.Sound("ding")
+      -- group kill: everyone in the group reports it and the first report wins. Wait a moment, and
+      -- skip the popup if my own report was folded into this one (I was in on the kill myself).
+      C_Timer.After(4, function()
+        for _, w in ipairs(item.w or {}) do if w[1] == ns.pid then return end end
+        ns:Fire("DING", item)
+        ns.Sound("ding")
+      end)
     elseif kind == "ACH" then
       -- bronse vises bare i chatten, sølv og oppover får popup
       if b == "S" or b == "G" or b == "L" then
@@ -825,12 +849,25 @@ Comm:Handle("RX", function(f)
         elseif item.kind == "SOS" then
           ns:Fire("TOAST", { kind = "sos", title = who .. " answered your SOS", text = "In " .. tostring(item.a or "?") })
         else
+          -- each kind says what was reacted to (kills used to read "On level <zone>")
           local what = "On level " .. tostring(item.a)
+          local title = who .. " congratulated you!"
           if item.kind == "ACH" then
             local d = ns.Ach and ns.Ach.byId[item.a]
             what = "On «" .. (d and d.name or "achievement") .. "»"
+          elseif item.kind == "KILL" then
+            title = who .. " reacted to your kill"
+            what = "You killed " .. ((item.c and item.c ~= "") and item.c or "an Alliance player") .. " in " .. tostring(item.a or "?")
+          elseif item.kind == "LOOT" then
+            what = "On your loot"
+          elseif item.kind == "MOUNT" then
+            what = "On your new mount"
+          elseif item.kind == "DUNGEON" then
+            what = "On your " .. tostring(item.a or "dungeon") .. " run"
+          elseif item.kind ~= "DING" then
+            what = ""
           end
-          ns:Fire("TOAST", { kind = "star", title = who .. " congratulated you!", text = what })
+          ns:Fire("TOAST", { kind = "star", title = title, text = what })
         end
         ns.Sound("notify")
       end)
@@ -1160,8 +1197,50 @@ function Data:CurrentLeader()
   return ch, best, bestV
 end
 
+-- Last week's challenge result, decided once and then frozen so it never flips between logins.
+-- It is only decided when we hold final numbers for everyone who played that week: a person counts
+-- as final when we got their stats after their last activity (or after the week ended). People who
+-- play at different times no longer "win" just because the others' numbers hadn't synced yet.
+-- After Thursday we decide with what we have, so a friend who quit can't block it forever.
+function Data:WeekResult()
+  local pwk = ns.PrevWeekKey()
+  ns.db.weekResults = ns.db.weekResults or {}
+  local saved = ns.db.weekResults[pwk]
+  if saved then return saved end
+  local ch = self:ChallengeFor(pwk)
+  local weekEnd = ns.MondayOf(ns.Now())
+  local weekStart = ns.MondayOf(weekEnd - 3 * 86400)
+  local best, bestV, waiting = nil, 0, 0
+  for pid, p in pairs(ns.db.people) do
+    local s = p.stats or {}
+    local v = 0
+    if s.prev and s.prev.wk == pwk then v = s.prev[ch.key] or 0
+    elseif s.wk == pwk then v = s["w" .. ch.key] or 0 end
+    if pid ~= ns.pid and (p.lastSeen or 0) >= weekStart then
+      local need = math.min(p.lastSeen or 0, weekEnd) - 300
+      if (p.statsAt or 0) < need then waiting = waiting + 1 end
+    end
+    if v > bestV or (v == bestV and v > 0 and best and pid < best.pid) then best, bestV = p, v end
+  end
+  if waiting > 0 and ns.Now() < weekEnd + 3 * 86400 then return nil, waiting end
+  local res = { wk = pwk, key = ch.key, label = ch.label, pid = best and best.pid, v = bestV }
+  ns.db.weekResults[pwk] = res
+  -- keep the table small
+  local keys = {}
+  for k in pairs(ns.db.weekResults) do keys[#keys + 1] = k end
+  table.sort(keys)
+  for i = 1, #keys - 12 do ns.db.weekResults[keys[i]] = nil end
+  return res
+end
+
 function Data:LastWeekWinner()
   local pwk = ns.PrevWeekKey()
+  local frozen = ns.db.weekResults and ns.db.weekResults[pwk]
+  if frozen then
+    local ch = self:ChallengeFor(pwk)
+    for _, c in ipairs(ns.CHALLENGES) do if c.key == frozen.key then ch = c end end
+    return ch, frozen.pid and ns:GetPerson(frozen.pid), frozen.v, pwk
+  end
   local ch = self:ChallengeFor(pwk)
   local best, bestV = nil, 0
   for _, p in ipairs(ns:SortedPeople()) do
@@ -1175,6 +1254,7 @@ function Data:LastWeekWinner()
 end
 
 function Data:AnnounceWinner()
+  if not self:WeekResult() then return end
   local ch, best, v, pwk = self:LastWeekWinner()
   if not best or ns.db.announced[pwk] then return end
   ns.db.announced[pwk] = true
@@ -1207,7 +1287,6 @@ function Data:Start()
     ns.Tracker:SendStatus(1)
   end)
   C_Timer.NewTicker(60, function() Comm:GossipWhisperPeers() end)
-  C_Timer.After(75, function() Data:AnnounceWinner() end)
   ns.Sync:Start()
   ns.Quests:Start()
   ns.Titles:Start()

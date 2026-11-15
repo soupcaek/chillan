@@ -332,5 +332,5 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     statusBtn:SetLabel((ns.STATUS[st] and ns.STATUS[st].label or st) .. (manual and "" or "  (auto)"))
   end
 
-  setFilter("online")
+  setFilter("all")
 end)

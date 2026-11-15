@@ -55,6 +55,7 @@ function ns.FeedLine(it, withTime)
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
     icon, color = "Trophy", tier.color
     text = "unlocked " .. ns.AchLink(it.a, "«" .. (d and d.name or tostring(it.a)) .. "»", tier.color) .. ns.Colorize(" (" .. tier.name:lower() .. ")", C.dim)
+    if it.c and it.c ~= "" then text = text .. ns.Colorize(" · " .. it.c, C.text2) end
     if it.reacts and #it.reacts > 0 then
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.purple)
     end
@@ -103,6 +104,7 @@ function ns.FeedShort(it)
     local d = ns.Ach and ns.Ach.byId[it.a]
     local tier = d and ns.Ach.TIERS[d.tier] or ns.Ach.TIERS.B
     return I("Trophy", tier.color) .. who .. " · " .. ns.AchLink(it.a, d and d.name or tostring(it.a), tier.color)
+      .. ((it.c and it.c ~= "") and ns.Colorize(" · " .. it.c, C.text2) or "")
   end
   if it.kind == "LOOT" then
     -- ekte item-lenke (riktig kvalitetsfarge + tooltip når du holder musa over)

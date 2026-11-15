@@ -633,7 +633,7 @@ function O:ShowDing(item)
     d.icon:SetTexture(ns.TEX .. "IconTrophy")
     d.icon:SetVertexColor(hex(tier.color))
     d.title:SetText(ns:ShortWho(p, item.char) .. " unlocked " .. ns.Colorize("«" .. def.name .. "»", tier.color))
-    parts[#parts + 1] = def.desc
+    parts[#parts + 1] = (item.c and item.c ~= "") and item.c or def.desc
     parts[#parts + 1] = tier.points .. " points"
   elseif item.kind == "KILL" and ns.Kills then
     d.kicker:SetText(ns.Kills:Kicker(item))

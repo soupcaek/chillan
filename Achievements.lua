@@ -302,6 +302,10 @@ D("ALL100", "fun", "L", "Completionist", "Unlock 100 achievements", V(function()
 A.defs = defs
 A.byId = {}
 for i, d in ipairs(defs) do d.order = i A.byId[d.id] = d end
+-- weekly-win achievements carry what was won ("Most quests – 333 quests")
+for _, id in ipairs({ "WIN1", "WIN5" }) do
+  if A.byId[id] then A.byId[id].detail = function() return ns.db.cnt and ns.db.cnt.lastWin end end
+end
 
 ---------------------------------------------------------------------------
 -- Evaluering
@@ -368,7 +372,7 @@ function A:Check()
     self:SendList()
   else
     for _, d in ipairs(newOnes) do
-      ns.Tracker:Event("ACH", d.id, d.tier)
+      ns.Tracker:Event("ACH", d.id, d.tier, d.detail and d.detail() or nil)
       -- sølv/gull/legendarisk får den store popupen; bronse bare et lite varsel (ikke begge)
       if d.tier == "B" then
         ns:Fire("TOAST", { kind = "trophy", sticky = false,
@@ -496,6 +500,15 @@ end
 
 -- Ukens konger og vinner (sjekkes etter innlogging, når data om forrige uke er synket)
 function A:CheckWeekKings()
+  -- wait until last week's numbers are final for everyone (see Data:WeekResult), retry every 5 min
+  if not ns.Data:WeekResult() then
+    if not A.kingsRetry then
+      A.kingsRetry = true
+      C_Timer.After(300, function() A.kingsRetry = false A:CheckWeekKings() end)
+    end
+    return
+  end
+  ns.Data:AnnounceWinner()
   local pwk = ns.PrevWeekKey()
   -- same rules as the weekly titles: a minimum to count, ties go to the lowest id (same on every client)
   local function best(key, min)
@@ -516,10 +529,12 @@ function A:CheckWeekKings()
   if s.prev and s.prev.wk == pwk and (s.prev.Deaths or 0) == 0 and (s.prev.Online or 0) >= 5 * 3600 then
     ns.CntFlag("weekNoDeath")
   end
-  local ch, winner = ns.Data:LastWeekWinner()
+  local ch, winner, wv = ns.Data:LastWeekWinner()
   ns.db.cnt.winsCounted = ns.db.cnt.winsCounted or {}
   if winner and winner.pid == ns.pid and not ns.db.cnt.winsCounted[pwk] then
     ns.db.cnt.winsCounted[pwk] = true
+    -- what was won goes along with the achievement in the feed, popup and Discord
+    ns.db.cnt.lastWin = ch.label .. " – " .. ch.fmt(wv)
     ns.Cnt("challengeWins")
   end
 end
