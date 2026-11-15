@@ -732,7 +732,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   -- Used by the wall of shame and the spotlight cards so data gets the
   -- card's height instead of being squeezed (and cut) into one text line.
   -------------------------------------------------------------------------
-  local ROW_H, BAR_ROW_H = 16, 26
+  local ROW_H, BAR_ROW_H = 16, 24
   local function getRow(cd, k)
     cd.rows = cd.rows or {}
     local r = cd.rows[k]
@@ -774,8 +774,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       if spec.frac then
         local f = math.max(0, math.min(1, spec.frac))
         r.bg:ClearAllPoints()
-        r.bg:SetPoint("TOPLEFT", 12, -(y + 16))
-        r.bg:SetPoint("TOPRIGHT", -12, -(y + 16))
+        r.bg:SetPoint("TOPLEFT", 12, -(y + 15))
+        r.bg:SetPoint("TOPRIGHT", -12, -(y + 15))
         r.bg:SetHeight(4)
         r.fill:ClearAllPoints()
         r.fill:SetPoint("TOPLEFT", r.bg, "TOPLEFT")
@@ -798,6 +798,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     return (out:gsub("^,", ""))
   end
   local function goldOnly(copper) return commas(math.floor((copper or 0) / 10000)) .. "g" end
+  local function zoneShort(z) return (tostring(z or "?"):match("^([^,]+)")) or "?" end
   local function classHexOf(p) local c = ns:PersonChar(p) or {} return ns.ClassHex(c.class) end
 
   local ch = card(92, "Weekly challenge")
@@ -1028,12 +1029,13 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       end
       if #all == 0 then return nil end
       table.sort(all, function(a, b) return a.f.t > b.f.t end)
-      local lines = {}
-      for _, e in ipairs(all) do
+      local rows = {}
+      for k = 1, math.min(4, #all) do
+        local e = all[k]
         local p = ns:GetPerson(e.f.pid) or {}
-        lines[#lines + 1] = ns.Colorize(e.label, C.muted) .. "  " .. ns:ShortWho(p, e.f.char)
+        rows[k] = { label = ns:ShortWho(p, e.f.char), value = ns.Colorize(e.label, C.gold) }
       end
-      return { title = "First in the gang", big = nil, sub = table.concat(lines, "\n") }
+      return { title = "First in the gang · " .. #all, rows = rows }
     end,
     -- Level race: the two highest levels in the gang
     function()
@@ -1072,19 +1074,23 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end,
     -- Next ding: who levels next at their current pace
     function()
-      local best
+      local list = {}
       for _, p in ipairs(people()) do
         local s3 = ns:PersonS3(p) or {}
-        if ns:IsOnline(p) and s3.sessXP and s3.sessSec and s3.sessSec > 600 and s3.sessXP > 0 and s3.xp and s3.xpMax then
+        if ns:IsOnline(p) and s3.sessXP and s3.sessSec and s3.sessSec > 600 and s3.sessXP > 0 and s3.xp and s3.xpMax and s3.xpMax > 0 then
           local xph = s3.sessXP / s3.sessSec * 3600
-          local eta = (s3.xpMax - s3.xp) / xph * 3600
-          if not best or eta < best.eta then best = { p = p, eta = eta, xph = xph } end
+          list[#list + 1] = { p = p, eta = (s3.xpMax - s3.xp) / xph * 3600, xph = xph, frac = s3.xp / s3.xpMax }
         end
       end
-      if not best then return nil end
-      local lvl = ns:PersonMaxLevel(best.p)
-      return { title = "Next ding", big = ns:ShortWho(best.p) .. ns.Colorize("  in ~" .. ns.Duration(best.eta), C.text2),
-        sub = "Level " .. lvl .. " to " .. (lvl + 1) .. "\n" .. shortNum(best.xph) .. " XP/h this session" }
+      if #list == 0 then return nil end
+      table.sort(list, function(a, b) return a.eta < b.eta end)
+      local rows = {}
+      for k = 1, math.min(2, #list) do
+        local e = list[k]
+        rows[k] = { label = ns:ShortWho(e.p) .. ns.Colorize("  " .. ns:PersonMaxLevel(e.p) + 1, C.dim),
+          value = "~" .. ns.Duration(e.eta), frac = e.frac, color = classHexOf(e.p) }
+      end
+      return { title = "Next ding", rows = rows, foot = shortNum(list[1].xph) .. " XP/h this session" }
     end,
     -- Loot of the week
     function()
@@ -1100,8 +1106,9 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       local name = id and ((C_Item and C_Item.GetItemInfo and C_Item.GetItemInfo(id)) or (GetItemInfo and GetItemInfo(id)))
       local hexq = (ns.QUALITY_HEX and ns.QUALITY_HEX[best.q]) or C.text
       local p = ns:GetPerson(best.it.pid) or {}
-      return { title = "Loot of the week", item = id, big = ns.Colorize("[" .. (name or "item") .. "]", hexq),
-        sub = "Looted by " .. ns:ShortWho(p) .. " · " .. ns.Ago(best.it.t) }
+      return { title = "Loot of the week", item = id,
+        rows = { { label = ns.Colorize("[" .. (name or "item") .. "]", hexq), value = "" },
+                 { label = ns:ShortWho(p), value = ns.Ago(best.it.t) } } }
     end,
     -- Deadliest zone this week
     function()
@@ -1113,13 +1120,19 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
           who[it.a][it.pid] = (who[it.a][it.pid] or 0) + 1
         end
       end
-      local z, n = nil, 0
-      for k, v in pairs(zones) do if v > n then z, n = k, v end end
-      if not z then return nil end
+      local list = {}
+      for k, v in pairs(zones) do list[#list + 1] = { z = k, n = v } end
+      if #list == 0 then return nil end
+      table.sort(list, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.z < b.z end)
+      local rows = {}
+      for k = 1, math.min(2, #list) do
+        local e = list[k]
+        rows[k] = { label = zoneShort(e.z), value = e.n .. (k == 1 and " deaths" or ""), frac = e.n / list[1].n, color = k == 1 and C.red or C.dim }
+      end
       local wp, wn = nil, 0
-      for pid, v in pairs(who[z]) do if v > wn then wp, wn = pid, v end end
-      return { title = "Deadliest zone", big = z,
-        sub = n .. " death" .. (n == 1 and "" or "s") .. " this week" .. (wp and ("\nMost: " .. ns:ShortWho(ns:GetPerson(wp) or {}) .. " (" .. wn .. ")") or "") }
+      for pid, v in pairs(who[list[1].z]) do if v > wn then wp, wn = pid, v end end
+      return { title = "Deadliest zones (week)", rows = rows,
+        foot = wp and ("Worst there: " .. ns:PersonFirst(ns:GetPerson(wp) or {}) .. " (" .. wn .. ")") or nil }
     end,
     -- Enemy log: the newest tagged Alliance player
     function()
@@ -1127,18 +1140,24 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       for _, x in pairs(ns.db.enemies or {}) do if not e or (x.t or 0) > (e.t or 0) then e = x end end
       if not e then return nil end
       local by = e.by and ns:GetPerson(e.by)
-      return { title = "Enemy of the week", big = ns.Colorize(e.name, C.red),
-        sub = ((e.note and e.note ~= "") and ("“" .. e.note .. "”\n") or "") .. "Tagged " .. ns.Ago(e.t) .. (by and (" by " .. ns:ShortWho(by)) or "") }
+      return { title = "Enemy of the week",
+        rows = { { label = ns.Colorize(e.name, C.red), value = (by and (ns:PersonFirst(by) .. " · ") or "") .. ns.Ago(e.t) } },
+        note = (e.note and e.note ~= "") and ("“" .. e.note .. "”") or ((e.revenge or 0) > 0 and ("Revenge taken " .. e.revenge .. "×") or nil) }
     end,
     -- Hot streak: most days in a row
     function()
-      local bp, bv = nil, 0
+      local list = {}
       for _, p in ipairs(people()) do
         local s3 = ns:PersonS3(p) or {}
-        if (s3.streak or 0) > bv then bp, bv = p, s3.streak end
+        if (s3.streak or 0) >= 2 then list[#list + 1] = { p = p, v = s3.streak } end
       end
-      if not bp or bv < 2 then return nil end
-      return { title = "Hot streak", big = bv .. " days in a row", sub = ns:ShortWho(bp) .. " hasn't missed a day" }
+      if #list == 0 then return nil end
+      table.sort(list, function(a, b) return a.v > b.v end)
+      local rows = {}
+      for k = 1, math.min(2, #list) do
+        rows[k] = { label = ns:ShortWho(list[k].p), value = list[k].v .. " days", frac = list[k].v / list[1].v, color = k == 1 and C.amber or C.dim }
+      end
+      return { title = "Hot streak · days in a row", rows = rows }
     end,
     -- The gang this week, all together
     function()
@@ -1164,19 +1183,31 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       else
         rows[1] = { label = "Quests", value = commas(q) }
       end
-      rows[2] = { label = goldOnly(gold) .. " looted", value = math.floor(lv) .. " levels" }
-      return { title = "The gang this week", big = shortNum(xp) .. " XP", rows = rows }
+      rows[2] = { label = shortNum(xp) .. " XP", value = goldOnly(gold) .. " · " .. math.floor(lv) .. " lvls" }
+      return { title = "The gang this week", rows = rows }
     end,
     -- Dungeon records
     function()
       local recs = ns.Extras:DungeonRecords()
       if #recs == 0 then return nil end
       table.sort(recs, function(a, b) return (a.item.t or 0) > (b.item.t or 0) end)
-      local lines = {}
-      for i = 1, math.min(3, #recs) do
-        lines[#lines + 1] = recs[i].name .. ns.Colorize("  " .. ns.Duration(recs[i].dur), C.accent)
+      local function crew(it)
+        local names = {}
+        for _, p in ipairs(ns.Extras:RunMembers(it)) do names[#names + 1] = ns:PersonFirst(p) end
+        if #names == 0 then names[1] = ns:PersonFirst(ns:GetPerson(it.pid) or {}) end
+        return table.concat(names, ", ")
       end
-      return { title = "Dungeon records", sub = table.concat(lines, "\n") }
+      if #recs == 1 then
+        local r = recs[1]
+        return { title = "Dungeon record", rows = {
+          { label = r.name, value = ns.Colorize(ns.Duration(r.dur), C.accent) },
+          { label = ns.Colorize(crew(r.item), C.text2), value = ns.Ago(r.item.t) } } }
+      end
+      local rows = {}
+      for i = 1, math.min(3, #recs) do
+        rows[i] = { label = recs[i].name, value = ns.Colorize(ns.Duration(recs[i].dur), C.accent) }
+      end
+      return { title = "Dungeon records · " .. #recs, rows = rows, foot = "Newest: " .. crew(recs[1].item) }
     end,
   }
 
@@ -1208,15 +1239,32 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       -- data card: bars/rows fill the height, footer only if there is room left
       local ch = cd:GetHeight() or 0
       if ch < 40 then ch = 106 end
-      local y = f.big and 54 or 30
+      local y = f.big and 52 or 30
       y = drawRows(cd, f.rows, y, ch - y - 8)
+      local left = ch - y - 8
       cd.sub:ClearAllPoints()
-      cd.sub:SetPoint("BOTTOMLEFT", 12, 9)
-      cd.sub:SetPoint("RIGHT", -10, 0)
-      cd.sub:SetText((f.foot and ch - y - 8 >= 16) and ns.Colorize(f.foot, C.muted) or "")
+      if f.note and left >= 14 then
+        -- free text (an enemy's note): wraps onto up to two lines instead of being cut on one
+        local lines = math.min(2, math.floor(left / 14))
+        cd.sub:SetWordWrap(true)
+        cd.sub:SetSpacing(2)
+        cd.sub:SetPoint("TOPLEFT", 12, -(y + 1))
+        cd.sub:SetPoint("RIGHT", -12, 0)
+        cd.sub:SetHeight(lines * 14)
+        cd.sub:SetText(ns.Colorize(f.note, C.muted))
+      else
+        cd.sub:SetWordWrap(false)
+        cd.sub:SetHeight(14)
+        cd.sub:SetPoint("BOTTOMLEFT", 12, 9)
+        cd.sub:SetPoint("RIGHT", -10, 0)
+        cd.sub:SetText((f.foot and left >= 16) and ns.Colorize(f.foot, C.muted) or "")
+      end
       return
     end
     hideRows(cd)
+    cd.sub:SetWordWrap(false)
+    cd.sub:SetSpacing(4)
+    cd.sub:SetHeight(0)
     cd.sub:ClearAllPoints()
     if f.big then cd.sub:SetPoint("TOPLEFT", cd.big, "BOTTOMLEFT", 0, -6) else cd.sub:SetPoint("TOPLEFT", 12, -30) end
     cd.sub:SetPoint("RIGHT", -10, 0)

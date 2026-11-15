@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.31.1", date = "15.11", items = {
+    "Stats cards: the rest got the same treatment – Next ding is now XP bars for the two closest, Deadliest zones shows the two worst as bars, Hot streak shows the top two, Enemy of the week wraps the note instead of cutting it, and Dungeon records / First in the gang are tidy rows (name left, time or first right)",
+    "Stats cards: bars are a bit tighter so two always fit in a card",
+  } },
   { v = "0.31.0", date = "15.11", items = {
     "Stats cards redone: no more cut-off text. Wall of shame shows the two worst as bars with the gang total (hover for top 5 and the last death), Neck and neck and Level race show class-coloured XP bars, the weekly challenge shows the top 3, and The gang this week shows quests against last week",
     "Stats cards: the counter in the corner now shows which card you're on («2 of 9») – it used to show a line count",
