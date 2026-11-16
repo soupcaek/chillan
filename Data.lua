@@ -62,7 +62,9 @@ Comm:Handle("ST", function(f, sender, channel)
     and (not p.announcedSession or math.abs(sessKey - p.announcedSession) > 2)
   p.announcedSession = sessKey
   if not wasOnline and freshLogin then
-    if ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("online", pid) end
+    -- back within a minute of "logging out" = a /reload: no sound
+    local reload = p.byeAt and ns.Now() - p.byeAt < 60
+    if ns.db.settings.presenceSound and not reload and not InCombatLockdown() then ns.Sound("online", pid) end
     do
       ns:Fire("ACTIVITY", ns.UI.InlineIcon("Login", ns.C.green, 13) .. "  " .. ns:PersonLabel(p) .. ns.Colorize(" logged in" .. ((L.zone and L.zone ~= "") and (" · " .. L.zone) or ""), ns.C.text2))
       ns:Fire("FEEDEVENT", ns.UI.InlineIcon("Login", ns.C.green, 12) .. "  " .. ns:ShortWho(p) .. ns.Colorize(" logged in", ns.C.text2))
@@ -104,7 +106,7 @@ Comm:Handle("BY", function(f, sender)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
   local p = ns.db.people[pid]
-  if p and ns:IsOnline(p) and ns.db.settings.presenceSound and not InCombatLockdown() then ns.Sound("offline", pid) end
+  -- no sound here: a /reload looks exactly like a logout, so it only made noise for nothing
   if p then
     p.heard, p.via, p.byeAt = nil, nil, ns.Now()
     p.lastSeen = ns.Now()

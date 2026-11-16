@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.32.2", date = "17.11", items = {
+    "No more offline sound – a friend's /reload looked like a logout and made noise for nothing (and no login sound when they're back after a reload)",
+  } },
   { v = "0.32.1", date = "16.11", items = {
     "Fewer popups: dings pop up at level 10, 15 and from 20 (level 60 gets its own MAX LEVEL popup); the rest are in the feed",
     "Only the big achievements pop up for the gang (first epic, first mount, raids, 300 professions, 60 fast, weekly win …) – the rest show in the feed, and you get a small notice for your own",
