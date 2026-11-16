@@ -4,7 +4,7 @@
 --
 -- 1) The gang: every Chillan knows its own layer (Layer.lua) and shares it with its status.
 --    A hop asks the gang; a friend in the same zone on another layer invites by itself
---    (setting "layerHost"), the asker accepts, checks that it moved, and leaves 30 s later.
+--    (setting "layerHost"), the asker accepts, checks that it moved, and leaves 4 s later.
 -- 2) LayerSwap users: when nobody in the gang can help, the same click asks the players in
 --    the zone who run the LayerSwap addon, in LayerSwap's own hidden whisper format.
 --    Hosting for them is opt-in (setting "layerStrangers"), with LayerSwap's own limits.
@@ -20,7 +20,9 @@ local LS_PREFIX = "LayerSwap"
 local function testWhoLater(how) if L.TestWho then L.TestWho(how) end end
 local REQUEST_TTL = 90
 local VERIFY_AFTER = 15     -- no move this long after joining: the host stood on our layer
-local LEAVE_AFTER = 30      -- after a confirmed move, leave the host's group
+-- after a confirmed move, leave the host's group. LayerSwap 1.14.25: 4 s (it tried 30 s, and hosts got
+-- pulled onto their guests' layers; every swap proven on live left within a few seconds)
+local LEAVE_AFTER = 4
 local HOST_MAX, HOST_WINDOW, HOST_PER_PLAYER = 6, 600, 60
 local ZONE_MAP = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
 
@@ -34,9 +36,50 @@ local function inCombat()
 end
 local function inInstance() return (ns.S(IsInInstance)) and true or false end
 
-local function canHelp()
-  return not inGroup() and not inInstance() and not inCombat() and not ns.S(UnitIsDeadOrGhost, "player")
+-- listed in the group finder or queued for a dungeon: a guest joining would take us off the list
+local function listed()
+  if C_LFGList and C_LFGList.HasActiveEntryInfo then
+    local ok, v = pcall(C_LFGList.HasActiveEntryInfo)
+    if ok and not secret(v) and v == true then return true end
+  end
+  if GetLFGMode then
+    for cat = 1, (type(NUM_LE_LFG_CATEGORYS) == "number" and NUM_LE_LFG_CATEGORYS or 0) do
+      local ok, mode = pcall(GetLFGMode, cat)
+      if ok and not secret(mode) and (mode == "queued" or mode == "listed" or mode == "rolecheck" or mode == "proposal") then return true end
+    end
+  end
+  return false
 end
+-- the game counts down to a world refresh: a guest let in now would go with us when it hits
+L.evictAt = nil
+local function refreshing()
+  local at = L.evictAt
+  if not at then return false end
+  if GetTime() > at + 120 then L.evictAt = nil return false end
+  return true
+end
+local function evictUpdate()
+  local left
+  if GetEvictionTimeRemaining then
+    local ok, v = pcall(GetEvictionTimeRemaining)
+    if ok and not secret(v) and type(v) == "number" and v > 0 then left = v end
+  end
+  L.evictAt = left and (GetTime() + left) or nil
+end
+ns:On("SHARD_TRANSFER_IMMINENT", evictUpdate)
+ns:On("SHARD_TRANSFER_CANCELLED", evictUpdate)
+ns:On("SHARD_TRANSFER", function() L.evictAt = nil end)
+
+-- why we can't host right now (nil = we can)
+function L.PauseWhy()
+  if inGroup() then return "in a group" end
+  if inInstance() then return "in an instance" end
+  if inCombat() then return "in combat" end
+  if ns.S(UnitIsDeadOrGhost, "player") then return "dead" end
+  if listed() then return "in the group finder" end
+  if refreshing() then return "a world refresh is counting down" end
+end
+local function canHelp() return L.PauseWhy() == nil end
 
 -- the zone-level map we stand in (a city or cave map counts as its zone), like LayerSwap
 local function zoneMap()
@@ -234,7 +277,9 @@ end
 -- LayerSwap users we know of, learned without any search: every LayerSwap user who asks for a hop
 -- nearby whispers the players of the zone (us too) and names the layer it leaves; every host that
 -- answers our ask says its layer. ns.db.lsBook[name] = { at, layer, zone, host }
-local BOOK_TTL, BOOK_MAX = 3 * 3600, 400
+-- kept a week (LayerSwap 1.14.25): a known host is rare. A layer it told us is only trusted for an hour
+-- (layers change at every world refresh); one the game says isn't online is paused 10 min, not dropped.
+local BOOK_TTL, BOOK_MAX, LAYER_FRESH, GONE_FOR = 7 * 86400, 300, 3600, 600
 local function book()
   ns.db.lsBook = ns.db.lsBook or {}
   return ns.db.lsBook
@@ -243,20 +288,27 @@ local function learn(name, layer, zone, host)
   if type(name) ~= "string" or name == "" or secret(name) or isGangChar(name) then return end
   local b = book()
   local e = b[name] or {}
-  e.at = time()
-  if layer and layer ~= "" then e.layer = layer end
+  e.at, e.gone = time(), nil
+  if layer and layer ~= "" then e.layer, e.layerAt = layer, time() end
   if zone then e.zone = tonumber(zone) or e.zone end
   if host ~= nil then e.host = host or nil end
   b[name] = e
 end
 L.Learn = learn
 local function pruneBook()
-  local b, n, t = book(), 0, time()
+  local b, n, t, list = book(), 0, time(), {}
   for name, e in pairs(b) do
-    if type(e) ~= "table" or t - (e.at or 0) > BOOK_TTL then b[name] = nil else n = n + 1 end
+    if type(e) ~= "table" or t - (e.at or 0) > BOOK_TTL then b[name] = nil else n = n + 1 list[n] = name end
+  end
+  if n > BOOK_MAX then
+    table.sort(list, function(a, c) return (b[a].at or 0) > (b[c].at or 0) end)
+    for i = BOOK_MAX + 1, n do b[list[i]] = nil end
+    n = BOOK_MAX
   end
   return n
 end
+local function gone(e) return type(e.gone) == "number" and time() - e.gone < GONE_FOR end
+local function layerOf(e) return (e.layer and time() - (e.layerAt or e.at or 0) < LAYER_FRESH) and e.layer or nil end
 -- LayerSwap's own list, when LayerSwap runs too
 local function seedFromLayerSwap()
   local db = rawget(_G, "LayerSwapDB")
@@ -305,7 +357,8 @@ function L:BookNames(m, knownOnly)
   pruneBook()
   local out = {}
   for name, e in pairs(book()) do
-    if (not m.map or not e.zone or e.zone == m.map) and not (m.from and e.layer == m.from) then
+    if (not m.map or not e.zone or e.zone == m.map) and not (m.from and layerOf(e) == m.from) and not gone(e)
+      and not L.Avoided(name) then
       out[#out + 1] = { name = name, e = e }
     end
   end
@@ -321,6 +374,8 @@ function L:BookNames(m, knownOnly)
   return names
 end
 
+L.CLASSES = { 1, 2, 3, 4, 5, 7, 8, 9, 11 }
+L.zoneFull = {}          -- [map] = the last whole-zone search hit the game's 50-name cap
 local who = nil          -- the zone search in flight or just answered: { at, how, muted, done, names }
 local whoBlocking = false
 
@@ -339,14 +394,25 @@ function L:StartSearch()
   who = w
   whoBlocking = true
   local ok, err = false, nil
-  if okC and type(map) == "number" and not secret(map) then
-    ok, err = pcall(C_FriendList.SendWho, "", origin, { classIDs = {}, raceIDs = {}, uiMapIDs = { map } })
-    w.how = "map " .. map
+  local zone = ns.S(GetRealZoneText) or ""
+  -- the zone term in the client's own language (it isn't "z-" on every client)
+  local tag = WHO_TAG_ZONE
+  if secret(tag) or type(tag) ~= "string" or tag == "" then tag = "z-" end
+  local term = zone ~= "" and (tag .. '"' .. zone .. '"') or ""
+  if okC and type(map) == "number" and not secret(map) and not L.noMapFilter then
+    -- the game lists 50 players per search: each click asks the whole zone, then one class at a time,
+    -- so busy zones reach players the first search didn't show (LayerSwap 1.14.25)
+    L.whoRound = ((L.whoRound or -1) + 1) % (#L.CLASSES + 1)
+    local cls = L.whoRound > 0 and L.CLASSES[L.whoRound] or nil
+    ok, err = pcall(C_FriendList.SendWho, term, origin, { classIDs = cls and { cls } or {}, raceIDs = {}, uiMapIDs = { map } })
+    w.how = "map " .. map .. (cls and (" class " .. cls) or "")
+    w.slice = L.whoRound
+    if not ok and not w.blocked then L.noMapFilter = true end
   end
   if not ok and not w.blocked then
-    local zone = ns.S(GetRealZoneText) or ""
-    ok, err = pcall(C_FriendList.SendWho, zone ~= "" and ('z-"' .. zone .. '"') or "", origin)
+    ok, err = pcall(C_FriendList.SendWho, term, origin)
     w.how = zone
+    w.slice = 0
   end
   whoBlocking = false
   L.lastWho = { at = time(), how = w.how }
@@ -432,6 +498,10 @@ function L:WhoResults(via)
   w.inZone = #names
   for _, nm in ipairs(fresh(away)) do names[#names + 1] = nm end
   w.names = names
+  w.full = n >= 50
+  local zm2 = zoneMap() or 0
+  if w.slice == 0 then L.zoneFull[zm2] = w.full end
+  w.more = w.full or ((w.slice or 0) ~= 0 and L.zoneFull[zm2] == true)
   if L.lastWho then
     L.lastWho.result = n .. " found, " .. w.inZone .. " in your zone, " .. #names .. " to ask (" .. via .. ")"
   end
@@ -495,7 +565,7 @@ function L:Whisper(m, names)
       local name = names[i]
       if not name or (m.sent or 0) >= ASK_MAX then break end
       i = i + 1
-      if not m.whispered[norm(name)] then
+      if not m.whispered[norm(name)] and not L.Avoided(name) then
         local ok, res = pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
         if ok and not secret(res) and res == 3 then                        -- the game's budget: try again next second
           i = i - 1
@@ -529,7 +599,9 @@ function L:Whisper(m, names)
       end
       local total = same + other + busy + quiet
       if total == 0 then
-        ns.Print("Layer hop: no LayerSwap user answered here. Click Layer hop again to ask the next players, or try a busier zone.")
+        local w2 = who
+        ns.Print("Layer hop: no LayerSwap user answered here. "
+          .. ((w2 and w2.more) and "The zone has more players than one search shows – click Layer hop again to ask others." or "Click Layer hop again in a bit, or try a busier zone."))
       else
         ns.Print("Layer hop: " .. total .. " LayerSwap user" .. (total == 1 and "" or "s") .. " answered – "
           .. same .. " on your layer, " .. other .. " hosting on another layer, " .. (busy + quiet) .. " not able to host right now. Click Layer hop again to ask more.")
@@ -558,14 +630,29 @@ local function systemFilter(_, _, text, ...)
   local key = norm(name)
   local at = L.sentTo[key]
   if not at or GetTime() - at > 15 then return false end
+  -- a known host the game can't find right now is left alone 10 min, not forgotten
   local b = ns.db.lsBook
-  if b then for nm in pairs(b) do if norm(nm) == key then b[nm] = nil end end end
+  if b then for nm, e in pairs(b) do if norm(nm) == key and type(e) == "table" then e.gone = time() end end end
   return true
 end
 if ChatFrame_AddMessageEventFilter then ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", systemFilter) end
 L.NotPlaying = notPlaying
 
 -- a LayerSwap user answered our ask: "heard <me>|<their layer>|<zone>|<h or ->"
+-- a host that invited from our own layer (or whose group didn't move us) is skipped for 20 s while we
+-- still stand on that layer (LayerSwap 1.14.25)
+L.avoid = {}
+function L.AvoidHost(name, layer)
+  if type(name) == "string" and layer then L.avoid[norm(name)] = { at = GetTime(), layer = layer } end
+end
+function L.Avoided(name)
+  local e = L.avoid[norm(name)]
+  if not e then return false end
+  if GetTime() - e.at > 20 then L.avoid[norm(name)] = nil return false end
+  local cur = ns.Layer and ns.Layer:Current()
+  return cur ~= nil and cur == e.layer
+end
+
 local function onHeardReply(sender, layer, zone, host)
   local m = L.mine
   if not m or not m.asked or m.joinedAt then return end
@@ -607,7 +694,7 @@ Comm:Handle("LB", function(f)
     return (a.e.at or 0) > (b.e.at or 0)
   end)
   for _, x in ipairs(list) do
-    local item = x.name:gsub("[|;~]", "") .. "|" .. (x.e.layer or "") .. "|" .. (x.e.host and "h" or "")
+    local item = x.name:gsub("[|;~]", "") .. "|" .. (layerOf(x.e) or "") .. "|" .. (x.e.host and "h" or "")
     if len + #item + 1 > 190 then break end
     parts[#parts + 1] = item
     len = len + #item + 1
@@ -706,6 +793,14 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter)
   if not m or m.joinedAt or ns.Now() - m.t > REQUEST_TTL then return end
   if secret(inviter) or type(inviter) ~= "string" then return end
   if not (isGangChar(inviter) or m.whispered[norm(inviter)]) then return end
+  -- its own reply said it stands on our layer: joining would move nobody, so don't accept it
+  local said
+  for nm, r in pairs(m.replies or {}) do if norm(nm) == norm(inviter) and r.same then said = true end end
+  if said then
+    L.AvoidHost(inviter, m.from)
+    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " is on your layer, so that invite wouldn't move you – decline it and wait for another.")
+    return
+  end
   if AcceptGroup then AcceptGroup() end
   if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
   m.host = inviter
@@ -756,6 +851,7 @@ function L:Verify(m)
     return
   end
   local host = m.host and ns.ShortName(m.host) or "The host"
+  if m.host then L.AvoidHost(m.host, m.from) end
   ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
   self.mine = nil
   local members = GetNumGroupMembers and GetNumGroupMembers() or 0
@@ -806,6 +902,8 @@ function L:Slash(rest)
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
       .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
       .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
+    local why = L.PauseWhy()
+    if why then ns.Print("Hosting paused right now: " .. why .. ".") end
     local nc = 0
     for _, c in pairs(chatters) do if time() - c.at < 3600 then nc = nc + 1 end end
     ns.Print("LayerSwap users known: " .. pruneBook() .. ". Players seen in chat channels (last hour): " .. nc .. ".")

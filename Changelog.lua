@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.4", date = "16.11", items = {
+    "Layer hop, updated with LayerSwap 1.14.25's lessons: after a hop that worked you leave the host's group after 4 s instead of 30 s – longer stays could pull the host onto your layer",
+    "Layer hop reaches more players: each click searches the zone, then one class at a time (the game lists 50 per search), and the zone search now works on non-English clients too",
+    "Known LayerSwap hosts are remembered for a week instead of 3 hours. One that's offline is skipped for 10 minutes instead of forgotten",
+    "Hosting pauses while you're in the group finder or a dungeon queue, and while a world refresh counts down (it already paused in combat). /chill layer status says why",
+    "An invite from a host whose reply said it's on your layer isn't auto-accepted any more (it wouldn't move you), and a host that didn't move you is skipped for 20 s",
+  } },
   { v = "0.33.3", date = "16.11", items = {
     "Mount swap rebuilt for WoW Forever: Carrot on a Stick, The Desert Rose (desert zones), Wintersaber Hide Lined Gloves (Winterspring), Riding Skill gloves and Mithril Spurs boots. Riding Crop, Skybreaker Whip and the swim gear don't exist in Forever, so they're gone",
     "Probably why the carrot didn't swap: a carrot that's never been worn isn't soulbound, and the game won't let addons equip it. Chillan now tells you – equip it once by hand and it swaps from then on",
