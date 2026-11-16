@@ -654,8 +654,10 @@ function Q:TintBags()
   for _, f in ipairs(frames) do
     if f:IsShown() then
       if f.EnumerateValidItems then
-        local ok, it = pcall(f.EnumerateValidItems, f)
-        if ok and it then for _, btn in it do pcall(tintButton, btn) end end
+        -- the iterator needs its state values too, so call it in the for line itself
+        pcall(function()
+          for _, btn in f:EnumerateValidItems() do pcall(tintButton, btn) end
+        end)
       else
         local name = f:GetName()
         for s = 1, 40 do

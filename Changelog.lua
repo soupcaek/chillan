@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.2", date = "16.11", items = {
+    "Fix: Lua error (ContainerFrame.lua) when opening bags with the red tint on",
+  } },
   { v = "0.33.1", date = "16.11", items = {
     "Fix: the riding trinket didn't swap for everyone – Chillan now checks the swap worked and, if not, does it the old pick-up-and-place way, and retries a couple of times",
     "/chill qol test shows what the mount swap sees (mounted, slot, trinket found) and its last steps – send a screenshot if it still won't swap",
