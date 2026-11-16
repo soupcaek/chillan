@@ -163,7 +163,7 @@ SlashCmdList.CHILLAN = function(msg)
   elseif cmd == "cunt" or cmd == "cunts" then
     ns.Cunts:Slash(rest)
   elseif cmd == "qol" then
-    ns.Window:Toggle("qol")
+    ns.QoL:Slash(rest)
   elseif cmd == "kills" then
     ns.Kills:Report()
   elseif cmd == "layer" or cmd == "hop" or cmd == "lag" then

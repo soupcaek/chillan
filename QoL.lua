@@ -115,15 +115,57 @@ end
 
 local function saved() ns.db.qolSaved = ns.db.qolSaved or {} return ns.db.qolSaved end
 
+Q.debug = false
+Q.lastLog = {}
+local function log(msg)
+  table.insert(Q.lastLog, date("%H:%M:%S") .. " " .. msg)
+  while #Q.lastLog > 12 do table.remove(Q.lastLog, 1) end
+  if Q.debug then ns.Print("|cff8FB8E8QoL|r " .. msg) end
+end
+local function nameOf(link) return type(link) == "string" and (link:match("%[(.-)%]") or link) or "nothing" end
+local function bagPos(link)
+  local want, ench = idOf(link), enchOf(link)
+  return bagSlots(function(bag, slot)
+    local l = GetSlotLink(bag, slot)
+    if l and idOf(l) == want and enchOf(l) == ench then return { bag, slot } end
+  end)
+end
+local function isOn(slot, link)
+  local cur = equipped(slot)
+  return cur ~= nil and idOf(cur) == idOf(link) and enchOf(cur) == enchOf(link)
+end
+
+-- equip, check it worked, and fall back to pick up + put down (the ItemRack way)
+local function doEquip(link, slot)
+  local ok, err = equipByName(link, slot)
+  log("equip " .. nameOf(link) .. " -> slot " .. slot .. (ok == false and (" (error: " .. tostring(err) .. ")") or ""))
+  C_Timer.After(0.6, function()
+    if isOn(slot, link) then log("ok: " .. nameOf(link) .. " is on") return end
+    if fullCombat() then log("in combat – will retry after") return end
+    local pos = bagPos(link)
+    local pick = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
+    if pos and pick and PickupInventoryItem then
+      if ClearCursor then ClearCursor() end
+      pcall(pick, pos[1], pos[2])
+      pcall(PickupInventoryItem, slot)
+      if CursorHasItem and CursorHasItem() and ClearCursor then ClearCursor() end
+      log("fallback swap used for " .. nameOf(link))
+      C_Timer.After(0.6, function()
+        log(isOn(slot, link) and ("ok: " .. nameOf(link) .. " is on") or ("FAILED to put on " .. nameOf(link)))
+      end)
+    else
+      log("FAILED: " .. nameOf(link) .. " not found in bags")
+    end
+  end)
+end
+
 -- put link into slot, remembering what was there (only once per ride)
 local function swapIn(slot, link, tag)
-  if not link then return end
-  local cur = equipped(slot)
-  if cur and cur == link then return end
-  if idOf(cur) and idOf(cur) == idOf(link) and enchOf(cur) == enchOf(link) then return end
+  if not link or isOn(slot, link) then return false end
   local sv = saved()
-  if not sv[slot] then sv[slot] = { link = cur or false, tag = tag, put = link } end
-  equipByName(link, slot)
+  if not sv[slot] then sv[slot] = { link = equipped(slot) or false, tag = tag, put = link } end
+  doEquip(link, slot)
+  return true
 end
 
 -- put back what we took off, but only if the riding item is still the one there
@@ -133,10 +175,11 @@ local function restore(tag)
     if e.tag == tag then
       local cur = equipped(slot)
       if not cur or idOf(cur) == idOf(e.put) then
-        if e.link then equipByName(e.link, slot)
+        if e.link then doEquip(e.link, slot)
         elseif cur and PickupInventoryItem and PutItemInBackpack then
           pcall(PickupInventoryItem, slot)
           if CursorHasItem and CursorHasItem() then pcall(PutItemInBackpack) end
+          log("took off " .. nameOf(cur))
         end
       end
       sv[slot] = nil
@@ -164,29 +207,42 @@ function Q:MountTick()
   local riding = mounted or flying
   if riding then
     if mountState ~= "ride" then
-      mountState = "ride"
+      mountState, Q.tries, Q.lastTry = "ride", 0, 0
+      log("mounted" .. (flying and " (flight form)" or ""))
+    end
+    -- try (and retry a couple of times) until the riding gear is really on
+    if Q.tries < 3 and GetTime() - Q.lastTry > 2 then
+      local did = false
       local function trinket(ids)
         local link, worn = findTrinket(ids)
-        if link and not worn then swapIn(slot, link, "ride") end -- already worn: leave it be
+        if link and not worn and swapIn(slot, link, "ride") then did = true end
       end
       if flying then
-        trinket({ Q.FLIGHT_TRINKET })
+        if on("qolDruidCharm") then trinket({ Q.FLIGHT_TRINKET }) end
       else
         trinket(Q.RIDE_TRINKETS)
         if on("qolMountArmor") then
-          local boots = findEnchanted("INVTYPE_FEET", Q.ENCH_SPURS)
-          local gloves = findEnchanted("INVTYPE_HAND", Q.ENCH_RIDING)
-          swapIn(8, boots, "ride")
-          swapIn(10, gloves, "ride")
+          local boots, bw = findEnchanted("INVTYPE_FEET", Q.ENCH_SPURS)
+          local gloves, gw = findEnchanted("INVTYPE_HAND", Q.ENCH_RIDING)
+          if boots and not bw and swapIn(8, boots, "ride") then did = true end
+          if gloves and not gw and swapIn(10, gloves, "ride") then did = true end
         end
+      end
+      if did then
+        Q.tries, Q.lastTry = Q.tries + 1, GetTime()
+        if on("qolMountMsg") and Q.tries == 1 then ns.Print("Riding gear on.") end
       end
     end
   elseif mountState == "ride" or next(saved()) then
     -- dismounted: give the gear back (also after a /reload while mounted)
     local any = false
     for _, e in pairs(saved()) do if e.tag == "ride" then any = true end end
+    if mountState == "ride" then log("dismounted") end
     mountState = nil
-    if any then restore("ride") end
+    if any then
+      restore("ride")
+      if on("qolMountMsg") then ns.Print("Your own gear is back on.") end
+    end
   end
 
   -- swimming gear (off while mounted)
@@ -214,6 +270,27 @@ function Q:MountTick()
       end
     end
   end
+end
+
+-- /chill qol test: what the mount swap sees right now, plus the last steps it took
+function Q:Test()
+  local slot = (S().qolTrinketSlot == 13) and 13 or 14
+  local link, worn = findTrinket(Q.RIDE_TRINKETS)
+  ns.Print(string.format("QoL mount: switch %s · mounted %s · combat %s · taxi %s · slot %d",
+    on("qolMount") and "on" or "OFF", tostring(ns.S(IsMounted) and true or false), tostring(fullCombat()),
+    tostring(ns.S(UnitOnTaxi, "player") and true or false), slot))
+  ns.Print("  trinket found: " .. nameOf(link) .. (worn and (" (worn in slot " .. worn .. ")") or (link and " (in bags)" or "")))
+  ns.Print("  in slot 13: " .. nameOf(equipped(13)) .. " · slot 14: " .. nameOf(equipped(14)))
+  ns.Print("  equip API: " .. ((C_Item and C_Item.EquipItemByName) and "C_Item.EquipItemByName" or (EquipItemByName and "EquipItemByName" or "none")))
+  for s2, e in pairs(saved()) do ns.Print("  waiting to give back: " .. nameOf(e.link) .. " -> slot " .. s2) end
+  if #Q.lastLog == 0 then ns.Print("  no swaps tried yet – mount up and run this again")
+  else for _, l in ipairs(Q.lastLog) do ns.Print("  " .. l) end end
+end
+function Q:Slash(rest)
+  rest = (rest or ""):lower()
+  if rest == "test" then Q:Test()
+  elseif rest == "debug" then Q.debug = not Q.debug ns.Print("QoL debug " .. (Q.debug and "on – every swap step prints in chat." or "off."))
+  else ns.Window:Toggle("qol") end
 end
 
 -- what the QoL tab shows next to the toggle
@@ -248,7 +325,7 @@ function Q:OnMerchant()
       end
       C_Timer.After(0.3, function()
         local still = ns.S(GetRepairAllCost) or 0
-        if still == 0 then ns.Print("Repaired for " .. money(cost) .. (usedGuild and " (guild bank)" or "") .. ".")
+        if still == 0 then if on("qolRepairMsg") then ns.Print("Repaired for " .. money(cost) .. (usedGuild and " (guild bank)" or "") .. ".") end
         else ns.Print("Not enough gold to repair everything (" .. money(still) .. ").") end
       end)
     end
@@ -274,7 +351,7 @@ function Q:OnMerchant()
       local s = list[i]
       if not s then
         selling = nil
-        ns.Print("Sold " .. #list .. " junk item" .. (#list == 1 and "" or "s") .. " for " .. money(total) .. ".")
+        if on("qolJunkMsg") then ns.Print("Sold " .. #list .. " junk item" .. (#list == 1 and "" or "s") .. " for " .. money(total) .. ".") end
         return
       end
       pcall(UseSlot, s[1], s[2])
@@ -325,19 +402,19 @@ local function safeToComplete()
 end
 
 function Q:OnQuestProgress()
-  if questSkip() then return end
+  if questSkip() or not on("qolQuestTurnIn") then return end
   if ns.S(IsQuestCompletable) and safeToComplete() then pcall(CompleteQuest) end
 end
 
 function Q:OnQuestComplete()
-  if questSkip() then return end
+  if questSkip() or not on("qolQuestTurnIn") then return end
   local n = ns.S(GetNumQuestChoices) or 0
   if n > 1 then return end -- you pick the reward
   pcall(GetQuestReward, n)
 end
 
 function Q:OnGossip()
-  if questSkip() or not C_GossipInfo then return end
+  if questSkip() or not C_GossipInfo or not on("qolQuestGossip") then return end
   local active = ns.S(C_GossipInfo.GetActiveQuests) or {}
   for _, q in ipairs(active) do
     if q.isComplete and q.questID then return pcall(C_GossipInfo.SelectActiveQuest, q.questID) end
@@ -349,7 +426,7 @@ function Q:OnGossip()
 end
 
 function Q:OnQuestGreeting()
-  if questSkip() then return end
+  if questSkip() or not on("qolQuestGossip") then return end
   for i = 1, (ns.S(GetNumActiveQuests) or 0) do
     local _, done = ns.S(GetActiveTitle, i)
     if done then return pcall(SelectActiveQuest, i) end
@@ -416,9 +493,9 @@ function Q:UpdateXP()
   end
   local parts = { string.format("%.1f%%", cur / max * 100) }
   local rested = ns.S(GetXPExhaustion)
-  if rested and rested > 0 then parts[#parts + 1] = string.format("rested %d%%", math.floor(rested / max * 100 + 0.5)) end
+  if on("qolXPRested") and rested and rested > 0 then parts[#parts + 1] = string.format("rested %d%%", math.floor(rested / max * 100 + 0.5)) end
   local h = ns.db.qolQuestXP or {}
-  if #h >= 3 then
+  if on("qolXPQuests") and #h >= 3 then
     local sum = 0
     for _, v in ipairs(h) do sum = sum + v end
     local avg = sum / #h
@@ -433,19 +510,19 @@ end
 -- Annoyances
 ---------------------------------------------------------------------------
 function Q:OnDuel(name)
-  if not on("qolNoDuels") or Q.IsGangChar(name) then return end
+  if not on("qolNoDuels") or (on("qolDuelsGang") and Q.IsGangChar(name)) then return end
   pcall(CancelDuel)
   if StaticPopup_Hide then StaticPopup_Hide("DUEL_REQUESTED") end
 end
 function Q:OnGuildInvite(inviter)
-  if not on("qolNoGuildInv") or Q.IsGangChar(inviter) then return end
+  if not on("qolNoGuildInv") or (on("qolGuildGang") and Q.IsGangChar(inviter)) then return end
   pcall(DeclineGuild)
   if StaticPopup_Hide then StaticPopup_Hide("GUILD_INVITE") end
 end
 function Q:OnPetition()
   if not on("qolNoGuildInv") or not GetPetitionInfo then return end
   local _, _, _, _, originator, isOriginator = ns.S(GetPetitionInfo)
-  if isOriginator or not originator or Q.IsGangChar(originator) then return end
+  if isOriginator or not originator or (on("qolGuildGang") and Q.IsGangChar(originator)) then return end
   pcall(ClosePetition)
 end
 function Q:OnSummon()
@@ -460,7 +537,7 @@ end
 function Q:OnRes(name)
   if not on("qolRes") then return end
   -- a res during a boss fight is the healer's call, not ours
-  if ns.S(IsEncounterInProgress) then return end
+  if on("qolResBoss") and ns.S(IsEncounterInProgress) then return end
   C_Timer.After(0.3, function()
     pcall(AcceptResurrect)
     if StaticPopup_Hide then

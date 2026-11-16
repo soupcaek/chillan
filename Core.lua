@@ -517,6 +517,8 @@ local DEFAULTS = {
     qolAutoQuest = false, qolSkipCine = true, qolXPText = true,
     qolNoDuels = false, qolNoGuildInv = false, qolSummon = false, qolRes = false, qolNoErrors = true, qolMaxZoom = false,
     qolTint = true, qolFlightTimer = true,
+    qolMountMsg = false, qolDruidCharm = true, qolRepairMsg = true, qolJunkMsg = true, qolQuestTurnIn = true, qolQuestGossip = true,
+    qolXPRested = true, qolXPQuests = true, qolDuelsGang = true, qolGuildGang = true, qolResBoss = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
   enemies = {}, firsts = {}, announced = {},

@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.1", date = "16.11", items = {
+    "Fix: the riding trinket didn't swap for everyone – Chillan now checks the swap worked and, if not, does it the old pick-up-and-place way, and retries a couple of times",
+    "/chill qol test shows what the mount swap sees (mounted, slot, trinket found) and its last steps – send a screenshot if it still won't swap",
+    "QoL tab redone: cards side by side, with small options under each switch (greyed out when the switch is off)",
+    "New small options: chat line when riding gear swaps, druid flight charm, repair cost and junk total in chat (each on/off), turn in quests and pick from NPC lists separately, rested XP and quests-to-level separately, let the gang duel or invite you, res during boss fights or not",
+  } },
   { v = "0.33.0", date = "16.11", items = {
     "New QoL tab (/chill qol): switch helpers on and off. Hover a switch to see what it does",
     "Mount gear: Riding Crop, Skybreaker Whip or Carrot on a Stick goes on when you mount and your own trinket comes back when you get off (spurs boots and riding gloves too). Swim gear in water. Found in your bags automatically, never swapped in combat",
