@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.3", date = "16.11", items = {
+    "Mount swap rebuilt for WoW Forever: Carrot on a Stick, The Desert Rose (desert zones), Wintersaber Hide Lined Gloves (Winterspring), Riding Skill gloves and Mithril Spurs boots. Riding Crop, Skybreaker Whip and the swim gear don't exist in Forever, so they're gone",
+    "Probably why the carrot didn't swap: a carrot that's never been worn isn't soulbound, and the game won't let addons equip it. Chillan now tells you – equip it once by hand and it swaps from then on",
+    "The swap waits while you cast, hold an item on the cursor or have a vendor, mail, bank or loot window open, and says in chat if the game blocks it",
+    "/chill qol test lists every speed item it finds and why it would or wouldn't swap; /chill qol reset clears a blocked state",
+  } },
   { v = "0.33.2", date = "16.11", items = {
     "Fix: Lua error (ContainerFrame.lua) when opening bags with the red tint on",
   } },

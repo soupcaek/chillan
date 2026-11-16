@@ -1,10 +1,11 @@
 -- Chillan? – QoL: small helpers you switch on and off in the QoL tab
--- Mount gear (Carrot on a Stick & co), vendor (repair, sell junk), fast loot,
+-- Mount gear (Carrot on a Stick, Desert Rose, spurs, riding gloves), vendor (repair, sell junk), fast loot,
 -- questing (auto accept / turn in, skip seen cutscenes, XP bar text),
 -- annoyances (duels, guild invites, summons, res, error spam, camera zoom),
 -- info (red tint on items you can't use, flight timer).
 local ADDON, ns = ...
 local Q = {}
+local wipe = wipe or function(t) for k in pairs(t) do t[k] = nil end return t end
 ns.QoL = Q
 
 local function S() return ns.db and ns.db.settings or {} end
@@ -30,8 +31,8 @@ end
 local function itemInfo(x)
   local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo
   if not f then return end
-  local ok, a, b, c, d, e, f2, g, h, i, j, k = pcall(f, x)
-  if ok then return a, b, c, d, e, f2, g, h, i, j, k end
+  local r = { pcall(f, x) }
+  if r[1] then return select(2, unpack(r, 1, 20)) end
 end
 local function equipByName(link, slot)
   local f = (C_Item and C_Item.EquipItemByName) or EquipItemByName
@@ -76,234 +77,334 @@ local function money(c)
 end
 
 ---------------------------------------------------------------------------
--- Mount gear: riding items on when you mount, your own gear back on dismount
+-- Mount gear: speed gear on when you mount, your own gear back on dismount
+-- Built for WoW Forever's items. Riding Crop, Skybreaker Whip, the swim gear
+-- and flight forms don't exist there.
 ---------------------------------------------------------------------------
--- best first; Riding Crop and Skybreaker Whip beat Carrot on a Stick
-Q.RIDE_TRINKETS = { 25653, 32863, 11122 }
-Q.FLIGHT_TRINKET = 32481 -- Charm of Swift Flight (druid flight form)
-Q.ENCH_SPURS = 464       -- Mithril Spurs (boots)
-Q.ENCH_RIDING = 930      -- Riding Skill (gloves)
--- swimming: Hydrocane (off hand), Azure Silk Belt, Deepdive Helmet
-Q.SWIM = { { id = 9452, slot = 17 }, { id = 7052, slot = 6 }, { id = 10506, slot = 1 } }
+-- slot 0 = either trinket slot (the one picked in the QoL tab)
+-- zones: only worn there; listed before the plain item so it wins in its zones
+Q.RIDE = {
+  { key = "desertRose", item = 274648, slot = 0, zones = { "Tanaris", "Silithus", "Desolace", "Westfall" }, opt = "qolMountZone" },
+  { key = "carrot", item = 11122, slot = 0 },
+  { key = "wintersaber", item = 284266, slot = 10, zones = { "Winterspring" }, opt = "qolMountZone" },
+  { key = "ridingSkill", ench = 930, slot = 10, opt = "qolMountArmor" },  -- Riding Skill (gloves)
+  { key = "spurs", ench = 464, slot = 8, opt = "qolMountArmor" },         -- Mithril Spurs (boots)
+}
+local BIND_NONE = (Enum and Enum.ItemBind and Enum.ItemBind.None) or 0
+local BLOCK_FRAMES = { "MerchantFrame", "MailFrame", "TradeFrame", "BankFrame", "BankPanel", "LootFrame", "GuildBankFrame" }
 
 local function equipped(slot) return ns.S(GetInventoryItemLink, "player", slot) end
-
--- where is the best item for slot? returns link or nil
-local function findTrinket(ids)
-  for _, want in ipairs(ids) do
-    for _, s in ipairs({ 13, 14 }) do
-      if idOf(equipped(s)) == want then return equipped(s), s end
-    end
-    local hit = bagSlots(function(bag, slot)
-      local link = GetSlotLink and ns.S(GetSlotLink, bag, slot)
-      if idOf(link) == want then return link end
-    end)
-    if hit then return hit end
-  end
-end
-local function findEnchanted(equipLoc, ench)
-  local cur = equipped(equipLoc == "INVTYPE_FEET" and 8 or 10)
-  if enchOf(cur) == ench then return cur, true end
-  return bagSlots(function(bag, slot)
-    local link = GetSlotLink and ns.S(GetSlotLink, bag, slot)
-    if link and enchOf(link) == ench then
-      local _, _, _, _, _, _, _, _, loc = itemInfo(link)
-      if loc == equipLoc then return link end
-    end
-  end)
-end
-
 local function saved() ns.db.qolSaved = ns.db.qolSaved or {} return ns.db.qolSaved end
+local function nameOf(link) return type(link) == "string" and (link:match("%[(.-)%]") or link) or "nothing" end
+local function sameItem(a, b) return a and b and idOf(a) == idOf(b) and (enchOf(a) or 0) == (enchOf(b) or 0) end
 
 Q.debug = false
 Q.lastLog = {}
+local warned = {}
 local function log(msg)
   table.insert(Q.lastLog, date("%H:%M:%S") .. " " .. msg)
   while #Q.lastLog > 12 do table.remove(Q.lastLog, 1) end
   if Q.debug then ns.Print("|cff8FB8E8QoL|r " .. msg) end
 end
-local function nameOf(link) return type(link) == "string" and (link:match("%[(.-)%]") or link) or "nothing" end
-local function bagPos(link)
-  local want, ench = idOf(link), enchOf(link)
-  return bagSlots(function(bag, slot)
-    local l = GetSlotLink(bag, slot)
-    if l and idOf(l) == want and enchOf(l) == ench then return { bag, slot } end
-  end)
-end
-local function isOn(slot, link)
-  local cur = equipped(slot)
-  return cur ~= nil and idOf(cur) == idOf(link) and enchOf(cur) == enchOf(link)
+local function warnOnce(key, msg)
+  if warned[key] then return end
+  warned[key] = true
+  ns.Print(msg)
+  log(msg)
 end
 
--- equip, check it worked, and fall back to pick up + put down (the ItemRack way)
-local function doEquip(link, slot)
-  local ok, err = equipByName(link, slot)
-  log("equip " .. nameOf(link) .. " -> slot " .. slot .. (ok == false and (" (error: " .. tostring(err) .. ")") or ""))
-  C_Timer.After(0.6, function()
-    if isOn(slot, link) then log("ok: " .. nameOf(link) .. " is on") return end
-    if fullCombat() then log("in combat – will retry after") return end
-    local pos = bagPos(link)
-    local pick = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
-    if pos and pick and PickupInventoryItem then
-      if ClearCursor then ClearCursor() end
-      pcall(pick, pos[1], pos[2])
-      pcall(PickupInventoryItem, slot)
-      if CursorHasItem and CursorHasItem() and ClearCursor then ClearCursor() end
-      log("fallback swap used for " .. nameOf(link))
-      C_Timer.After(0.6, function()
-        log(isOn(slot, link) and ("ok: " .. nameOf(link) .. " is on") or ("FAILED to put on " .. nameOf(link)))
-      end)
-    else
-      log("FAILED: " .. nameOf(link) .. " not found in bags")
+local function inZones(list)
+  if not list then return true end
+  local here = {}
+  for _, n in ipairs({ ns.S(GetRealZoneText), ns.S(GetZoneText), ns.S(GetSubZoneText) }) do
+    if type(n) == "string" and n ~= "" then here[n:lower()] = true end
+  end
+  for _, z in ipairs(list) do if here[z:lower()] then return true end end
+  return false
+end
+
+local function matches(rule, link)
+  if not link then return false end
+  if rule.item then return idOf(link) == rule.item end
+  return enchOf(link) == rule.ench
+end
+
+-- every bag copy of a rule's item: { bag, slot, link, bound }
+local function bagCopies(rule)
+  local list = {}
+  bagSlots(function(bag, slot)
+    local t = slotInfo(bag, slot)
+    if t and t.hyperlink and matches(rule, t.hyperlink) then
+      list[#list + 1] = { bag = bag, slot = slot, link = t.hyperlink, bound = t.isBound, locked = t.isLocked }
     end
   end)
+  return list
 end
 
--- put link into slot, remembering what was there (only once per ride)
-local function swapIn(slot, link, tag)
-  if not link or isOn(slot, link) then return false end
-  local sv = saved()
-  if not sv[slot] then sv[slot] = { link = equipped(slot) or false, tag = tag, put = link } end
-  doEquip(link, slot)
+-- may an addon equip this copy? Unbound Bind-on-Equip items need you to equip them once by hand
+local function canEquip(copy)
+  if copy.bound then return true end
+  local bind = select(14, itemInfo(copy.link))
+  if bind == nil then return true end -- not cached yet; try, the game says no if it must
+  return bind == BIND_NONE
+end
+
+local function blocker()
+  if Q.blocked then return "blocked" end
+  if fullCombat() then return "combat" end
+  if ns.S(UnitIsDeadOrGhost, "player") then return "dead" end
+  if ns.S(UnitOnTaxi, "player") then return "taxi" end
+  if (ns.S(UnitCastingInfo, "player")) or (ns.S(UnitChannelInfo, "player")) then return "casting" end
+  if GetCursorInfo and GetCursorInfo() then return "cursor" end
+  for _, n in ipairs(BLOCK_FRAMES) do
+    local f = _G[n]
+    if f and f.IsVisible and f:IsVisible() then return "window" end
+  end
+end
+
+-- what should be on right now? { [slot] = { rule, copy } }
+function Q:Plan(mounted)
+  local plan = {}
+  if not mounted then return plan end
+  local tslot = (S().qolTrinketSlot == 13) and 13 or 14
+  for _, r in ipairs(Q.RIDE) do
+    local slot = r.slot == 0 and tslot or r.slot
+    if not plan[slot] and (not r.opt or on(r.opt)) and inZones(r.zones) then
+      -- already worn in the other trinket slot counts as done
+      local worn
+      for _, s in ipairs(r.slot == 0 and { 13, 14 } or { slot }) do
+        if matches(r, equipped(s)) then worn = s end
+      end
+      if worn then
+        plan[worn] = { rule = r, worn = true }
+      else
+        local usable, unbound
+        for _, c in ipairs(bagCopies(r)) do
+          if canEquip(c) then usable = usable or c else unbound = unbound or c end
+        end
+        if usable then plan[slot] = { rule = r, copy = usable }
+        elseif unbound then
+          warnOnce("bind:" .. r.key, "Chillan QoL: " .. unbound.link .. " isn't soulbound yet, so the game won't let an addon put it on. Equip it once by hand – after that it swaps automatically.")
+        end
+      end
+    end
+  end
+  return plan
+end
+
+-- flights: swaps sent to the game, waiting for PLAYER_EQUIPMENT_CHANGED
+local flights = {}
+local function startFlight(slot, want, kind)
+  flights[slot] = { want = want, kind = kind, at = GetTime() }
+end
+
+local function sendEquip(copy, slot)
+  if not Q.useCursor then
+    local ok, err = equipByName(copy.link, slot)
+    if ok == false then log("equip error: " .. tostring(err)) end
+    return true
+  end
+  local pick = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
+  if not pick or not EquipCursorItem then return false end
+  pcall(pick, copy.bag, copy.slot)
+  if not (CursorHasItem and CursorHasItem()) then return false end
+  pcall(EquipCursorItem, slot)
   return true
 end
 
--- put back what we took off, but only if the riding item is still the one there
-local function restore(tag)
-  local sv = saved()
-  for slot, e in pairs(sv) do
-    if e.tag == tag then
-      local cur = equipped(slot)
-      if not cur or idOf(cur) == idOf(e.put) then
-        if e.link then doEquip(e.link, slot)
-        elseif cur and PickupInventoryItem and PutItemInBackpack then
-          pcall(PickupInventoryItem, slot)
-          if CursorHasItem and CursorHasItem() then pcall(PutItemInBackpack) end
-          log("took off " .. nameOf(cur))
-        end
-      end
-      sv[slot] = nil
+local failures = {}
+local function fail(slot, what)
+  failures[slot] = (failures[slot] or 0) + 1
+  log("swap in slot " .. slot .. " didn't happen (" .. failures[slot] .. ")")
+  if failures[slot] == 2 and not Q.useCursor then
+    Q.useCursor = true
+    log("switching to pick-up-and-place swaps")
+  elseif failures[slot] >= 4 then
+    warnOnce("fail:" .. slot, "Chillan QoL: couldn't swap " .. nameOf(what) .. ". Type /chill qol test and send a screenshot.")
+  end
+end
+
+local function checkFlights()
+  for slot, f in pairs(flights) do
+    local cur = equipped(slot)
+    local done = (f.want == false and cur == nil) or (f.want and sameItem(cur, f.want))
+    if done then
+      flights[slot] = nil
+      failures[slot] = nil
+      log("ok: slot " .. slot .. " now " .. nameOf(cur))
+    elseif GetTime() - f.at > 1.5 then
+      flights[slot] = nil
+      if CursorHasItem and CursorHasItem() and ClearCursor then ClearCursor() end
+      fail(slot, f.want)
     end
   end
 end
 
-local function isFlightForm()
-  local _, class = UnitClass("player")
-  if class ~= "DRUID" then return false end
-  local idx = GetShapeshiftForm and ns.S(GetShapeshiftForm)
-  if not idx or idx == 0 then return false end
-  local _, _, _, spellID = ns.S(GetShapeshiftFormInfo, idx)
-  return spellID == 33943 or spellID == 40120
+local function freeBagSlot()
+  return bagSlots(function(bag, slot)
+    if bag ~= 5 and not slotInfo(bag, slot) then return { bag, slot } end
+  end)
 end
 
-local mountState, swimSince, dryAt = nil, nil, nil
 function Q:MountTick()
-  if not on("qolMount") then return end
-  if fullCombat() or (CursorHasItem and CursorHasItem()) or ns.S(UnitIsDeadOrGhost, "player") then return end
-  if ns.S(UnitOnTaxi, "player") then return end
-  local slot = (S().qolTrinketSlot == 13) and 13 or 14
-  local mounted = ns.S(IsMounted) and true or false
-  local flying = isFlightForm()
-  local riding = mounted or flying
-  if riding then
-    if mountState ~= "ride" then
-      mountState, Q.tries, Q.lastTry = "ride", 0, 0
-      log("mounted" .. (flying and " (flight form)" or ""))
-    end
-    -- try (and retry a couple of times) until the riding gear is really on
-    if Q.tries < 3 and GetTime() - Q.lastTry > 2 then
-      local did = false
-      local function trinket(ids)
-        local link, worn = findTrinket(ids)
-        if link and not worn and swapIn(slot, link, "ride") then did = true end
+  checkFlights()
+  if next(flights) then return end
+  local sv = saved()
+  if not on("qolMount") then
+    if next(sv) and not blocker() then Q:RestoreAll() end
+    return
+  end
+  local why = blocker()
+  if why then Q.waiting = why return end
+  Q.waiting = nil
+  local mounted = (ns.S(IsMounted) and not ns.S(UnitOnTaxi, "player")) and true or false
+  if mounted ~= Q.wasMounted then
+    log(mounted and "mounted" or "dismounted")
+    Q.wasMounted = mounted
+    if mounted and on("qolMountMsg") then Q.sayOn = true end
+  end
+  local plan = Q:Plan(mounted)
+
+  -- put on what's planned
+  for slot, p in pairs(plan) do
+    if not p.worn and p.copy and not p.copy.locked then
+      if sv[slot] == nil then
+        local cur = equipped(slot)
+        local curIsSpeed = false
+        for _, r in ipairs(Q.RIDE) do if matches(r, cur) then curIsSpeed = true end end
+        sv[slot] = (cur and not curIsSpeed) and cur or false
       end
-      if flying then
-        if on("qolDruidCharm") then trinket({ Q.FLIGHT_TRINKET }) end
+      if sendEquip(p.copy, slot) then
+        log("putting on " .. nameOf(p.copy.link) .. " (slot " .. slot .. ")")
+        startFlight(slot, p.copy.link, "equip")
+        if Q.sayOn then Q.sayOn = nil ns.Print("Riding gear on.") end
+        return -- one swap at a time, the next tick does the next
       else
-        trinket(Q.RIDE_TRINKETS)
-        if on("qolMountArmor") then
-          local boots, bw = findEnchanted("INVTYPE_FEET", Q.ENCH_SPURS)
-          local gloves, gw = findEnchanted("INVTYPE_HAND", Q.ENCH_RIDING)
-          if boots and not bw and swapIn(8, boots, "ride") then did = true end
-          if gloves and not gw and swapIn(10, gloves, "ride") then did = true end
-        end
+        fail(slot, p.copy.link)
       end
-      if did then
-        Q.tries, Q.lastTry = Q.tries + 1, GetTime()
-        if on("qolMountMsg") and Q.tries == 1 then ns.Print("Riding gear on.") end
-      end
-    end
-  elseif mountState == "ride" or next(saved()) then
-    -- dismounted: give the gear back (also after a /reload while mounted)
-    local any = false
-    for _, e in pairs(saved()) do if e.tag == "ride" then any = true end end
-    if mountState == "ride" then log("dismounted") end
-    mountState = nil
-    if any then
-      restore("ride")
-      if on("qolMountMsg") then ns.Print("Your own gear is back on.") end
     end
   end
 
-  -- swimming gear (off while mounted)
-  if on("qolSwim") and not riding then
-    local swimming = ns.S(IsSwimming) and true or false
-    if swimming then
-      dryAt = nil
-      swimSince = swimSince or GetTime()
-      if GetTime() - swimSince > 1.5 then
-        for _, w in ipairs(Q.SWIM) do
-          local link = (idOf(equipped(w.slot)) == w.id) and equipped(w.slot) or bagSlots(function(bag, s)
-            local l = GetSlotLink and ns.S(GetSlotLink, bag, s)
-            if idOf(l) == w.id then return l end
-          end)
-          if link then swapIn(w.slot, link, "swim") end
-        end
-      end
-    else
-      swimSince = nil
-      local any = false
-      for _, e in pairs(saved()) do if e.tag == "swim" then any = true end end
-      if any then
-        dryAt = dryAt or GetTime()
-        if GetTime() - dryAt > 2 then restore("swim") dryAt = nil end
-      end
+  -- give back slots we took that are no longer planned
+  for slot in pairs(sv) do
+    if not plan[slot] then
+      Q:RestoreSlot(slot)
+      if on("qolMountMsg") and not next(saved()) then ns.Print("Your own gear is back on.") end
+      return
     end
+  end
+end
+
+function Q:RestoreSlot(slot)
+  local sv = saved()
+  local want = sv[slot]
+  local cur = equipped(slot)
+  if want == nil then return end
+  if want == false then
+    -- slot was empty: take the speed item off into a free bag slot
+    if not cur then sv[slot] = nil return end
+    local free = freeBagSlot()
+    if not free or not PickupInventoryItem then
+      warnOnce("bagsfull", "Chillan QoL: bags are full, so " .. nameOf(cur) .. " stays on until a bag slot is free.")
+      return
+    end
+    pcall(PickupInventoryItem, slot)
+    local pick = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
+    if CursorHasItem and CursorHasItem() and pick then pcall(pick, free[1], free[2]) end
+    sv[slot] = nil
+    startFlight(slot, false, "restore")
+    return
+  end
+  if sameItem(cur, want) then sv[slot] = nil return end
+  local copy
+  bagSlots(function(bag, s)
+    local l = GetSlotLink(bag, s)
+    if l and sameItem(l, want) then copy = { bag = bag, slot = s, link = l } return true end
+  end)
+  if not copy then
+    warnOnce("gone:" .. slot, "Chillan QoL: " .. nameOf(want) .. " isn't in your bags any more, so the speed item stays on.")
+    sv[slot] = nil
+    return
+  end
+  if sendEquip(copy, slot) then
+    log("putting back " .. nameOf(want) .. " (slot " .. slot .. ")")
+    sv[slot] = nil
+    startFlight(slot, want, "restore")
+  else
+    fail(slot, want)
+  end
+end
+function Q:RestoreAll()
+  for slot in pairs(saved()) do
+    if not next(flights) then Q:RestoreSlot(slot) end
+  end
+end
+
+-- the game refused one of our calls: say what, and switch method
+function Q:OnBlocked(addon, func)
+  if addon ~= ADDON then return end
+  func = tostring(func or "?"):gsub("%(%)$", "")
+  local short = func:match("([%w_]+)$") or func
+  wipe(flights)
+  if CursorHasItem and CursorHasItem() and ClearCursor then ClearCursor() end
+  if short == "EquipItemByName" and not Q.useCursor then
+    Q.useCursor = true
+    warnOnce("blk:" .. func, "Chillan QoL: the game blocked " .. func .. "() – switching to another way of swapping.")
+  elseif short == "EquipItemByName" or short == "PickupContainerItem" or short == "EquipCursorItem" then
+    Q.blocked = func
+    warnOnce("blocked", "Chillan QoL: the game is blocking addons from swapping gear (" .. func .. "), so the mount swap is paused until /reload.")
   end
 end
 
 -- /chill qol test: what the mount swap sees right now, plus the last steps it took
 function Q:Test()
   local slot = (S().qolTrinketSlot == 13) and 13 or 14
-  local link, worn = findTrinket(Q.RIDE_TRINKETS)
-  ns.Print(string.format("QoL mount: switch %s · mounted %s · combat %s · taxi %s · slot %d",
-    on("qolMount") and "on" or "OFF", tostring(ns.S(IsMounted) and true or false), tostring(fullCombat()),
-    tostring(ns.S(UnitOnTaxi, "player") and true or false), slot))
-  ns.Print("  trinket found: " .. nameOf(link) .. (worn and (" (worn in slot " .. worn .. ")") or (link and " (in bags)" or "")))
-  ns.Print("  in slot 13: " .. nameOf(equipped(13)) .. " · slot 14: " .. nameOf(equipped(14)))
-  ns.Print("  equip API: " .. ((C_Item and C_Item.EquipItemByName) and "C_Item.EquipItemByName" or (EquipItemByName and "EquipItemByName" or "none")))
-  for s2, e in pairs(saved()) do ns.Print("  waiting to give back: " .. nameOf(e.link) .. " -> slot " .. s2) end
-  if #Q.lastLog == 0 then ns.Print("  no swaps tried yet – mount up and run this again")
+  ns.Print(string.format("QoL mount: switch %s · mounted %s · waiting for: %s · trinket slot %d · method: %s",
+    on("qolMount") and "on" or "OFF", tostring(ns.S(IsMounted) and true or false), blocker() or "nothing",
+    slot, Q.blocked and "BLOCKED" or (Q.useCursor and "pick up + place" or "equip by name")))
+  local any = false
+  for _, r in ipairs(Q.RIDE) do
+    local worn
+    for _, s in ipairs(r.slot == 0 and { 13, 14 } or { r.slot }) do if matches(r, equipped(s)) then worn = s end end
+    local copies = bagCopies(r)
+    if worn or #copies > 0 then
+      any = true
+      local c = copies[1]
+      local state = worn and ("worn (slot " .. worn .. ")") or (canEquip(c) and "in bags, ok" or "|cffF2777Ain bags, NOT soulbound – equip it once by hand|r")
+      local name = nameOf((worn and equipped(worn)) or c.link)
+      ns.Print("  " .. name .. ": " .. state .. (r.zones and (" · only in " .. table.concat(r.zones, ", ")) or "")
+        .. ((r.opt and not on(r.opt)) and " · switched off" or ""))
+    end
+  end
+  if not any then ns.Print("  no speed items found (Carrot on a Stick, Desert Rose, Wintersaber gloves, Riding Skill gloves, Mithril Spurs boots)") end
+  for s2, v in pairs(saved()) do ns.Print("  will give back: " .. (v and nameOf(v) or "empty slot") .. " -> slot " .. s2) end
+  if #Q.lastLog == 0 then ns.Print("  nothing tried yet – mount up and run this again")
   else for _, l in ipairs(Q.lastLog) do ns.Print("  " .. l) end end
 end
 function Q:Slash(rest)
   rest = (rest or ""):lower()
   if rest == "test" then Q:Test()
   elseif rest == "debug" then Q.debug = not Q.debug ns.Print("QoL debug " .. (Q.debug and "on – every swap step prints in chat." or "off."))
+  elseif rest == "reset" then Q.blocked, Q.useCursor = nil, nil wipe(warned) wipe(failures) ns.Print("QoL mount swap reset.")
   else ns.Window:Toggle("qol") end
 end
 
--- what the QoL tab shows next to the toggle
+-- what the QoL tab shows under the switch
 function Q:MountGearSummary()
-  local parts = {}
-  local t = findTrinket(Q.RIDE_TRINKETS)
-  if t then parts[#parts + 1] = (itemInfo(t)) or "trinket" end
-  if findEnchanted("INVTYPE_FEET", Q.ENCH_SPURS) then parts[#parts + 1] = "spurs boots" end
-  if findEnchanted("INVTYPE_HAND", Q.ENCH_RIDING) then parts[#parts + 1] = "riding gloves" end
-  if #parts == 0 then return "No riding gear found in your bags yet." end
+  local parts, warn = {}, false
+  for _, r in ipairs(Q.RIDE) do
+    local worn = false
+    for _, s in ipairs(r.slot == 0 and { 13, 14 } or { r.slot }) do if matches(r, equipped(s)) then worn = equipped(s) end end
+    local c = bagCopies(r)[1]
+    if worn or c then
+      local n = nameOf(worn or c.link)
+      if not worn and not canEquip(c) then n = n .. " (equip once by hand)" warn = true end
+      parts[#parts + 1] = n
+    end
+  end
+  if #parts == 0 then return "No speed gear found in your bags yet." end
   return "Found: " .. table.concat(parts, ", ")
 end
-
 ---------------------------------------------------------------------------
 -- Vendor: repair and sell junk (hold Shift when you open the vendor to skip)
 ---------------------------------------------------------------------------
@@ -767,10 +868,6 @@ function Q:Apply()
   Q:ApplyZoom()
   Q:UpdateXP()
   Q:QueueTint()
-  if not on("qolMount") then
-    mountState = nil
-    if not fullCombat() then restore("ride") restore("swim") end
-  end
   if not on("qolFlightTimer") and flightBar then flightBar:Hide() end
 end
 
@@ -797,13 +894,17 @@ function Q:Start()
   ns:On("BAG_UPDATE_DELAYED", function() Q:QueueTint() end)
   ns:On("PLAYER_EQUIPMENT_CHANGED", function() usableCache = {} Q:QueueTint() end)
   ns:On("PLAYER_REGEN_ENABLED", function() Q:MountTick() end)
+  ns:On("PLAYER_MOUNT_DISPLAY_CHANGED", function() C_Timer.After(0.1, function() Q:MountTick() end) end)
+  ns:On("PLAYER_EQUIPMENT_CHANGED", function() C_Timer.After(0, function() Q:MountTick() end) end)
+  ns:On("ADDON_ACTION_BLOCKED", function(a, f) Q:OnBlocked(a, f) end)
+  ns:On("ADDON_ACTION_FORBIDDEN", function(a, f) Q:OnBlocked(a, f) end)
   if TakeTaxiNode then hooksecurefunc("TakeTaxiNode", function(i) Q:OnTakeTaxi(i) end) end
   for i = 1, (NUM_CONTAINER_FRAMES or 13) do
     local f = _G["ContainerFrame" .. i]
     if f then f:HookScript("OnShow", function() Q:QueueTint() end) end
   end
   if ContainerFrameCombinedBags then ContainerFrameCombinedBags:HookScript("OnShow", function() Q:QueueTint() end) end
-  C_Timer.NewTicker(0.4, function()
+  C_Timer.NewTicker(0.25, function()
     local ok, err = pcall(Q.MountTick, Q)
     if not ok and ns.debug then ns.Print("QoL mount:", err) end
     pcall(Q.FlightTick, Q)

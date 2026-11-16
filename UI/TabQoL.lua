@@ -4,14 +4,13 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 
 -- { label, settingKey, tooltip, subs = { ... } }  ·  sub { kind = "slot" } is the trinket slot picker
 local CARDS = {
-  { col = 1, title = "Mount gear", icon = "Up", desc = "Riding gear on, your own gear back on dismount", items = {
-    { "Riding trinket when mounted", "qolMount", "Puts on Riding Crop, Skybreaker Whip or Carrot on a Stick when you mount, and your own trinket back when you get off. Finds them in your bags by itself. Never mid-fight – it waits until combat is over. Type /chill qol test if it doesn't swap.", subs = {
+  { col = 1, title = "Mount gear", icon = "Up", desc = "Speed gear on when mounted, your own back after", items = {
+    { "Carrot on a Stick when mounted", "qolMount", "Puts Carrot on a Stick on when you mount and your own trinket back when you get off. Never mid-fight, while casting or with a vendor, mail, bank or loot window open. A new Carrot must be equipped once by hand first (it binds when equipped). Type /chill qol test if it doesn't swap.", subs = {
       { kind = "slot" },
-      { "Also spurs boots and riding gloves", "qolMountArmor", "Boots with Mithril Spurs and gloves with the Riding Skill enchant go on while mounted too." },
-      { "Druid: flight form charm", "qolDruidCharm", "Charm of Swift Flight goes on in flight form." },
+      { "Spurs boots and Riding Skill gloves", "qolMountArmor", "Boots with Mithril Spurs and gloves with the Riding Skill enchant go on while mounted too." },
+      { "Zone gear: Desert Rose, Wintersaber gloves", "qolMountZone", "The Desert Rose (desert zones: Tanaris, Silithus, Desolace, Westfall) and Wintersaber Hide Lined Gloves (Winterspring) go on instead while you're there." },
       { "Say it in chat when it swaps", "qolMountMsg", "A short line in chat when the riding gear goes on and comes off." },
     } },
-    { "Swim gear in water", "qolSwim", "Hydrocane, Azure Silk Belt and Deepdive Helmet go on after a moment in water and come off again on land." },
   } },
   { col = 2, title = "Vendor & loot", icon = "Star", desc = "Hold Shift at a vendor to skip once", items = {
     { "Auto-repair", "qolRepair", "Repairs all your gear when you open a vendor that can repair.", subs = {

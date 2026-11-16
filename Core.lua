@@ -512,7 +512,7 @@ local DEFAULTS = {
     accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
     -- QoL tab: the safe ones start on, the ones that act for you start off
-    qolMount = true, qolMountArmor = true, qolSwim = true, qolTrinketSlot = 14,
+    qolMount = true, qolMountArmor = true, qolMountZone = true, qolSwim = true, qolTrinketSlot = 14,
     qolRepair = true, qolGuildRepair = true, qolJunk = true, qolFastLoot = true,
     qolAutoQuest = false, qolSkipCine = true, qolXPText = true,
     qolNoDuels = false, qolNoGuildInv = false, qolSummon = false, qolRes = false, qolNoErrors = true, qolMaxZoom = false,
