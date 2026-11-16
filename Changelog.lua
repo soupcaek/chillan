@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.5", date = "16.11", items = {
+    "Layer hop: players you can see are on your layer, so they're never asked for a hop and their invites are no longer accepted (a host standing right next to you could invite you and move nothing)",
+    "Layer hop: the second ask to LayerSwap hosts that don't know their layer yet now waits until the first round is done and no host on another layer has answered – that second ask made them invite blind, even from your own layer. Hosts that didn't move you aren't asked that way again for 10 min",
+  } },
   { v = "0.33.4", date = "16.11", items = {
     "Layer hop, updated with LayerSwap 1.14.25's lessons: after a hop that worked you leave the host's group after 4 s instead of 30 s – longer stays could pull the host onto your layer",
     "Layer hop reaches more players: each click searches the zone, then one class at a time (the game lists 50 per search), and the zone search now works on non-English clients too",

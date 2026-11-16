@@ -565,7 +565,7 @@ function L:Whisper(m, names)
       local name = names[i]
       if not name or (m.sent or 0) >= ASK_MAX then break end
       i = i + 1
-      if not m.whispered[norm(name)] and not L.Avoided(name) then
+      if not m.whispered[norm(name)] and not L.Avoided(name) and not L.SeenNearby(name) then
         local ok, res = pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
         if ok and not secret(res) and res == 3 then                        -- the game's budget: try again next second
           i = i - 1
@@ -584,6 +584,7 @@ function L:Whisper(m, names)
     ns:Fire("LAYERHOP")
     if names[i] and (m.sent or 0) < ASK_MAX and (m.throttled or 0) < 30 then C_Timer.After(1, burst) return end
     m.doneAt = GetTime()
+    C_Timer.After(3.1, function() L:Anyway(m) end)
     local w = who
     ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. (m.sent or sent)
       .. " player" .. ((m.sent or sent) == 1 and "" or "s")
@@ -653,6 +654,39 @@ function L.Avoided(name)
   return cur ~= nil and cur == e.layer
 end
 
+-- Players we can see are on our layer (other layers' players are invisible to us): nameplates,
+-- target, mouseover. Remembered until the game moves us; never asked, never accepted for a hop.
+L.near = {}
+local function notePlayer(unit)
+  local okE, there = pcall(UnitExists, unit)
+  if not okE or secret(there) or there ~= true then return end
+  local okP, isP = pcall(UnitIsPlayer, unit)
+  if not okP or secret(isP) or isP ~= true then return end
+  local first, surname = UnitName(unit)
+  if secret(first) or type(first) ~= "string" or first == "" then return end
+  local full = (not secret(surname) and type(surname) == "string" and surname ~= "") and (first .. " " .. surname) or first
+  L.near[norm(full)] = GetTime()
+end
+ns:On("NAME_PLATE_UNIT_ADDED", function(unit) if unit then notePlayer(unit) end end)
+ns:On("UPDATE_MOUSEOVER_UNIT", function() notePlayer("mouseover") end)
+ns:On("PLAYER_TARGET_CHANGED", function() notePlayer("target") end)
+local function clearNear() L.near = {} end
+ns:On("SHARD_TRANSFER", clearNear)
+ns:On("ZONE_CHANGED_NEW_AREA", clearNear)
+function L.SeenNearby(name)
+  if type(name) ~= "string" or secret(name) then return false end
+  local key = norm(name)
+  -- also anyone in view this very moment
+  for i = 1, 40 do
+    local u = "nameplate" .. i
+    local ok, there = pcall(UnitExists, u)
+    if ok and there == true then notePlayer(u) end
+  end
+  notePlayer("target") notePlayer("mouseover")
+  local at = L.near[key]
+  return at ~= nil and GetTime() - at < 1800
+end
+
 local function onHeardReply(sender, layer, zone, host)
   local m = L.mine
   if not m or not m.asked or m.joinedAt then return end
@@ -662,19 +696,44 @@ local function onHeardReply(sender, layer, zone, host)
   m.replies[sender] = r
   ns.db.lsAsked = ns.db.lsAsked or {}
   ns.db.lsAsked[sender] = nil        -- answered: not "asked without an answer"
-  -- a host that didn't say its layer: ask once more without the "not my layer" part, as LayerSwap does
-  if host and not key and not r.anyway then
-    r.anyway = true
-    C_Timer.After(6, function()
-      if L.mine ~= m or m.joinedAt or m.by then return end
-      local x, y = mapPos(m.map)
-      local line = "inv layer <LS" .. (m.map and (" " .. m.map) or "")
-        .. ((m.map and x) and string.format(" %.1f,%.1f", x * 100, y * 100) or "") .. ">"
-      L.sentTo[norm(sender)] = GetTime()
-      pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", sender)
-    end)
-  end
+  r.zone = zone
+  -- a host that didn't say its layer may get one more ask without the "not my layer" part (L:Anyway)
+  if host and not key then C_Timer.After(3, function() L:Anyway(m) end) end
   ns:Fire("LAYERHOP")
+end
+
+-- The re-ask without "not my layer" makes a host that hasn't read its layer invite blind - from our
+-- own layer, too. So, like LayerSwap: only once the burst is done, only when no host known to be on
+-- another layer has answered (or it had 10 s to invite), only hosts in our zone, never one we can see
+-- or one that just didn't move us.
+function L:Anyway(m)
+  if L.mine ~= m or m.joinedAt or m.by or not m.doneAt then return end
+  local since = GetTime() - m.doneAt
+  if since < 3 then C_Timer.After(3 - since + 0.1, function() L:Anyway(m) end) return end
+  local other = 0
+  for _, r in pairs(m.replies or {}) do if r.host and r.layer and not r.same then other = other + 1 end end
+  if other > 0 and since < 10 then C_Timer.After(10 - since + 0.1, function() L:Anyway(m) end) return end
+  local x, y = mapPos(m.map)
+  local line = "inv layer <LS" .. (m.map and (" " .. m.map) or "")
+    .. ((m.map and x) and string.format(" %.1f,%.1f", x * 100, y * 100) or "") .. ">"
+  for name, r in pairs(m.replies or {}) do
+    if r.host and not r.layer and not r.anyway and (not m.map or tostring(r.zone) == tostring(m.map))
+      and not L.SeenNearby(name) and not L.Avoided(name) and not L.NotMovedLately(name) then
+      r.anyway = true
+      L.sentTo[norm(name)] = GetTime()
+      pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, line, "WHISPER", name)
+    end
+  end
+end
+
+-- hosts whose group didn't move us: never re-asked blind for 10 min while we're on that layer
+L.notMoved = {}
+function L.NotMovedLately(name)
+  local e = L.notMoved[norm(name)]
+  if not e then return false end
+  if GetTime() - e.at > 600 then L.notMoved[norm(name)] = nil return false end
+  local cur = ns.Layer and ns.Layer:Current()
+  return cur ~= nil and cur == e.layer
 end
 
 -- a gang member asks which LayerSwap users we know in their zone: "name|layer|h;..." (fits one message)
@@ -796,9 +855,13 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter)
   -- its own reply said it stands on our layer: joining would move nobody, so don't accept it
   local said
   for nm, r in pairs(m.replies or {}) do if norm(nm) == norm(inviter) and r.same then said = true end end
+  if L.SeenNearby(inviter) then
+    said = true
+  end
   if said then
     L.AvoidHost(inviter, m.from)
-    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " is on your layer, so that invite wouldn't move you – decline it and wait for another.")
+    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " is on your layer (" .. (L.SeenNearby(inviter) and "you can see them" or "their addon said so")
+      .. "), so that invite wouldn't move you – decline it and wait for another.")
     return
   end
   if AcceptGroup then AcceptGroup() end
@@ -851,7 +914,7 @@ function L:Verify(m)
     return
   end
   local host = m.host and ns.ShortName(m.host) or "The host"
-  if m.host then L.AvoidHost(m.host, m.from) end
+  if m.host then L.AvoidHost(m.host, m.from) L.notMoved[norm(m.host)] = { at = GetTime(), layer = m.from } end
   ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
   self.mine = nil
   local members = GetNumGroupMembers and GetNumGroupMembers() or 0
