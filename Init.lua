@@ -12,6 +12,7 @@ ns:On("PLAYER_LOGIN", function()
   ns.Tracker:Start()
   ns.Data:Start()
   ns.Ach:Start()
+  ns.QoL:Start()
   C_Timer.After(20, function() ns.Tracker:CountMounts() end)
   ns.Overlays:Init()
   ns.PersonCard:Init()
@@ -161,6 +162,8 @@ SlashCmdList.CHILLAN = function(msg)
     else ns.Print("Couldn't find your position here.") end
   elseif cmd == "cunt" or cmd == "cunts" then
     ns.Cunts:Slash(rest)
+  elseif cmd == "qol" then
+    ns.Window:Toggle("qol")
   elseif cmd == "kills" then
     ns.Kills:Report()
   elseif cmd == "layer" or cmd == "hop" or cmd == "lag" then

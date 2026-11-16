@@ -2,6 +2,15 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.33.0", date = "16.11", items = {
+    "New QoL tab (/chill qol): switch helpers on and off. Hover a switch to see what it does",
+    "Mount gear: Riding Crop, Skybreaker Whip or Carrot on a Stick goes on when you mount and your own trinket comes back when you get off (spurs boots and riding gloves too). Swim gear in water. Found in your bags automatically, never swapped in combat",
+    "Vendor: auto-repair (guild bank first), sell grey junk, and fast loot",
+    "Questing: auto accept and turn in (off by default, stops when you must pick a reward), skip cutscenes you've seen, XP bar text with rested and quests to level",
+    "Fewer annoyances: decline duels and guild invites from strangers, accept summons and res, hide red error spam, max camera zoom",
+    "Info: red tint on bag items you can't use, flight timer on flight paths",
+    "Hold Shift at a vendor or quest giver to skip the automatic stuff once",
+  } },
   { v = "0.32.2", date = "17.11", items = {
     "No more offline sound – a friend's /reload looked like a logout and made noise for nothing (and no login sound when they're back after a reload)",
   } },

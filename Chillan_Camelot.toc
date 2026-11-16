@@ -33,6 +33,7 @@ Discord.lua
 Changelog.lua
 Stats.lua
 Achievements.lua
+QoL.lua
 UI\Widgets.lua
 UI\MainWindow.lua
 UI\TabFriends.lua
@@ -43,6 +44,7 @@ UI\TabIdeas.lua
 UI\TabMap.lua
 UI\TabMore.lua
 UI\TabCunts.lua
+UI\TabQoL.lua
 UI\TabSettings.lua
 UI\TabChangelog.lua
 UI\TabPlayer.lua
