@@ -661,14 +661,24 @@ function O:ShowDing(item)
     local total = ns:TotalStat(p, "Deaths")
     if total > 0 then parts[#parts + 1] = "death no. " .. math.floor(total + 1) end
   else
-    d.kicker:SetText("DING!")
-    d.kicker:SetTextColor(hex(C.green))
+    local max = tonumber(item.a) == 60
+    d.kicker:SetText(max and "LEVEL 60 – MAX LEVEL!" or "DING!")
+    d.kicker:SetTextColor(hex(max and C.gold or C.green))
     d.icon:SetTexture(ns.TEX .. "IconUp")
     d.icon:SetVertexColor(hex(C.green))
     d.title:SetText(ns:PersonLabel(p, item.char) .. " reached level " .. tostring(item.a))
     if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
     if item.first then parts[#parts + 1] = ns.Colorize("first in the gang!", C.gold)
     elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "no. " .. item.place .. " in the gang" end
+  end
+  -- more from the same person at the same moment, folded into this popup
+  for _, x in ipairs(item.also or {}) do
+    if x.kind == "ACH" then
+      local xd = ns.Ach and ns.Ach.byId[x.a]
+      if xd then parts[#parts + 1] = "also unlocked " .. ns.Colorize("«" .. xd.name .. "»", ns.Ach.TIERS[xd.tier].color) end
+    elseif x.kind == "DING" then
+      parts[#parts + 1] = "also dinged " .. tostring(x.a)
+    end
   end
   d.text:SetText(table.concat(parts, " · "))
   -- høyde: topp + kicker + tittel + tekst + luft + knapper

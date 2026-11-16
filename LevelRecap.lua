@@ -209,7 +209,7 @@ function R:Finish(level, quiet)
   ns.db.lastRecap = recap
   ns.db.lvlRec[key()] = { lvl = level, start = ns.Now(), secs = 0, deaths = 0, alli = 0, kills = 0, mobs = {}, money = 0, repairs = 0,
     quests = 0, questXP = 0, mobXP = 0, zones = {}, with = {}, ach = 0, dgs = {}, sessions = 1, xpMax = xpMax }
-  if not quiet and ns.db.settings.levelRecap ~= false and level == r.lvl + 1 then
+  if not quiet and ns.DingPopup(level) and ns.db.settings.levelRecap ~= false and level == r.lvl + 1 then
     C_Timer.After(1.5, function() ns:Fire("LEVEL_RECAP", recap) end)
   end
 end

@@ -101,6 +101,16 @@ end
 -- Definisjoner: { id, kategori, nivå, navn, beskrivelse, verdi-funksjon, mål, hemmelig }
 ---------------------------------------------------------------------------
 local defs = {}
+-- the big ones: these pop up for the whole gang (and get a Discord card). The rest show in the
+-- feed, and you get a small notice when you unlock one yourself.
+A.BIG = {
+  FMNT = true, FEPC = true, EP1 = true, MT1 = true, EP5 = true, EP15 = true, MT5 = true,
+  RD1 = true, DGGG = true, RDHS = true, RDBD = true, DG50 = true,
+  DE100 = true, DE60 = true, P300 = true, P300X2 = true, EFF = true, ST30 = true, Z40 = true,
+  WIN1 = true, WIN5 = true, BG10 = true, ALL100 = true,
+}
+function A:IsBig(id) return self.BIG[id] == true end
+
 local function D(id, cat, tier, name, desc, value, goal, secret)
   defs[#defs + 1] = { id = id, cat = cat, tier = tier, name = name, desc = desc, value = value, goal = goal or 1, secret = secret }
 end
@@ -373,8 +383,8 @@ function A:Check()
   else
     for _, d in ipairs(newOnes) do
       ns.Tracker:Event("ACH", d.id, d.tier, d.detail and d.detail() or nil)
-      -- sølv/gull/legendarisk får den store popupen; bronse bare et lite varsel (ikke begge)
-      if d.tier == "B" then
+      -- the big ones get the gang popup (via the feed); the rest only a small notice for me
+      if not self:IsBig(d.id) then
         ns:Fire("TOAST", { kind = "trophy", sticky = false,
           title = "Achievement: " .. d.name, text = d.desc .. " · " .. self.TIERS[d.tier].name .. " (" .. self.TIERS[d.tier].points .. " p)" })
       end

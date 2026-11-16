@@ -118,6 +118,8 @@ async def handle(text):
         return
     if e.get("k") == "KILL" and await merge_kill(e):
         return
+    if e.get("small"):
+        return  # small dings / achievements: stored for recaps and stats, no card of their own
     fresh = e.get("k") == "TEST" or time.time() - int(e.get("t") or 0) <= MAX_AGE
     d = cards.card(e)
     if d and fresh:

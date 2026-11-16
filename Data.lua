@@ -557,6 +557,32 @@ local function setFirst(key, pid, char, t)
   return false
 end
 
+-- one person, several popups at once (a ding and two achievements): one popup with the rest added
+local popupWait = {}
+function Data:PopupFor(pid, item, sound)
+  local w = popupWait[pid]
+  if w then w.items[#w.items + 1] = item return end
+  w = { items = { item } }
+  popupWait[pid] = w
+  C_Timer.After(2, function()
+    popupWait[pid] = nil
+    -- a ding leads (the biggest news), achievements come along
+    table.sort(w.items, function(x, y)
+      local px, py = x.kind == "DING" and 0 or 1, y.kind == "DING" and 0 or 1
+      if px ~= py then return px < py end
+      return (x.t or 0) < (y.t or 0)
+    end)
+    local main = w.items[1]
+    main.also = nil
+    if #w.items > 1 then
+      main.also = {}
+      for i = 2, #w.items do main.also[#main.also + 1] = w.items[i] end
+    end
+    ns:Fire("DING", main)
+    ns.Sound(sound, pid)
+  end)
+end
+
 function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   for _, it in ipairs(ns.db.feed) do if it.id == id then return end end
   local item = { id = id, pid = pid, char = char, kind = kind, t = t, a = a, b = b, c = c, d = d }
@@ -629,8 +655,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     ns:Fire("FEEDEVENT", ns.FeedShort(item), item)
     -- egne dings og dødsfall får ingen popup hos deg selv (bare achievements)
     if kind == "DING" and pid ~= ns.pid then
-      ns:Fire("DING", item)
-      ns.Sound("ding", pid)
+      if ns.DingPopup(a) then Data:PopupFor(pid, item, "ding") end
     elseif kind == "DEAD" and pid ~= ns.pid then
       ns:Fire("DING", item)
       ns.Sound("dead", pid)
@@ -643,11 +668,8 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
         ns.Sound("ding", pid)
       end)
     elseif kind == "ACH" then
-      -- bronse vises bare i chatten, sølv og oppover får popup
-      if b == "S" or b == "G" or b == "L" then
-        ns:Fire("DING", item)
-        ns.Sound("ding", pid)
-      end
+      -- only the big ones pop up (the rest are in the feed)
+      if ns.Ach and ns.Ach:IsBig(a) then Data:PopupFor(pid, item, "ding") end
     elseif kind == "SOS" and pid ~= ns.pid then
       ns:Fire("SOS", item)
       ns.Sound("sos", pid)

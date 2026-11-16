@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "0.31.0", date = "17.11", items = {
+    "Fewer popups: dings pop up at level 10, 15 and from 20 (level 60 gets its own MAX LEVEL popup); the rest are in the feed",
+    "Only the big achievements pop up for the gang (first epic, first mount, raids, 300 professions, 60 fast, weekly win …) – the rest show in the feed, and you get a small notice for your own",
+    "Several things from one person at once (a ding and an achievement) come as one popup",
+    "Discord follows the same rules: cards only for those dings and big achievements, the rest still count in the recaps",
+  } },
   { v = "0.32.0", date = "15.11", items = {
     "Mute friends: Mute on their row (click the row) or their profile. No popups or sounds from them – dings, deaths, achievements, kills, SOS, logins, reactions, chat pops. Their stuff still shows in the feed, stats and the normal WoW chat window, and their @mentions of you still come through. Only you know who you've muted",
     "Do not disturb: picking the status (Friends page or Settings → Quiet) mutes every popup and sound, @mentions included, until you switch it off",

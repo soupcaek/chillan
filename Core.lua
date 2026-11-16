@@ -821,6 +821,12 @@ ns.STATUS = {
 ns.MANUAL_STATUS = { "AUTO", "LFG", "HELP", "DND" }
 
 -- "a {c}" -> "an Undead Rogue" / "a Night Elf Hunter"
+-- which dings are worth a popup (and a Discord card): 10, 15 and every level from 20
+function ns.DingPopup(level)
+  level = tonumber(level)
+  return level ~= nil and (level == 10 or level == 15 or level >= 20)
+end
+
 function ns.Article(line, word)
   return (line:gsub("(%f[%a][aA]) {c}", function(a)
     return a .. (word:match("^[AEIOUaeiou]") and "n" or "") .. " " .. word

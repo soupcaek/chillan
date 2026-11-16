@@ -160,6 +160,7 @@ function X:FromItem(item)
     e.pl = tonumber(item.b)
     e.first = item.first and true or nil
     e.place = item.place
+    if not ns.DingPopup(item.a) then e.small = 1 end   -- counted in recaps, no card
     return e
   elseif k == "LOOT" then
     local q = tonumber(item.b) or 0
@@ -177,6 +178,7 @@ function X:FromItem(item)
     e.an = d and d.name or tostring(item.a)
     e.ad = (item.c and item.c ~= "" and plain(item.c)) or (d and d.desc and plain(d.desc)) or nil
     e.at = tier and tier.name or nil
+    if not (ns.Ach and ns.Ach:IsBig(item.a)) then e.small = 1 end
     return e
   elseif k == "DUNGEON" then
     local e = base("DUNGEON", item)
