@@ -1,11 +1,13 @@
 name: Release
 
-# Nattlig utgivelse: endre tallet i VERSION-fila (f.eks. 0.22.0) og push til main så ofte
-# du vil i løpet av dagen. Kl. 03:00 norsk tid sjekker denne jobben om VERSION har en
-# release fra før – hvis ikke bygges zip-filen og legges ut som GitHub-release, som
-# WowUp finner. Da får gjengen maks én oppdatering i døgnet, med alt samlet.
-# Haster det (f.eks. en feil som ødelegger noe): kjør jobben manuelt under
-# Actions → Release → Run workflow, så går den ut med en gang.
+# Nightly release: change the number in VERSION (e.g. 1.0.1) and push to main as often as you like.
+# At 03:00 Norwegian time this job checks whether VERSION already has a release; if not, it runs the
+# tests, builds the zip and publishes it as a GitHub release, which WowUp picks up. So the gang gets
+# at most one update a day. Urgent (a Lua error that breaks something): run it by hand under
+# Actions → Release → Run workflow. A failing test stops the release.
+#
+# Version naming (1.0.0 on): tag, release title and release.json all carry the bare version
+# ("1.0.0"), so WowUp shows just the number.
 on:
   schedule:
     # GitHub bruker UTC: 01:00 UTC = 03:00 sommertid, 02:00 UTC = 03:00 vintertid
@@ -26,39 +28,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Les versjon
+      - name: Read version
         id: v
         run: |
           # planlagte kjøringer: bare rundt 03:00 i Norge (den andre cron-tiden hoppes over)
           if [ "${{ github.event_name }}" = "schedule" ]; then
             H=$(TZ=Europe/Oslo date +%H)
             if [ "$H" -lt 3 ] || [ "$H" -gt 5 ]; then
-              echo "Klokka er $H i Norge – venter til 03:00."
+              echo "It's $H o'clock in Norway – waiting for 03:00."
               echo "skip=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
           fi
-          VERSION="v$(tr -d '[:space:]' < VERSION)"
+          VERSION="$(tr -d '[:space:]' < VERSION)"
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Release $VERSION finnes allerede – hopper over."
+            echo "Release $VERSION already exists – skipping."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Bygg zip
+      - name: Tests (syntax + sims)
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          pip install --quiet lupa
+          python3 tests/run_all.py
+
+      - name: Build zip
         if: steps.v.outputs.skip != 'true'
         run: |
           TAG="${{ steps.v.outputs.tag }}"
           mkdir -p .release/Chillan
           rsync -a --exclude '.git*' --exclude '.github' --exclude '.release' \
-            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' --exclude 'brand' --exclude '.previews' ./ .release/Chillan/
-          sed -i "s/@project-version@/${TAG#v}/" .release/Chillan/*.toc
+            --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' --exclude 'brand' --exclude '.previews' --exclude 'tests' --exclude 'LES MEG.txt' ./ .release/Chillan/
+          sed -i "s/@project-version@/${TAG}/" .release/Chillan/*.toc
           # the Discord companion rides along, so every gang member already has it
           mkdir -p .release/Chillan/Companion
           gh release download companion -p ChillanCompanion.exe -p version.txt -D .release/Chillan/Companion || echo "no companion release yet"
           cd .release
-          # Samme innhold i to navn: "-forever" for WowUp som kjenner Forever,
-          # og uten suffiks for WowUp som tror Forever-mappen er Retail.
+          # Same content under two names: "-forever" for WowUp builds that know Forever,
+          # and without the suffix for WowUp builds that take the Forever folder for Retail.
           zip -r -q "Chillan-${TAG}-forever.zip" Chillan
           cp "Chillan-${TAG}-forever.zip" "Chillan-${TAG}.zip"
           cat > release.json <<JSON
@@ -69,7 +77,7 @@ jobs:
           JSON
           ls -la
 
-      - name: Publiser release
+      - name: Publish release
         if: steps.v.outputs.skip != 'true'
         run: |
           TAG="${{ steps.v.outputs.tag }}"
@@ -78,5 +86,5 @@ jobs:
             git push origin "$TAG"
           fi
           gh release create "$TAG" .release/Chillan-${TAG}-forever.zip .release/Chillan-${TAG}.zip .release/release.json \
-            --title "Chillan? ${TAG}" --notes "Oppdater i WowUp, eller last ned zip-filen og legg mappen Chillan i _forever_\\Interface\\AddOns." \
+            --title "${TAG}" --notes "Update in WowUp, or download the zip and put the Chillan folder in _forever_\\Interface\\AddOns." \
             --verify-tag

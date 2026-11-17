@@ -1,0 +1,12 @@
+exec(open("sim_layer2.py").read().split("# same-layer")[0])
+LA.execute("WHISPERS = {}; ADDON_NS.LayerHop.mine = nil; ADDON_NS.db.lsBook = {}")
+LB.execute('ADDON_NS.db.lsBook = {}')
+mapA = LA.eval('ADDON_NS.LayerHop.ZoneMap()')
+# B (gang) learned a LayerSwap host; A saw someone chat in General
+GB.FIRE("CHAT_MSG_ADDON", "LayerSwap", f"heard Someone|6900-4|{mapA}|h", "WHISPER", "Host Lady"); run(1)
+GA.FIRE("CHAT_MSG_CHANNEL", "lfg anyone", "Chatty Cathy", "", "1. General - Barrens", "", "", 1, 1, "General"); run(1)
+LA.execute('ADDON_NS.LayerHop:Request()'); run(5)
+print("A whispers:", LA.eval('table.concat(WHISPERS, " | ")'))
+print("A book now:", LA.eval('(function() local t = {} for k in pairs(ADDON_NS.db.lsBook) do t[#t+1] = k end return table.concat(t, ",") end)()'))
+LA.execute('ADDON_NS.LayerHop:Slash("status")')
+print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4], [e for e in list(GB.ERRORS.values()) if 'HookScript' not in str(e)][:4])

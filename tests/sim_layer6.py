@@ -1,0 +1,32 @@
+exec(open("sim_layer2.py").read().split("# same-layer")[0])
+zone = LA.eval('GetRealZoneText()')
+print("zone:", zone)
+rows = [("Far Away %d" % i, "Durotar") for i in range(30)] + [("Near By %d" % i, zone) for i in range(20)]
+import random; random.shuffle(rows)
+LA.globals().WHOROWS = LA.table_from([LA.table_from({"fullName": n, "area": a}) for n, a in rows])
+LA.execute('''C_FriendList.GetNumWhoResults = function() return #WHOROWS end
+C_FriendList.GetWhoInfo = function(i) return WHOROWS[i] end
+WHISPERS = {}; ADDON_NS.LayerHop.mine = nil; ADDON_NS.db.lsBook = {}; ADDON_NS.db.lsAsked = {}''')
+# make gang unable: B on same layer
+LB.execute('SEE(6843)'); nsB.Tracker.SendStatus(nsB.Tracker); run(4)
+LA.execute('ADDON_NS.LayerHop:Request()'); GA.FIRE("WHO_LIST_UPDATE"); run(2)
+first8 = LA.eval('(function() local t = {} for i = 1, 8 do t[i] = (WHISPERS[i] or ""):match("^(.-) ::") end return table.concat(t, ",") end)()')
+print("first 8 asked:", first8)
+run(8)
+print("total asked:", LA.eval('#WHISPERS'), "| status:", LA.eval('ADDON_NS.LayerHop.lastWho.result'))
+me = LA.eval('UnitName("player")'); mymap = LA.eval('ADDON_NS.LayerHop.ZoneMap()')
+GA.FIRE("CHAT_MSG_ADDON", "LayerSwap", f"heard {me}|7001-3|{mymap}|h", "WHISPER", "Near By 1")
+GA.FIRE("CHAT_MSG_ADDON", "LayerSwap", f"heard {me}||{mymap}|h", "WHISPER", "Near By 2")
+GA.FIRE("CHAT_MSG_ADDON", "LayerSwap", f"heard {me}|6900-3|{mymap}|-", "WHISPER", "Near By 3")
+run(8)
+print("anyway ask to Near By 2:", LA.eval('(function() for _, w in ipairs(WHISPERS) do if w:find("^Near By 2 ::") and not w:find("not") then return w end end end)()'))
+print("tile:", LA.eval('select(2, ADDON_NS.LayerHop:TileState())'))
+run(10)
+print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4])
+order = LA.eval('(function() local t = {} for i, w in ipairs(WHISPERS) do t[#t+1] = w:find("^Near By") and "N" or "F" end return table.concat(t) end)()')
+print("order (N = in zone, F = elsewhere):", order)
+# second click after the round: a fresh round, players not yet asked go first
+LA.execute('WHISPERS = {}')
+LA.execute('ADDON_NS.LayerHop:Request()'); GA.FIRE("WHO_LIST_UPDATE"); run(3)
+print("second click asks:", LA.eval('#WHISPERS'), "first:", LA.eval('(WHISPERS[1] or ""):match("^(.-) ::")'))
+print("FEIL2:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4])

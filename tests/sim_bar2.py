@@ -1,0 +1,41 @@
+exec(open("sim.py").read().split("A = client(")[0])
+A = client("Grimtusk", "WARRIOR", "Orc", 33, "Barrens")
+A[2].SetCode(A[2], "CHILL-TEST")
+A[1].ADVANCE(5)
+ns = A[2]; T = ns.Tiles; m = ns.Overlays.minibar
+for keys in (["xph"], ["xph","dura","eta"], ["xph","dura","eta","lvltime","gold"]):
+    ns.db.settings.tiles = A[0].table_from(keys); T.Layout(T)
+    print(len(keys), "kort: bar", m.GetWidth(m), "rad", T.rowWidth, "holder h", T.holder.GetHeight(T.holder))
+ns.db.settings.tiles = A[0].table_from([]); T.Layout(T); print("0 kort: bar", m.GetWidth(m))
+d = T.byKey["lvltime"]; print("lvltime:", list(d.get()))
+A[1].lua.execute('local f=ChillanEvents or nil') if False else None
+print("FEIL:", list(A[1].ERRORS.values())[:3])
+ns.db.settings.tiles = A[0].table_from(["xph","dura","eta"]); T.Layout(T)
+ns.Fire(ns, "FEEDEVENT", "|TInterface\\x:12|t  Kenny died · Barrens")
+print("status:", m.status.text.GetText(m.status.text), "| extra:", m.extra.GetText(m.extra), m.extra.IsShown(m.extra), "bar", m.GetWidth(m))
+A[1].ADVANCE(90); ns.Overlays.UpdateMinibarExtras(ns.Overlays)
+print("etter 90s:", m.extra.GetText(m.extra))
+print("FEIL2:", list(A[1].ERRORS.values())[:3])
+ns.Fire(ns, "FEEDEVENT", "Olav hit 20")
+print("nat", m.naturalW, "w", m.GetWidth(m), "ev", ns.Overlays.lastEvent)
+print("extra:", m.extra.GetText(m.extra), m.extra.IsShown(m.extra))
+E = ns.EventWindow
+E.SetDocked(E, True)
+f = E.frame
+print("docked noMove:", f.noMove, "width:", f.GetWidth(f) if hasattr(f,"GetWidth") else None, "bar", m.GetWidth(m))
+print("panel anchors:", m.panel._points if hasattr(m.panel, "_points") else "?")
+E.SetMinimized(E, True); E.SetMinimized(E, False)
+E.SetDocked(E, False); print("undocked noMove:", f.noMove)
+ns.db.settings.tiles = A[0].table_from([]); T.Layout(T); E.SetDocked(E, True); print("docked w/o tiles ok, divider:", m.divider.IsShown(m.divider))
+print("FEIL3:", list(A[1].ERRORS.values())[:3])
+ns.db.settings.tiles = A[0].table_from(["xph"]); T.Layout(T)
+print("1 kort docked: bar", m.GetWidth(m), "rad", T.rowWidth, "ev", E.frame.GetWidth(E.frame))
+ns.db.settings.tiles = A[0].table_from(["xph","dura","eta","lvltime"]); E.SetDocked(E, True)
+for w in (200, 330, 520, 900):
+    ns.db.settings.evDockW = w; T.Layout(T)
+    t = T.tiles[1]
+    print("dockW", w, "-> bar", m.GetWidth(m), "ev", E.frame.GetWidth(E.frame), "card", t.GetWidth(t))
+ns.db.settings.evDockH = 400; E.SetDocked(E, True); print("dock h", E.frame.GetHeight(E.frame))
+E.SetDocked(E, False); print("detached size", E.frame.GetWidth(E.frame), E.frame.GetHeight(E.frame), "bar", m.GetWidth(m))
+E.SetDocked(E, True); print("re-docked", E.frame.GetWidth(E.frame), E.frame.GetHeight(E.frame))
+print("FEIL4:", list(A[1].ERRORS.values())[:3])

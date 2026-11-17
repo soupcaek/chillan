@@ -1,0 +1,11 @@
+exec(open("sim_v09.py").read().split("# reaksjon-linje")[0])
+ns = A[2]; E = ns.EventWindow
+E.SetMinimized(E, True)
+print("min høyde:", E.frame.GetHeight(E.frame), "msg vist:", E.msg.IsShown(E.msg))
+B[2].Data.SendChat(B[2].Data, "hei"); run(5)
+print("teller:", E.count._text if hasattr(E.count, "_text") else E.count.GetText(E.count))
+E.SetMinimized(E, False)
+print("åpen høyde:", E.frame.GetHeight(E.frame), "msg vist:", E.msg.IsShown(E.msg))
+ns.db.settings.eventFeed = False; E.Apply(E); E.ShowOrToggle(E)
+print("tilbake etter X:", E.frame.IsShown(E.frame))
+print("FEIL:", list(A[1].ERRORS.values())[:5])

@@ -1,0 +1,10 @@
+exec(open("sim_layer2.py").read().split("# same-layer")[0])
+LA.execute('ADDON_NS.db.settings.tiles = {"act_layer","act_sos","act_stats","act_trophies"}; ADDON_NS.Tiles:Layout(); ADDON_NS.Tiles:Update()')
+for i in range(1,5):
+    print(i, LA.eval(f'ADDON_NS.Tiles.tiles[{i}].key'), "|", LA.eval(f'ADDON_NS.Tiles.tiles[{i}].v:GetText()'), "|", LA.eval(f'ADDON_NS.Tiles.tiles[{i}].k:GetText()'), "| edge:", LA.eval(f'ADDON_NS.Tiles.tiles[{i}].edge:IsShown()'))
+LA.execute('ADDON_NS.LayerHop.mine = nil')
+LA.execute('local t = ADDON_NS.Tiles.tiles[1]; t:GetScript("OnClick")(t, "LeftButton")'); run(3)
+print("after click:", LA.eval('ADDON_NS.Tiles.tiles[1].k:GetText()'), "who sent:", LA.eval('WHO_SENT'))
+LA.execute('local t = ADDON_NS.Tiles.tiles[3]; t:GetScript("OnClick")(t, "LeftButton")'); run(1)
+print("window tab:", LA.eval('ADDON_NS.Window.current'))
+print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4])
