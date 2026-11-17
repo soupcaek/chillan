@@ -50,7 +50,7 @@ jobs:
       - name: Tests (syntax + sims)
         if: steps.v.outputs.skip != 'true'
         run: |
-          pip install --quiet lupa
+          pip install --quiet lupa numpy pillow
           python3 tests/run_all.py
 
       - name: Build zip
