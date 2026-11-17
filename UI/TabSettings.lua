@@ -154,13 +154,13 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   -- smaller screens (1080p): shrink the popups
   local psize = UI.Slider(content, 300, 0.6, 1.3, 0.05,
     function() return S().popupScale or 1 end,
-    function(v) S().popupScale = v UI.ApplyPopupScale() end,
+    function(v) S().popupScale = v UI.ApplyPopupScale() if ns.Window.ApplyScale then ns.Window:ApplyScale() end end,
     function(v) return math.floor(v * 100 + 0.5) .. " %" end)
-  psize.label:SetText("Size of popups")
+  psize.label:SetText("Size of the window and popups")
   psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
   local phint = UI.Text(content, 10, nil, C.dim)
   phint:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -6)
-  phint:SetText("Ding, reactions, toasts, ready check – try 80 % on 1080p")
+  phint:SetText("Window, ding, toasts, ready check – try 80 % on 1080p")
   local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
     -- a pretend ding of your own (not sent to anyone) and a toast
     if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then
@@ -170,6 +170,9 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     ns:Fire("TOAST", { kind = "online", title = "Popup size test", text = "This is how big popups are now." })
   end)
   ptest:SetPoint("LEFT", psize, "RIGHT", 30, -2)
+  local editBtn = UI.Button(content, 150, 26, "Move things on screen", "secondary", function() UI.EditMode(true) end)
+  editBtn:SetPoint("LEFT", ptest, "RIGHT", 8, 0)
+  editBtn.tooltip = "Edit mode: drag every Chillan piece at once, with 1080p / 1440p size presets (/chill edit)"
 
   -------------------------------------------------------------------------
   -- Two columns below

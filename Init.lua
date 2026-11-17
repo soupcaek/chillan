@@ -161,6 +161,8 @@ SlashCmdList.CHILLAN = function(msg)
     else ns.Print("Couldn't find your position here.") end
   elseif cmd == "cunt" or cmd == "cunts" then
     ns.Cunts:Slash(rest)
+  elseif cmd == "edit" or cmd == "move" then
+    ns.UI.EditMode()
   elseif cmd == "qol" then
     ns.QoL:Slash(rest)
   elseif cmd == "kills" then

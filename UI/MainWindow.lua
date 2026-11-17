@@ -25,7 +25,44 @@ function W:OpenPlayer(pid)
   self:Select("player")
 end
 
-local WIDTH, HEIGHT, TITLE_H, NAV_W = 780, 500, 48, 68
+local WIDTH, HEIGHT, TITLE_H, PAGEBAR_H = 860, 560, 48, 38
+local MIN_W, MIN_H = 780, 500
+
+-- Five sections; each opens its pages. Settings and What's new sit in the header.
+W.SECTIONS = {
+  { key = "home", label = "Home", pages = { "home" } },
+  { key = "gang", label = "Gang", pages = { "friends", "cunts", "more" }, hidden = { "player", "compare" } },
+  { key = "chat", label = "Chat", pages = { "chat" } },
+  { key = "progress", label = "Progress", pages = { "stats", "ach" } },
+  { key = "tools", label = "Tools", pages = { "qol", "ideas" } },
+  { key = "settings", label = "Settings", pages = { "settings" }, header = true },
+  { key = "changelog", label = "What's new", pages = { "changelog" }, header = true },
+}
+W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", more = "Gang & crafters", chat = "Gang chat",
+  stats = "Stats", ach = "Trophies", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
+  player = "Player", compare = "Compare" }
+W.lastPage = {}
+local function has(list, v) for _, x in ipairs(list or {}) do if x == v then return true end end return false end
+
+function W:SectionOf(key)
+  for _, sec in ipairs(self.SECTIONS) do
+    for _, p in ipairs(sec.pages) do if p == key then return sec.key, sec end end
+    for _, p in ipairs(sec.hidden or {}) do if p == key then return sec.key, sec end end
+  end
+  return "home", self.SECTIONS[1]
+end
+function W:LastPage(secKey)
+  if self.lastPage[secKey] then return self.lastPage[secKey] end
+  for _, sec in ipairs(self.SECTIONS) do if sec.key == secKey then return sec.pages[1] end end
+  return "home"
+end
+
+-- one size for the window (the popups share the setting from Settings / edit mode)
+function W:ApplyScale()
+  if not self.frame then return end
+  local sc = (ns.db.settings.popupScale or 1)
+  pcall(self.frame.SetScale, self.frame, sc)
+end
 
 local function savePos(f)
   local point, _, rel, x, y = f:GetPoint(1)
@@ -36,7 +73,8 @@ function W:Create()
   if self.frame then return self.frame end
   local f = CreateFrame("Frame", "ChillanMainFrame", UIParent)
   self.frame = f
-  f:SetSize(WIDTH, HEIGHT)
+  local sz = ns.db.settings.windowSize
+  f:SetSize(math.max(MIN_W, (sz and sz.w) or WIDTH), math.max(MIN_H, (sz and sz.h) or HEIGHT))
   local pos = ns.db.settings.window
   if pos and pos.point then
     f:SetPoint(pos.point, UIParent, pos.rel or pos.point, pos.x, pos.y)
@@ -133,38 +171,23 @@ function W:Create()
   line1:SetPoint("TOPRIGHT", -1, -TITLE_H)
   line1:SetHeight(1)
 
-  -- Sidemeny
-  local nav = CreateFrame("Frame", nil, f)
-  nav:SetPoint("TOPLEFT", 0, -TITLE_H - 1)
-  nav:SetPoint("BOTTOMLEFT", 0, 1)
-  nav:SetWidth(NAV_W)
-  local line2 = UI.SolidLine(f)
-  line2:SetPoint("TOPLEFT", nav, "TOPRIGHT", 0, 0)
-  line2:SetPoint("BOTTOMLEFT", nav, "BOTTOMRIGHT", 0, 0)
-  line2:SetWidth(1)
-
-  local navIndex = 0
-  for _, def in ipairs(self.tabDefs) do
-   if not def.hidden then
-    navIndex = navIndex + 1
-    local i = navIndex
-    local b = UI.Button(nav, NAV_W - 12, 42, "", "nav")
-    b:SetPoint("TOP", 0, -4 - (i - 1) * 44)
-    b.ic = UI.Icon(b, def.icon, 18, C.dim)
-    b.ic:SetPoint("TOP", 0, -6)
-    b.label:ClearAllPoints()
-    b.label:SetPoint("BOTTOM", 0, 5)
-    b.label:SetFont(ns.FONT_SEMI, 10, "")
-    b:SetLabel(def.label)
-    b.key = def.key
-    b:SetScript("OnClick", function() W:Select(def.key) end)
+  -- Sections across the top (1.0). The old side rail was full: 10 tabs took 444 of its 452 px.
+  local secX = nil
+  self.secButtons = {}
+  for i, sec in ipairs(W.SECTIONS) do
+    local b = UI.Button(title, 10, 30, sec.label, "nav")
+    b.label:SetFont(ns.FONT_SEMI, 13, "")
+    b:SetWidth(b.label:GetStringWidth() + 26)
+    if secX then b:SetPoint("LEFT", secX, "RIGHT", 2, 0) else b:SetPoint("LEFT", q, "RIGHT", 22, 0) end
+    secX = b
+    b.key = sec.key
+    b:SetScript("OnClick", function() W:Select(W:LastPage(sec.key)) end)
     b:SetScript("OnLeave", function(self)
-      if W.current == self.key then self.panel:SetColors(C.active, nil) else self.panel:SetColors(nil, nil) end
+      if W:SectionOf(W.current) == self.key then self.panel:SetColors(C.active, nil) else self.panel:SetColors(nil, nil) end
     end)
-    -- unread badge (small accent circle with a number) on the icon's top-right
     b.badge = CreateFrame("Frame", nil, b)
     b.badge:SetSize(16, 16)
-    b.badge:SetPoint("CENTER", b.ic, "TOPRIGHT", 3, -1)
+    b.badge:SetPoint("CENTER", b, "TOPRIGHT", -4, -6)
     b.badge:SetFrameLevel(b:GetFrameLevel() + 5)
     b.badge.bg = b.badge:CreateTexture(nil, "OVERLAY")
     b.badge.bg:SetTexture(ns.TEX .. "Circle")
@@ -173,78 +196,184 @@ function W:Create()
     b.badge.text = UI.Text(b.badge, 9, "bold", "FFFFFF")
     b.badge.text:SetPoint("CENTER", 0, 0)
     b.badge:Hide()
-    self.navButtons[def.key] = b
-   end
+    self.secButtons[sec.key] = b
   end
 
-  -- Innholdsflate
+  -- header icons: settings and what's new
+  local cog = UI.IconButton(title, 30, "Gear", "Settings", function() W:Select("settings") end)
+  cog:SetPoint("RIGHT", close, "LEFT", -4, 0)
+  local bell = UI.IconButton(title, 30, "Scroll", "What's new", function() W:Select("changelog") end)
+  bell:SetPoint("RIGHT", cog, "LEFT", -4, 0)
+  bell.badge = bell:CreateTexture(nil, "OVERLAY")
+  bell.badge:SetTexture(ns.TEX .. "Circle")
+  bell.badge:SetSize(8, 8)
+  bell.badge:SetPoint("TOPRIGHT", -5, -5)
+  bell.badge:SetVertexColor(hex(C.accent))
+  bell.badge:Hide()
+  self.cogBtn, self.bellBtn = cog, bell
+  online:ClearAllPoints()
+  online:SetPoint("RIGHT", bell, "LEFT", -12, 0)
+
+  -- page bar: the pages of the current section, the gang code and the version on the right
+  local pagebar = CreateFrame("Frame", nil, f)
+  pagebar:SetPoint("TOPLEFT", 0, -TITLE_H - 1)
+  pagebar:SetPoint("TOPRIGHT", 0, -TITLE_H - 1)
+  pagebar:SetHeight(PAGEBAR_H)
+  self.pagebar = pagebar
+  self.pageButtons = {}
+  local line2 = UI.SolidLine(f)
+  line2:SetPoint("TOPLEFT", 1, -TITLE_H - PAGEBAR_H - 1)
+  line2:SetPoint("TOPRIGHT", -1, -TITLE_H - PAGEBAR_H - 1)
+  line2:SetHeight(1)
+  chip:SetParent(pagebar)
+  chip:ClearAllPoints()
+  upd:SetParent(pagebar)
+  ver:SetParent(pagebar)
+  ver:ClearAllPoints()
+  ver:SetPoint("RIGHT", pagebar, "RIGHT", -14, 0)
+  chip:SetPoint("RIGHT", ver, "LEFT", -10, 0)
+  upd:ClearAllPoints()
+  upd:SetPoint("RIGHT", chip, "LEFT", -10, 0)
+
+  -- content
   local content = CreateFrame("Frame", nil, f)
-  content:SetPoint("TOPLEFT", NAV_W + 1, -TITLE_H - 1)
+  content:SetPoint("TOPLEFT", 1, -TITLE_H - PAGEBAR_H - 2)
   content:SetPoint("BOTTOMRIGHT", -1, 1)
   self.content = content
 
+  -- pages are built the first time they're opened (all 12 were built when the window opened before 1.0)
   for _, def in ipairs(self.tabDefs) do
     local tab = CreateFrame("Frame", nil, content)
     tab:SetAllPoints()
     tab:Hide()
-    def.build(tab)
+    tab.def = def
     self.tabs[def.key] = tab
   end
+
+  -- resize grip (bottom right); the window can't go below the size it had before 1.0
+  f:SetResizable(true)
+  if f.SetResizeBounds then f:SetResizeBounds(MIN_W, MIN_H, 1600, 1100)
+  elseif f.SetMinResize then f:SetMinResize(MIN_W, MIN_H) end
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", -3, 3)
+  grip:SetFrameLevel(f:GetFrameLevel() + 20)
+  grip.tex = grip:CreateTexture(nil, "OVERLAY")
+  grip.tex:SetAllPoints()
+  grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    f:StopMovingOrSizing()
+    ns.db.settings.windowSize = { w = math.floor(f:GetWidth()), h = math.floor(f:GetHeight()) }
+    savePos(f)
+    W:Refresh()
+  end)
+  self:ApplyScale()
 
   self:BuildSetup()
 
   f:SetScript("OnShow", function() W:Refresh() end)
   ns:Listen("DATA", function() if f:IsShown() then W:Refresh() end end)
   ns:Listen("CODE_CHANGED", function() if f:IsShown() then W:Refresh() end end)
-  self:Select("friends")
+  self:Select("home")
   return f
 end
 
+-- unread counts: chat on Chat, ideas on Tools (and its pill), what's new as a dot on the bell
+local BADGE_SECTION = { chat = "chat", ideas = "tools" }
 function W:UpdateBadges()
   if self.updBtn then
     local newer = ns.newestVersion and ns.NewerVersion(ns.newestVersion, ns.VERSION)
     if newer then
-      self.updBtn.text:SetText("· update available (" .. ns.newestVersion .. ")")
+      self.updBtn.text:SetText("update available (" .. ns.newestVersion .. ") ·")
       self.updBtn:SetWidth(self.updBtn.text:GetStringWidth() + 4)
     end
     self.updBtn:SetShown(newer and true or false)
   end
-  for key, b in pairs(self.navButtons or {}) do
-    if b.badge then
-      local viewing = key == self.current and self.frame and self.frame:IsShown()
-      if viewing and (key == "chat" or key == "ideas") then
-        ns.db.seen = ns.db.seen or {}
-        ns.db.seen[key] = ns.Now()
-      end
-      local n = viewing and 0 or ns.Badges:Count(key)
-      if n > 0 then
-        b.badge.text:SetText(key == "changelog" and "!" or (n > 9 and "9+" or tostring(n)))
-        b.badge:Show()
-      else
-        b.badge:Hide()
-      end
+  local shown = self.frame and self.frame:IsShown()
+  local perSection = {}
+  for key, sec in pairs(BADGE_SECTION) do
+    local viewing = key == self.current and shown
+    if viewing then
+      ns.db.seen = ns.db.seen or {}
+      ns.db.seen[key] = ns.Now()
     end
+    local n = viewing and 0 or ns.Badges:Count(key)
+    perSection[sec] = (perSection[sec] or 0) + n
+    local pill = self.pageButtons and self.pageButtons[key]
+    if pill and pill.count then pill.count:SetText(n > 0 and ns.Colorize(" " .. (n > 9 and "9+" or n), C.red) or "") end
+  end
+  for key, b in pairs(self.secButtons or {}) do
+    local n = perSection[key] or 0
+    if n > 0 then
+      b.badge.text:SetText(n > 9 and "9+" or tostring(n))
+      b.badge:Show()
+    else
+      b.badge:Hide()
+    end
+  end
+  if self.bellBtn then
+    local n = (self.current == "changelog" and shown) and 0 or ns.Badges:Count("changelog")
+    self.bellBtn.badge:SetShown(n > 0)
   end
 end
 ns:Listen("BADGES", function() if W.frame then W:UpdateBadges() end end)
 
+-- the page pills for the section we're in
+function W:PaintPageBar(secKey, sec)
+  for _, b in pairs(self.pageButtons) do b:Hide() end
+  local pages = {}
+  for _, k in ipairs(sec.pages) do pages[#pages + 1] = k end
+  -- a hidden page (player, compare) shows as an extra pill while it's open
+  if self.current and not has(pages, self.current) then pages[#pages + 1] = self.current end
+  local prev
+  for _, key in ipairs(pages) do
+    local b = self.pageButtons[key]
+    if not b then
+      b = UI.Button(self.pagebar, 10, 26, W.PAGE_LABELS[key] or key, "ghost", function() W:Select(key) end)
+      b.count = UI.Text(b, 11, "semi", C.red)
+      b.count:SetPoint("LEFT", b.label, "RIGHT", 0, 0)
+      self.pageButtons[key] = b
+    end
+    b:SetWidth(b.label:GetStringWidth() + 26)
+    b:ClearAllPoints()
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 6, 0) else b:SetPoint("LEFT", self.pagebar, "LEFT", 12, 0) end
+    prev = b
+    local on = key == self.current
+    b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
+    b.label:SetTextColor(hex(on and C.text or C.muted))
+    b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
+    b:Show()
+  end
+end
+
 function W:Select(key)
+  if not self.tabs[key] then key = "home" end
   self.current = key
   if key == "chat" or key == "ideas" or key == "changelog" then ns.Badges:MarkSeen(key) end
-  for k, tab in pairs(self.tabs) do
-    if k == key then tab:Show() else tab:Hide() end
+  local tab = self.tabs[key]
+  if tab and not tab.built then
+    tab.built = true
+    local ok, err = pcall(tab.def.build, tab)
+    if not ok and ns.debug then ns.Print("UI error building " .. key .. ":", err) end
   end
-  for k, b in pairs(self.navButtons) do
-    if k == key then
+  for k, t in pairs(self.tabs) do
+    if k == key then t:Show() else t:Hide() end
+  end
+  local secKey, sec = self:SectionOf(key)
+  if not has(sec.hidden or {}, key) then self.lastPage[secKey] = key end
+  for k, b in pairs(self.secButtons or {}) do
+    if k == secKey then
       b.panel:SetColors(C.active, nil)
-      b.ic:SetVertexColor(hex(C.accent))
       b.label:SetTextColor(hex(C.accent))
     else
       b.panel:SetColors(nil, nil)
-      b.ic:SetVertexColor(hex(C.dim))
-      b.label:SetTextColor(hex(C.dim))
+      b.label:SetTextColor(hex(C.muted))
     end
   end
+  if self.cogBtn then self.cogBtn.icon:SetVertexColor(hex(key == "settings" and C.accent or C.muted)) end
+  if self.bellBtn then self.bellBtn.icon:SetVertexColor(hex(key == "changelog" and C.accent or C.muted)) end
+  self:PaintPageBar(secKey, sec)
   self:Refresh()
   self:UpdateBadges()
 end
@@ -272,6 +401,8 @@ function W:Refresh()
     for _, tab in pairs(self.tabs) do tab:Hide() end
     return
   end
+  local cur = self.tabs[self.current]
+  if cur and not cur.built then self:Select(self.current) return end
   self.setup:Hide()
   local tab = self.tabs[self.current]
   if tab then

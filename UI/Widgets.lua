@@ -206,6 +206,131 @@ function UI.Movable(frame, key, defaultPos, target)
   UI.RestorePos(target)
 end
 
+---------------------------------------------------------------------------
+-- Edit mode (1.0): every Chillan piece on screen as a stand-in you drag, plus one size for all of them.
+-- Stand-ins move instead of the real frames, so popups that hide themselves don't have to be shown.
+---------------------------------------------------------------------------
+local EDIT_NAMES = {
+  minibar = "Minibar + tiles", eventwin = "Event window", toasts = "Notifications", ding = "Big moments (ding, trophies)",
+  summary = "Session summary", ready = "Ready check", briefing = "Since you last played", companioncard = "Discord companion",
+  flighttimer = "Flight timer", layerhop = "Layer hop", deathtest = "Death test",
+}
+local edit = { on = false, stands = {} }
+UI.editing = false
+
+local function saveTarget(key, target, stand)
+  local point, _, rel, x, y = stand:GetPoint(1)
+  if key == "minibar" then
+    ns.db.settings.minibarPos = { point = point, x = x, y = y }
+    target:ClearAllPoints()
+    target:SetPoint(point, UIParent, point, x, y)
+  else
+    ns.db.settings.pos = ns.db.settings.pos or {}
+    ns.db.settings.pos[key] = { point = point, rel = rel, x = x, y = y }
+    UI.RestorePos(target)
+  end
+  if target.OnMoved then pcall(target.OnMoved, target) end
+end
+
+local function standFor(key, target)
+  local st = edit.stands[key]
+  if not st then
+    st = CreateFrame("Frame", nil, UIParent)
+    st:SetFrameStrata("FULLSCREEN_DIALOG")
+    st:SetMovable(true)
+    st:SetClampedToScreen(true)
+    st:EnableMouse(true)
+    st:RegisterForDrag("LeftButton")
+    st.bg = st:CreateTexture(nil, "BACKGROUND")
+    st.bg:SetAllPoints()
+    st.bg:SetColorTexture(0.09, 0.10, 0.11, 0.82)
+    st.edges = {}
+    for i, pt in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+      local e = st:CreateTexture(nil, "BORDER")
+      e:SetColorTexture(hex(C.accent))
+      e:SetPoint(pt[1]) e:SetPoint(pt[2])
+      if i <= 2 then e:SetHeight(2) else e:SetWidth(2) end
+      st.edges[i] = e
+    end
+    st.label = UI.Text(st, 12, "semi", C.text)
+    st.label:SetPoint("CENTER")
+    st.label:SetJustifyH("CENTER")
+    st:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    st:SetScript("OnDragStop", function(self)
+      self:StopMovingOrSizing()
+      saveTarget(key, target, self)
+    end)
+    edit.stands[key] = st
+  end
+  local sc = target:GetScale() or 1
+  st:SetScale(sc)
+  st:SetSize(math.max(80, target:GetWidth() or 100), math.max(28, target:GetHeight() or 40))
+  st:ClearAllPoints()
+  local point, _, rel, x, y = target:GetPoint(1)
+  if point then st:SetPoint(point, UIParent, rel or point, x or 0, y or 0) else st:SetPoint("CENTER") end
+  st.label:SetText(EDIT_NAMES[key] or key)
+  st:Show()
+  return st
+end
+
+local function editBar()
+  if edit.bar then return edit.bar end
+  local b = CreateFrame("Frame", "ChillanEditBar", UIParent)
+  b:SetSize(460, 52)
+  b:SetPoint("TOP", UIParent, "TOP", 0, -12)
+  b:SetFrameStrata("FULLSCREEN_DIALOG")
+  b:SetFrameLevel(50)
+  b:EnableMouse(true)
+  b.panel = UI.Panel(b, C.window, C.activeLine, false, 0.97)
+  b.panel:SetAllPoints()
+  b.panel:SetFrameLevel(b:GetFrameLevel())
+  local t = UI.Text(b, 13, "semi", C.text)
+  t:SetPoint("LEFT", 14, 0)
+  t:SetText("Move Chillan")
+  local function preset(label, scale, x)
+    local btn = UI.Button(b, 62, 30, label, "ghost", function()
+      ns.db.settings.popupScale = scale
+      UI.ApplyPopupScale()
+      if ns.Window and ns.Window.ApplyScale then ns.Window:ApplyScale() end
+      UI.EditMode(true)
+      ns.Print("Size: " .. math.floor(scale * 100 + 0.5) .. " % (window and popups).")
+    end)
+    btn:SetPoint("LEFT", x, 0)
+    btn.tooltip = "Window and popups at " .. math.floor(scale * 100 + 0.5) .. " %"
+    return btn
+  end
+  preset("1080p", 0.8, 120)
+  preset("1440p", 1.0, 188)
+  local reset = UI.Button(b, 70, 30, "Reset", "ghost", function()
+    UI.ResetPositions()
+    UI.EditMode(true)
+  end)
+  reset:SetPoint("LEFT", 262, 0)
+  reset.tooltip = "Put every piece back where it started"
+  local done = UI.Button(b, 90, 30, "Done", "primary", function() UI.EditMode(false) end)
+  done:SetPoint("RIGHT", -12, 0)
+  edit.bar = b
+  return b
+end
+
+function UI.EditMode(on)
+  if on == nil then on = not edit.on end
+  if InCombatLockdown and InCombatLockdown() and on then ns.Print("Edit mode after combat.") return end
+  edit.on = on
+  UI.editing = on
+  if on then
+    if ns.Window and ns.Window.frame then ns.Window.frame:Hide() end
+    editBar():Show()
+    for key, target in pairs(UI.movables) do
+      if not target.noMove and key ~= "deathtest" then pcall(standFor, key, target) end
+    end
+  else
+    if edit.bar then edit.bar:Hide() end
+    for _, st in pairs(edit.stands) do st:Hide() end
+    ns.Print("Positions saved.")
+  end
+end
+
 function UI.ResetPositions()
   ns.db.settings.pos = {}
   ns.db.settings.minibarPos = nil
