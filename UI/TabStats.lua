@@ -1,4 +1,4 @@
--- Chillan? – fanen "Stats": race til 60, level over tid, tabell og morsomme fakta
+-- Chillan? – "Stats": race to 60, level over time, table and fun facts
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

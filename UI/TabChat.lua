@@ -1,4 +1,4 @@
--- Chillan? – fanen "Chat": gjengchat og feed ved siden av
+-- Chillan? – "Chat": gang chat with the feed beside it
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

@@ -1,4 +1,4 @@
--- Chillan? – små stat-rubrikker som kan festes under minibaren
+-- Chillan? – small stat tiles that pin under the minibar
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

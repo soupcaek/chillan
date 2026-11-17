@@ -1,4 +1,4 @@
--- Chillan? – spillersiden: all statistikk for én venn (åpnes fra Venner)
+-- Chillan? – the player page: every number for one friend (opened from Friends)
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local St = ns.St

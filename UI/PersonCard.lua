@@ -1,4 +1,4 @@
--- Chillan? – lite hover-kort for gjengmedlemmer (chat, hendelser, faner og vanlig WoW-chat).
+-- Chillan? – small hover card for gang members (chat, events, tabs and normal WoW chat).
 -- Shift-klikk på et navn fester kortet med knapper (hvisk, inviter, profil, waypoint).
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex

@@ -1,4 +1,4 @@
--- Chillan? – gjengchat og aktivitet speiles i den vanlige chatten
+-- Chillan? – gang chat and activity mirrored into the normal chat
 local ADDON, ns = ...
 local C = ns.C
 

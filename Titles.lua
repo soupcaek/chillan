@@ -1,4 +1,4 @@
--- Chillan? – morsomme ukentlige titler som bytter eier automatisk
+-- Chillan? – fun weekly titles that change hands by themselves
 local ADDON, ns = ...
 local T = {}
 ns.Titles = T

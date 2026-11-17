@@ -1,4 +1,4 @@
--- Chillan? – quest-kompis: hvem i gjengen har de samme questene som deg
+-- Chillan? – quest buddy: who in the gang has the same quests as you
 local ADDON, ns = ...
 local Q = {}
 ns.Quests = Q

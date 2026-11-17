@@ -1,4 +1,4 @@
--- Chillan? – kjerne: navnerom, database, hendelser og hjelpefunksjoner
+-- Chillan? – core: namespace, saved data, events and helpers
 local ADDON, ns = ...
 _G.Chillan = ns
 

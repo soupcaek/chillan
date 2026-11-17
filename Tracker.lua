@@ -1,4 +1,4 @@
--- Chillan? – sporer din egen karakter: tid, level, quests, gull, dødsfall, posisjon
+-- Chillan? – tracks your own character: time, level, quests, gold, deaths, position
 local ADDON, ns = ...
 local Tracker = {}
 ns.Tracker = Tracker

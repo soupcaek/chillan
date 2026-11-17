@@ -1,4 +1,4 @@
--- Chillan? – fanen "Friends"
+-- Chillan? – "Friends"
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

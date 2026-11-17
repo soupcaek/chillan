@@ -1,4 +1,4 @@
--- Chillan? – vennene dine som nåler på verdenskartet
+-- Chillan? – your friends as pins on the world map
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local P = { pins = {} }

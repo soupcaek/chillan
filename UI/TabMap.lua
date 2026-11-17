@@ -1,4 +1,4 @@
--- Chillan? – fanen "Map": hvor er alle?
+-- Chillan? – "Map": where is everyone?
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

@@ -1,4 +1,4 @@
--- Chillan? – kommunikasjon mellom klientene
+-- Chillan? – communication between the clients
 -- Bruker en privat, passordbeskyttet kanal som hovedvei, og whispers direkte
 -- til venner som ikke kan nås via kanalen (f.eks. på en annen backend-realm).
 local ADDON, ns = ...

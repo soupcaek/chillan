@@ -1,4 +1,4 @@
--- Chillan? – byggeklosser for det moderne utseendet
+-- Chillan? – building blocks for the modern look
 local ADDON, ns = ...
 local UI = {}
 ns.UI = UI

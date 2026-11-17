@@ -227,6 +227,7 @@ local function freeBagSlot()
 end
 
 function Q:MountTick()
+  if Q.stepAside.mount then return end
   checkFlights()
   if next(flights) then return end
   local sv = saved()
@@ -320,6 +321,32 @@ function Q:RestoreAll()
   end
 end
 
+-- Other addons that already do the same job: step aside instead of fighting over the trinket slot
+-- or selling twice
+local function loaded(name)
+  local f = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+  if not f then return false end
+  local ok, v = pcall(f, name)
+  return ok and v and true or false
+end
+Q.stepAside = {}
+function Q:CheckOtherAddons()
+  local said = {}
+  if loaded("AutoCarrotForever") or loaded("AutoCarrot") then
+    Q.stepAside.mount = "AutoCarrot Forever"
+    said[#said + 1] = "the mount swap (AutoCarrot Forever does it)"
+  end
+  local lp = rawget(_G, "LeaPlusDB")
+  if loaded("Leatrix_Plus") and type(lp) == "table" then
+    if lp.AutoRepairGear == "On" then Q.stepAside.repair = "Leatrix Plus" said[#said + 1] = "auto-repair (Leatrix Plus does it)" end
+    if lp.AutoSellJunk == "On" then Q.stepAside.junk = "Leatrix Plus" said[#said + 1] = "selling junk (Leatrix Plus does it)" end
+  end
+  if #said > 0 and not ns.db.qolStepAsideSaid then
+    ns.db.qolStepAsideSaid = true
+    ns.Print("QoL: leaving " .. table.concat(said, " and ") .. " to your other addon.")
+  end
+end
+
 -- the game refused one of our calls: say what, and switch method
 function Q:OnBlocked(addon, func)
   if addon ~= ADDON then return end
@@ -338,6 +365,7 @@ end
 
 -- /chill qol test: what the mount swap sees right now, plus the last steps it took
 function Q:Test()
+  if Q.stepAside.mount then ns.Print("QoL mount: off while " .. Q.stepAside.mount .. " is loaded (it does the same job).") return end
   local slot = (S().qolTrinketSlot == 13) and 13 or 14
   ns.Print(string.format("QoL mount: switch %s · mounted %s · waiting for: %s · trinket slot %d · method: %s",
     on("qolMount") and "on" or "OFF", tostring(ns.S(IsMounted) and true or false), blocker() or "nothing",
@@ -391,7 +419,7 @@ end
 local selling
 function Q:OnMerchant()
   if IsShiftKeyDown() then return end
-  if on("qolRepair") and ns.S(CanMerchantRepair) then
+  if on("qolRepair") and not Q.stepAside.repair and ns.S(CanMerchantRepair) then
     local cost, can = ns.S(GetRepairAllCost)
     if cost and cost > 0 and can then
       local usedGuild = false
@@ -411,7 +439,7 @@ function Q:OnMerchant()
       end)
     end
   end
-  if on("qolJunk") and not selling then
+  if on("qolJunk") and not Q.stepAside.junk and not selling then
     local list, total = {}, 0
     bagSlots(function(bag, slot)
       local t = slotInfo(bag, slot)
@@ -884,10 +912,18 @@ function Q:Start()
     if f then f:HookScript("OnShow", function() Q:QueueTint() end) end
   end
   if ContainerFrameCombinedBags then ContainerFrameCombinedBags:HookScript("OnShow", function() Q:QueueTint() end) end
-  C_Timer.NewTicker(0.25, function()
+  -- the swap reacts to these at once; a 1 s safety net covers retries and the flight timer
+  -- (it polled every 0.25 s before 1.0)
+  local function soon() C_Timer.After(0.1, function() pcall(Q.MountTick, Q) end) end
+  for _, ev in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "UNIT_SPELLCAST_STOP", "MERCHANT_CLOSED",
+    "MAIL_CLOSED", "BANKFRAME_CLOSED", "LOOT_CLOSED", "PLAYER_ALIVE", "PLAYER_UNGHOST" }) do
+    ns:On(ev, soon)
+  end
+  C_Timer.NewTicker(1, function()
     local ok, err = pcall(Q.MountTick, Q)
     if not ok and ns.debug then ns.Print("QoL mount:", err) end
     pcall(Q.FlightTick, Q)
   end)
+  C_Timer.After(3, function() Q:CheckOtherAddons() end)
   C_Timer.After(2, function() Q:Apply() end)
 end

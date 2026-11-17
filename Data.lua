@@ -1,4 +1,4 @@
--- Chillan? – mottak og lagring av alt som deles i gjengen
+-- Chillan? – receiving and storing everything the gang shares
 local ADDON, ns = ...
 local Data = {}
 ns.Data = Data
@@ -650,8 +650,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
       end
     end
   end
-  ns.PushCapped(ns.db.feed, item, 150)
-  table.sort(ns.db.feed, function(x, y) return x.t < y.t end)
+  ns.InsertByTime(ns.db.feed, item, 150)
   if fresh(t) then
     if pid ~= ns.pid then ns:Fire("ACTIVITY", ns.FeedLine(item, false)) end
     ns:Fire("FEEDEVENT", ns.FeedShort(item), item)

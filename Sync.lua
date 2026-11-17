@@ -1,4 +1,4 @@
--- Chillan? – "hvem hører hvem" og automatisk utjevning av chat og hendelser.
+-- Chillan? – "who hears whom" and automatic catch-up of chat and events.
 --
 -- Hvert 30. sek sender alle en HR-melding med:
 --   1) hvilke venner de hører (og om det er via kanal eller bare whisper)

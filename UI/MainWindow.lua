@@ -1,4 +1,4 @@
--- Chillan? – hovedvinduet med sidemeny og faner
+-- Chillan? – the main window: sections across the top, pages inside
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local W = { tabDefs = {}, tabs = {}, navButtons = {} }

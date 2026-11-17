@@ -1,4 +1,4 @@
--- Chillan? – utregninger til spillersiden (XP-tempo, tid per level, m.m.)
+-- Chillan? – numbers for the player page (XP pace, time per level and more)
 local ADDON, ns = ...
 local St = {}
 ns.St = St

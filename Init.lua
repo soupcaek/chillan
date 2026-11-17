@@ -1,4 +1,4 @@
--- Chillan? – oppstart og kommandoer
+-- Chillan? – start-up and slash commands
 local ADDON, ns = ...
 
 ns:On("ADDON_LOADED", function(name)

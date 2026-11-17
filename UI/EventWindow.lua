@@ -1,4 +1,4 @@
--- Chillan? – eget hendelsesvindu på skjermen: alt som skjer i gjengen,
+-- Chillan? – the event window on screen: everything happening in the gang,
 -- gjengchat, reaksjoner (samlet) og et felt for å skrive til gjengen.
 local ADDON, ns = ...
 local UI, C = ns.UI, ns.C

@@ -1,4 +1,4 @@
--- Chillan? – achievements: definisjoner, tellere, evaluering og deling
+-- Chillan? – achievements: definitions, counters, evaluation and sharing
 local ADDON, ns = ...
 local A = {}
 ns.Ach = A

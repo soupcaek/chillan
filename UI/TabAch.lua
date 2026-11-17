@@ -1,4 +1,4 @@
--- Chillan? – fanen "Trophies": alle achievements, fremdrift og hvem som har dem
+-- Chillan? – "Trophies": every achievement, progress and who has it
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 

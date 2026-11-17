@@ -1,4 +1,4 @@
--- Chillan? – gruppe-radar, klar-sjekk, dungeon-logg, krønike og gjeng-notater på kartet
+-- Chillan? – group radar, ready check, dungeon log, chronicle and gang notes on the map
 local ADDON, ns = ...
 local X = {}
 ns.Extras = X

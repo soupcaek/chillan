@@ -857,7 +857,7 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter)
     local prompt = _G.ShardTransferImminentFrame
     if L.mine == myM and prompt and prompt:IsShown() then pcall(prompt.Click, prompt, "LeftButton", true) end
   end)
-  C_Timer.After(VERIFY_AFTER, function() L:Verify(myM) end)
+  C_Timer.After(3, function() L:Verify(myM) end)
 end)
 
 local function done(m, newKey)
@@ -885,23 +885,60 @@ ns:Listen("LAYER_TRANSFER", function()
   if m and m.joinedAt then m.transfer = GetTime() end
 end)
 
-function L:Verify(m)
-  if self.mine ~= m or m.moved then return end
-  if m.transfer and not m.from then done(m, ns.Layer and ns.Layer:Current()) return end
-  if m.transfer then
-    -- moved, but the creatures haven't shown the new layer yet: give it a little longer
-    C_Timer.After(10, function()
-      if self.mine == m and not m.moved then done(m, ns.Layer and ns.Layer:Current()) end
-    end)
-    return
+-- After joining a host: did we move? "Moved" as soon as the creatures (or the game) say so. "Not moved"
+-- only on evidence: 3 different creatures read after the join still on our old layer, and no shard
+-- transfer, at least VERIFY_AFTER seconds in (LayerSwap 1.14.25 judges the same way). Otherwise keep
+-- looking every 2 s for up to a minute.
+local VERIFY_GIVE_UP = 60
+local function oldLayerEvidence(m)
+  m.oldSeen = m.oldSeen or {}
+  local function look(unit)
+    local okE, there = pcall(UnitExists, unit)
+    if not okE or secret(there) or there ~= true then return end
+    local okP, pc = pcall(UnitPlayerControlled, unit)
+    if okP and not secret(pc) and pc == true then return end
+    local ok, guid = pcall(UnitGUID, unit)
+    if not ok or secret(guid) then return end
+    local key = ns.Layer and ns.Layer.KeyOf(guid)
+    if key and key == m.from then m.oldSeen[guid] = true end
   end
+  for i = 1, 40 do look("nameplate" .. i) end
+  look("target") look("mouseover")
+  local n = 0
+  for _ in pairs(m.oldSeen) do n = n + 1 end
+  return n
+end
+
+local function notMoved(m)
   local host = m.host and ns.ShortName(m.host) or "The host"
   if m.host then L.AvoidHost(m.host, m.from) L.notMoved[norm(m.host)] = { at = GetTime(), layer = m.from } end
   ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
-  self.mine = nil
+  L.mine = nil
   local members = GetNumGroupMembers and GetNumGroupMembers() or 0
   if inGroup() and members <= 2 and not inCombat() then leave() end
   ns:Fire("LAYERHOP")
+end
+
+function L:Verify(m)
+  if self.mine ~= m or m.moved then return end
+  local since = GetTime() - (m.joinedAt or GetTime())
+  if m.transfer then
+    if not m.from then done(m, ns.Layer and ns.Layer:Current()) return end
+    -- moved, but the creatures haven't shown the new layer yet: give it a little longer
+    if GetTime() - m.transfer > 10 then done(m, ns.Layer and ns.Layer:Current()) return end
+  elseif m.from and oldLayerEvidence(m) >= 3 and since >= VERIFY_AFTER then
+    notMoved(m)
+    return
+  end
+  if since >= VERIFY_GIVE_UP then
+    ns.Print("Layer hop: couldn't tell whether you moved – no creatures in view to read. Left the group; mouse over an NPC or two to see your layer.")
+    self.mine = nil
+    local members = GetNumGroupMembers and GetNumGroupMembers() or 0
+    if inGroup() and members <= 2 and not inCombat() then leave() end
+    ns:Fire("LAYERHOP")
+    return
+  end
+  C_Timer.After(2, function() L:Verify(m) end)
 end
 
 -- what the Layer hop tile shows: big line, small line, colour

@@ -1,4 +1,4 @@
--- Chillan? – fanen "More": gjeng, fiendelogg og hvem som kan lage hva
+-- Chillan? – "Gang": gang code, members and who can craft what
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
