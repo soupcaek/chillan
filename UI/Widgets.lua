@@ -168,7 +168,7 @@ end
 function UI.IsLocked() return ns.db and ns.db.settings.locked end
 
 -- target = rammen som faktisk flyttes (f.eks. et anker for en stabel med varsler)
--- popups (toasts, ding/react box, SOS, ready check, level recap …) share one size setting, so smaller
+-- popups (toasts, ding/react box, ready check, level recap …) share one size setting, so smaller
 -- screens (1080p) can shrink them. The event window has its own size.
 UI.popupFrames = {}
 local NOT_POPUP = { eventwin = true, briefing = true }

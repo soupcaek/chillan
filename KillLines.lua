@@ -272,6 +272,7 @@ local function postKill(victim, via)
   local idx = K:Pick(cat)
   K.diag.posted = K.diag.posted + 1
   K.diag.last = via
+  ns.session.kills = (ns.session.kills or 0) + 1
   ns.Tracker:Event("KILL", zone, cat .. ":" .. idx, ns.Clean(short, 40), ns.Clean(extra, 30))
 end
 K.PostKill = postKill

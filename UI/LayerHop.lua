@@ -26,14 +26,10 @@ local LEAVE_AFTER = 4
 local HOST_MAX, HOST_WINDOW, HOST_PER_PLAYER = 6, 600, 60
 local ZONE_MAP = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
 
-local function secret(v) return ns.isSecret and ns.isSecret(v) end
-local function S() return ns.db.settings end
+local secret, S = ns.U.Secret, ns.U.Settings
 
 local function inGroup() return IsInGroup and IsInGroup() and true or false end
-local function inCombat()
-  if InCombatLockdown and InCombatLockdown() then return true end
-  return ns.S(UnitAffectingCombat, "player") and true or false
-end
+local inCombat = ns.U.InCombat
 local function inInstance() return (ns.S(IsInInstance)) and true or false end
 
 -- listed in the group finder or queued for a dungeon: a guest joining would take us off the list
@@ -108,23 +104,9 @@ local function mapPos(map)
   return x, y
 end
 
-local function norm(name)
-  if type(name) ~= "string" then return "" end
-  return (ns.ShortName(name) or name):lower():gsub("[%s%-]", "")
-end
+local norm = ns.U.NormName
 
-local function isGangChar(name)
-  local short = norm(name)
-  if short == "" then return false end
-  for pid, p in pairs(ns.db.people or {}) do
-    if pid ~= ns.pid then
-      for key, c in pairs(p.chars or {}) do
-        if norm((c and c.name) or key) == short then return true end
-      end
-    end
-  end
-  return false
-end
+local isGangChar = ns.U.IsGangChar
 
 local function leave()
   local fn = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty

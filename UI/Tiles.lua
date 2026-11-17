@@ -142,10 +142,6 @@ T.ACTIONS = {
       return "Layer hop", "Click to hop"
     end,
     click = function() ns.LayerHop:Request() end },
-  { key = "act_sos", name = "SOS – need help", icon = "SOS", color = "F2777A",
-    tip = "Left-click: tell the gang you need help, with your zone and position",
-    get = function() return "SOS", "Need help? Click" end,
-    click = function() ns.Data:SOS() end },
   { key = "act_stats", name = "Open Stats", icon = "Board", color = "C8D1DC",
     tip = "Left-click: open the Stats page",
     get = function() return "Stats", "Open the board" end,

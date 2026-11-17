@@ -160,7 +160,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
   local phint = UI.Text(content, 10, nil, C.dim)
   phint:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -6)
-  phint:SetText("Ding, reactions, toasts, SOS, ready check – try 80 % on 1080p")
+  phint:SetText("Ding, reactions, toasts, ready check – try 80 % on 1080p")
   local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
     -- a pretend ding of your own (not sent to anyone) and a toast
     if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then
@@ -254,7 +254,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Popup notifications", "toasts" },
     { "When friends log in", "onlineToasts" },
     { "Hold popups until after combat", "combatQueue", nil,
-      "Dings, deaths, achievements and notifications wait until you leave combat. SOS always shows right away." },
+      "Dings, deaths, achievements and notifications wait until you leave combat." },
     { "\"Since you last played\" card at login", "briefing" },
     { "Level recap when you ding", "levelRecap" },
     { "Sound and alert when someone @mentions you", "mentionSound", nil,

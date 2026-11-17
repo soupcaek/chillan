@@ -1,4 +1,4 @@
--- Chillan? – det som vises på skjermen: minibar, varsler, SOS, kveldsoppsummering, profilkort
+-- Chillan? – what shows on screen: minibar, toasts, ding box, session summary, profile card
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 local O = {}
@@ -276,7 +276,6 @@ local KIND = {
   craft = { icon = "Mail", color = C.purple, label = "Craft" },
   star = { icon = "Star", color = C.amber, label = "Milestone" },
   dead = { icon = "Skull", color = C.red, label = "Ha ha" },
-  sos = { icon = "SOS", color = C.red, label = "SOS" },
   trophy = { icon = "Trophy", color = C.gold, label = "Winner of the week" },
   info = { icon = "Star", color = C.accent, label = "Chillan?" },
 }
@@ -347,7 +346,7 @@ local function newToast()
 end
 
 function O:Toast(info)
-  if not ns.db.settings.toasts and info.kind ~= "join" and info.kind ~= "craft" and info.kind ~= "sos" then return end
+  if not ns.db.settings.toasts and info.kind ~= "join" and info.kind ~= "craft" then return end
   local k = KIND[info.kind] or KIND.info
   local t = newToast()
   t.kind:SetText(k.label:upper())
@@ -410,81 +409,6 @@ function O:Toast(info)
   layoutToasts()
 end
 
----------------------------------------------------------------------------
--- SOS
----------------------------------------------------------------------------
-function O:CreateSOS()
-  local s = CreateFrame("Frame", "ChillanSOS", UIParent)
-  self.sos = s
-  s:SetSize(420, 124)
-  UI.Movable(s, "sos", function(f) f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -24, -200) end)
-  s:SetFrameStrata("DIALOG")
-  s:EnableMouse(true)
-  s:Hide()
-  s.panel = UI.Panel(s, "2A181A", "6A2E31", false, 0.97)
-  s.panel:SetAllPoints()
-  s.panel:SetFrameLevel(s:GetFrameLevel())
-  s.icon = UI.Icon(s, "SOS", 20, C.sosText)
-  s.icon:SetPoint("TOPLEFT", 14, -14)
-  s.title = UI.Text(s, 14, "bold", "FFD6D7")
-  s.title:SetPoint("LEFT", s.icon, "RIGHT", 10, 0)
-  s.title:SetPoint("RIGHT", -40, 0)
-  s.close = UI.IconButton(s, 24, "Close", nil, function() s:Hide() end)
-  s.close:SetPoint("TOPRIGHT", -8, -8)
-  s.close.panel:SetColors(nil, nil)
-  s.close.style = { text = "E5A3A5", hover = "3A2225" }
-  s.close.icon:SetVertexColor(hex("E5A3A5"))
-  s.text = UI.Text(s, 13, nil, "F1D9DA")
-  s.text:SetPoint("TOPLEFT", 14, -44)
-  s.text:SetPoint("RIGHT", -14, 0)
-  s.map = UI.Button(s, 140, 32, "Show on map", "primary")
-  s.map:SetPoint("BOTTOMLEFT", 14, 14)
-  s.map.panel:SetColors("FFD6D7", nil)
-  s.map.style = { fill = "FFD6D7", text = "2A181A", hover = "FFE6E7", weight = "semi" }
-  s.map.label:SetTextColor(hex("2A181A"))
-  s.map:SetWidth(118)
-  s.reply = UI.Button(s, 140, 32, "Reply: on my way", "danger")
-  s.reply:SetPoint("LEFT", s.map, "RIGHT", 8, 0)
-  -- a random cheeky reaction ("Get rekt" and friends)
-  s.react = UI.Button(s, 118, 32, "Get rekt", "ghost")
-  s.react:SetPoint("BOTTOMRIGHT", -14, 14)
-  s:SetScript("OnUpdate", function(self, dt)
-    self.life = (self.life or 0) - dt
-    if self.life <= 0 then self:Hide() end
-  end)
-end
-
-function O:ShowSOS(item)
-  local s = self.sos
-  local p = ns:GetPerson(item.pid) or {}
-  local c = (p.chars and p.chars[item.char]) or {}
-  s.title:SetText("SOS from " .. ns.Colorize(ns.ShortName(item.char), ns.ClassHex(c.class)))
-  local mapID, x, y = tonumber(item.b), tonumber(item.c), tonumber(item.d)
-  local where = tostring(item.a or "?")
-  if x and y then where = where .. string.format(" (%.0f, %.0f)", x / 10, y / 10) end
-  s.text:SetText("Getting ganked in " .. where)
-  s.map:SetScript("OnClick", function()
-    if mapID and x and y then
-      ns.SetWaypoint(mapID, x / 1000, y / 1000)
-      ns.OpenMapAt(mapID)
-    end
-  end)
-  s.map:SetEnabled(mapID ~= nil)
-  s.reply:SetScript("OnClick", function()
-    ns.Data:AnswerSOS(item)
-    s.reply:SetLabel("Sent!")
-  end)
-  s.reply:SetLabel("Reply: on my way")
-  local pick = ns.PickReactions(item, 1)[1] or 1
-  local label = ns.ReactionList(item)[pick]
-  s.react:SetLabel(ns.Emotes and ns.Emotes:Render(label, 16) or label)
-  s.react:SetScript("OnClick", function()
-    ns.Data:React(item, pick)
-    s.react:SetLabel("Sent!")
-  end)
-  s.life = 45
-  s:Show()
-end
 
 ---------------------------------------------------------------------------
 -- Kveldsoppsummering
@@ -535,7 +459,7 @@ function O:ShowSummary(sum, previous)
     { sum.quests or 0, "quests" },
     { "+" .. ns.Money(sum.gold), "gold earned" },
     { sum.deaths or 0, "deaths" },
-    { sum.sos or 0, "SOS sent" },
+    { sum.kills or 0, "PvP kills" },
   }
   for i, cell in ipairs(s.cells) do
     cell.v:SetText(vals[i][1])
@@ -813,13 +737,10 @@ function O:UpdateMinimapButton()
 end
 
 ---------------------------------------------------------------------------
--- Kø i kamp: popups og varsler venter til du er ute av kamp (SOS vises alltid)
+-- Combat queue: popups and toasts wait until you leave combat
 ---------------------------------------------------------------------------
 local combatQ = {}
-local function inCombat()
-  if InCombatLockdown and InCombatLockdown() then return true end
-  return ns.S(UnitAffectingCombat, "player") and true or false
-end
+local inCombat = ns.U.InCombat
 
 local function shouldQueue()
   return ns.db.settings.combatQueue ~= false and inCombat()
@@ -957,16 +878,14 @@ end
 
 function O:Init()
   self:CreateMinibar()
-  self:CreateSOS()
   self:CreateSummary()
   self:CreateDing()
   self:CreateMinimapButton()
   ns:Listen("DING", function(item) if not O:QueueOr("ding", item) then O:ShowDing(item) end end)
   ns:Listen("TOAST", function(info)
-    if info.kind == "sos" or not O:QueueOr("toast", info) then O:Toast(info) end
+    if not O:QueueOr("toast", info) then O:Toast(info) end
   end)
   ns:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(1.5, function() O:FlushCombatQueue() end) end)
-  ns:Listen("SOS", function(item) O:ShowSOS(item) end)
   ns:Listen("SHOW_SUMMARY", function(sum, previous) O:ShowSummary(sum, previous) end)
 end
 

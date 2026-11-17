@@ -5,10 +5,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local PATH = "World of Warcraft\\_forever_\\Interface\\AddOns\\Chillan\\Companion\\ChillanCompanion.exe"
 local card, shownThisSession, pending
 
-local function inCombat()
-  if InCombatLockdown and InCombatLockdown() then return true end
-  return ns.S(UnitAffectingCombat, "player") and true or false
-end
+local inCombat = ns.U.InCombat
 
 local function create()
   local f = CreateFrame("Frame", "ChillanCompanionCard", UIParent)

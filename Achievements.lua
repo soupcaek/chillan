@@ -198,9 +198,6 @@ D("BG10", "pvp", "G", "Warlord", "Win 10 battlegrounds", V(function() return cnt
 for _, b in ipairs({ {"WSG","Wolf flag","Warsong Gulch"},{"AB","Base builder","Arathi Basin"},{"AV","Mountain general","Alterac Valley"},{"DI","Ruler of the island","Darkspear Islands"} }) do
   D("BG" .. b[1], "pvp", "S", b[2], "Win " .. b[3], V(function() return inSet("bgWonMaps", b[3]) and 1 or 0 end))
 end
-D("SOS1", "pvp", "B", "Cried for help", "Send your first SOS", V(function() return cnt("sosSent") end), 1)
-D("SOSA", "pvp", "B", "Quick help", "Answer «on my way» to an SOS", V(function() return cnt("sosAnswered") end), 1)
-D("SOS10", "pvp", "G", "Bodyguard", "Answer 10 SOS calls", V(function() return cnt("sosAnswered") end), 10)
 
 -- Gjengen
 D("CH1", "gang", "B", "Hi, gang!", "First message in gang chat", V(function() return cnt("chatMsgs") end), 1)
@@ -304,7 +301,6 @@ D("LONE", "fun", "S", "Lone wolf", "3 hours without anyone from the gang online"
 D("AFK", "fun", "B", "AFK-mester", "Stand AFK for 30 minutes", flag("afk30"), 1, true)
 D("WIN1", "fun", "G", "Winner of the week", "Win the weekly challenge", V(function() return cnt("challengeWins") end), 1, true)
 D("WIN5", "fun", "L", "Champion", "Win the weekly challenge 5 times", V(function() return cnt("challengeWins") end), 5, true)
-D("SOS3", "fun", "S", "Spammer", "Send 3 SOS in one day", V(function() return math.max(today("sosDay"), cnt("bestDaySos")) end), 3, true)
 D("ENM10", "fun", "S", "Enemy hunter", "Tag 10 enemies", V(function() return cnt("enemiesTagged") end), 10, true)
 D("ENSN", "fun", "B", "I see you!", "Get an enemy alert", V(function() return cnt("enemySeen") end), 1, true)
 D("ALL100", "fun", "L", "Completionist", "Unlock 100 achievements", V(function() return A:Count(ns.pid) end), 100, true)

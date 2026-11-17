@@ -264,7 +264,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   list:HookScript("OnMouseWheel", function() quick:Hide() end)
   tab:HookScript("OnHide", function() quick:Hide() end)
 
-  -- Bunnlinje: egen status og SOS
+  -- Bottom line: your own status and the ready check
   local line = UI.SolidLine(tab)
   line:SetPoint("BOTTOMLEFT", 0, 52)
   line:SetPoint("BOTTOMRIGHT", 0, 52)
@@ -286,12 +286,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     UI.Menu(self, items)
   end)
 
-  local sos = UI.Button(tab, 170, 36, "SOS – getting ganked", "danger", function() ns.Data:SOS() end)
-  sos:SetIcon("SOS", 15)
-  sos:SetPoint("BOTTOMRIGHT", -16, 8)
   local ready = UI.Button(tab, 112, 36, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
   ready:SetIcon("Check", 14)
-  ready:SetPoint("RIGHT", sos, "LEFT", -8, 0)
+  ready:SetPoint("BOTTOMRIGHT", -16, 8)
   ready.tooltip = "Bag space, durability and food/drink for everyone in the group – handy before a dungeon"
 
   function tab:Refresh()

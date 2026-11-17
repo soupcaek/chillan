@@ -248,7 +248,7 @@ function Comm:Broadcast(msg, prio, logged)
       if target then enqueue({ msg = msg, chatType = "WHISPER", target = target, logged = logged }, prio) end
     end
   end
-  -- viktige meldinger (chat, ding, død, SOS …): send også direkte til venner vi bare vet er
+  -- viktige meldinger (chat, ding, død …): send også direkte til venner vi bare vet er
   -- online gjennom andre i gjengen (annen layer/realm), så ingen går glipp av dem
   if prio == 1 then
     for pid, p in pairs(ns.db.people) do
@@ -481,7 +481,7 @@ ticker:SetScript("OnUpdate", function(_, dt)
   local t = now()
   for p = 1, 3 do
     local q = queue[p]
-    -- chat, dings og SOS (1) kan alltid sende; status (2) og bakgrunn (3) lar noen
+    -- chat og dings (1) kan alltid sende; status (2) og bakgrunn (3) lar noen
     -- sendinger stå igjen, så en chatmelding når flere venner med en gang
     if tokens < RESERVE[p] then q = {} end
     for i = 1, #q do

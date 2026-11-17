@@ -606,7 +606,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   dgList:SetAllPoints()
   dgList.emptyText = "No finished dungeons yet. Runs are logged automatically (time, deaths and bosses) – the fastest run per dungeon shows here."
 
-  -- the gang feed (moved here from the Chat tab): every ding, drop, death and SOS, newest at the bottom
+  -- the gang feed (moved here from the Chat tab): every ding, drop, death and kill, newest at the bottom
   local feedPage = histFrame("feed")
   local feedBox = UI.Panel(feedPage, C.card, C.line, false)
   feedBox:SetAllPoints()
@@ -618,7 +618,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     feedMsgs:Clear()
     local feed = ns.db.feed or {}
     for i = math.max(1, #feed - 80), #feed do feedMsgs:AddMessage(ns.FeedLine(feed[i], true)) end
-    if #feed == 0 then feedMsgs:AddMessage(ns.Colorize("Dings, drops, deaths and SOS calls show up here.", C.dim)) end
+    if #feed == 0 then feedMsgs:AddMessage(ns.Colorize("Dings, drops, deaths and kills show up here.", C.dim)) end
   end
 
   local factsPage = histFrame("facts")

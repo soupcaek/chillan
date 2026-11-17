@@ -5,10 +5,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local box, recapFrame
 local pending -- recap waiting for combat to end
 
-local function inCombat()
-  if InCombatLockdown and InCombatLockdown() then return true end
-  return ns.S(UnitAffectingCombat, "player") and true or false
-end
+local inCombat = ns.U.InCombat
 
 local function panel(name, w, h, pos)
   local f = CreateFrame("Frame", name, UIParent)

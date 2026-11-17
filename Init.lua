@@ -97,7 +97,8 @@ end)
 local function help()
   ns.Print("Commands:")
   print("  /chill – open/close the window")
-  print("  /chill sos – send an SOS to the gang")
+  print("  /chill selftest – which game functions work on this client")
+  print("  /chill edit – move all Chillan pieces on screen")
   print("  /chill summary – show your session summary")
   print("  /chill enemy [note] – add your target to the enemy log")
   print("  /chill add Name – say hi to a friend who doesn't show up")
@@ -118,10 +119,8 @@ end
 BINDING_HEADER_CHILLAN = "Chillan?"
 BINDING_NAME_CHILLAN_TOGGLE = "Open/close Chillan?"
 BINDING_NAME_CHILLAN_CHAT = "Open gang chat"
-BINDING_NAME_CHILLAN_SOS = "Send SOS"
 function Chillan_ToggleBinding(key)
   if key == "chat" then ns.Window:Toggle("chat")
-  elseif key == "sos" then ns.Data:SOS()
   else ns.Window:Toggle() end
 end
 
@@ -133,8 +132,8 @@ SlashCmdList.CHILLAN = function(msg)
   cmd = (cmd or ""):lower()
   if cmd == "" then
     ns.Window:Toggle()
-  elseif cmd == "sos" then
-    ns.Data:SOS()
+  elseif cmd == "selftest" or cmd == "test" then
+    ns.SelfTest()
   elseif cmd == "kveld" or cmd == "summary" then
     ns:Fire("SHOW_SUMMARY", ns.Tracker:SessionSummary(), false)
   elseif cmd == "fiende" or cmd == "enemy" then

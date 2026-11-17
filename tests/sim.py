@@ -75,7 +75,6 @@ print("B chat:", [it.text for it in B[2].db.chat.values()])
 B[1].FIRE("PLAYER_LEVEL_UP", 30)
 B[1].FIRE("PLAYER_DEAD")
 step(2); step(2)
-B[2].Data.SOS(B[2].Data)
 step(2); step(2)
 print("A feed:", [(it.kind, it.a) for it in A[2].db.feed.values()])
 

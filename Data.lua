@@ -672,9 +672,6 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     elseif kind == "ACH" then
       -- only the big ones pop up (the rest are in the feed)
       if ns.Ach and ns.Ach:IsBig(a) then Data:PopupFor(pid, item, "ding") end
-    elseif kind == "SOS" and pid ~= ns.pid then
-      ns:Fire("SOS", item)
-      ns.Sound("sos", pid)
     elseif kind == "ENSEEN" then
       ns:Fire("TOAST", { kind = "enemy", pid = pid,
         title = "Enemy spotted: " .. tostring(a),
@@ -1077,34 +1074,7 @@ function Data:ExpireEvents()
   end
 end
 
----------------------------------------------------------------------------
--- SOS
----------------------------------------------------------------------------
-function Data:SOS()
-  if not ns.codeHash then ns.Print("You need to join a gang first.") return end
-  local loc = ns.Tracker:Location()
-  local zone = loc.zone
-  if loc.sub and loc.sub ~= "" and not loc.inInst then zone = loc.sub .. ", " .. loc.zone end
-  ns.Tracker:Event("SOS", ns.Clean(zone, 40), loc.mapID or "",
-    loc.x and math.floor(loc.x * 1000) or "", loc.y and math.floor(loc.y * 1000) or "")
-  ns.session.sos = (ns.session.sos or 0) + 1
-  ns.Cnt("sosSent")
-  ns.CntDay("sosDay")
-  ns.CntMax("bestDaySos", (ns.db.cnt.sosDay or {})[date("%Y-%m-%d")] or 0)
-  ns.Print("SOS sent to the gang.")
-end
-
-function Data:AnswerSOS(item)
-  ns.Cnt("sosAnswered")
-  local p = ns:GetPerson(item.pid)
-  local target = (p and p.live and p.live.char) or item.char
-  Comm:SendTo(target, Comm:Build("RS", ns.pid, Comm:MyFull()), 1)
-end
-
-Comm:Handle("RS", function(f)
-  local p = ns:GetPerson(f[1], true)
-  ns:Fire("TOAST", { kind = "sos", pid = f[1], title = ns:PersonLabel(p) .. " is on the way!", text = "Hold on a bit longer" })
-end)
+-- (SOS was retired in 1.0.0: nobody used it. Old SOS lines in the feed still show as plain lines.)
 
 ---------------------------------------------------------------------------
 -- Fiendelogg

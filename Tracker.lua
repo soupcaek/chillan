@@ -5,7 +5,7 @@ ns.Tracker = Tracker
 
 local lastTick
 local lastMoney
-local session = { start = 0, levels = 0, quests = 0, gold = 0, deaths = 0, sos = 0, startLevel = 0, xp = 0 }
+local session = { start = 0, levels = 0, quests = 0, gold = 0, deaths = 0, kills = 0, startLevel = 0, xp = 0 }
 ns.session = session
 
 function Tracker:Me()
@@ -523,7 +523,7 @@ function Tracker:SessionSummary()
   return {
     char = ns.Comm:MyFull(), at = ns.Now(), online = played,
     levels = math.max(0, (ns.S(UnitLevel, "player") or session.startLevel or 1) - (session.startLevel or 1)),
-    quests = session.quests, gold = session.gold, deaths = session.deaths, sos = session.sos,
+    quests = session.quests, gold = session.gold, deaths = session.deaths, kills = session.kills,
   }
 end
 

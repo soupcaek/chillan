@@ -124,7 +124,7 @@ function ns:Silenced(pid, kind)
   if kind == "mention" then return false end
   return ns:IsMuted(pid)
 end
-local POPUP_EVENTS = { DING = true, TOAST = true, SOS = true }
+local POPUP_EVENTS = { DING = true, TOAST = true }
 
 function ns:Fire(name, ...)
   if POPUP_EVENTS[name] then
@@ -512,12 +512,12 @@ local DEFAULTS = {
     accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
     -- QoL tab: the safe ones start on, the ones that act for you start off
-    qolMount = true, qolMountArmor = true, qolMountZone = true, qolSwim = true, qolTrinketSlot = 14,
+    qolMount = true, qolMountArmor = true, qolMountZone = true, qolTrinketSlot = 14,
     qolRepair = true, qolGuildRepair = true, qolJunk = true, qolFastLoot = true,
     qolAutoQuest = false, qolSkipCine = true, qolXPText = true,
     qolNoDuels = false, qolNoGuildInv = false, qolSummon = false, qolRes = false, qolNoErrors = true, qolMaxZoom = false,
     qolTint = true, qolFlightTimer = true,
-    qolMountMsg = false, qolDruidCharm = true, qolRepairMsg = true, qolJunkMsg = true, qolQuestTurnIn = true, qolQuestGossip = true,
+    qolMountMsg = false, qolRepairMsg = true, qolJunkMsg = true, qolQuestTurnIn = true, qolQuestGossip = true,
     qolXPRested = true, qolXPQuests = true, qolDuelsGang = true, qolGuildGang = true, qolResBoss = true,
   },
   people = {}, roster = {}, feed = {}, chat = {}, mats = {}, polls = {}, events = {},
@@ -534,21 +534,39 @@ local function fill(dst, src)
   end
 end
 
+-- Saved-data migrations, numbered. Each runs once, in order, and ChillanDB.schema remembers the last one.
+-- To change saved data: add the next number here (never edit an old one).
+ns.MIGRATIONS = {
+  -- 1: the loose flags from before 1.0 (0.12 class accent, 0.29.1 blue drops shared)
+  [1] = function(db)
+    if not db.migr012 and db.settings.accent == "grey" then db.settings.accent = "class" end
+    if not db.migr0291 then db.settings.lootMinQuality = 3 end
+    db.migr012, db.migr0291 = nil, nil
+  end,
+  -- 2 (1.0.0): settings for things that are gone (swim gear and the druid charm don't exist in Forever;
+  -- SOS is retired)
+  [2] = function(db)
+    for _, k in ipairs({ "qolSwim", "qolDruidCharm", "tileSos" }) do db.settings[k] = nil end
+    if type(db.settings.tiles) == "table" then
+      for i = #db.settings.tiles, 1, -1 do
+        if db.settings.tiles[i] == "act_sos" then table.remove(db.settings.tiles, i) end
+      end
+    end
+  end,
+}
+
 function ns:InitDB()
   ChillanDB = ChillanDB or {}
   fill(ChillanDB, DEFAULTS)
   if not ChillanDB.pid then ChillanDB.pid = ns.RandomId(8) end
   ns.db = ChillanDB
   ns.pid = ChillanDB.pid
-  -- 0.29.1: blue (rare) drops are always shared with the gang
-  if not ChillanDB.migr0291 then
-    ChillanDB.migr0291 = true
-    ChillanDB.settings.lootMinQuality = 3
-  end
-  -- 0.12: class colour is the new default accent (grey was the old default)
-  if not ChillanDB.migr012 then
-    if ChillanDB.settings.accent == "grey" then ChillanDB.settings.accent = "class" end
-    ChillanDB.migr012 = true
+  local v = ChillanDB.schema or 0
+  while ns.MIGRATIONS[v + 1] do
+    v = v + 1
+    local ok, err = pcall(ns.MIGRATIONS[v], ChillanDB)
+    if not ok and ns.debug then print("Chillan migration " .. v .. " failed:", err) end
+    ChillanDB.schema = v
   end
   ns:ApplyAccent()
 end
@@ -807,10 +825,58 @@ function ns:SortedPeople(filter)
   return out
 end
 
--- Liste som holdes kort
+-- A list kept short (oldest dropped first)
 function ns.PushCapped(list, item, cap)
   list[#list + 1] = item
   while #list > cap do table.remove(list, 1) end
+end
+
+-- Insert into a list kept sorted by .t (oldest first), without re-sorting the whole list
+function ns.InsertByTime(list, item, cap)
+  local t, i = item.t or 0, #list
+  while i > 0 and (list[i].t or 0) > t do i = i - 1 end
+  table.insert(list, i + 1, item)
+  while cap and #list > cap do table.remove(list, 1) end
+end
+
+---------------------------------------------------------------------------
+-- Shared helpers (ns.U): one copy of the small things several files need
+---------------------------------------------------------------------------
+local U = {}
+ns.U = U
+function U.Secret(v) return ns.isSecret(v) end
+-- in combat by the game's lockdown or by the player's combat flag
+function U.InCombat()
+  if InCombatLockdown and InCombatLockdown() then return true end
+  return ns.S(UnitAffectingCombat, "player") and true or false
+end
+function U.Settings() return ns.db and ns.db.settings or {} end
+-- a character name made comparable: no realm, no case, no spaces or hyphens ("Lil Warrior-Realm" -> "lilwarrior")
+function U.NormName(name)
+  if type(name) ~= "string" or ns.isSecret(name) then return "" end
+  return (ns.ShortName(name) or name):lower():gsub("[%s%-]", "")
+end
+-- is this character one of the gang's (someone else's, not mine)?
+function U.IsGangChar(name)
+  local short = U.NormName(name)
+  if short == "" or not ns.db then return false end
+  for pid, p in pairs(ns.db.people or {}) do
+    if pid ~= ns.pid then
+      for key, c in pairs(p.chars or {}) do
+        if U.NormName((c and c.name) or key) == short then return true end
+      end
+    end
+  end
+  return false
+end
+-- gold with coin icons when the game can draw them, else "12g 3s 4c"
+function U.Money(copper)
+  copper = copper or 0
+  if GetCoinTextureString then
+    local ok, s = pcall(GetCoinTextureString, copper)
+    if ok and s then return s end
+  end
+  return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
 end
 
 ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Chillan|cffc8d1dc?|r
-## Notes: Social addon for your friend group: friends, gang chat, events, stats, achievements, SOS and more.
+## Notes: Social addon for your friend group: friends, gang chat, events, stats, trophies, layer hop and QoL.
 ## Author: Henrik
 ## Version: @project-version@
 ## IconTexture: Interface\AddOns\Chillan\Media\Textures\Logo
@@ -11,6 +11,7 @@
 ## SavedVariables: ChillanDB
 
 Core.lua
+ForeverFacts.lua
 Emotes.lua
 Comm.lua
 Tracker.lua

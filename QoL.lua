@@ -8,9 +8,9 @@ local Q = {}
 local wipe = wipe or function(t) for k in pairs(t) do t[k] = nil end return t end
 ns.QoL = Q
 
-local function S() return ns.db and ns.db.settings or {} end
+local S = ns.U.Settings
 local function on(key) return S()[key] and true or false end
-local function secret(v) return ns.isSecret and ns.isSecret(v) end
+local secret = ns.U.Secret
 local function fullCombat() return InCombatLockdown() or (ns.S(UnitAffectingCombat, "player") and true or false) end
 
 -- looked up on every call (never cached at load) so late-loaded APIs work
@@ -51,30 +51,9 @@ local function bagSlots(fn)
   end
 end
 
-local function norm(name)
-  if type(name) ~= "string" or secret(name) then return "" end
-  return (ns.ShortName(name) or name):lower():gsub("[%s%-]", "")
-end
-function Q.IsGangChar(name)
-  local short = norm(name)
-  if short == "" then return false end
-  for pid, p in pairs(ns.db.people or {}) do
-    if pid ~= ns.pid then
-      for key, c in pairs(p.chars or {}) do
-        if norm((c and c.name) or key) == short then return true end
-      end
-    end
-  end
-  return false
-end
+Q.IsGangChar = ns.U.IsGangChar
 
-local function money(c)
-  if GetCoinTextureString then
-    local ok, s = pcall(GetCoinTextureString, c)
-    if ok and s then return s end
-  end
-  return string.format("%dg %ds %dc", math.floor(c / 10000), math.floor(c / 100) % 100, c % 100)
-end
+local money = ns.U.Money
 
 ---------------------------------------------------------------------------
 -- Mount gear: speed gear on when you mount, your own gear back on dismount
@@ -83,12 +62,13 @@ end
 ---------------------------------------------------------------------------
 -- slot 0 = either trinket slot (the one picked in the QoL tab)
 -- zones: only worn there; listed before the plain item so it wins in its zones
+local F = ns.FOREVER
 Q.RIDE = {
-  { key = "desertRose", item = 274648, slot = 0, zones = { "Tanaris", "Silithus", "Desolace", "Westfall" }, opt = "qolMountZone" },
-  { key = "carrot", item = 11122, slot = 0 },
-  { key = "wintersaber", item = 284266, slot = 10, zones = { "Winterspring" }, opt = "qolMountZone" },
-  { key = "ridingSkill", ench = 930, slot = 10, opt = "qolMountArmor" },  -- Riding Skill (gloves)
-  { key = "spurs", ench = 464, slot = 8, opt = "qolMountArmor" },         -- Mithril Spurs (boots)
+  { key = "desertRose", item = F.items.desertRose.id, slot = 0, zones = F.zones.desert, opt = "qolMountZone" },
+  { key = "carrot", item = F.items.carrot.id, slot = 0 },
+  { key = "wintersaber", item = F.items.wintersaberGloves.id, slot = 10, zones = F.zones.winterspring, opt = "qolMountZone" },
+  { key = "ridingSkill", ench = F.enchants.ridingSkill.id, slot = 10, opt = "qolMountArmor" },  -- Riding Skill (gloves)
+  { key = "spurs", ench = F.enchants.mithrilSpurs.id, slot = 8, opt = "qolMountArmor" },         -- Mithril Spurs (boots)
 }
 local BIND_NONE = (Enum and Enum.ItemBind and Enum.ItemBind.None) or 0
 local BLOCK_FRAMES = { "MerchantFrame", "MailFrame", "TradeFrame", "BankFrame", "BankPanel", "LootFrame", "GuildBankFrame" }

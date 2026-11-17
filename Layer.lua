@@ -15,7 +15,7 @@ local current          -- layer key (the server number as a string), or nil
 local moved = false    -- the game just moved us (shard transfer / new zone): two votes are enough
 local stale            -- { untilAt, guid = {} }: creatures of the layer we just left
 
-local function secret(v) return ns.isSecret and ns.isSecret(v) end
+local secret = ns.U.Secret
 
 function Ly.KeyOf(guid)
   if secret(guid) or type(guid) ~= "string" then return nil end

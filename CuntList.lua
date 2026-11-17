@@ -11,7 +11,7 @@ ns.Cunts = CL
 local MAX_REASON, MAX_NOTE = 80, 80
 local WARN_EVERY = 600                   -- one warning per person per 10 minutes
 
-local function secret(v) return ns.isSecret and ns.isSecret(v) end
+local secret = ns.U.Secret
 local function db()
   ns.db.cunts = ns.db.cunts or {}
   ns.db.cuntsGone = ns.db.cuntsGone or {}
