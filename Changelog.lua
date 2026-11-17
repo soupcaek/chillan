@@ -2,6 +2,19 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.0.0", date = "17.11", items = {
+    "Chillan 1.0! A new main window: sections along the top (Home, Gang, Chat, Progress, Tools), with Settings behind the cog and What's new behind the bell. Resize it from the corner – the size is remembered",
+    "New Home page: who's online, what the gang has been up to lately, quick actions (layer hop, ready check) and this week's challenge with your place in it",
+    "Move things on screen: /chill edit (or the button in Settings) shows every Chillan frame at once so you can drag them, with 1080p and 1440p presets and a reset",
+    "Fewer popups: only a short list of big moments pops up for the whole gang. Everything else goes to the feed with a small notice",
+    "The SOS button is gone – nobody used it",
+    "The old enemy log is merged into the Cunt List, so there's one list. Revenge kills count anyone on it, or anyone who killed you in the last 7 days",
+    "New trophies: revenge kill, first layer hop, hosting 10 layer hops, tagging enemies. Alliance kills Chillan sees now count toward the kill trophies. 'Layer hopper' was renamed 'Zone hopper' (it counts zone changes)",
+    "Layer hop: 'it didn't move you' is only said when it's sure (several creatures still on your old layer after 15 s). Otherwise it tells you it couldn't tell",
+    "QoL: lighter on the game (reacts to events instead of checking 4 times a second), and steps aside if AutoCarrot or Leatrix Plus already handles mount gear, repairs or junk",
+    "/chill selftest checks what the game lets Chillan do right now (messages, channel, who's online) – handy when something seems off",
+    "Version now shows as plain 1.0.0 in WoWUp",
+  } },
   { v = "0.33.5", date = "16.11", items = {
     "Layer hop: players you can see are on your layer, so they're never asked for a hop and their invites are no longer accepted (a host standing right next to you could invite you and move nothing)",
     "Layer hop: the second ask to LayerSwap hosts that don't know their layer yet now waits until the first round is done and no host on another layer has answered – that second ask made them invite blind, even from your own layer. Hosts that didn't move you aren't asked that way again for 10 min",

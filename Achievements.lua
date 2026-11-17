@@ -103,13 +103,15 @@ end
 local defs = {}
 -- the big ones: these pop up for the whole gang (and get a Discord card). The rest show in the
 -- feed, and you get a small notice when you unlock one yourself.
-A.BIG = {
+-- Which unlocks pop up for the whole gang (and get a Discord card). The rest go to the feed, with a
+-- small notice for you. Kept short on purpose: the gang's main wish is fewer popups.
+A.POP = {
   FMNT = true, FEPC = true, EP1 = true, MT1 = true, EP5 = true, EP15 = true, MT5 = true,
   RD1 = true, DGGG = true, RDHS = true, RDBD = true, DG50 = true,
   DE100 = true, DE60 = true, P300 = true, P300X2 = true, EFF = true, ST30 = true, Z40 = true,
   WIN1 = true, WIN5 = true, BG10 = true, ALL100 = true,
 }
-function A:IsBig(id) return self.BIG[id] == true end
+function A:IsBig(id) return self.POP[id] == true end
 
 local function D(id, cat, tier, name, desc, value, goal, secret)
   defs[#defs + 1] = { id = id, cat = cat, tier = tier, name = name, desc = desc, value = value, goal = goal or 1, secret = secret }
@@ -128,7 +130,7 @@ D("LVDG", "lvl", "B", "Ding in the deep", "Ding inside a dungeon", flag("dingDun
 D("LVRS", "lvl", "B", "Well rested", "Ding with rested XP", flag("dingRested"))
 D("LVAL", "lvl", "S", "Altoholic", "Have 3 characters above level 10", V(function() return altsOver(10) end), 3)
 
--- Først i gjengen
+-- First in the gang
 for _, n in ipairs({ 10, 20, 30, 40, 50, 60 }) do
   D("F" .. n, "first", n >= 40 and "G" or "S", "First to " .. n, "First in the gang to level " .. n, V(function() return first("L" .. n) and 1 or 0 end))
 end
@@ -159,7 +161,7 @@ D("QSES", "quest", "S", "Productive evening", "20 quests in one session", V(func
 D("QDAY", "quest", "G", "A day's work", "40 quests in one day", V(function() return today("questsDay") > 0 and math.max(today("questsDay"), cnt("bestDayQuests")) or cnt("bestDayQuests") end), 40)
 D("QKNG", "quest", "G", "Quest king of the week", "Most quests in the gang in a week", flag("kingQuests"))
 
--- Gull (kobber)
+-- Gold (copper)
 local G = 10000
 for _, g in ipairs({ {10,"Pocket money","B"},{100,"Piggy bank","S"},{500,"Well-off","G"},{1000,"Goblin","L"} }) do
   D("GE" .. g[1], "gold", g[3], g[2], "Earn " .. g[1] .. "g total", V(function() return stat("Gold") end), g[1] * G)
@@ -190,16 +192,22 @@ D("DEWK", "death", "G", "Infallible", "A whole week (at least 5 h) without dying
 D("DKNG", "death", "S", "King of shame", "Most deaths in the gang in a week", flag("kingDeaths"))
 
 -- PvP
+-- honourable kills, or the Alliance kills Chillan saw itself when Forever hides that number (1.0)
+local function kills() return math.max(stat("Kills"), cnt("allianceKills")) end
 for _, k in ipairs({ {1,"First blood","B"},{10,"Enemy of the Alliance","B"},{50,"Tormentor","S"},{100,"Warmonger","S"},{250,"Butcher","G"},{500,"Horde hero","G"},{1000,"Lok'tar Ogar","L"} }) do
-  D("K" .. k[1], "pvp", k[3], k[2], k[1] .. " honorable kills", V(function() return stat("Kills") end), k[1])
+  D("K" .. k[1], "pvp", k[3], k[2], k[1] .. " Alliance kills", kills, k[1])
 end
 D("BG1", "pvp", "B", "Victory!", "Win a battleground", V(function() return cnt("bgWins") end), 1)
 D("BG10", "pvp", "G", "Warlord", "Win 10 battlegrounds", V(function() return cnt("bgWins") end), 10)
+D("RVNG", "pvp", "G", "Revenge", "Kill someone on the Cunt List", V(function() return cnt("revengeKills") end), 1)
 for _, b in ipairs({ {"WSG","Wolf flag","Warsong Gulch"},{"AB","Base builder","Arathi Basin"},{"AV","Mountain general","Alterac Valley"},{"DI","Ruler of the island","Darkspear Islands"} }) do
   D("BG" .. b[1], "pvp", "S", b[2], "Win " .. b[3], V(function() return inSet("bgWonMaps", b[3]) and 1 or 0 end))
 end
 
 -- Gjengen
+D("ENM1", "gang", "B", "Name and shame", "Put a name on the Cunt List", V(function() return cnt("enemiesTagged") end), 1)
+D("ENM10", "gang", "S", "Enemy hunter", "Put 10 names on the Cunt List", V(function() return cnt("enemiesTagged") end), 10)
+D("ENSN", "gang", "B", "I see you!", "Get a Cunt List warning", V(function() return cnt("enemySeen") end), 1)
 D("CH1", "gang", "B", "Hi, gang!", "First message in gang chat", V(function() return cnt("chatMsgs") end), 1)
 D("CH100", "gang", "S", "Chatterbox", "100 messages in gang chat", V(function() return cnt("chatMsgs") end), 100)
 D("CH1K", "gang", "G", "Talkative", "1000 messages in gang chat", V(function() return cnt("chatMsgs") end), 1000)
@@ -257,7 +265,9 @@ D("Z10H", "expl", "S", "Regular", "10 hours in the same zone", V(function()
   for _, v in pairs((me().stats or {}).zones or {}) do if v > m then m = v end end
   return m
 end), 10 * 3600)
-D("LAYR", "expl", "S", "Layer hopper", "Change zone or layer 100 times", V(function() return cnt("zoneChanges") end), 100)
+D("LAYR", "expl", "S", "Zone hopper", "Change zone 100 times", V(function() return cnt("zoneChanges") end), 100)
+D("HOP1", "expl", "B", "Hop!", "Change layer with Layer hop", V(function() return cnt("layerHops") end), 1)
+D("HOST10", "expl", "S", "Ferryman", "Move 10 people to your layer with Layer hop", V(function() return cnt("layerHosted") end), 10)
 
 -- Profesjoner
 D("P75", "prof", "B", "Apprentice", "One profession at 75", V(function() return profsAtLeast(75) end), 1)
@@ -298,11 +308,10 @@ D("SNAIL", "tempo", "B", "Snail", "A level that takes over 5 hours played", flag
 -- Hemmelige / morsomme
 D("BACK", "fun", "S", "Welcome back!", "Log in after 7+ days away", flag("comeback"), 1, true)
 D("LONE", "fun", "S", "Lone wolf", "3 hours without anyone from the gang online", V(function() return cnt("bestLone") end), 3 * 3600, true)
-D("AFK", "fun", "B", "AFK-mester", "Stand AFK for 30 minutes", flag("afk30"), 1, true)
+D("AFK", "fun", "B", "AFK master", "Stand AFK for 30 minutes", flag("afk30"), 1, true)
 D("WIN1", "fun", "G", "Winner of the week", "Win the weekly challenge", V(function() return cnt("challengeWins") end), 1, true)
 D("WIN5", "fun", "L", "Champion", "Win the weekly challenge 5 times", V(function() return cnt("challengeWins") end), 5, true)
-D("ENM10", "fun", "S", "Enemy hunter", "Tag 10 enemies", V(function() return cnt("enemiesTagged") end), 10, true)
-D("ENSN", "fun", "B", "I see you!", "Get an enemy alert", V(function() return cnt("enemySeen") end), 1, true)
+
 D("ALL100", "fun", "L", "Completionist", "Unlock 100 achievements", V(function() return A:Count(ns.pid) end), 100, true)
 
 A.defs = defs

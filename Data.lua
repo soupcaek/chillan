@@ -536,7 +536,7 @@ Comm:Handle("SQ", function(f, sender)
     for rpid, st in pairs(ev.rsvp) do Comm:SendTo(sender, Comm:Build("AR", ev.id, rpid, st), 3) end
   end
   local n = 0
-  for _, e in pairs(ns.db.enemies) do
+  for _, e in pairs(ns.db.enemies or {}) do
     if n < 20 then
       Comm:SendTo(sender, Comm:Build("EN", e.id or "", ns.Now() - (e.t or ns.Now()), e.name, e.note or "", e.by or "", e.byChar or ""), 3, true)
       n = n + 1
@@ -1076,65 +1076,25 @@ end
 -- (SOS was retired in 1.0.0: nobody used it. Old SOS lines in the feed still show as plain lines.)
 
 ---------------------------------------------------------------------------
--- Fiendelogg
+-- Enemy log → Cunt List (1.0): one list for the people the gang avoids. The Cunt List warns on target,
+-- mouseover and invites by itself. Old clients still send EN; we keep those entries on the Cunt List.
 ---------------------------------------------------------------------------
-function Data:AddEnemy(name, note, silent)
+function Data:AddEnemy(name, note)
   name = ns.Clean(name or "", 48)
-  if name == "" then return false end
-  local key = ns.ShortName(name):lower()
-  local e = { id = Comm:NewId(), name = ns.ShortName(name), note = ns.Clean(note or "", 60), by = ns.pid, byChar = Comm:MyFull(), t = ns.Now() }
-  ns.db.enemies[key] = e
-  if not silent then
-    ns.Cnt("enemiesTagged")
-    Comm:Broadcast(Comm:Build("EN", e.id, 0, e.name, e.note, e.by, e.byChar), 1, true)
-  end
-  ns:MarkDirty()
-  return true
-end
-
-function Data:RemoveEnemy(key)
-  local e = ns.db.enemies[key]
-  if not e then return end
-  ns.db.enemies[key] = nil
-  Comm:Broadcast(Comm:Build("EX", e.name), 1)
-  ns:MarkDirty()
+  if name == "" or not ns.Cunts then return false end
+  note = ns.Clean(note or "", 60)
+  return ns.Cunts:Add(name, note ~= "" and note or "Tagged as an enemy")
 end
 
 Comm:Handle("EN", function(f)
   local name = f[3]
-  if not name or name == "" then return end
-  local key = name:lower()
-  if ns.db.enemies[key] then return end
-  ns.db.enemies[key] = { id = f[1], t = ago2t(f[2]), name = name, note = f[4], by = f[5], byChar = f[6] }
+  if not name or name == "" or not ns.Cunts then return end
+  local e, k = ns.Cunts:Get(name)
+  if e or not k or (ns.db.cuntsGone or {})[k] then return end
+  ns.db.cunts[k] = { name = name, reason = (f[4] and f[4] ~= "") and f[4] or "From the enemy log",
+    by = f[5] or "", byChar = f[6] or "", t = ago2t(f[2]), notes = {} }
   ns:MarkDirty()
 end)
-
-Comm:Handle("EX", function(f)
-  if f[1] then ns.db.enemies[f[1]:lower()] = nil ns:MarkDirty() end
-end)
-
-local enemyAlerted = {}
-local function checkUnit(unit)
-  if not ns.codeHash or not next(ns.db.enemies) then return end
-  if not ns.S(UnitIsPlayer, unit) then return end
-  if not ns.S(UnitIsEnemy, "player", unit) then return end
-  local name = ns.S(UnitName, unit)
-  if not name then return end
-  local key = name:lower()
-  local e = ns.db.enemies[key]
-  if not e then return end
-  if enemyAlerted[key] and ns.Now() - enemyAlerted[key] < 300 then return end
-  enemyAlerted[key] = ns.Now()
-  local zone = ns.S(GetRealZoneText) or ""
-  ns.Cnt("enemySeen")
-  ns:Fire("TOAST", { kind = "enemy", title = "Enemy nearby: " .. e.name, text = e.note ~= "" and e.note or "From the enemy log" })
-  ns.Sound("sos")
-  ns.Tracker:Event("ENSEEN", e.name, ns.Clean(zone, 30))
-end
-
-ns:On("PLAYER_TARGET_CHANGED", function() checkUnit("target") end)
-ns:On("UPDATE_MOUSEOVER_UNIT", function() checkUnit("mouseover") end)
-ns:On("NAME_PLATE_UNIT_ADDED", function(unit) if unit and not ns.isSecret(unit) then checkUnit(unit) end end)
 
 ---------------------------------------------------------------------------
 -- Be om craft

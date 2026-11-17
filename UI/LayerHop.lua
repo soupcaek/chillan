@@ -235,6 +235,7 @@ function L:Help(id, auto)
   self.open[id] = nil
   Comm:Broadcast(Comm:Build("LK", id, ns.pid), 1)
   ns.Invite(r.target)
+  ns.Cnt("layerHosted")
   if self.frame then self.frame:Hide() end
   if auto then
     local p = ns:GetPerson(r.pid)
@@ -800,6 +801,7 @@ local function onLayerSwap(text, sender)
     if canHelp() then
       ns.Invite(sender)
       ns.Print("Layer hop: invited " .. ns.ShortName(sender) .. " (LayerSwap user) to your layer.")
+      ns.Cnt("layerHosted")
     end
   end)
 end
@@ -863,6 +865,7 @@ end)
 local function done(m, newKey)
   if L.mine ~= m or m.moved then return end
   m.moved = true
+  ns.Cnt("layerHops")
   ns:Fire("LAYERHOP")
   ns.Print("Layer hop: |cff9BE08Ayou're on " .. label(newKey) .. " now|r" .. (m.from and (" (was " .. label(m.from) .. ")") or "")
     .. ". Leaving the group in " .. LEAVE_AFTER .. " s – the layer stays.")

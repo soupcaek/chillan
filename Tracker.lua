@@ -625,12 +625,10 @@ ns:On("PLAYER_DEAD", function()
       if idx then
         kb, kc, kd = k.cat .. ":" .. idx, ns.Clean(k.killer or "", 40), ns.Clean(k.extra or "", 30)
         Tracker.lastKiller = k
-        -- killed by an Alliance player: straight into the enemy log
+        -- killed by an Alliance player: remember them a week, so killing them back is a "revenge" kill
         if k.cat == "PLAYER" and k.killer and k.killer ~= "" then
-          local key = k.killer:lower()
-          if not (ns.db.enemies and ns.db.enemies[key]) then
-            pcall(ns.Data.AddEnemy, ns.Data, k.killer, "killed me in " .. tostring(dzone) .. (k.extra and (" · " .. k.extra) or ""), false)
-          end
+          ns.db.killedBy = ns.db.killedBy or {}
+          ns.db.killedBy[ns.ShortName(k.killer):lower()] = ns.Now()
         end
       end
     end

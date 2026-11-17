@@ -21,14 +21,11 @@ end
 function ns.TagTarget(note)
   local name = ns.S(UnitName, "target")
   if not name then ns.Print("Target a hostile player first.") return end
-  if not (ns.S(UnitIsPlayer, "target") and ns.S(UnitIsEnemy, "player", "target")) then
-    ns.Print("Your target isn't a hostile player.")
-    return
-  end
-  if ns.Data:AddEnemy(name, note) then ns.Print(name .. " was added to the enemy log.") end
+  if not ns.S(UnitIsPlayer, "target") then ns.Print("Your target isn't a player.") return end
+  if note and note ~= "" then ns.Cunts:Add(name, note) else ns.Cunts:AskAdd(name) end
 end
 
-ns:RegisterTab("more", "More", "More", function(tab)
+ns:RegisterTab("more", "Gang & crafters", "More", function(tab)
   local LEFT_W = 300
 
   local general = CreateFrame("Frame", nil, tab)
@@ -91,51 +88,13 @@ ns:RegisterTab("more", "More", "More", function(tab)
   ver:SetPoint("LEFT", h, "RIGHT", 10, 0)
   ver:SetText("version " .. ns.VERSION)
 
-  -- Høyre: fiendelogg og "kan lage"
+  -- right: who can make what
   local right = CreateFrame("Frame", nil, general)
   right:SetPoint("TOPLEFT", left, "TOPRIGHT", 20, 0)
   right:SetPoint("BOTTOMRIGHT", -16, 14)
 
-  local eh = UI.Text(right, 15, "semi", C.text)
-  eh:SetPoint("TOPLEFT")
-  eh:SetText("Enemy log")
-  local tag = UI.Button(right, 130, 28, "Tag your target", "secondary", function()
-    if not ns.S(UnitExists, "target") then ns.Print("Target a hostile player first.") return end
-    UI.Prompt("Add to the enemy log", { { label = "Note (optional)", placeholder = "e.g. ganks lowbies in STV" } },
-      function(note) ns.TagTarget(note) end)
-  end)
-  tag:SetIcon("Target", 13)
-  tag:SetPoint("TOPRIGHT", 0, 4)
-
-  local function createEnemy(list)
-    local row = CreateFrame("Frame", nil, list)
-    row.panel = UI.Panel(row, C.card, C.line, false)
-    row.panel:SetAllPoints()
-    row.panel:SetFrameLevel(row:GetFrameLevel())
-    row.name = UI.Text(row, 13, "semi", C.red)
-    row.name:SetPoint("TOPLEFT", 12, -8)
-    row.name:SetPoint("RIGHT", -44, 0)
-    row.note = UI.Text(row, 11, nil, C.dim)
-    row.note:SetPoint("BOTTOMLEFT", 12, 8)
-    row.note:SetPoint("RIGHT", -44, 0)
-    row.del = UI.IconButton(row, 26, "Close", "Remove from the log")
-    row.del:SetPoint("RIGHT", -8, 0)
-    return row
-  end
-  local function updateEnemy(row, e)
-    row.name:SetText(e.name)
-    local by = e.byChar and ns.ShortName(e.byChar) or "?"
-    row.note:SetText((e.note ~= "" and (e.note .. " · ") or "") .. "tagged by " .. by .. " · " .. ns.Ago(e.t))
-    row.del:SetScript("OnClick", function() ns.Data:RemoveEnemy(e.key) end)
-  end
-  local enemies = UI.List(right, 44, 6, createEnemy, updateEnemy)
-  enemies:SetPoint("TOPLEFT", eh, "BOTTOMLEFT", 0, -10)
-  enemies:SetPoint("RIGHT", right, "RIGHT", 6, 0)
-  enemies:SetHeight(150)
-  enemies.emptyText = "No enemies yet. Target an Alliance player and press «Tag your target»."
-
   local kh = UI.Text(right, 15, "semi", C.text)
-  kh:SetPoint("TOPLEFT", enemies, "BOTTOMLEFT", 0, -14)
+  kh:SetPoint("TOPLEFT")
   kh:SetText("Who can make what?")
   local search
   search = UI.EditBox(right, 100, 32, "Search for a recipe or profession …", function(self) self:ClearFocus() end)
@@ -182,10 +141,6 @@ ns:RegisterTab("more", "More", "More", function(tab)
     code:SetText(ns.db.code or "")
     if not aliasBox.edit:HasFocus() then aliasBox:SetText(ns.db.alias or "") end
 
-    local es = {}
-    for key, e in pairs(ns.db.enemies) do e.key = key es[#es + 1] = e end
-    table.sort(es, function(a, b) return (a.t or 0) > (b.t or 0) end)
-    enemies:SetData(es)
 
     local q = (search:GetText() or ""):lower()
     local out = {}

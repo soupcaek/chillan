@@ -553,6 +553,19 @@ ns.MIGRATIONS = {
       end
     end
   end,
+  -- 3 (1.0.0): the enemy log becomes part of the Cunt List
+  [3] = function(db)
+    db.cunts = db.cunts or {}
+    db.cuntsGone = db.cuntsGone or {}
+    for key, e in pairs(db.enemies or {}) do
+      local k = (e.name or key):lower()
+      if type(e) == "table" and not db.cunts[k] and not db.cuntsGone[k] then
+        db.cunts[k] = { name = e.name or key, reason = (e.note and e.note ~= "") and e.note or "From the enemy log",
+          by = e.by or "", byChar = e.byChar or "", t = e.t or time(), notes = {} }
+      end
+    end
+    db.enemies = {}
+  end,
 }
 
 function ns:InitDB()

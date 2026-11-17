@@ -52,6 +52,7 @@ function CL:Add(name, reason)
   list[k] = e
   gone[k] = nil
   Comm:Broadcast(Comm:Build("CU", e.name, e.reason, e.by, e.byChar, 0), 1, true)
+  ns.Cnt("enemiesTagged")
   ns.Tracker:Event("CUNT", e.name, e.reason)
   ns.Print("|cffF2777A" .. e.name .. "|r is on the Cunt List: " .. e.reason)
   ns:MarkDirty()
@@ -177,6 +178,7 @@ function CL:Warn(name, why)
     group = e.name .. " is in your group – on the Cunt List!",
     whisper = e.name .. " whispered you – on the Cunt List",
   })[why] or (e.name .. " is on the Cunt List")
+  ns.Cnt("enemySeen")
   ns:Fire("TOAST", { kind = "enemy", title = title, text = text, sticky = (why == "invite" or why == "group") })
   ns.Sound("sos")
   ns.Print("|cffF2777A" .. title .. "|r: " .. text)

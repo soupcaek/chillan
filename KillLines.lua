@@ -266,9 +266,12 @@ local function postKill(victim, via)
   local s = short ~= "" and (seen[victim] or seen[short]) or nil
   local extra = s and GetTime() - s.at < 600 and s.txt or ""
   local zone = ns.Clean(ns.S(GetRealZoneText) or "", 40)
-  local enemy = short ~= "" and ns.db.enemies and ns.db.enemies[short:lower()]
+  local onList = short ~= "" and ns.Cunts and ns.Cunts:Get(short)
+  local killedMe = short ~= "" and ns.db.killedBy and ns.db.killedBy[short:lower()]
+  local enemy = onList or (killedMe and ns.Now() - killedMe < 7 * 86400)
   local cat = enemy and "REVENGE" or "KILL"
-  if enemy then enemy.revenge = (enemy.revenge or 0) + 1 end
+  if onList then onList.revenge = (onList.revenge or 0) + 1 ns.Cnt("revengeKills") end
+  ns.Cnt("allianceKills")
   local idx = K:Pick(cat)
   K.diag.posted = K.diag.posted + 1
   K.diag.last = via

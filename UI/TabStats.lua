@@ -1134,15 +1134,15 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       return { title = "Deadliest zones (week)", rows = rows,
         foot = wp and ("Worst there: " .. ns:PersonFirst(ns:GetPerson(wp) or {}) .. " (" .. wn .. ")") or nil }
     end,
-    -- Enemy log: the newest tagged Alliance player
+    -- Cunt List: the newest name on it
     function()
       local e
-      for _, x in pairs(ns.db.enemies or {}) do if not e or (x.t or 0) > (e.t or 0) then e = x end end
+      for _, x in pairs(ns.db.cunts or {}) do if not e or (x.t or 0) > (e.t or 0) then e = x end end
       if not e then return nil end
       local by = e.by and ns:GetPerson(e.by)
       return { title = "Enemy of the week",
         rows = { { label = ns.Colorize(e.name, C.red), value = (by and (ns:PersonFirst(by) .. " · ") or "") .. ns.Ago(e.t) } },
-        note = (e.note and e.note ~= "") and ("“" .. e.note .. "”") or ((e.revenge or 0) > 0 and ("Revenge taken " .. e.revenge .. "×") or nil) }
+        note = (e.reason and e.reason ~= "") and ("“" .. e.reason .. "”") or ((e.revenge or 0) > 0 and ("Revenge taken " .. e.revenge .. "×") or nil) }
     end,
     -- Hot streak: most days in a row
     function()
