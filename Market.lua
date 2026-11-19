@@ -423,15 +423,17 @@ local function coins(copper)
 end
 M.Coins = coins
 
--- how many are in the stack you're hovering (bag slots), else 1
-local function hoveredCount(tt)
+-- how many are in the stack you're hovering, else 1. (1.3.9) Only for a real bag slot that holds this
+-- very item: on the character sheet or an inspect window the slot number pointed at a random bag
+-- stack, so a ring counted as 12 and "Best" was 12× too big.
+local function hoveredCount(tt, id)
   local owner = tt and tt.GetOwner and tt:GetOwner()
-  if not owner then return 1 end
-  local okB, bag = pcall(function() return owner.GetBagID and owner:GetBagID() or (owner.GetParent and owner:GetParent() and owner:GetParent().GetID and owner:GetParent():GetID()) end)
-  local okS, slot = pcall(function() return owner.GetID and owner:GetID() end)
+  if not owner or not owner.GetBagID or not owner.GetID then return 1 end
+  local okB, bag = pcall(owner.GetBagID, owner)
+  local okS, slot = pcall(owner.GetID, owner)
   if okB and okS and type(bag) == "number" and type(slot) == "number" and C_Container and C_Container.GetContainerItemInfo then
     local ok, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
-    if ok and type(info) == "table" and type(info.stackCount) == "number" then return info.stackCount end
+    if ok and type(info) == "table" and info.itemID == id and type(info.stackCount) == "number" then return info.stackCount end
   end
   return 1
 end
@@ -459,7 +461,7 @@ local function addLine(tt, id, count)
   local e = M:Get(id)
   -- no price, or a friend has scanned since ours: ask the gang (answers come in a second or two)
   if not e or (M.gangScanAt and e.t < M.gangScanAt - 120) then M:Ask(id) end
-  count = count or hoveredCount(tt)
+  count = count or hoveredCount(tt, id)
   local n = math.max(1, count)
   local shown = false
   local old = e and ns.Now() - (e.t or 0) > STALE
