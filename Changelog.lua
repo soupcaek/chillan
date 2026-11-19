@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.3", date = "19.11", items = {
+    "Mount swap: never tries to put on a trinket that isn't bound to you yet. A Bind-on-Equip trinket in the bags made it ask \"bind it to you?\" again and again – now it's left alone, and only trinkets you've already worn are put back",
+  } },
   { v = "1.3.2", date = "19.11", items = {
     "Market tooltip: Best: Auction or Best: Vendor, with how much more you get (after the auction house's 5 % cut), the price of the whole stack you're hovering, and how much the price moved since the last scan",
     "Watching: shorter place text (\"dead · Western Plaguelands\"), and a small fact under each name that changes every 6 s – XP/h, % of the level, time to the next one, gold/h this week, quests, kills and deaths this week, time online today, streak, item level",

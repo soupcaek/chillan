@@ -23,6 +23,10 @@ LA.execute('''local b, s; for bb, t in pairs(BAGS) do for ss, l in pairs(t) do i
 if b then local old = INV[14]; INV[14] = BAGS[b][s]; BAGS[b][s] = old end; ADDON_NS.db.qolSaved = {}''')
 tick(8)
 print("carrot on by hand on foot ->", LA.eval('INV[14]'))
+# a Bind-on-Equip trinket in the bags is never picked (it would ask "bind it to you?" again and again)
+LA.execute('''BAGS[0][3] = "|cffa335ee|Hitem:7777::::|h[Shiny BoE Trinket]|h|r"; BOUND[7777] = false
+local gi = C_Item.GetItemInfo
+C_Item.GetItemInfo = function(l) local r = { gi(l) } if tostring(l):find("7777") then r[4] = 60 end return unpack(r) end''')
 # the stuck case from 1.1.7: carrot worn on foot, nothing saved, nothing remembered -> best trinket in bags
 LA.execute('''local b, s; for bb, t in pairs(BAGS) do for ss, l in pairs(t) do if l:find("Carrot") then b, s = bb, ss end end end
 if b then local old = INV[14]; INV[14] = BAGS[b][s]; BAGS[b][s] = old end; ADDON_NS.db.qolSaved = {}; ADDON_NS.db.qolLastOwn = {}''')
@@ -30,4 +34,5 @@ tick(2)
 LA.execute('ADDON_NS.db.qolLastOwn = {}')
 tick(8)
 print("stuck case ->", LA.eval('INV[14]'))
+print("BoE trinket left alone:", LA.eval('not tostring(INV[14]):find("7777") and not tostring(INV[13]):find("7777")'))
 print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4])

@@ -328,7 +328,10 @@ function Q:OwnFor(slot, own)
   local best, bestLvl
   bagSlots(function(bag, bs)
     local l = GetSlotLink(bag, bs)
-    if l and not isSpeedLink(l) and not sameItem(l, equipped(other)) then
+    -- (1.3.3) only trinkets already bound to you: equipping an unbound Bind-on-Equip one would ask
+    -- "bind it to you?" – over and over
+    local t = l and slotInfo(bag, bs)
+    if l and t and t.isBound and not isSpeedLink(l) and not sameItem(l, equipped(other)) then
       local _, _, _, ilvl, _, _, _, _, loc = itemInfo(l)
       if loc == "INVTYPE_TRINKET" and (not bestLvl or (ilvl or 0) > bestLvl) then best, bestLvl = l, ilvl or 0 end
     end
@@ -360,7 +363,10 @@ function Q:RestoreSlot(slot)
   local copy
   bagSlots(function(bag, s)
     local l = GetSlotLink(bag, s)
-    if l and sameItem(l, want) then copy = { bag = bag, slot = s, link = l } return true end
+    if l and sameItem(l, want) then
+      local t = slotInfo(bag, s)
+      if not t or t.isBound ~= false then copy = { bag = bag, slot = s, link = l } return true end
+    end
   end)
   if not copy then
     warnOnce("gone:" .. slot, "Chillan QoL: " .. nameOf(want) .. " isn't in your bags any more, so the speed item stays on.")
