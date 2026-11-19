@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.2.3", date = "19.11", items = { "Watching: the empty strip just says \"+ Watch someone\" (the explanation is in the tooltip)" } },
   { v = "1.2.2", date = "19.11", items = {
     "Watching: keep an eye on up to 4 friends right in the Gang pulse, under the Now card – online dot, name, level, where they are (zone, dungeon, \"dead\", or \"your layer\") and a thin bar for how far into the level they are",
     "Add someone: the Watch button on their person card, the eye on their Friends row, \"+ Watch someone\" in the strip, or Shift-click their name (Ctrl-click now pins the profile card)",
