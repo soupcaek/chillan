@@ -441,7 +441,7 @@ function M:AttachButton()
   end
   local name = host:GetName()
   if name then for i = 1, 20 do consider(_G[name .. "Tab" .. i]) end end
-  for _, t in ipairs(host.Tabs or {}) do consider(t) end
+  if type(host.Tabs) == "table" then for _, t in ipairs(host.Tabs) do consider(t) end end
   if last then
     self.button:SetPoint("LEFT", last, "RIGHT", 6, 0)
   else
