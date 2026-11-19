@@ -351,13 +351,30 @@ end)
 ---------------------------------------------------------------------------
 -- tooltip: one line, "Market  12g 34s  · 2h ago"
 ---------------------------------------------------------------------------
+-- money with the gold / silver / copper coins, like the game's own tooltips
+local function coins(copper)
+  copper = math.floor(copper or 0)
+  local f = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
+  if f then
+    local ok, s = pcall(f, copper)
+    if ok and type(s) == "string" and s ~= "" then return s end
+  end
+  local g, sv, c = math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100
+  local parts = {}
+  if g > 0 then parts[#parts + 1] = g .. "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t" end
+  if sv > 0 then parts[#parts + 1] = sv .. "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t" end
+  if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t" end
+  return table.concat(parts, " ")
+end
+M.Coins = coins
+
 local function addLine(tt, id, count)
   if not on() or not id or not tt or not tt.AddDoubleLine then return end
   local e = M:Get(id)
   if not e then return end
   local old = ns.Now() - (e.t or 0) > STALE
   local age = ns.Ago(e.t)
-  local money = ns.Money and ns.Money(e.v) or tostring(e.v)
+  local money = coins(e.v)
   if old then
     tt:AddDoubleLine("Market (old)", money .. "  · " .. age, 0.55, 0.57, 0.6, 0.55, 0.57, 0.6)
   else
@@ -410,8 +427,29 @@ function M:AttachButton()
     ns:Listen("MARKET", function() M:PaintButton() end)
   end
   self.button:SetParent(host)
+  self.button:SetFrameLevel((host:GetFrameLevel() or 1) + 20)
   self.button:ClearAllPoints()
-  self.button:SetPoint("TOPRIGHT", host, "TOPRIGHT", -60, -32)
+  -- (1.3.1) a tab along the bottom, right after the last tab of the auction house (its own, or ones
+  -- other addons add); if none are found, a tab on top of the window
+  local last, right
+  local function consider(t)
+    if t and t.IsShown and t:IsShown() and t.GetRight and t:GetRight() and (not right or t:GetRight() > right) then
+      local b = t:GetBottom()
+      local hb = host:GetBottom()
+      if b and hb and math.abs(b - hb) < 60 then last, right = t, t:GetRight() end
+    end
+  end
+  local name = host:GetName()
+  if name then for i = 1, 20 do consider(_G[name .. "Tab" .. i]) end end
+  for _, t in ipairs(host.Tabs or {}) do consider(t) end
+  if last then
+    self.button:SetPoint("LEFT", last, "RIGHT", 6, 0)
+  else
+    self.button:SetPoint("BOTTOMRIGHT", host, "TOPRIGHT", -40, 2)
+  end
+  self.button.status:ClearAllPoints()
+  self.button.status:SetPoint("LEFT", self.button, "RIGHT", 8, 0)
+  self.button.status:SetJustifyH("LEFT")
   self.button:Show()
   self:PaintButton()
 end

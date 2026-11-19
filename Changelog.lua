@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.1", date = "19.11", items = {
+    "Market: the scan button is a tab along the bottom of the auction house, right after its other tabs (also next to tabs other auction addons add), with the status beside it",
+    "Market: tooltip prices use the gold, silver and copper coins like the game's own tooltips",
+  } },
   { v = "1.3.0", date = "19.11", items = {
     "Chillan? Market: auction house prices for the whole gang. Open the auction house and click \"Chillan? scan\" (top right) – the game allows a full scan every 15 minutes",
     "Every item tooltip shows its market value and how old the price is (greyed after 3 days). Market value = the typical price of the cheapest listings, ignoring silly ones",
