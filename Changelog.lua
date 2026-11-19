@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.2.2", date = "19.11", items = {
+    "Watching: keep an eye on up to 4 friends right in the Gang pulse, under the Now card – online dot, name, level, where they are (zone, dungeon, \"dead\", or \"your layer\") and a thin bar for how far into the level they are",
+    "Add someone: the Watch button on their person card, the eye on their Friends row, \"+ Watch someone\" in the strip, or Shift-click their name (Ctrl-click now pins the profile card)",
+    "Hover a watched friend for their card, click to whisper, × or right-click to stop watching. The row flashes once when they ding, die or loot an epic – no popup",
+    "Who you watch is yours only and kept between sessions. ⋯ → Show the Watching strip hides it",
+  } },
   { v = "1.2.1", date = "19.11", items = {
     "Layer hop leaves the group again: it now keeps trying every 2 s for half a minute (a fight, a loading screen or a leave the game ignored only delay it). Before, it tried once, and only in a group of two – so a host with another hopper in the group, or combat at that moment, left you stuck in the group",
     "If the friend you hosted is still in your group a minute after the hop, you leave, so the group ends either way",

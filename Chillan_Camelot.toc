@@ -64,6 +64,7 @@ UI\CompanionCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
 UI\NowCard.lua
+UI\Watch.lua
 UI\EventWindow.lua
 UI\Mirror.lua
 UI\MapPins.lua

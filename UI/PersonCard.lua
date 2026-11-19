@@ -319,7 +319,9 @@ end
 function PC:OnLinkClick(link)
   local pid = type(link) == "string" and link:match("^chillan:(.+)$")
   if not pid then return false end
-  if IsShiftKeyDown() then
+  if IsShiftKeyDown() and ns.Watch then
+    ns.Watch:Toggle(pid)
+  elseif IsControlKeyDown and IsControlKeyDown() then
     self:Pin(pid)
   else
     if self.frame and not self.pinned then self.frame:Hide() end

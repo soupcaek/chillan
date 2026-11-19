@@ -67,7 +67,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     -- (1.2.0) click: a card beside it with their pace, all their characters and "Open player"
     row:SetScript("OnClick", function(self)
       if not self.item then return end
-      if IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) return end
+      if IsShiftKeyDown() then ns.Watch:Toggle(self.item.pid) return end
       if quick then quick:Toggle(self, self.item) end
     end)
     return row

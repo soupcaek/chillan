@@ -190,6 +190,9 @@ function O:PulseMenu(anchor)
   for _, k in ipairs({ "world", "dungeon", "bg" }) do
     opt("Always " .. ns.Pulse.MODES[k]:lower(), S.pulseMode == k, function() S.pulseMode = k ns:Fire("PULSE_MODE") end)
   end
+  head("WATCHING")
+  items[#items + 1] = { text = "   Choose who to watch…", color = C.text2, func = function() ns.Watch:Menu(anchor) end }
+  opt("Show the Watching strip", S.watchStrip ~= false, function() S.watchStrip = (S.watchStrip == false) and true or false ns.Overlays:UpdateGroup() end)
   head("LAYOUT")
   opt("Gang feed attached", S.evDocked, function() ns.EventWindow:SetDocked(not S.evDocked) end)
   opt("Gang feed shown", S.eventFeed ~= false, function() S.eventFeed = not (S.eventFeed ~= false) ns.EventWindow:Apply() end)
@@ -253,6 +256,25 @@ function O:UpdateGroup()
       end
       UI.Track(N.topLine):SetColorTexture(hex(C.line))
       last = N
+    end
+  end
+  -- Watching (1.2.2): the friends you pinned, under the Now card
+  local Wf = ns.Watch and ns.Watch.frame
+  if Wf then
+    local showW = tilesOn and not (ns.NowCard and ns.NowCard:Collapsed()) and ns.db.settings.watchStrip ~= false
+    Wf:SetShown(showW and true or false)
+    if showW then
+      Wf:ClearAllPoints()
+      Wf:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, 0)
+      Wf:SetPoint("TOPRIGHT", last, "BOTTOMRIGHT", 0, 0)
+      if not Wf.topLine then
+        Wf.topLine = UI.Track(Wf:CreateTexture(nil, "ARTWORK"))
+        Wf.topLine:SetHeight(1)
+        Wf.topLine:SetPoint("TOPLEFT", 8, 0)
+        Wf.topLine:SetPoint("TOPRIGHT", -8, 0)
+      end
+      Wf.topLine:SetColorTexture(hex(C.line))
+      last = Wf
     end
   end
   -- let go of the event window first, so it can be moved back without an anchor loop
@@ -946,7 +968,11 @@ end
 
 function O:Init()
   self:CreateMinibar()
-  if ns.NowCard then C_Timer.After(0.5, function() ns.NowCard:Create() ns.NowCard:Relayout() end) end
+  if ns.NowCard then C_Timer.After(0.5, function()
+    ns.NowCard:Create()
+    if ns.Watch then ns.Watch:Create() end
+    ns.NowCard:Relayout()
+  end) end
   ns:Listen("PULSE_MODE", function() O:UpdateMinibar() end)
   self:CreateSummary()
   self:CreateDing()

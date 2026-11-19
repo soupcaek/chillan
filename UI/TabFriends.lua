@@ -83,21 +83,30 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row.wp:SetPoint("RIGHT", row.whisper, "LEFT", -6, 0)
     row.pill = UI.Pill(row)
     row.pill:SetPoint("RIGHT", row.wp, "LEFT", -10, 0)
+    -- (1.2.2) watch this friend (Gang pulse → Watching); shows on hover, or always when watched
+    row.watch = UI.IconButton(row, 26, "Eye", "Watch – see them under the Now card", function(b)
+      local it = b:GetParent().item
+      if it and it.pid then ns.Watch:Toggle(it.pid) tab:Refresh() end
+    end)
+    row.watch:SetPoint("RIGHT", row.pill, "LEFT", -8, 0)
+    row.watch:Hide()
     row.sepText = UI.Text(row, 11, "semi", C.dim)
     row.sepText:SetPoint("BOTTOMLEFT", 6, 8)
     row.sepText:Hide()
     row.colX = -1
     row:SetScript("OnEnter", function(self)
       if not self.item or self.item.sep then return end
+      if self.item.pid ~= ns.pid then self.watch:Show() end
       if not self.quickOpen then self.panel:SetColors(C.cardHover, C.line) end
       ns.Overlays:ShowProfile(self, self.item.pid)
     end)
     row:SetScript("OnLeave", function(self)
+      if self.watch and not self.watch:IsMouseOver() and not (self.item and ns.Watch:Has(self.item.pid)) then self.watch:Hide() end
       if not self.quickOpen then self.panel:SetColors(C.card, C.line) end
       ns.Overlays:HideProfile()
     end)
     row:SetScript("OnClick", function(self)
-      if self.item and not self.item.sep and IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) return end
+      if self.item and not self.item.sep and IsShiftKeyDown() then ns.Watch:Toggle(self.item.pid) tab:Refresh() return end
       ns.Overlays:HideProfile()
       if self.item and not self.item.sep then tab:ToggleQuick(self, self.item) end
     end)
@@ -154,6 +163,10 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       row.invite:Hide()
     end
     row.pill:Set(st.label, st.color)
+    local watched = ns.Watch and ns.Watch:Has(p.pid)
+    row.watch:SetShown(watched and true or false)
+    UI.Track(row.watch.icon):SetVertexColor(hex(watched and C.accent or C.muted))
+    row.watch.tooltip = watched and "Stop watching" or "Watch – see them under the Now card"
     -- (1.1.7) offline friends: no "Offline" pill (the section says it) and no waypoint button
     row.pill:SetShown(online)
     row.wp:SetShown(online)
