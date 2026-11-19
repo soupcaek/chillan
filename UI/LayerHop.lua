@@ -113,6 +113,34 @@ local function leave()
   if fn then pcall(fn) end
 end
 
+-- (1.2.1) leave the hop group, and keep at it: every 2 s for up to 30 s (combat, a loading screen or a
+-- call the game ignored only delay it). It used to try once, and only in a group of 2 – a host with
+-- another hopper already in their group, or a fight at the wrong moment, left you in the group.
+-- Never leaves a raid or a dungeon group.
+local leaving
+local function leaveHop()
+  if leaving then return end
+  leaving = true
+  local tries = 0
+  local function try()
+    if not inGroup() or (IsInRaid and IsInRaid()) or (ns.S(IsInInstance)) then leaving = nil return end
+    tries = tries + 1
+    if not inCombat() then
+      local f1 = C_PartyInfo and C_PartyInfo.LeaveParty
+      if f1 then pcall(f1) end
+      if LeaveParty and LeaveParty ~= f1 then pcall(LeaveParty) end
+    end
+    if tries >= 15 then
+      leaving = nil
+      if inGroup() then ns.Print("Layer hop: couldn't leave the group by itself – type /leave (the new layer stays).") end
+      return
+    end
+    C_Timer.After(2, try)
+  end
+  try()
+end
+L.LeaveHop = leaveHop
+
 local function label(key) return (ns.Layer and ns.Layer.Label(key)) or "a new layer" end
 
 -- gang members who could move me: online, same zone, known layer that isn't mine
@@ -229,6 +257,26 @@ Comm:Handle("LK", function(f)
   end
 end)
 
+-- (1.2.1) host side: if the friend we invited for a hop is still in our group of two a minute later
+-- (their leave didn't go through), we leave – that ends the group, and they keep the layer
+function L.HostFallback(target)
+  C_Timer.After(60, function()
+    if not inGroup() or (IsInRaid and IsInRaid()) then return end
+    local members = GetNumGroupMembers and GetNumGroupMembers() or 0
+    if members ~= 2 then return end
+    local short = ns.ShortName(target or ""):lower()
+    local there = false
+    for i = 1, 4 do
+      local n = ns.S(UnitName, "party" .. i)
+      if type(n) == "string" and n:lower() == short then there = true end
+    end
+    if there then
+      ns.Print("Layer hop: " .. ns.ShortName(target) .. " is still in your group a minute after the hop – leaving so it ends.")
+      leaveHop()
+    end
+  end)
+end
+
 function L:Help(id, auto)
   local r = self.open[id]
   if not r then return end
@@ -236,6 +284,7 @@ function L:Help(id, auto)
   Comm:Broadcast(Comm:Build("LK", id, ns.pid), 1)
   ns.Invite(r.target)
   ns.Cnt("layerHosted")
+  L.HostFallback(r.target)
   if self.frame then self.frame:Hide() end
   if auto then
     local p = ns:GetPerson(r.pid)
@@ -800,6 +849,7 @@ local function onLayerSwap(text, sender)
   C_Timer.After(0.5 + math.random(), function()
     if canHelp() then
       ns.Invite(sender)
+      L.HostFallback(sender)
       ns.Print("Layer hop: invited " .. ns.ShortName(sender) .. " (LayerSwap user) to your layer.")
       ns.Cnt("layerHosted")
     end
@@ -873,7 +923,7 @@ local function done(m, newKey)
   C_Timer.After(LEAVE_AFTER, function()
     if L.mine == m then L.mine = nil end
     local members = GetNumGroupMembers and GetNumGroupMembers() or 0
-    if inGroup() and members <= 2 and not inCombat() and not inInstance() then leave() end
+    leaveHop()
     ns:Fire("LAYERHOP")
   end)
 end
@@ -918,7 +968,7 @@ local function notMoved(m)
   ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
   L.mine = nil
   local members = GetNumGroupMembers and GetNumGroupMembers() or 0
-  if inGroup() and members <= 2 and not inCombat() then leave() end
+  leaveHop()
   ns:Fire("LAYERHOP")
 end
 
@@ -937,7 +987,7 @@ function L:Verify(m)
     ns.Print("Layer hop: couldn't tell whether you moved – no creatures in view to read. Left the group; mouse over an NPC or two to see your layer.")
     self.mine = nil
     local members = GetNumGroupMembers and GetNumGroupMembers() or 0
-    if inGroup() and members <= 2 and not inCombat() then leave() end
+    leaveHop()
     ns:Fire("LAYERHOP")
     return
   end

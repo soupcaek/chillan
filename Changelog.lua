@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.2.1", date = "19.11", items = {
+    "Layer hop leaves the group again: it now keeps trying every 2 s for half a minute (a fight, a loading screen or a leave the game ignored only delay it). Before, it tried once, and only in a group of two – so a host with another hopper in the group, or combat at that moment, left you stuck in the group",
+    "If the friend you hosted is still in your group a minute after the hop, you leave, so the group ends either way",
+    "Never leaves a raid or a dungeon group, and says /leave in chat if it really can't",
+  } },
   { v = "1.2.0", date = "19.11", items = {
     "Person card: click someone on Friends and the card opens joined to their row (the row lights up with the same edge), or beside their card on Home",
     "The card lists all their characters – from every install with the same name – with a green dot on the ones online right now, and where",
