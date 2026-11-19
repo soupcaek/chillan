@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.3", date = "19.11", items = {
+    "Carrot on a Stick that stayed on after dismounting: when the game drops the swap back (it often does right after you dismount), Chillan now keeps trying until your own trinket is really back on – before, it forgot after the first try",
+    "If the game blocks a gear swap, the mount swap pauses for a minute instead of until /reload",
+    "A swap that misses because of timing no longer makes Chillan switch to the slower pick-up-and-place way when the normal way has already worked",
+    "Carrot (or spurs/gloves) still on while you're on foot with nothing to put back? Chillan remembers your own gear per slot and puts it back",
+  } },
   { v = "1.1.2", date = "19.11", items = {
     "The feed is drawn as real rows: the time, the icon in a small tinted box, then the text – like the design",
     "Reactions are pills on their own line under the event, with the count. Hover a pill to see who, click it to give the same reaction",

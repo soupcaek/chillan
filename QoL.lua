@@ -130,7 +130,13 @@ local function canEquip(copy)
 end
 
 local function blocker()
-  if Q.blocked then return "blocked" end
+  if Q.blocked then
+    -- (1.1.3) a block pauses the swap for a minute, not until /reload: it's often just a moment
+    -- (a boss fight, combat starting) and the carrot would otherwise stay on all session
+    if GetTime() < (Q.blockedUntil or 0) then return "blocked" end
+    Q.blocked = nil
+    log("trying again after the game blocked a swap")
+  end
   if fullCombat() then return "combat" end
   if ns.S(UnitIsDeadOrGhost, "player") then return "dead" end
   if ns.S(UnitOnTaxi, "player") then return "taxi" end
@@ -196,7 +202,9 @@ local failures = {}
 local function fail(slot, what)
   failures[slot] = (failures[slot] or 0) + 1
   log("swap in slot " .. slot .. " didn't happen (" .. failures[slot] .. ")")
-  if failures[slot] == 2 and not Q.useCursor then
+  -- (1.1.3) only switch method if equip-by-name has never worked this session: a swap the game
+  -- drops right after dismounting (global cooldown) is a timing thing, not a broken method
+  if failures[slot] == 2 and not Q.useCursor and not Q.nameWorked then
     Q.useCursor = true
     log("switching to pick-up-and-place swaps")
   elseif failures[slot] >= 4 then
@@ -211,6 +219,8 @@ local function checkFlights()
     if done then
       flights[slot] = nil
       failures[slot] = nil
+      if f.kind == "restore" then saved()[slot] = nil end
+      if not Q.useCursor then Q.nameWorked = true end
       log("ok: slot " .. slot .. " now " .. nameOf(cur))
     elseif GetTime() - f.at > 1.5 then
       flights[slot] = nil
@@ -246,6 +256,28 @@ function Q:MountTick()
   end
   local plan = Q:Plan(mounted)
 
+  -- (1.1.3) remember your own gear per slot, so a speed item left on with nothing saved (a swap the
+  -- game dropped, a crash, you put it on by hand) still comes off when you're on foot
+  ns.db.qolLastOwn = ns.db.qolLastOwn or {}
+  local own = ns.db.qolLastOwn
+  for _, slot in ipairs({ 8, 10, 13, 14 }) do
+    local cur = equipped(slot)
+    local isSpeed = false
+    for _, r in ipairs(Q.RIDE) do if matches(r, cur) then isSpeed = true end end
+    if cur and not isSpeed then own[slot] = cur
+    elseif isSpeed and not mounted and sv[slot] == nil and not plan[slot] and own[slot] then
+      local inBags
+      bagSlots(function(bag, bs)
+        local l = GetSlotLink(bag, bs)
+        if l and sameItem(l, own[slot]) then inBags = true return true end
+      end)
+      if inBags then
+        sv[slot] = own[slot]
+        log("speed item on foot with nothing saved: putting back " .. nameOf(own[slot]))
+      end
+    end
+  end
+
   -- put on what's planned
   for slot, p in pairs(plan) do
     if not p.worn and p.copy and not p.copy.locked then
@@ -268,7 +300,9 @@ function Q:MountTick()
 
   -- give back slots we took that are no longer planned
   for slot in pairs(sv) do
-    if not plan[slot] then
+    local waitMore = (failures[slot] or 0) >= 3 and (GetTime() - (Q.lastRestoreTry or 0)) < 5
+    if not plan[slot] and not waitMore then
+      Q.lastRestoreTry = GetTime()
       Q:RestoreSlot(slot)
       if on("qolMountMsg") and not next(saved()) then ns.Print("Your own gear is back on.") end
       return
@@ -292,7 +326,7 @@ function Q:RestoreSlot(slot)
     pcall(PickupInventoryItem, slot)
     local pick = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
     if CursorHasItem and CursorHasItem() and pick then pcall(pick, free[1], free[2]) end
-    sv[slot] = nil
+    -- (1.1.3) the slot is only forgotten when the swap is confirmed, so a swap the game drops is tried again
     startFlight(slot, false, "restore")
     return
   end
@@ -309,7 +343,6 @@ function Q:RestoreSlot(slot)
   end
   if sendEquip(copy, slot) then
     log("putting back " .. nameOf(want) .. " (slot " .. slot .. ")")
-    sv[slot] = nil
     startFlight(slot, want, "restore")
   else
     fail(slot, want)
@@ -357,9 +390,15 @@ function Q:OnBlocked(addon, func)
   if short == "EquipItemByName" and not Q.useCursor then
     Q.useCursor = true
     warnOnce("blk:" .. func, "Chillan QoL: the game blocked " .. func .. "() – switching to another way of swapping.")
+  elseif (short == "PickupContainerItem" or short == "EquipCursorItem") and Q.useCursor then
+    -- the pick-up way is the one blocked: go back to equip-by-name, after a short pause
+    Q.useCursor = nil
+    Q.blocked, Q.blockedUntil = func, GetTime() + 10
+    log("the game blocked " .. func .. " – back to equip by name")
   elseif short == "EquipItemByName" or short == "PickupContainerItem" or short == "EquipCursorItem" then
     Q.blocked = func
-    warnOnce("blocked", "Chillan QoL: the game is blocking addons from swapping gear (" .. func .. "), so the mount swap is paused until /reload.")
+    Q.blockedUntil = GetTime() + 60
+    warnOnce("blocked", "Chillan QoL: the game blocked a gear swap (" .. func .. "). The mount swap pauses for a minute and then tries again.")
   end
 end
 
