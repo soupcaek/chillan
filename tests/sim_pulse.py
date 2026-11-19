@@ -17,7 +17,7 @@ LA.execute('ADDON_NS.NowCard:Update()')
 print("dungeon loot row:", LA.eval('ADDON_NS.NowCard.frame.lines[1]:GetText()'))
 print("ready check button:", LA.eval('ADDON_NS.NowCard.frame.btn:IsShown()'))
 # combat folds the boxes and the card, the pin keeps them
-LA.execute('FIRE("PLAYER_REGEN_DISABLED")'); run(1)
+LA.execute('ADDON_NS.db.settings.pulsePin = false; FIRE("PLAYER_REGEN_DISABLED")'); run(1)
 print("in combat: boxes", LA.eval('ADDON_NS.Tiles.holder:IsShown()'), "card", LA.eval('ADDON_NS.NowCard.frame:IsShown()'))
 LA.execute('ADDON_NS.db.settings.pulsePin = true; ADDON_NS.NowCard:Relayout()'); run(1)
 print("pinned in combat: boxes", LA.eval('ADDON_NS.Tiles.holder:IsShown()'))
@@ -41,6 +41,9 @@ print("B feed last lines:")
 for i in range(3, 0, -1):
     t = LB.eval('(function() local e = ADDON_NS.EventWindow.entries[#ADDON_NS.EventWindow.entries - %d] return e and e.base and e.base:gsub("|T.-|t", ""):gsub("|c%%x%%x%%x%%x%%x%%x%%x%%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("|h", "") end)()' % (i - 1))
     print("  ", t)
+# feed rows: tiles and reaction pills at B
+LB.execute('local e = ADDON_NS.EventWindow.entries[#ADDON_NS.EventWindow.entries]; e.item.reacts = { { pid = "x1", char = "Bob-R", idx = 1 }, { pid = "x2", char = "Rob-R", idx = 1 }, { pid = "x3", char = "Tob-R", idx = 2 } }; ADDON_NS.EventWindow:Redraw()'); run(2)
+print("rows:", LB.eval('(function() local fr = ADDON_NS.EventWindow.msg local n, t, p = 0, 0, 0 for _, r in ipairs(fr.rows) do if r:IsShown() then n = n + 1 if r.tile:IsShown() then t = t + 1 end for _, x in ipairs(r.pills) do if x:IsShown() then p = p + 1 end end end end return n .. " rows, " .. t .. " icons, " .. p .. " pills" end)()'))
 # Progress chart: a character remade at level 1 must not draw a line going down
 LA.execute('''local p = ADDON_NS:GetPerson(ADDON_NS.pid, true)
 local c = ADDON_NS.Tracker:MyChar()

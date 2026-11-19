@@ -529,7 +529,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true, briefing = true, levelRecap = true,
     onlineToasts = true, lootMinQuality = 3, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
-    accent = "class", popupLevel = "normal", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
+    accent = "class", popupLevel = "normal", pulsePin = true, theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
     -- QoL tab: the safe ones start on, the ones that act for you start off
     qolMount = true, qolMountArmor = true, qolMountZone = true, qolTrinketSlot = 14,
@@ -607,6 +607,8 @@ ns.MIGRATIONS = {
     local S = db.settings
     if not S.evDockW or S.evDockW > 300 then S.evDockW = 300 end
   end,
+  -- 7 (1.1.2): the boxes and the Now card stay open in combat unless you unpin them
+  [7] = function(db) db.settings.pulsePin = true end,
 }
 
 -- reasons only the old automatic enemy log wrote (a person adding someone always types a reason)

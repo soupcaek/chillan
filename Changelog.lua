@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.2", date = "19.11", items = {
+    "The feed is drawn as real rows: the time, the icon in a small tinted box, then the text – like the design",
+    "Reactions are pills on their own line under the event, with the count. Hover a pill to see who, click it to give the same reaction",
+    "Hover a line and a small + shows on the right: click it to react. No more star or (react) in the text",
+    "The boxes and the Now card stay open in combat by default. Unpin (the lock in the bar) if you want them to fold away",
+  } },
   { v = "1.1.1", date = "19.11", items = {
     "Gang pulse is slimmer: the four boxes are narrower and the panel can be dragged down to 270 px wide (starts at 300)",
     "The Now card shows how far into your level you are (%) instead of the time to level again – that's in the box above",

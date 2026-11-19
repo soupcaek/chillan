@@ -642,6 +642,47 @@ end
 -- Kvalitetsfarger for items (2 = grønn, 3 = blå, 4 = episk, 5 = legendarisk)
 ns.QUALITY_HEX = { [0] = "9D9D9D", [1] = "FFFFFF", [2] = "1EFF00", [3] = "0070DD", [4] = "A335EE", [5] = "FF8000" }
 
+-- tooltips for the links in feed and chat lines (items, people, trophies, titles, reactions, emotes)
+function UI.LinkEnter(self, link)
+  if type(link) ~= "string" then return end
+  if link:find("^item:") then
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+    GameTooltip:Show()
+  elseif link:find("^chillanemote:") then
+    local word = link:match("^chillanemote:(.+)$")
+    if word and ns.Emotes then
+      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+      local big = ns.Emotes:Icon(word, 40)
+      if big then GameTooltip:AddLine(big, 1, 1, 1) end
+      GameTooltip:AddLine(":" .. word .. ":", 1, 1, 1)
+      GameTooltip:Show()
+    end
+  elseif link:find("^chillan:") then
+    ns.PersonCard:Show(self, link:match("^chillan:(.+)$"), "cursor")
+  elseif link:find("^chillanach:") then
+    UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
+  elseif link:find("^chillantitle:") then
+    ns.Titles:Tooltip(self, link:match("^chillantitle:(.+)$"))
+  elseif link:find("^chillanrx:") then
+    local id, idx = link:match("^chillanrx:([^:]+):(%d+)$")
+    local item
+    for i = #(ns.db.feed or {}), 1, -1 do if ns.db.feed[i].id == id then item = ns.db.feed[i] break end end
+    if not item then return end
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    GameTooltip:AddLine(ns.ReactionText(item, tonumber(idx)), hex(C.purple))
+    for _, r in ipairs(item.reacts or {}) do
+      if r.idx == tonumber(idx) then
+        local p = ns:GetPerson(r.pid) or {}
+        local c = (p.chars and p.chars[r.char]) or ns:PersonChar(p) or {}
+        local cr, cg, cb = ns.ClassColor(c.class)
+        GameTooltip:AddLine(ns:PersonAlias(p) or c.name or ns.ShortName(r.char or "?"), cr, cg, cb)
+      end
+    end
+    GameTooltip:Show()
+  end
+end
+
 function UI.MessageFrame(parent, size)
   local m = CreateFrame("ScrollingMessageFrame", nil, parent)
   m:SetFont(ns.FONT, size or 13, "")
@@ -657,45 +698,7 @@ function UI.MessageFrame(parent, size)
     if delta > 0 then self:ScrollUp() self:ScrollUp() else self:ScrollDown() self:ScrollDown() end
   end)
   if m.SetHyperlinksEnabled then m:SetHyperlinksEnabled(true) end
-  m:SetScript("OnHyperlinkEnter", function(self, link)
-    if type(link) ~= "string" then return end
-    if link:find("^item:") then
-      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-      pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-      GameTooltip:Show()
-    elseif link:find("^chillanemote:") then
-      local word = link:match("^chillanemote:(.+)$")
-      if word and ns.Emotes then
-        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-        local big = ns.Emotes:Icon(word, 40)
-        if big then GameTooltip:AddLine(big, 1, 1, 1) end
-        GameTooltip:AddLine(":" .. word .. ":", 1, 1, 1)
-        GameTooltip:Show()
-      end
-    elseif link:find("^chillan:") then
-      ns.PersonCard:Show(self, link:match("^chillan:(.+)$"), "cursor")
-    elseif link:find("^chillanach:") then
-      UI.AchTooltip(self, link:match("^chillanach:(.+)$"))
-    elseif link:find("^chillantitle:") then
-      ns.Titles:Tooltip(self, link:match("^chillantitle:(.+)$"))
-    elseif link:find("^chillanrx:") then
-      local id, idx = link:match("^chillanrx:([^:]+):(%d+)$")
-      local item
-      for i = #(ns.db.feed or {}), 1, -1 do if ns.db.feed[i].id == id then item = ns.db.feed[i] break end end
-      if not item then return end
-      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-      GameTooltip:AddLine(ns.ReactionText(item, tonumber(idx)), hex(C.purple))
-      for _, r in ipairs(item.reacts or {}) do
-        if r.idx == tonumber(idx) then
-          local p = ns:GetPerson(r.pid) or {}
-          local c = (p.chars and p.chars[r.char]) or ns:PersonChar(p) or {}
-          local cr, cg, cb = ns.ClassColor(c.class)
-          GameTooltip:AddLine(ns:PersonAlias(p) or c.name or ns.ShortName(r.char or "?"), cr, cg, cb)
-        end
-      end
-      GameTooltip:Show()
-    end
-  end)
+  m:SetScript("OnHyperlinkEnter", function(self, link) UI.LinkEnter(self, link) end)
   m:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() ns.PersonCard:Hide() end)
   m:SetScript("OnHyperlinkClick", function(_, link, text, button)
     if type(link) == "string" and link:find("^item:") then ns.ItemLinkClick(link, text, button) return end

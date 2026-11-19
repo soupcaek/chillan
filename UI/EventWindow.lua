@@ -105,7 +105,7 @@ function E:Add(kind, text, t, item)
   e.text = render(e)
   ns.PushCapped(self.entries, e, MAX_KEEP)
   if self.msg and visible(kind) then
-    self.msg:AddMessage(e.text)
+    self.msg:AddMessage(e.text, e)
     if ns.db.settings.evMin and kind ~= "sep" then
       self.missed = (self.missed or 0) + 1
       self:UpdateCount()
@@ -120,7 +120,7 @@ function E:Redraw()
   self.msg:Clear()
   for _, e in ipairs(self.entries) do
     if e.base then e.text = render(e) end
-    if visible(e.kind) then self.msg:AddMessage(e.text) end
+    if visible(e.kind) then self.msg:AddMessage(e.text, e) end
   end
   if off > 0 and self.msg.SetScrollOffset then pcall(self.msg.SetScrollOffset, self.msg, off) end
   for key, btn in pairs(self.filterBtns or {}) do
@@ -324,11 +324,11 @@ function E:Create()
   self.input = input
 
   -- Meldinger
-  local m = UI.MessageFrame(f, 12)
+  local m = UI.FeedRows(f)
   m:SetSpacing(3)
   m:SetPoint("TOPLEFT", sep, "BOTTOMLEFT", 2, -6)
   m:SetPoint("BOTTOMRIGHT", input, "TOPRIGHT", 12, 6)
-  m:SetScript("OnHyperlinkClick", function(_, link, text, button)
+  m.onLinkClick = (function(_, link, text, button)
     if type(link) == "string" and link:find("^item:") then
       ns.ItemLinkClick(link, text, button)
       return
