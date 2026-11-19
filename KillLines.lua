@@ -122,7 +122,7 @@ K.POOLS = {
     "{n} returned the favour to {v}. Twice as hard.",
     "{v} thought the Horde forgets. {n} doesn't.",
     "{n} served {v} a cold plate of revenge in {z}.",
-    "The enemy log just got lighter: {n} rekt {v}.",
+    "The Cunt List just got lighter: {n} rekt {v}.",
     "{n} made {v} pay for his sins. Amen.",
     "{v} ganked the gang. {n} ganked {v}. Circle of life, bitch.",
     "{n} avenged the gang. {v} is now very dead.",
@@ -268,9 +268,14 @@ local function postKill(victim, via)
   local zone = ns.Clean(ns.S(GetRealZoneText) or "", 40)
   local onList = short ~= "" and ns.Cunts and ns.Cunts:Get(short)
   local killedMe = short ~= "" and ns.db.killedBy and ns.db.killedBy[short:lower()]
-  local enemy = onList or (killedMe and ns.Now() - killedMe < 7 * 86400)
+  -- revenge: on the Cunt List, or killed you or anyone in the gang in the last 7 days ("Died to")
+  local dt = short ~= "" and ns.db.diedTo and ns.db.diedTo[short:lower()]
+  local killedGang = dt and dt.last and ns.Now() - dt.last < 7 * 86400
+  local enemy = onList or (killedMe and ns.Now() - killedMe < 7 * 86400) or killedGang
   local cat = enemy and "REVENGE" or "KILL"
-  if onList then onList.revenge = (onList.revenge or 0) + 1 ns.Cnt("revengeKills") end
+  if onList then onList.revenge = (onList.revenge or 0) + 1 end
+  if dt then dt.revenge = (dt.revenge or 0) + 1 end
+  if enemy then ns.Cnt("revengeKills") end
   ns.Cnt("allianceKills")
   local idx = K:Pick(cat)
   K.diag.posted = K.diag.posted + 1

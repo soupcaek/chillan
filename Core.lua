@@ -126,6 +126,26 @@ function ns:Silenced(pid, kind)
 end
 local POPUP_EVENTS = { DING = true, TOAST = true }
 
+-- Popup rules (1.0.1). Someone's death or Alliance kill pops up once, then that kind stays quiet for
+-- 10 minutes for the whole gang; at most 6 of these an hour. Held-back ones still go to the event
+-- window, where you can react to them. Settings → Popups: calm (milestones only) / normal / all.
+local QUIET_FOR, HOUR_CAP = 600, 6
+local quietUntil, recent = {}, {}
+function ns.PopupLevel() return (ns.db and ns.db.settings.popupLevel) or "normal" end
+function ns.PopupGate(kind)
+  local lvl = ns.PopupLevel()
+  if lvl == "all" then return true end
+  if lvl == "calm" then return false end
+  local now = GetTime()
+  if (quietUntil[kind] or 0) > now then return false end
+  for i = #recent, 1, -1 do if now - recent[i] > 3600 then table.remove(recent, i) end end
+  if #recent >= HOUR_CAP then return false end
+  quietUntil[kind] = now + QUIET_FOR
+  recent[#recent + 1] = now
+  return true
+end
+function ns.PopupGateReset() quietUntil, recent = {}, {} end
+
 function ns:Fire(name, ...)
   if POPUP_EVENTS[name] then
     local x = ...
@@ -509,7 +529,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true, briefing = true, levelRecap = true,
     onlineToasts = true, lootMinQuality = 3, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true,
-    accent = "class", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
+    accent = "class", popupLevel = "normal", theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
     -- QoL tab: the safe ones start on, the ones that act for you start off
     qolMount = true, qolMountArmor = true, qolMountZone = true, qolTrinketSlot = 14,
@@ -566,7 +586,22 @@ ns.MIGRATIONS = {
     end
     db.enemies = {}
   end,
+  -- 4 (1.0.1): the Cunt List is manual only. Entries that came in by themselves (deaths, the old
+  -- enemy log) go; the Alliance players who killed us get their own "Died to" list instead.
+  [4] = function(db)
+    for k, e in pairs(db.cunts or {}) do
+      if type(e) ~= "table" or ns.IsAutoCunt(e.reason) then db.cunts[k] = nil end
+    end
+    if ns.DiedTo then ns.DiedTo:Backfill() end
+  end,
 }
+
+-- reasons only the old automatic enemy log wrote (a person adding someone always types a reason)
+function ns.IsAutoCunt(reason)
+  reason = tostring(reason or "")
+  return reason == "" or reason == "From the enemy log" or reason == "Tagged as an enemy"
+    or reason:lower():find("^killed me in") ~= nil
+end
 
 function ns:InitDB()
   ChillanDB = ChillanDB or {}

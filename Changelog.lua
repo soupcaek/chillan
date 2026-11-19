@@ -2,6 +2,15 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.0.1", date = "19.11", items = {
+    "Fewer popups: when someone dies or kills an Alliance player, it pops up once, then deaths (and kills) stay quiet for 10 minutes for the whole gang. At most 6 of those an hour. Everything still lands in the event window",
+    "React from the event window: others' deaths, kills, dings and trophies get a [react] link, so a death that didn't pop up can still get its laugh or F",
+    "Settings → Quiet → Popups: Calm (only the big moments), Normal (the new default) or All (every death and kill, like before)",
+    "Your own small trophies that unlock together come as one notice instead of one each",
+    "The Cunt List is manual only again. Entries that came in by themselves (deaths, the old enemy log) are cleaned out – the ones someone added on purpose stay",
+    "New page under Gang: Died to – the Alliance players who killed someone in the gang, how often, who and where. It fills itself and warns nobody. 'Cunt List …' on a row adds them for real",
+    "Revenge now also counts killing someone who killed anyone in the gang in the last week. Enemy of the week on the Stats page is the one with the most kills on the gang",
+  } },
   { v = "1.0.0", date = "17.11", items = {
     "Chillan 1.0! A new main window: sections along the top (Home, Gang, Chat, Progress, Tools), with Settings behind the cog and What's new behind the bell. Resize it from the corner – the size is remembered",
     "New Home page: who's online, what the gang has been up to lately, quick actions (layer hop, ready check) and this week's challenge with your place in it",

@@ -210,7 +210,32 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     function() return ns:IsDND() end,
     function(v) ns.Tracker:SetStatus(v and "DND" or "AUTO") end)
   dnd:SetWidth(320)
-  dnd:SetPoint("TOPLEFT", qh, "BOTTOMLEFT", 0, -8)
+  -- how many popups (1.0.1): calm = milestones only, normal = deaths/kills once per 10 min, all = every one
+  local plabel = UI.Text(left, 12, nil, C.text)
+  plabel:SetPoint("TOPLEFT", qh, "BOTTOMLEFT", 0, -10)
+  plabel:SetText("Popups")
+  local LEVELS = {
+    { "calm", "Calm", "Only the big moments: level 60, epics, first mounts, the big trophies and enemy warnings. Deaths and kills only go to the event window." },
+    { "normal", "Normal", "Someone's death or Alliance kill pops up once, then stays quiet for 10 minutes. At most 6 of those an hour – the rest go to the event window, where you can still react." },
+    { "all", "All", "Every death and kill pops up, like before 1.0.1." },
+  }
+  local pbtns = {}
+  local function paintLevels()
+    for _, b in ipairs(pbtns) do b:SetStyle(ns.PopupLevel() == b.key and "primary" or "secondary") end
+  end
+  for i, lv in ipairs(LEVELS) do
+    local b = UI.Button(left, 74, 24, lv[2], "secondary", function()
+      S().popupLevel = lv[1]
+      ns.PopupGateReset()
+      paintLevels()
+    end)
+    b.key, b.tooltip = lv[1], lv[3]
+    if i == 1 then b:SetPoint("LEFT", plabel, "LEFT", 60, 0) else b:SetPoint("LEFT", pbtns[i - 1], "RIGHT", 6, 0) end
+    pbtns[i] = b
+  end
+  paintLevels()
+  left:HookScript("OnShow", paintLevels)
+  dnd:SetPoint("TOPLEFT", plabel, "BOTTOMLEFT", 0, -16)
   dnd:HookScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine("Do not disturb", 1, 1, 1)

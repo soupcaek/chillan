@@ -113,6 +113,28 @@ A.POP = {
 }
 function A:IsBig(id) return self.POP[id] == true end
 
+-- small notice for your own trophies; several within a few seconds become one notice (1.0.1)
+local pending = {}
+function A:Notice(d)
+  if ns.PopupLevel() == "calm" then return end
+  pending[#pending + 1] = d
+  if #pending > 1 then return end
+  C_Timer.After(4, function()
+    local list = pending
+    pending = {}
+    if #list == 1 then
+      local x = list[1]
+      ns:Fire("TOAST", { kind = "trophy", sticky = false, title = "Achievement: " .. x.name,
+        text = x.desc .. " · " .. A.TIERS[x.tier].name .. " (" .. A.TIERS[x.tier].points .. " p)" })
+    else
+      local names, pts = {}, 0
+      for _, x in ipairs(list) do names[#names + 1] = x.name pts = pts + (A.TIERS[x.tier].points or 0) end
+      ns:Fire("TOAST", { kind = "trophy", sticky = false, title = #list .. " achievements",
+        text = table.concat(names, ", ") .. " (" .. pts .. " p)" })
+    end
+  end)
+end
+
 local function D(id, cat, tier, name, desc, value, goal, secret)
   defs[#defs + 1] = { id = id, cat = cat, tier = tier, name = name, desc = desc, value = value, goal = goal or 1, secret = secret }
 end
@@ -199,7 +221,7 @@ for _, k in ipairs({ {1,"First blood","B"},{10,"Enemy of the Alliance","B"},{50,
 end
 D("BG1", "pvp", "B", "Victory!", "Win a battleground", V(function() return cnt("bgWins") end), 1)
 D("BG10", "pvp", "G", "Warlord", "Win 10 battlegrounds", V(function() return cnt("bgWins") end), 10)
-D("RVNG", "pvp", "G", "Revenge", "Kill someone on the Cunt List", V(function() return cnt("revengeKills") end), 1)
+D("RVNG", "pvp", "G", "Revenge", "Kill someone on the Cunt List, or who killed one of the gang this week", V(function() return cnt("revengeKills") end), 1)
 for _, b in ipairs({ {"WSG","Wolf flag","Warsong Gulch"},{"AB","Base builder","Arathi Basin"},{"AV","Mountain general","Alterac Valley"},{"DI","Ruler of the island","Darkspear Islands"} }) do
   D("BG" .. b[1], "pvp", "S", b[2], "Win " .. b[3], V(function() return inSet("bgWonMaps", b[3]) and 1 or 0 end))
 end
@@ -389,10 +411,7 @@ function A:Check()
     for _, d in ipairs(newOnes) do
       ns.Tracker:Event("ACH", d.id, d.tier, d.detail and d.detail() or nil)
       -- the big ones get the gang popup (via the feed); the rest only a small notice for me
-      if not self:IsBig(d.id) then
-        ns:Fire("TOAST", { kind = "trophy", sticky = false,
-          title = "Achievement: " .. d.name, text = d.desc .. " · " .. self.TIERS[d.tier].name .. " (" .. self.TIERS[d.tier].points .. " p)" })
-      end
+      if not self:IsBig(d.id) then self:Notice(d) end
     end
   end
   ns:MarkDirty()

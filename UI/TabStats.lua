@@ -1136,13 +1136,13 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end,
     -- Cunt List: the newest name on it
     function()
-      local e
-      for _, x in pairs(ns.db.cunts or {}) do if not e or (x.t or 0) > (e.t or 0) then e = x end end
-      if not e then return nil end
-      local by = e.by and ns:GetPerson(e.by)
+      -- most gang deaths in the last 7 days (the "Died to" list)
+      if not ns.DiedTo then return nil end
+      local e, n = ns.DiedTo:WeekTop()
+      if not e or (n or 0) == 0 then return nil end
       return { title = "Enemy of the week",
-        rows = { { label = ns.Colorize(e.name, C.red), value = (by and (ns:PersonFirst(by) .. " · ") or "") .. ns.Ago(e.t) } },
-        note = (e.reason and e.reason ~= "") and ("“" .. e.reason .. "”") or ((e.revenge or 0) > 0 and ("Revenge taken " .. e.revenge .. "×") or nil) }
+        rows = { { label = ns.Colorize(e.name, C.red), value = n .. (n == 1 and " kill" or " kills") .. " on the gang" } },
+        note = "Killed " .. ns.DiedTo:Victims(e, 3) .. ((e.revenge or 0) > 0 and (" · revenge taken " .. e.revenge .. "×") or "") }
     end,
     -- Hot streak: most days in a row
     function()

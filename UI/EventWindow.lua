@@ -52,8 +52,19 @@ local function chips(item)
   return "\n            " .. corner .. " " .. table.concat(parts, "  ")
 end
 
+-- "react" on others' dings, deaths, kills and trophies you haven't reacted to (1.0.1): a death that
+-- didn't pop up (popup rules) can still get its laugh or F from here
+local REACTABLE = { DING = true, DEAD = true, KILL = true, ACH = true }
+local function reactLink(item)
+  if not item or not item.id or not REACTABLE[item.kind] or item.pid == ns.pid then return "" end
+  for _, r in ipairs(item.reacts or {}) do if r.pid == ns.pid then return "" end end
+  if (ns.Now() - (item.t or 0)) > 6 * 3600 then return "" end
+  return "  |Hchillanreact:" .. tostring(item.id) .. "|h" .. ns.Colorize("[react]", C.purple) .. "|h"
+end
+E.ReactLink = reactLink
+
 local function render(e)
-  return stamp(e.t) .. e.base .. chips(e.item)
+  return stamp(e.t) .. e.base .. reactLink(e.item) .. chips(e.item)
 end
 
 function E:Add(kind, text, t, item)
@@ -284,6 +295,17 @@ function E:Create()
   m:SetScript("OnHyperlinkClick", function(_, link, text, button)
     if type(link) == "string" and link:find("^item:") then
       ns.ItemLinkClick(link, text, button)
+      return
+    end
+    if type(link) == "string" and link:find("^chillanreact:") then
+      local item = ns.Data.FindFeed and ns.Data:FindFeed(link:match("^chillanreact:(.+)$"))
+      if not item then return end
+      local list, picks = ns.ReactionList(item), ns.PickReactions(item, 4)
+      local items = {}
+      for _, i in ipairs(picks) do
+        items[#items + 1] = { text = ns.Emotes and ns.Emotes:Render(list[i], 14) or list[i], func = function() ns.Data:React(item, i) end }
+      end
+      UI.Menu(m, items)
       return
     end
     if ns.PersonCard:OnLinkClick(link) then return end

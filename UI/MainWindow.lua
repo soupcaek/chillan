@@ -31,14 +31,14 @@ local MIN_W, MIN_H = 780, 500
 -- Five sections; each opens its pages. Settings and What's new sit in the header.
 W.SECTIONS = {
   { key = "home", label = "Home", pages = { "home" } },
-  { key = "gang", label = "Gang", pages = { "friends", "cunts", "more" }, hidden = { "player", "compare" } },
+  { key = "gang", label = "Gang", pages = { "friends", "cunts", "diedto", "more" }, hidden = { "player", "compare" } },
   { key = "chat", label = "Chat", pages = { "chat" } },
   { key = "progress", label = "Progress", pages = { "stats", "ach" } },
   { key = "tools", label = "Tools", pages = { "qol", "ideas" } },
   { key = "settings", label = "Settings", pages = { "settings" }, header = true },
   { key = "changelog", label = "What's new", pages = { "changelog" }, header = true },
 }
-W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", more = "Gang & crafters", chat = "Gang chat",
+W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", diedto = "Died to", more = "Gang & crafters", chat = "Gang chat",
   stats = "Stats", ach = "Trophies", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
   player = "Player", compare = "Compare" }
 W.lastPage = {}

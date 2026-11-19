@@ -628,6 +628,10 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     end
   elseif kind == "DEAD" then
     if not p.deathAt or t > p.deathAt then p.deathAt, p.deathZone = t, a end
+    -- killed by an Alliance player: on the gang's "Died to" list
+    if type(b) == "string" and b:find("^PLAYER:") and c and c ~= "" and ns.DiedTo then
+      pcall(ns.DiedTo.Record, ns.DiedTo, id, pid, c, a or "", t, d)
+    end
   elseif kind == "KILL" then
     -- a group kill: everyone in on it gets the honour message. Fold them into one feed item.
     for i = #ns.db.feed, 1, -1 do
@@ -658,13 +662,16 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if kind == "DING" and pid ~= ns.pid then
       if ns.DingPopup(a) then Data:PopupFor(pid, item, "ding") end
     elseif kind == "DEAD" and pid ~= ns.pid then
-      ns:Fire("DING", item)
-      ns.Sound("dead", pid)
+      if not ns:Silenced(pid, kind) and ns.PopupGate("DEAD") then
+        ns:Fire("DING", item)
+        ns.Sound("dead", pid)
+      end
     elseif kind == "KILL" and pid ~= ns.pid then
       -- group kill: everyone in the group reports it and the first report wins. Wait a moment, and
       -- skip the popup if my own report was folded into this one (I was in on the kill myself).
       C_Timer.After(4, function()
         for _, w in ipairs(item.w or {}) do if w[1] == ns.pid then return end end
+        if ns:Silenced(pid, kind) or not ns.PopupGate("KILL") then return end
         ns:Fire("DING", item)
         ns.Sound("ding", pid)
       end)
@@ -817,6 +824,7 @@ local function findFeed(id)
     if ns.db.feed[i].id == id then return ns.db.feed[i] end
   end
 end
+function Data:FindFeed(id) return findFeed(id) end
 
 local reactBuffer = {}
 local function addReaction(item, pid, char, idx)
@@ -1076,25 +1084,10 @@ end
 -- (SOS was retired in 1.0.0: nobody used it. Old SOS lines in the feed still show as plain lines.)
 
 ---------------------------------------------------------------------------
--- Enemy log → Cunt List (1.0): one list for the people the gang avoids. The Cunt List warns on target,
--- mouseover and invites by itself. Old clients still send EN; we keep those entries on the Cunt List.
+-- The old enemy log (EN from clients before 1.0) is ignored: the Cunt List is manual only, and
+-- who killed us is on the "Died to" list, built from the death posts themselves.
 ---------------------------------------------------------------------------
-function Data:AddEnemy(name, note)
-  name = ns.Clean(name or "", 48)
-  if name == "" or not ns.Cunts then return false end
-  note = ns.Clean(note or "", 60)
-  return ns.Cunts:Add(name, note ~= "" and note or "Tagged as an enemy")
-end
-
-Comm:Handle("EN", function(f)
-  local name = f[3]
-  if not name or name == "" or not ns.Cunts then return end
-  local e, k = ns.Cunts:Get(name)
-  if e or not k or (ns.db.cuntsGone or {})[k] then return end
-  ns.db.cunts[k] = { name = name, reason = (f[4] and f[4] ~= "") and f[4] or "From the enemy log",
-    by = f[5] or "", byChar = f[6] or "", t = ago2t(f[2]), notes = {} }
-  ns:MarkDirty()
-end)
+Comm:Handle("EN", function() end)
 
 ---------------------------------------------------------------------------
 -- Be om craft

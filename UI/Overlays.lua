@@ -771,7 +771,7 @@ function O:FlushCombatQueue()
     if counts.DING then parts[#parts + 1] = counts.DING .. " ding" end
     if counts.DEAD then parts[#parts + 1] = counts.DEAD .. (counts.DEAD == 1 and " deaths" or " deaths") end
     if counts.ACH then parts[#parts + 1] = counts.ACH .. " achievements" end
-    if counts.TOAST then parts[#parts + 1] = counts.TOAST .. " varsler" end
+    if counts.TOAST then parts[#parts + 1] = counts.TOAST .. " notices" end
     O:Toast({ kind = "info", title = "While you were in combat", text = table.concat(parts, " · ") .. " – see the event window" })
   end
   for _, e in ipairs(q) do

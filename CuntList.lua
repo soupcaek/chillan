@@ -98,6 +98,7 @@ Comm:Handle("CU", function(f)
   local name, reason, by, byChar, ago = f[1], f[2], f[3], f[4], f[5]
   local k = keyOf(name)
   if not k or not reason or reason == "" then return end
+  if ns.IsAutoCunt(reason) then return end            -- 1.0.0 synced the old automatic entries
   local list, gone = db()
   local t = ago2t(ago)
   if gone[k] and gone[k] >= t then return end       -- removed after it was added
