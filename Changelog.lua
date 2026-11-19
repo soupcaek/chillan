@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.2.0", date = "19.11", items = {
+    "Person card: click someone on Friends and the card opens joined to their row (the row lights up with the same edge), or beside their card on Home",
+    "The card lists all their characters – from every install with the same name – with a green dot on the ones online right now, and where",
+    "At level 60 the card shows item level and kills this week instead of XP per hour and time to level",
+    "Home: clicking a gang member opens the card (Open player is in it); Shift-click still pins the profile",
+  } },
   { v = "1.1.9", date = "19.11", items = {
     "Alts on other installs are now one person: everyone with the same name (\"Simon\") is shown once, and their page lists all their characters under Other characters – with the professions from those characters too",
     "Friends shows \"+2 alts\" next to people with more characters. Clicking an alt's name anywhere opens the person",

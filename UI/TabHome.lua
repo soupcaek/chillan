@@ -34,6 +34,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   lh:SetPoint("TOPLEFT", 2, 0)
   lh:SetText("THE GANG")
 
+  local quick   -- the person card (made below, once the list exists)
   local function createRow(list)
     local row = CreateFrame("Button", nil, list)
     row.panel = UI.Panel(row, C.card, C.line, false)
@@ -57,18 +58,17 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     row.sub:SetJustifyH("LEFT")
     row.sub:SetWordWrap(false)
     row:SetScript("OnEnter", function(self)
-      if not self.item then return end
+      if not self.item or self.quickOpen then return end
       self.panel:SetColors(C.cardHover, C.line)
-      ns.Overlays:ShowProfile(self, self.item.pid)
     end)
     row:SetScript("OnLeave", function(self)
-      self.panel:SetColors(C.card, C.line)
-      ns.Overlays:HideProfile()
+      if not self.quickOpen then self.panel:SetColors(C.card, C.line) end
     end)
+    -- (1.2.0) click: a card beside it with their pace, all their characters and "Open player"
     row:SetScript("OnClick", function(self)
       if not self.item then return end
-      ns.Overlays:HideProfile()
-      if IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) else ns.Window:OpenPlayer(self.item.pid) end
+      if IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) return end
+      if quick then quick:Toggle(self, self.item) end
     end)
     return row
   end
@@ -101,6 +101,10 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   list:SetPoint("TOPLEFT", lh, "BOTTOMLEFT", -2, -8)
   list:SetPoint("BOTTOMRIGHT", 0, 0)
   list.emptyText = "Nobody in the gang yet."
+  quick = UI.PersonQuick(tab, { side = "right", width = 360, bounds = tab })
+  quick:SetFrameLevel(list:GetFrameLevel() + 40)
+  list:HookScript("OnMouseWheel", function() quick:Close() end)
+  tab:HookScript("OnHide", function() quick:Close() end)
 
   ---------------------------------------------------------------------------
   -- right: quick actions and this week
@@ -268,6 +272,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
       return (a.lastSeen or 0) > (b.lastSeen or 0)
     end)
     list:SetData(people)
+    quick:Refresh()
     local cur = ns.Layer and ns.Layer:CurrentLabel()
     hop:SetLabel(cur and ("Layer hop  ·  " .. cur) or "Layer hop")
     drawFeed()

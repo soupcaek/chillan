@@ -39,6 +39,7 @@ Achievements.lua
 QoL.lua
 UI\Widgets.lua
 UI\FeedRows.lua
+UI\PersonQuick.lua
 UI\MainWindow.lua
 UI\TabHome.lua
 UI\TabFriends.lua

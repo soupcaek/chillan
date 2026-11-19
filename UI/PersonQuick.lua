@@ -1,0 +1,219 @@
+-- Chillan? – the quick card for a person (1.2.0): opens from a row on Friends (under the row, joined
+-- to it) or from a card on Home (beside it). Pace, today, the week, all their characters – which
+-- ones are online right now – and Whisper / Mute / Open player.
+local ADDON, ns = ...
+local UI, C, hex = ns.UI, ns.C, ns.hex
+
+local function className(c)
+  if not c or not c.class then return "" end
+  return (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class]) or c.class
+end
+
+-- every character of the person, with whether it's the one online right now (and where)
+function ns.PersonCharsLive(p)
+  local out = {}
+  for _, x in ipairs(ns:AllChars(p)) do
+    local q = ns.db.people[x.pid] or {}
+    local on = ns:IsOnline(q) and (((q.live and q.live.char) or q.main) == x.full)
+    out[#out + 1] = { full = x.full, ch = x.ch, pid = x.pid, online = on, zone = on and q.live and q.live.zone or nil }
+  end
+  table.sort(out, function(a, b)
+    if a.online ~= b.online then return a.online end
+    return (a.ch.level or 0) > (b.ch.level or 0)
+  end)
+  return out
+end
+
+-- opts: { side = "below" | "right", width = n, bounds = frame (keep inside) }
+function UI.PersonQuick(parent, opts)
+  opts = opts or {}
+  local q = UI.Panel(parent, C.cardHover, C.accent, false)
+  q:SetFrameStrata("DIALOG")
+  q:EnableMouse(true)
+  q:Hide()
+  q.bar = UI.Track(q:CreateTexture(nil, "OVERLAY"))
+  q.bar:SetColorTexture(hex(C.accent))
+  q.bar:SetWidth(3)
+  q.bar:SetPoint("TOPLEFT", 1, -10)
+  q.bar:SetPoint("BOTTOMLEFT", 1, 10)
+  q.head = UI.Text(q, 14, "semi", C.text)
+  q.headSub = UI.Text(q, 11, nil, C.muted)
+  q.cells = {}
+  for i = 1, 4 do
+    local cell = CreateFrame("Frame", nil, q)
+    cell:SetSize(120, 36)
+    cell.v = UI.Text(cell, 14, "bold", C.text)
+    cell.v:SetPoint("TOPLEFT")
+    cell.k = UI.Text(cell, 10, nil, C.muted)
+    cell.k:SetPoint("BOTTOMLEFT")
+    q.cells[i] = cell
+  end
+  q.altHead = UI.Text(q, 10, "semi", C.dim)
+  q.alts = {}
+  for i = 1, 5 do
+    local l = UI.Text(q, 12, nil, C.text2)
+    l:SetWordWrap(false)
+    q.alts[i] = l
+  end
+  q.info = UI.Text(q, 11, nil, C.text2)
+  q.info:SetWordWrap(true)
+  q.open = UI.Button(q, 112, 28, "Open player ›", "primary")
+  q.wh = UI.Button(q, 70, 28, "Whisper", "secondary")
+  q.mute = UI.Button(q, 66, 28, "Mute", "ghost")
+
+  function q:Fill(p)
+    local W = self:GetWidth()
+    local wide = W >= 480
+    local s3 = ns:PersonS3(p) or {}
+    local c = ns:PersonChar(p) or {}
+    local pad = 16
+    local y = -12
+    -- who
+    self.head:ClearAllPoints()
+    self.head:SetPoint("TOPLEFT", pad, y)
+    self.head:SetText(ns:PersonLabel(p))
+    self.headSub:ClearAllPoints()
+    self.headSub:SetPoint("LEFT", self.head, "RIGHT", 8, 0)
+    self.headSub:SetText("Lvl " .. (c.level or "?") .. " " .. (c.race or "") .. " " .. className(c))
+    y = y - 26
+    -- pace
+    local rate, eta, pct = ns.St:XPRate(p), ns.St:ETA(p), ns.Pct(s3.xp, s3.xpMax)
+    local vals = {
+      { rate and ns.Num(rate) or "–", "XP per hour" },
+      { eta and ("~" .. ns.Duration(eta)) or "–", "to next level" .. (pct and (" (" .. pct .. " %)") or "") },
+      { s3.today and ns.Duration(s3.today) or "–", "online today" },
+      { s3.streak and (s3.streak .. " d") or "–", "streak" },
+    }
+    if (c.level or 0) >= 60 then vals[1] = { s3.ilvl and tostring(s3.ilvl) or "–", "item level" } vals[2] = { ns.Num(ns:WeekStat(p, "Kills")), "kills this week" } end
+    local perRow = wide and 4 or 2
+    local cw = math.floor((W - 2 * pad) / perRow)
+    for i, cell in ipairs(self.cells) do
+      cell.v:SetText(vals[i][1])
+      cell.k:SetText(vals[i][2])
+      cell:SetWidth(cw - 6)
+      cell.k:SetWidth(cw - 6)
+      cell:ClearAllPoints()
+      local r, col = math.floor((i - 1) / perRow), (i - 1) % perRow
+      cell:SetPoint("TOPLEFT", pad + col * cw, y - r * 42)
+    end
+    y = y - (wide and 44 or 86)
+    -- characters (all installs), online ones first
+    local chars = ns.PersonCharsLive(p)
+    for _, l in ipairs(self.alts) do l:Hide() end
+    if #chars > 1 then
+      self.altHead:ClearAllPoints()
+      self.altHead:SetPoint("TOPLEFT", pad, y)
+      self.altHead:SetText("CHARACTERS")
+      self.altHead:Show()
+      y = y - 16
+      for i, x in ipairs(chars) do
+        local l = self.alts[i]
+        if not l then break end
+        local r, g, b = hex(x.online and C.green or "4A4F55")
+        local dot = string.format("|T%sCircle:8:8:0:0:64:64:0:64:0:64:%d:%d:%d|t", ns.TEX, r * 255, g * 255, b * 255)
+        l:SetText(dot .. "  " .. ns.Colorize(x.ch.name or ns.ShortName(x.full), ns.ClassHex(x.ch.class))
+          .. ns.Colorize("  " .. (x.ch.level or "?") .. " " .. className(x.ch), C.muted)
+          .. (x.online and ns.Colorize("  ·  online" .. (x.zone and (" · " .. x.zone) or ""), C.green) or ""))
+        l:ClearAllPoints()
+        l:SetPoint("TOPLEFT", pad, y)
+        l:SetPoint("RIGHT", self, "RIGHT", -pad, 0)
+        l:Show()
+        y = y - 18
+      end
+      y = y - 4
+    else
+      self.altHead:Hide()
+    end
+    -- the week, then buttons
+    local parts = { math.floor(ns:WeekStat(p, "Quests")) .. " quests this week" }
+    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " in the pocket" end
+    if s3.ilvl and (c.level or 0) < 60 then parts[#parts + 1] = "ilvl " .. s3.ilvl end
+    if s3.dura and s3.dura < 100 then
+      parts[#parts + 1] = ns.Colorize("gear " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
+    end
+    self.info:SetText(table.concat(parts, "  ·  "))
+    self.info:ClearAllPoints()
+    self.info:SetPoint("TOPLEFT", pad, y - 2)
+    if wide then self.info:SetPoint("RIGHT", self, "RIGHT", -280, 0) else self.info:SetPoint("RIGHT", self, "RIGHT", -pad, 0) end
+    local infoH = self.info:GetStringHeight() or 14
+    local btnY = wide and (y + 4) or (y - infoH - 10)
+    self.open:ClearAllPoints()
+    self.open:SetPoint("TOPRIGHT", -12, btnY)
+    self.wh:ClearAllPoints()
+    self.wh:SetPoint("RIGHT", self.open, "LEFT", -6, 0)
+    self.mute:ClearAllPoints()
+    self.mute:SetPoint("RIGHT", self.wh, "LEFT", -6, 0)
+    local target = (p.live and p.live.char) or p.main
+    self.wh:SetScript("OnClick", function() ns.Whisper(target) end)
+    self.wh:SetShown(p.pid ~= ns.pid)
+    self.mute:SetShown(p.pid ~= ns.pid)
+    self.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
+    self.mute:SetScript("OnClick", function()
+      ns:SetMuted(p.pid, not ns:IsMuted(p.pid))
+      self.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
+      if opts.onChange then opts.onChange() end
+    end)
+    self.open:SetScript("OnClick", function() self:Close() ns.Window:OpenPlayer(p.pid) end)
+    local h = -btnY + 28 + 12
+    if not wide then h = -(btnY) + 28 + 12 end
+    self:SetHeight(math.max(h, -y + 40))
+  end
+
+  -- the row it belongs to is marked while the card is open
+  function q:Mark(row, on)
+    if not row or not row.panel then return end
+    if on then row.panel:SetColors(C.active, C.accent) row.quickOpen = true
+    else row.panel:SetColors(C.card, C.line) row.quickOpen = nil end
+  end
+
+  function q:Close()
+    if self.row then self:Mark(self.row, false) end
+    self.row, self.pid = nil, nil
+    self:Hide()
+  end
+
+  function q:Toggle(row, p)
+    if self:IsShown() and self.pid == p.pid then self:Close() return end
+    if self.row then self:Mark(self.row, false) end
+    self.pid, self.row, self.person = p.pid, row, p
+    self:ClearAllPoints()
+    if opts.side == "right" then
+      self:SetWidth(opts.width or 340)
+      self:SetPoint("TOPLEFT", row, "TOPRIGHT", 8, 0)
+    else
+      self:SetPoint("LEFT", row, "LEFT", 0, 0)
+      self:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+      self:SetWidth(row:GetWidth() or 600)
+    end
+    self:Fill(p)
+    if opts.side ~= "right" then
+      -- joined to the row: under it if there's room, else above
+      local rowBottom, b = row:GetBottom(), opts.bounds and opts.bounds:GetBottom()
+      self:ClearAllPoints()
+      self:SetPoint("LEFT", row, "LEFT", 0, 0)
+      self:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+      if rowBottom and b and (rowBottom - self:GetHeight() - 6) < b then
+        self:SetPoint("BOTTOM", row, "TOP", 0, -1)
+      else
+        self:SetPoint("TOP", row, "BOTTOM", 0, 1)
+      end
+    else
+      -- keep inside the window
+      local top, b = row:GetTop(), opts.bounds and opts.bounds:GetBottom()
+      if top and b and (top - self:GetHeight()) < b then
+        self:ClearAllPoints()
+        self:SetPoint("BOTTOMLEFT", row, "BOTTOMRIGHT", 8, 0)
+      end
+    end
+    self:Mark(row, true)
+    self:Show()
+  end
+
+  function q:Refresh()
+    if self:IsShown() and self.person then
+      if not self.row or not self.row.item or self.row.item.pid ~= self.pid then self:Close() return end
+      self:Fill(self.row.item)
+    end
+  end
+  return q
+end

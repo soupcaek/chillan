@@ -89,11 +89,11 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row.colX = -1
     row:SetScript("OnEnter", function(self)
       if not self.item or self.item.sep then return end
-      self.panel:SetColors(C.cardHover, C.line)
+      if not self.quickOpen then self.panel:SetColors(C.cardHover, C.line) end
       ns.Overlays:ShowProfile(self, self.item.pid)
     end)
     row:SetScript("OnLeave", function(self)
-      self.panel:SetColors(C.card, C.line)
+      if not self.quickOpen then self.panel:SetColors(C.card, C.line) end
       ns.Overlays:HideProfile()
     end)
     row:SetScript("OnClick", function(self)
@@ -187,90 +187,12 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   list:SetPoint("BOTTOMRIGHT", -12, 60)
   list.emptyText = "Nobody here yet. Share your gang code (see the More tab), and your friends show up when they log in."
 
-  -- Hurtigkort som dukker opp under vennen du klikker på
-  local quick = UI.Panel(tab, C.cardHover, C.activeLine, false)
-  quick:SetHeight(112)
+  -- (1.2.0) the quick card: joined to the row you clicked, with all their characters
+  local quick = UI.PersonQuick(tab, { side = "below", bounds = list, onChange = function() tab:Refresh() end })
   quick:SetFrameLevel(list:GetFrameLevel() + 30)
-  quick:EnableMouse(true)
-  quick:Hide()
-  quick.cells = {}
-  for i = 1, 4 do
-    local cell = CreateFrame("Frame", nil, quick)
-    cell:SetSize(130, 40)
-    cell:SetPoint("TOPLEFT", 14 + (i - 1) * 136, -12)
-    cell.v = UI.Text(cell, 15, "bold", C.text)
-    cell.v:SetPoint("TOPLEFT")
-    cell.v:SetWidth(128)
-    cell.k = UI.Text(cell, 11, nil, C.muted)
-    cell.k:SetPoint("BOTTOMLEFT")
-    cell.k:SetWidth(128)
-    quick.cells[i] = cell
-  end
-  quick.info = UI.Text(quick, 12, nil, C.text2)
-  quick.info:SetPoint("BOTTOMLEFT", 14, 16)
-  quick.info:SetPoint("RIGHT", -316, 0)
-  quick.open = UI.Button(quick, 120, 30, "Open player ›", "primary")
-  quick.open:SetPoint("BOTTOMRIGHT", -12, 10)
-  quick.wh = UI.Button(quick, 70, 30, "Whisper", "secondary")
-  quick.wh:SetPoint("RIGHT", quick.open, "LEFT", -8, 0)
-  quick.mute = UI.Button(quick, 78, 30, "Mute", "ghost")
-  quick.mute:SetPoint("RIGHT", quick.wh, "LEFT", -8, 0)
-
-  local function fillQuick(p)
-    local s3 = ns:PersonS3(p) or {}
-    local rate = ns.St:XPRate(p)
-    local eta = ns.St:ETA(p)
-    local pct = ns.Pct(s3.xp, s3.xpMax)
-    local vals = {
-      { rate and ns.Num(rate) or "–", "XP per hour" },
-      { eta and ("~" .. ns.Duration(eta)) or "–", "to next level" .. (pct and (" (" .. pct .. " %)") or "") },
-      { s3.today and ns.Duration(s3.today) or "–", "online today" },
-      { s3.streak and (s3.streak .. " d") or "–", "streak" },
-    }
-    for i, cell in ipairs(quick.cells) do
-      cell.v:SetText(vals[i][1])
-      cell.k:SetText(vals[i][2])
-    end
-    local parts = {}
-    parts[#parts + 1] = math.floor(ns:WeekStat(p, "Quests")) .. " quests this week"
-    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " in the pocket" end
-    if s3.ilvl then parts[#parts + 1] = "ilvl " .. s3.ilvl end
-    if s3.dura and s3.dura < 100 then
-      parts[#parts + 1] = ns.Colorize("gear " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
-    end
-    quick.info:SetText(table.concat(parts, "  ·  "))
-    local target = (p.live and p.live.char) or p.main
-    quick.wh:SetScript("OnClick", function() ns.Whisper(target) end)
-    quick.wh:SetShown(p.pid ~= ns.pid)
-    quick.mute:SetShown(p.pid ~= ns.pid)
-    quick.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
-    quick.mute:SetScript("OnClick", function()
-      ns:SetMuted(p.pid, not ns:IsMuted(p.pid))
-      quick.mute:SetLabel(ns:IsMuted(p.pid) and "Unmute" or "Mute")
-      tab:Refresh()
-    end)
-    quick.open:SetScript("OnClick", function() quick:Hide() ns.Window:OpenPlayer(p.pid) end)
-  end
-
-  function tab:ToggleQuick(row, p)
-    if quick:IsShown() and quick.pid == p.pid then quick:Hide() return end
-    quick.pid = p.pid
-    quick.row = row
-    fillQuick(p)
-    quick:ClearAllPoints()
-    quick:SetPoint("LEFT", row, "LEFT", 0, 0)
-    quick:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-    -- under raden hvis det er plass, ellers over
-    local rowBottom, listBottom = row:GetBottom(), list:GetBottom()
-    if rowBottom and listBottom and (rowBottom - 118) < listBottom then
-      quick:SetPoint("BOTTOM", row, "TOP", 0, 4)
-    else
-      quick:SetPoint("TOP", row, "BOTTOM", 0, -4)
-    end
-    quick:Show()
-  end
-  list:HookScript("OnMouseWheel", function() quick:Hide() end)
-  tab:HookScript("OnHide", function() quick:Hide() end)
+  function tab:ToggleQuick(row, p) quick:Toggle(row, p) end
+  list:HookScript("OnMouseWheel", function() quick:Close() end)
+  tab:HookScript("OnHide", function() quick:Close() end)
 
   -- Bottom line: your own status and the ready check
   local line = UI.SolidLine(tab)
@@ -334,13 +256,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       end
     end
     list:SetData(people)
-    if quick:IsShown() then
-      if not quick.row or not quick.row.item or quick.row.item.pid ~= quick.pid then
-        quick:Hide()
-      else
-        fillQuick(quick.row.item)
-      end
-    end
+    quick:Refresh()
     local n, total = ns.Window:OnlineCount()
     count:SetText(n .. " of " .. total .. " online")
     local st = ns.Tracker:Status()

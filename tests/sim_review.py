@@ -22,4 +22,10 @@ LA.execute('ADDON_NS.Window:Select("stats")'); run(2)
 print("overview: side cards shown =", LA.eval('ADDON_NS.Window.tabs.stats.rightCol:IsShown()'))
 print("all chars of Kenny:", LA.eval('(function() for pid, p in pairs(ADDON_NS.db.people) do if p.alias == "Kenny" and not ADDON_NS:HiddenDuplicates()[pid] then local t = {} for _, x in ipairs(ADDON_NS:AllChars(p)) do t[#t+1] = x.ch.name end return table.concat(t, ", ") end end end)()'))
 LA.execute('for pid, p in pairs(ADDON_NS.db.people) do if p.alias == "Kenny" and not ADDON_NS:HiddenDuplicates()[pid] then ADDON_NS.Window:OpenPlayer(pid) end end'); run(2)
+# quick cards: Friends (joined below the row) and Home (beside the card), with characters
+LA.execute('ADDON_NS.Window:Select("friends"); ADDON_NS.Window.tabs.friends:Refresh()'); run(2)
+LA.execute("""local t = ADDON_NS.Window.tabs.friends
+for pid, p in pairs(ADDON_NS.db.people) do if p.alias == "Kenny" and not ADDON_NS:HiddenDuplicates()[pid] then p.pid = pid t:ToggleQuick(CreateFrame("Button"), p) end end""")
+LA.execute('ADDON_NS.Window:Select("home"); ADDON_NS.Window.tabs.home:Refresh()'); run(2)
+print("chars live:", LA.eval('(function() for pid, p in pairs(ADDON_NS.db.people) do if p.alias == "Kenny" and not ADDON_NS:HiddenDuplicates()[pid] then p.pid = pid local t = {} for _, x in ipairs(ADDON_NS.PersonCharsLive(p)) do t[#t+1] = x.ch.name .. (x.online and "*" or "") end return table.concat(t, ", ") end end end)()'))
 print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:6])
