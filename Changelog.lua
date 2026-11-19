@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.2.4", date = "19.11", items = {
+    "Gang pulse: the faces of the friends online are bigger, and at most 4 are shown – the rest as \"+2\"",
+    "On a low alt, XP/h and time to level no longer borrow your main's pace for the week (it said 218k XP/h and 0m at level 1)",
+  } },
   { v = "1.2.3", date = "19.11", items = { "Watching: the empty strip just says \"+ Watch someone\" (the explanation is in the tooltip)" } },
   { v = "1.2.2", date = "19.11", items = {
     "Watching: keep an eye on up to 4 friends right in the Gang pulse, under the Now card – online dot, name, level, where they are (zone, dungeon, \"dead\", or \"your layer\") and a thin bar for how far into the level they are",

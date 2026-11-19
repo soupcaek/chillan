@@ -38,6 +38,11 @@ function St:XPRate(p)
     local sess = s.sessXP / s.sessSec * 3600
     if not week or sess >= week * 0.5 then return sess, "this session" end
   end
+  -- (1.2.4) the week's pace is from your main; on a low alt it means nothing (level 1 at 218k XP/h)
+  if week and p == ns:GetPerson(ns.pid) then
+    local cur = ns.Tracker:MyChar() or {}
+    if (cur.level or 0) < ns:PersonMaxLevel(p) - 5 then week = nil end
+  end
   if week then return week, "average this week" end
   return nil
 end

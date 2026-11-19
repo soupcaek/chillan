@@ -45,7 +45,7 @@ function O:CreateMinibar()
   m.logo:SetText(ns.Logo())
   m.avatars = {}
   for i = 1, 8 do
-    local a = UI.Avatar(m, 16)
+    local a = UI.Avatar(m, 20)
     UI.Track(a.bg):SetVertexColor(hex(C.active))
     a:Hide()
     m.avatars[i] = a
@@ -89,21 +89,33 @@ function O:UpdateMinibar()
   local online = ns:SortedPeople(function(p, pid) return pid ~= ns.pid and ns:IsOnline(p) end)
   table.sort(online, function(a, b) return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end)
   local x = m.logo:GetStringWidth() + 22
+  -- (1.2.4) bigger faces, at most 4; the rest as "+N"
+  local SHOWN = 4
   for i, a in ipairs(m.avatars) do
-    local p = online[i]
+    local p = i <= SHOWN and online[i]
     if p then
       local c = ns:PersonChar(p) or {}
       a:Set(c.name, c.class, nil)
       a:ClearAllPoints()
       a:SetPoint("LEFT", x, 0)
       a:SetFrameLevel(m:GetFrameLevel() + 20 - i)   -- the first sits on top; they overlap a little
-      x = x + 11
+      x = x + 14
       a:Show()
     else
       a:Hide()
     end
   end
-  if #online > 0 then x = x + 9 end
+  if #online > 0 then x = x + 10 end
+  if not m.moreFaces then m.moreFaces = UI.Text(m, 11, "semi", C.muted) end
+  if #online > SHOWN then
+    m.moreFaces:ClearAllPoints()
+    m.moreFaces:SetPoint("LEFT", x - 2, 0)
+    m.moreFaces:SetText("+" .. (#online - SHOWN))
+    m.moreFaces:Show()
+    x = x + m.moreFaces:GetStringWidth() + 6
+  else
+    m.moreFaces:Hide()
+  end
   m.count:ClearAllPoints()
   m.count:SetPoint("LEFT", x, 0)
   m.count:SetText(#online .. " online")
