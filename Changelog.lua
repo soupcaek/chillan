@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.6", date = "19.11", items = {
+    "Gang pulse: the XP bar and level line are gone at level 60",
+    "Gang pulse: before 60 it says how much XP is left to the next level instead of a guess at how many quests",
+  } },
   { v = "1.1.5", date = "19.11", items = {
     "Themes and accent colours change straight away – no more reload",
     "Home: everyone in the gang as a small card on the left (online first, then offline with when they were last on)",

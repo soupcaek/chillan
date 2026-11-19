@@ -150,12 +150,15 @@ function N:Update()
     local d = ns.Tracker:S3Data() or {}
     local c = ns.Tracker:MyChar() or {}
     local eta = ns.St and ns.St:ETA(ns:GetPerson(ns.pid, true))
-    if (c.level or 0) < 60 then
+    local lvl = ns.S(UnitLevel, "player") or c.level or 0
+    local maxLvl = 60   -- WoW Forever caps at 60 (the engine may report a higher cap)
+    if type(lvl) == "number" and lvl < maxLvl then
       local pct = (d.xp and d.xpMax and d.xpMax > 0) and math.floor(d.xp / d.xpMax * 100) or nil
       f.big:SetText(pct and (pct .. " %") or "–")
       f.bigSub:SetText("of level " .. (c.level or "?"))
-      local ql = P:QuestsLeft()
-      f.right:SetText(ql and ("≈ " .. ql .. " quests") or "")
+      -- (1.1.6) the XP left, not a guess at quests
+      local left = (d.xp and d.xpMax) and (d.xpMax - d.xp) or nil
+      f.right:SetText(left and (ns.Num(left) .. " XP left") or "")
       if d.xp and d.xpMax and d.xpMax > 0 then f.meter.pct = d.xp / d.xpMax end
     end
     local s = P.sess
@@ -163,7 +166,7 @@ function N:Update()
     local rested = ns.Pct(d.rested or 0, d.xpMax)
     rows[#rows + 1] = ns.Colorize("This session: ", C.dim) .. s.quests .. " quests · " .. s.mobs .. " mobs"
       .. (gold and gold ~= 0 and (" · " .. ns.Colorize(goldText(gold), gold > 0 and C.text2 or C.red)) or "")
-      .. ((rested and rested > 0 and (c.level or 0) < 60) and ns.Colorize("   rested " .. rested .. " %", C.dim) or "")
+      .. ((rested and rested > 0 and f.meter.pct) and ns.Colorize("   rested " .. rested .. " %", C.dim) or "")
     rows[#rows + 1] = dangerRow()
 
   elseif mode == "dungeon" then
