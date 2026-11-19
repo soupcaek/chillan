@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.7", date = "19.11", items = { "Market: the tooltip can list what disenchanting gives – one line per mat with how many, the chance and the mat's price. Switch: Market page → Tooltip → What disenchanting gives" } },
   { v = "1.3.6", date = "19.11", items = { "Reactions under a feed line wrap onto a new line when the window is narrow, instead of running off the edge" } },
   { v = "1.3.5", date = "19.11", items = {
     "Chillan? Market has its own page: Market in the top bar. It shows where your prices stand, an \"Ask the gang now\" button, a switch for each tooltip line and for sharing",

@@ -486,7 +486,17 @@ local function addLine(tt, id, count)
         tt:AddDoubleLine("Disenchant", "≈ " .. coins(deVal) .. "  |cff858B92expected|r", 0.75, 0.78, 0.82, 1, 1, 1)
       else
         ns.Disenchant:AskMats(id)
-        tt:AddLine("Disenchant: " .. ns.Disenchant:Describe(deRes), 0.6, 0.63, 0.66, true)
+        if not opt("mkDEList") then tt:AddLine("Disenchant: " .. ns.Disenchant:Describe(deRes), 0.6, 0.63, 0.66, true) end
+      end
+      -- (1.3.7) what it gives, one line per mat, with the chance and the mat's price
+      if opt("mkDEList") then
+        for _, r in ipairs(deRes) do
+          local i = ns.Disenchant.Info(r.id)
+          local q = r.min == r.max and tostring(r.min) or (r.min .. "–" .. r.max)
+          local me = M:Get(r.id)
+          tt:AddDoubleLine("   " .. q .. "× " .. ((i and i.name) or ("item " .. r.id)) .. (r.chance < 1 and ("  |cff858B92" .. math.floor(r.chance * 100 + 0.5) .. " %|r") or ""),
+            me and (coins(me.v) .. " each") or "|cff858B92no price|r", 0.75, 0.78, 0.82, 0.85, 0.85, 0.85)
+        end
       end
       shown = true
     end

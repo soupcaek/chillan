@@ -62,7 +62,8 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     { "Market value", "mkPrice", "The typical price of the cheapest listings, and how old it is." },
     { "Stack value", "mkStack", "The price of the whole stack you hover in your bags." },
     { "Best: auction, vendor or disenchant", "mkBest", "Which pays most, and by how much (auction after the 5 % cut)." },
-    { "Disenchant value", "mkDE", "What the item gives when disenchanted, and what the mats are worth." },
+    { "Disenchant value", "mkDE", "What disenchanting the item is worth: the expected value of the mats at the auction house." },
+    { "What disenchanting gives", "mkDEList", "One line per mat under the disenchant value: how many, the chance, and the mat's price." },
     { "Price change since the last scan", "mkTrend", "Shown when the price moved 5 % or more." },
   })
   local sh = section(lastT, "Sharing")
