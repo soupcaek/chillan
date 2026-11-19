@@ -45,7 +45,7 @@ function O:CreateMinibar()
   m.logo:SetText(ns.Logo())
   m.avatars = {}
   for i = 1, 8 do
-    local a = UI.Avatar(m, 24)
+    local a = UI.Avatar(m, 16)
     a.bg:SetVertexColor(hex(C.active))
     a:Hide()
     m.avatars[i] = a
@@ -60,13 +60,18 @@ function O:CreateMinibar()
       if pid ~= ns.pid and p.main and ns:IsOnline(p) then
         local c = ns:PersonChar(p) or {}
         local r, g, b = ns.ClassColor(c.class)
-        GameTooltip:AddDoubleLine((c.name or "?") .. (ns:PersonAlias(p) and (" (" .. ns:PersonAlias(p) .. ")") or "") .. "  " .. (c.level or ""), (p.live and p.live.zone) or "", r, g, b, 0.6, 0.63, 0.66)
+        local L = p.live or {}
+        local mine = ns.Layer and ns.Layer:Current()
+        local lay = L.inInst and "dungeon" or (L.layer and mine and L.layer == mine) and "|cff9BE08Asame layer|r"
+          or (L.layer and ns.Layer and ns.Layer.Label(L.layer)) or ""
+        GameTooltip:AddDoubleLine((ns:PersonAlias(p) or c.name or "?") .. "  |cff9BA1A8" .. (c.level or "") .. "|r",
+          ((L.zone or "") .. (lay ~= "" and ("  ·  " .. lay) or "")), r, g, b, 0.75, 0.78, 0.82)
         any = true
       end
     end
     if not any then GameTooltip:AddLine("Nobody else online", 0.6, 0.63, 0.66) end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Left-click: open  ·  Right-click: event window  ·  Drag: move", 0.52, 0.55, 0.57)
+    GameTooltip:AddLine("Left-click: open Chillan?  ·  Drag: move", 0.52, 0.55, 0.57)
     GameTooltip:Show()
   end)
   m:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -91,13 +96,14 @@ function O:UpdateMinibar()
       a:Set(c.name, c.class, nil)
       a:ClearAllPoints()
       a:SetPoint("LEFT", x, 0)
-      x = x + 18
+      a:SetFrameLevel(m:GetFrameLevel() + 20 - i)   -- the first sits on top; they overlap a little
+      x = x + 11
       a:Show()
     else
       a:Hide()
     end
   end
-  if #online > 0 then x = x + 10 end
+  if #online > 0 then x = x + 9 end
   m.count:ClearAllPoints()
   m.count:SetPoint("LEFT", x, 0)
   m.count:SetText(#online .. " online")
@@ -139,15 +145,57 @@ function O:UpdateMinibar()
   local info = ns.STATUS[st] or ns.STATUS.QUEST
   m.status.dot:SetVertexColor(hex(info.color))
   local lay = ns.Layer and ns.Layer:CurrentLabel()
-  m.status.text:SetText((SHORT[st] or info.label) .. (lay and ("  ·  " .. lay) or ""))
+  -- Gang pulse (1.1.0): the chip says where you are – your status in the open world, else the
+  -- dungeon or battleground (the layer has its own box under the bar)
+  local P = ns.Pulse
+  local chip = (P and P:Mode() ~= "world") and P:Place() or (SHORT[st] or info.label)
+  m.status.text:SetText(chip)
   m.status:SetWidth(m.status.text:GetStringWidth() + 18)
   m.countX, m.statusX = x, w - 8
   m.status:ClearAllPoints()
   m.status:SetPoint("LEFT", m.statusX, 0)
   w = w + m.status:GetWidth() + 2
-  if m.plus then w = w + 24 end
+  w = w + 52   -- pin and ⋯
+  if not m.more then O:CreatePulseButtons(m) end
   m.naturalW = w
   if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() else self:FitMinibar() end
+end
+
+-- Gang pulse buttons (1.1.0): pin (stay open in combat) and ⋯ (filters, mode, attach, settings)
+function O:CreatePulseButtons(m)
+  local pin = UI.IconButton(m, 22, ns.db.settings.pulsePin and "Lock" or "Unlock", "Pin: stay open in combat", function(b)
+    ns.db.settings.pulsePin = not ns.db.settings.pulsePin
+    b:SetIcon(ns.db.settings.pulsePin and "Lock" or "Unlock")
+    b.icon:SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
+    if ns.NowCard then ns.NowCard:Relayout() end
+  end)
+  pin.icon:SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
+  m.pin = pin
+  local more = UI.IconButton(m, 22, "More", "Filters, mode, layout and settings", function(b) O:PulseMenu(b) end)
+  more.icon:SetVertexColor(hex(C.muted))
+  m.more = more
+end
+
+function O:PulseMenu(anchor)
+  local S = ns.db.settings
+  local items = {}
+  local function head(t) items[#items + 1] = { text = t, color = C.muted, func = function() end } end
+  local function opt(label, on, fn) items[#items + 1] = { text = (on and "• " or "   ") .. label, color = on and C.text or C.text2, func = fn } end
+  head("SHOW IN THE FEED")
+  for _, f in ipairs({ { "all", "Everything" }, { "ev", "Events only" }, { "chat", "Chat only" } }) do
+    opt(f[2], (S.evFilter or "all") == f[1], function() S.evFilter = f[1] ns.EventWindow:Redraw() end)
+  end
+  head("MODE")
+  opt("Automatic (where you are)", not S.pulseMode, function() S.pulseMode = nil ns:Fire("PULSE_MODE") end)
+  for _, k in ipairs({ "world", "dungeon", "bg" }) do
+    opt("Always " .. ns.Pulse.MODES[k]:lower(), S.pulseMode == k, function() S.pulseMode = k ns:Fire("PULSE_MODE") end)
+  end
+  head("LAYOUT")
+  opt("Gang feed attached", S.evDocked, function() ns.EventWindow:SetDocked(not S.evDocked) end)
+  opt("Gang feed shown", S.eventFeed ~= false, function() S.eventFeed = not (S.eventFeed ~= false) ns.EventWindow:Apply() end)
+  items[#items + 1] = { text = "   Move things on screen", color = C.text2, func = function() UI.EditMode(true) end }
+  items[#items + 1] = { text = "   Settings", color = C.text2, func = function() ns.Window:Toggle("settings") end }
+  UI.Menu(anchor, items, true)
 end
 
 -- bar is as wide as its content, or as the row of pinned cards under it if that is wider
@@ -170,9 +218,11 @@ function O:FitMinibar()
   if not m or not m.naturalW then return end
   local w = math.max(self:BaseWidth(), (ns.Tiles and ns.Tiles.rowWidth) or 0)
   m:SetWidth(w)
-  if m.plus then
-    m.plus:ClearAllPoints()
-    m.plus:SetPoint("RIGHT", -4, 0)
+  if m.more then
+    m.more:ClearAllPoints()
+    m.more:SetPoint("RIGHT", -4, 0)
+    m.pin:ClearAllPoints()
+    m.pin:SetPoint("RIGHT", m.more, "LEFT", -2, 0)
   end
   self:UpdateMinibarExtras()
   self:UpdateGroup()
@@ -186,6 +236,25 @@ function O:UpdateGroup()
   local holder = ns.Tiles and ns.Tiles.holder
   local tilesOn = holder and holder:IsShown() and m:IsShown()
   local last = tilesOn and holder or m
+  -- the Now card (1.1.0) hangs under the boxes, as wide as the bar
+  local N = ns.NowCard and ns.NowCard.frame
+  if N then
+    local showN = tilesOn and not ns.NowCard:Collapsed()
+    N:SetShown(showN and true or false)
+    if showN then
+      N:ClearAllPoints()
+      N:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, 0)
+      N:SetPoint("TOPRIGHT", last, "BOTTOMRIGHT", 0, 0)
+      if not N.topLine then
+        N.topLine = N:CreateTexture(nil, "ARTWORK")
+        N.topLine:SetHeight(1)
+        N.topLine:SetPoint("TOPLEFT", 8, 0)
+        N.topLine:SetPoint("TOPRIGHT", -8, 0)
+      end
+      N.topLine:SetColorTexture(hex(C.line))
+      last = N
+    end
+  end
   -- let go of the event window first, so it can be moved back without an anchor loop
   m.panel:ClearAllPoints()
   m.panel:SetAllPoints(m)
@@ -229,7 +298,7 @@ function O:UpdateMinibarExtras()
   local ev = self.lastEvent
   local evAge = ev and (GetTime() - ev.at) or 999
   local rightEdge = m:GetWidth() - (m.plus and 30 or 8)
-  if ev and evAge < 75 then
+  if false and ev and evAge < 75 then
     -- while an event is fresh it takes the place of "N online" (the avatars still show who's on)
     m.count:Hide()
     m.status:ClearAllPoints()
@@ -878,6 +947,8 @@ end
 
 function O:Init()
   self:CreateMinibar()
+  if ns.NowCard then C_Timer.After(0.5, function() ns.NowCard:Create() ns.NowCard:Relayout() end) end
+  ns:Listen("PULSE_MODE", function() O:UpdateMinibar() end)
   self:CreateSummary()
   self:CreateDing()
   self:CreateMinimapButton()

@@ -67,7 +67,40 @@ local function render(e)
   return stamp(e.t) .. e.base .. reactLink(e.item) .. chips(e.item)
 end
 
+-- a run of kills or deaths by the same person (15 min) becomes one line that counts up (1.1.0)
+local BURST = 900
+local function burstText(e)
+  local it = e.item
+  local p = ns:GetPerson(it.pid) or {}
+  local who = ns:PersonLinked(p, ns:ShortWho(p, it.char))
+  local since = ns.Colorize("  since " .. date("%H:%M", e.firstT), C.dim)
+  if it.kind == "KILL" then
+    return UI.InlineIcon("Target", C.gold, 12) .. "  " .. who .. ns.Colorize(" killed " .. e.count .. " Alliance" .. ((it.a and it.a ~= "") and (" · " .. it.a) or ""), C.text2) .. since
+  end
+  return UI.InlineIcon("Skull", C.red, 12) .. "  " .. who .. ns.Colorize(" died " .. e.count .. " times" .. ((it.a and it.a ~= "") and (" · " .. it.a) or ""), C.text2) .. since
+end
+E.BurstText = burstText
+
 function E:Add(kind, text, t, item)
+  if kind == "ev" and item and (item.kind == "KILL" or item.kind == "DEAD") then
+    local now = t or time()
+    for i = #self.entries, math.max(1, #self.entries - 8), -1 do
+      local x = self.entries[i]
+      if x.kind == "ev" and not x.old and x.item and x.item.kind == item.kind and x.item.pid == item.pid
+        and now - (x.firstT or x.t) < BURST then
+        x.count = (x.count or 1) + 1
+        x.firstT = x.firstT or x.t
+        x.t = now
+        x.item = item
+        x.base = burstText(x)
+        table.remove(self.entries, i)
+        ns.PushCapped(self.entries, x, MAX_KEEP)
+        self:Redraw()
+        if self.frame and not self.frame:IsMouseOver() then self:Flash() end
+        return
+      end
+    end
+  end
   local e = { kind = kind, base = text, t = t or time(), item = item }
   e.text = render(e)
   ns.PushCapped(self.entries, e, MAX_KEEP)
@@ -196,7 +229,9 @@ function E:Create()
   head:SetHeight(28)
   UI.Movable(head, "eventwin", function(fr) fr:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 40, 260) end, f)
 
+  self.head = head
   local logo = UI.Icon(head, "Feed", 14, C.accent)
+  self.logoIcon = logo
   logo:SetPoint("LEFT", 10, 0)
   local title = UI.Text(head, 12, "semi", C.text)
   title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
@@ -211,6 +246,7 @@ function E:Create()
     ns.Print("Event window hidden. Right-click the Chillan? bar or the minimap button to bring it back.")
   end)
   close:SetPoint("RIGHT", -6, 0)
+  self.closeBtn = close
   -- attach/detach to the Chillan? bar
   local dock = UI.IconButton(head, 20, "Up", "Attach to the Chillan? bar", function()
     E:SetDocked(not ns.db.settings.evDocked)
@@ -422,6 +458,15 @@ function E:SetMinimized(on, silent)
   self:UpdateCount()
 end
 
+function E:SetHeaderShown(on)
+  if not self.head then return end
+  self.head:SetHeight(on and 28 or 4)
+  for _, w in ipairs({ self.logoIcon, self.title, self.closeBtn, self.dockBtn, self.miniBtn, self.sep }) do
+    if w then w:SetShown(on) end
+  end
+  for _, b in pairs(self.filterBtns or {}) do b:SetShown(on) end
+end
+
 -- Docking: the window hangs under the bar (or the pinned cards), same width, one shared background
 function E:SetDocked(on)
   ns.db.settings.evDocked = on and true or nil
@@ -446,6 +491,7 @@ function E:Reanchor(anchor)
       f.noMove = nil
       if self.count then self.count:Show() end
       if self.title then self.title:SetText("Chillan?") end
+      self:SetHeaderShown(true)
       f.ofill, f.oline = C.window, C.line
       f:SetColors(C.window, C.line, UI.OverlayAlpha())
       if self.topLine then self.topLine:Hide() end
@@ -476,6 +522,9 @@ function E:Reanchor(anchor)
   self.topLine:SetShown(anchor ~= m)
   if self.count then self.count:Hide() end   -- the bar above already shows who's online
   if self.title then self.title:SetText("Gang feed") end   -- the bar above already says Chillan?
+  -- Gang pulse (1.1.0): attached, the feed has no header – filters and buttons are in the bar's ⋯
+  self:SetHeaderShown(false)
+  ns.db.settings.evMin = nil
   -- attached height is remembered separately from the detached window's size
   local S = ns.db.settings
   f:SetHeight(S.evMin and 28 or (S.evDockH or (S.evSize and S.evSize.h) or 210))
@@ -525,9 +574,14 @@ function E:Backfill()
   for _, it in ipairs(ns.db.feed or {}) do items[#items + 1] = { t = it.t, kind = "ev", it = it } end
   for _, it in ipairs(ns.db.chat or {}) do items[#items + 1] = { t = it.t, kind = "chat", it = it } end
   table.sort(items, function(a, b) return a.t < b.t end)
-  local cutoff = time() - 2 * 3600
+  local cutoff = time() - 12 * 3600
   local added = 0
-  for i = math.max(1, #items - 20), #items do
+  local first = math.max(1, #items - 30)
+  while first <= #items and items[first].t < cutoff do first = first + 1 end
+  if first <= #items then
+    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("──  earlier today  ──", "5A6067"), t = time() }, MAX_KEEP)
+  end
+  for i = first, #items do
     local x = items[i]
     if x.t >= cutoff then
       local ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it)
@@ -540,9 +594,7 @@ function E:Backfill()
       end
     end
   end
-  if added > 0 then
-    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("- - -  earlier today (new below)  - - -", "5A6067"), t = time() }, MAX_KEEP)
-  end
+
 end
 
 function E:Init()

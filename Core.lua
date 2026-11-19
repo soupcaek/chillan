@@ -594,6 +594,14 @@ ns.MIGRATIONS = {
     end
     if ns.DiedTo then ns.DiedTo:Backfill() end
   end,
+  -- 5 (1.1.0): Gang pulse – the bar, the four boxes, the Now card and the feed are one panel
+  [5] = function(db)
+    local S = db.settings
+    S.minibar = true
+    S.evDocked = true
+    S.eventFeed = true
+    S.evMin = nil
+  end,
 }
 
 -- reasons only the old automatic enemy log wrote (a person adding someone always types a reason)

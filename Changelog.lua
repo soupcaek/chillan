@@ -2,6 +2,15 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.0", date = "19.11", items = {
+    "Gang pulse: the bar, the stat tiles and the event window are now one panel that changes with where you are – open world, dungeon or battleground",
+    "Top bar: the friends online as small overlapping dots and \"N online\" – hover for who, where, level and layer. The chip says your status, or the dungeon or battleground you're in",
+    "Four fixed boxes under the bar. Open world: layer hop, XP/h, gold/h, time to next level. Dungeon: bosses, run time, XP this run, XP/h. Battleground: honor/h, kills, time in the BG, wins today",
+    "The Now card under them: time to level with a bar, this session's quests, mobs and gold, and a warning when someone from \"Died to\" is near you. In a dungeon: loot this run, your bags and durability when they're low, and Ready check. In a battleground: kills, deaths, streak and today's honor",
+    "In combat the boxes and the card fold away so only the feed shows. The pin keeps them open. The ⋯ button has the feed filter, the mode lock, layout and settings",
+    "The feed: kills or deaths by the same person within 15 minutes are one line that counts up, the earlier-today marker sits above the old lines, and more of the last 12 hours is shown",
+    "Stats → Progress: hover a line to see who, the level and the date – the line lights up and the rest fade. Players of the same class get their own shade, and a character made again no longer draws a line going down",
+  } },
   { v = "1.0.1", date = "19.11", items = {
     "Fewer popups: when someone dies or kills an Alliance player, it pops up once, then deaths (and kills) stay quiet for 10 minutes for the whole gang. At most 6 of those an hour. Everything still lands in the event window",
     "React from the event window: others' deaths, kills, dings and trophies get a [react] link, so a death that didn't pop up can still get its laugh or F",

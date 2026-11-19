@@ -91,6 +91,8 @@ end)
 -- Dungeon-logg: tid, dødsfall, bosser og hvem fra gjengen som var med
 ---------------------------------------------------------------------------
 local run
+-- the dungeon run in progress (Gang pulse reads time, bosses and deaths from it)
+function X:CurrentRun() return run end
 local function gangInGroup()
   local pids = { ns.pid }
   local n = ns.S(GetNumGroupMembers) or 0

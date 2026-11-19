@@ -25,6 +25,7 @@ Sync.lua
 Quests.lua
 Titles.lua
 Extras.lua
+Pulse.lua
 Ideas.lua
 Badges.lua
 Gear.lua
@@ -60,6 +61,7 @@ UI\LevelRecapCard.lua
 UI\CompanionCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
+UI\NowCard.lua
 UI\EventWindow.lua
 UI\Mirror.lua
 UI\MapPins.lua

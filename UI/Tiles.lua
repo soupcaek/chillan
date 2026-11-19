@@ -1,13 +1,14 @@
--- Chillan? – small stat tiles that pin under the minibar
+-- Chillan? – the four fixed boxes under the bar (1.1.0: Gang pulse). Each mode has its own four:
+-- open world, dungeon, battleground. They never move, so your eyes know where to look.
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
 local T = {}
 ns.Tiles = T
 
-local MAX = 9   -- 3 x 3
-local PER_ROW = 3
-local W, H, GAP = 124, 44, 0   -- cards sit flush under the bar, sharing its background
+local MAX = 4
+local PER_ROW = 4
+local W, H, GAP = 96, 44, 0   -- cards sit flush under the bar, sharing its background
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end
@@ -133,12 +134,59 @@ T.DEFS = {
     return n .. (n == 1 and " day" or " days"), "in a row"
   end },
 }
+-- Gang pulse boxes (1.1.0)
+local function P() return ns.Pulse end
+local function dur(sec) return sec and ns.Duration(sec) or "–" end
+for _, d in ipairs({
+  { key = "goldh", name = "Gold per hour", get = function()
+    local g = P():GoldPerHour()
+    if not g then return "–", "gold/h" end
+    return (g < 0 and "−" or "") .. goldText(math.abs(g)), "gold/h", g < 0 and C.red or nil
+  end },
+  { key = "bosses", name = "Bosses this run", get = function()
+    local r = P():Run()
+    return r and tostring(r.bosses or 0) or "0", (r and r.bosses == 1) and "boss" or "bosses"
+  end },
+  { key = "runtime", name = "Run time", get = function()
+    local r = P():Run()
+    return dur(r and (ns.Now() - r.start)), "run time"
+  end },
+  { key = "runxp", name = "XP this run", get = function()
+    local _, pr = P():Run()
+    return pr and ns.Num(pr.xp) or "0", "XP this run"
+  end },
+  { key = "honorh", name = "Honor per hour", get = function()
+    local h = P():HonorPerHour()
+    return h and ns.Num(h) or "–", "honor/h"
+  end },
+  { key = "bghk", name = "Kills this battleground", get = function()
+    local k = P():BGNumbers()
+    return k and tostring(k) or "–", "HKs this BG"
+  end },
+  { key = "bgtime", name = "Time in this battleground", get = function()
+    return dur(P().bg and (ns.Now() - P().bg.start)), "in this BG"
+  end },
+  { key = "bgwon", name = "Battlegrounds won today", get = function()
+    local d = P().Today()
+    return d.won .. " / " .. d.played, "won today"
+  end },
+}) do T.DEFS[#T.DEFS + 1] = d end
+T.MODE_TILES = {
+  world = { "act_layer", "xph", "goldh", "eta" },
+  dungeon = { "bosses", "runtime", "runxp", "xph" },
+  bg = { "honorh", "bghk", "bgtime", "bgwon" },
+}
+
 -- action buttons: same size as the stat tiles, a coloured edge and an icon; left-click does it
 T.ACTIONS = {
   { key = "act_layer", name = "Layer hop", icon = "Radar", color = "7FB8FF",
     tip = "Left-click: move to another layer (a LayerSwap host or a gang member on another layer invites you)",
     get = function()
-      if ns.LayerHop and ns.LayerHop.TileState then return ns.LayerHop:TileState() end
+      if ns.LayerHop and ns.LayerHop.TileState then
+        local v, sub, col = ns.LayerHop:TileState()
+        if sub and #sub > 18 then sub = "click to hop" end   -- the box is narrow; the tooltip says more
+        return v, sub, col
+      end
       return "Layer hop", "Click to hop"
     end,
     click = function() ns.LayerHop:Request() end },
@@ -159,9 +207,8 @@ for _, d in ipairs(T.DEFS) do T.byKey[d.key] = d end
 for _, d in ipairs(T.ACTIONS) do d.action = true T.byKey[d.key] = d end
 
 function T:List()
-  local S = ns.db.settings
-  if S.tiles == nil then S.tiles = { "level", "xph", "eta" } end
-  return S.tiles
+  local mode = ns.Pulse and ns.Pulse:Mode() or "world"
+  return self.MODE_TILES[mode] or self.MODE_TILES.world
 end
 
 function T:IsPinned(key)
@@ -240,20 +287,20 @@ local function makeTile(i)
   t:SetScript("OnClick", function(self, btn)
     local d = self.key and T.byKey[self.key]
     if btn == "RightButton" then
-      if self.key then T:Toggle(self.key) end
+      ns.Window:Toggle("stats")
     elseif d and d.click then
       -- straight from the click: some actions (the layer hop's zone search) only work that way
       d.click()
       C_Timer.After(0.2, function() T:Update() end)
     else
-      ns.Window:OpenPlayer(ns.pid)
+      ns.Window:Toggle("stats")
     end
   end)
   t:SetScript("OnEnter", function(self)
     local d = self.key and T.byKey[self.key]
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(d and d.name or "Chillan?", 1, 1, 1)
-    GameTooltip:AddLine((d and d.tip) and (d.tip .. "  ·  Right-click: remove") or "Left-click: My page  ·  Right-click: remove", 0.52, 0.55, 0.57, true)
+    GameTooltip:AddLine((d and d.tip) or "Click: the Stats page", 0.52, 0.55, 0.57, true)
     GameTooltip:Show()
   end)
   t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -290,7 +337,7 @@ function T:Layout()
   if not self.holder then return end
   local m = ns.Overlays.minibar
   local list = self:List()
-  local show = m and m:IsShown() and #list > 0
+  local show = m and m:IsShown() and #list > 0 and not (ns.NowCard and ns.NowCard:Collapsed())
   self.holder:SetShown(show and true or false)
   if not show then
     self.rowWidth = 0
@@ -360,21 +407,14 @@ function T:Init()
   holder:SetFrameLevel(m:GetFrameLevel() + 5)
   self.holder = holder
 
-  -- "+"-knapp på minibaren
-  local plus = UI.IconButton(m, 24, "Plus", "Pin buttons and stats under the bar", function(b) T:OpenMenu(b) end)
-  plus:SetIcon("Plus", 16)          -- bigger "+" than the default half-size icon
-  plus.icon:SetVertexColor(hex(C.accent))
-  plus:SetScript("OnClick", function(b) T:OpenMenu(b) end)
-  m.plus = plus
-
   m:HookScript("OnShow", function() T:Layout() end)
   m:HookScript("OnHide", function() T:Layout() end)
   ns:Listen("MINIBAR", function() T:Layout() end)
   ns:Listen("DATA", function() T:Update() end)
   ns:Listen("LAYERHOP", function() T:Update() end)
   ns:Listen("LAYER", function() T:Update() end)
-  ns:On("PLAYER_REGEN_DISABLED", function() holder:SetAlpha(0.3) end)
-  ns:On("PLAYER_REGEN_ENABLED", function() holder:SetAlpha(1) end)
+  ns:Listen("PULSE_MODE", function() T:Layout() end)
+  ns:Listen("PULSE", function() T:Update() end)
   C_Timer.NewTicker(2, function()
     T:Update()
     if ns.Overlays.UpdateMinibarExtras then ns.Overlays:UpdateMinibarExtras() end

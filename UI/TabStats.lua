@@ -134,29 +134,93 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     legend[i] = lg
   end
 
-  local function getLine(i)
-    local ln = lines[i]
+  -- one set of line segments per person, so a whole line can be highlighted on hover (1.1.0)
+  local seriesLines = {}
+  local function getLine(si, i)
+    seriesLines[si] = seriesLines[si] or {}
+    local ln = seriesLines[si][i]
     if not ln then
       ln = plot:CreateLine(nil, "ARTWORK")
       ln:SetThickness(2)
-      lines[i] = ln
+      seriesLines[si][i] = ln
     end
     return ln
   end
+  local dots = {}
+  local function getDot(i)
+    local d = dots[i]
+    if not d then
+      d = plot:CreateTexture(nil, "OVERLAY")
+      d:SetTexture(ns.TEX .. "Circle")
+      d:SetSize(7, 7)
+      dots[i] = d
+    end
+    return d
+  end
+  local hoverDot = plot:CreateTexture(nil, "OVERLAY", nil, 7)
+  hoverDot:SetTexture(ns.TEX .. "Circle")
+  hoverDot:SetSize(10, 10)
+  hoverDot:Hide()
+
+  -- players of the same class get lighter/darker shades so their lines can be told apart
+  local function shade(r, g, b, k)
+    if k == 0 then return r, g, b end
+    local f = ({ 0.45, -0.35, 0.7, -0.55 })[k] or 0
+    if f > 0 then return r + (1 - r) * f, g + (1 - g) * f, b + (1 - b) * f end
+    return r * (1 + f), g * (1 + f), b * (1 + f)
+  end
+
+  -- the points of the line: in time order, and only the latest run of the character (a character
+  -- deleted and made again, or a broken sync, would otherwise draw a line going down)
+  local function cleanPoints(hist)
+    local pts = {}
+    for _, h in ipairs(hist) do if h.t and h.l then pts[#pts + 1] = { t = h.t, l = h.l } end end
+    table.sort(pts, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.l < b.l end)
+    local start = 1
+    for i = 2, #pts do if pts[i].l < pts[i - 1].l then start = i end end
+    local out = {}
+    for i = start, #pts do out[#out + 1] = pts[i] end
+    return out
+  end
+
+  local G = { series = {}, highlight = nil }
+  local function paintHighlight()
+    for si, s in ipairs(G.series) do
+      local on = not G.highlight or G.highlight == si
+      local a = on and 1 or 0.18
+      for _, ln in ipairs(seriesLines[si] or {}) do
+        if ln:IsShown() then
+          ln:SetColorTexture(s.r, s.g, s.b, a)
+          ln:SetThickness((G.highlight == si) and 3 or 2)
+        end
+      end
+      if s.dot then s.dot:SetVertexColor(s.r, s.g, s.b, a) end
+      if s.legend then s.legend:SetAlpha(on and 1 or 0.4) end
+    end
+  end
 
   local function drawGraph()
-    for _, ln in ipairs(lines) do ln:Hide() end
+    for _, list in pairs(seriesLines) do for _, ln in ipairs(list) do ln:Hide() end end
+    for _, d in ipairs(dots) do d:Hide() end
     for _, lg in ipairs(legend) do lg:Hide() end
+    G.series, G.highlight = {}, nil
+    hoverDot:Hide()
     local people = ns:SortedPeople()
     table.sort(people, function(a, b) return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end)
     local series, tMin, lMin, lMax = {}, nil, 60, 1
+    local classCount = {}
     for _, p in ipairs(people) do
       local c = ns:PersonChar(p)
       -- bruk karakteren med høyest level
       for _, ch in pairs(p.chars) do if (ch.level or 0) > ((c and c.level) or 0) then c = ch end end
-      if c and c.hist and #c.hist >= 2 and #series < 8 then
-        series[#series + 1] = { p = p, c = c }
-        for _, h in ipairs(c.hist) do
+      local pts = (c and c.hist) and cleanPoints(c.hist) or {}
+      if #pts >= 2 and #series < 8 then
+        local k = classCount[c.class or "?"] or 0
+        classCount[c.class or "?"] = k + 1
+        local r, g, b = ns.ClassColor(c.class)
+        r, g, b = shade(r, g, b, k)
+        series[#series + 1] = { p = p, c = c, pts = pts, r = r, g = g, b = b }
+        for _, h in ipairs(pts) do
           if not tMin or h.t < tMin then tMin = h.t end
           if h.l < lMin then lMin = h.l end
           if h.l > lMax then lMax = h.l end
@@ -179,6 +243,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     local tMax = ns.Now()
     if tMax - tMin < 3600 then tMin = tMax - 3600 end
     xStart:SetText(date("%d.%m", tMin))
+    G.tMin, G.tMax, G.lMin, G.lMax, G.W, G.H = tMin, tMax, lMin, lMax, W, H
     -- rutenett for hvert 10. level
     local gi = 0
     for lv = lMin, lMax, 10 do
@@ -196,34 +261,93 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       end
     end
     for i = gi + 1, 7 do gridLines[i]:Hide() gridLabels[i]:Hide() end
-    local n = 0
+    local function X(t) return (t - tMin) / (tMax - tMin) * W end
+    local function Y(l) return (l - lMin) / (lMax - lMin) * H end
     for si, s in ipairs(series) do
-      local r, g, b = ns.ClassColor(s.c.class)
+      -- carry the line to now at today's level
       local pts = {}
-      for _, h in ipairs(s.c.hist) do pts[#pts + 1] = h end
-      -- forleng linja til nå på dagens level
+      for _, h in ipairs(s.pts) do pts[#pts + 1] = h end
       pts[#pts + 1] = { t = tMax, l = pts[#pts].l }
+      s.draw = pts
+      local n = 0
       for i = 1, #pts - 1 do
         local a, bpt = pts[i], pts[i + 1]
         n = n + 1
-        local ln = getLine(n)
-        local x1 = (a.t - tMin) / (tMax - tMin) * W
-        local y1 = (a.l - lMin) / (lMax - lMin) * H
-        local x2 = (bpt.t - tMin) / (tMax - tMin) * W
-        local y2 = (bpt.l - lMin) / (lMax - lMin) * H
-        ln:SetStartPoint("BOTTOMLEFT", plot, x1, y1)
-        ln:SetEndPoint("BOTTOMLEFT", plot, x2, y2)
-        ln:SetColorTexture(r, g, b, 1)
+        local ln = getLine(si, n)
+        ln:SetStartPoint("BOTTOMLEFT", plot, X(a.t), Y(a.l))
+        ln:SetEndPoint("BOTTOMLEFT", plot, X(bpt.t), Y(bpt.l))
         ln:Show()
       end
+      -- a dot where the line ends (today's level)
+      local d = getDot(si)
+      d:ClearAllPoints()
+      d:SetPoint("CENTER", plot, "BOTTOMLEFT", X(tMax), Y(pts[#pts].l))
+      d:Show()
+      s.dot = d
       local lg = legend[si]
       lg:ClearAllPoints()
       local col, row = (si - 1) % 4, math.floor((si - 1) / 4)
       lg:SetPoint("BOTTOMLEFT", graphPage, "BOTTOMLEFT", col * 112, 20 - row * 18)
-      lg:SetText(ns.Colorize("— " .. (ns:PersonAlias(s.p) or ns:PersonFirst(s.p)), ns.ClassHex(s.c.class)))
+      local hx = string.format("%02X%02X%02X", math.floor(s.r * 255), math.floor(s.g * 255), math.floor(s.b * 255))
+      lg:SetText(ns.Colorize("— " .. (ns:PersonAlias(s.p) or ns:PersonFirst(s.p)) .. "  " .. tostring(s.pts[#s.pts].l), hx))
       lg:Show()
+      s.legend = lg
     end
+    G.series = series
+    paintHighlight()
   end
+
+  -- level of a series at time t (straight line between dings, like the drawing)
+  local function levelAt(s, t)
+    local pts = s.draw
+    if not pts or t < pts[1].t then return nil end
+    for i = 1, #pts - 1 do
+      local a, b = pts[i], pts[i + 1]
+      if t <= b.t then
+        if b.t == a.t then return b.l end
+        return a.l + (b.l - a.l) * (t - a.t) / (b.t - a.t)
+      end
+    end
+    return pts[#pts].l
+  end
+
+  -- hover: the line nearest the cursor lights up, the rest fade, and a tooltip says who and when
+  plot:EnableMouse(true)
+  plot:SetScript("OnUpdate", function(self)
+    if not self:IsMouseOver() or #G.series == 0 or not G.W then
+      if G.highlight then G.highlight = nil paintHighlight() hoverDot:Hide() GameTooltip:Hide() end
+      return
+    end
+    local scale = self:GetEffectiveScale()
+    local cx, cy = GetCursorPosition()
+    local mx = cx / scale - self:GetLeft()
+    local my = cy / scale - self:GetBottom()
+    local t = G.tMin + (mx / G.W) * (G.tMax - G.tMin)
+    local best, bestD, bestL
+    for si, s in ipairs(G.series) do
+      local l = levelAt(s, t)
+      if l then
+        local y = (l - G.lMin) / (G.lMax - G.lMin) * G.H
+        local d = math.abs(y - my)
+        if not bestD or d < bestD then best, bestD, bestL = si, d, l end
+      end
+    end
+    if not best or bestD > 24 then
+      if G.highlight then G.highlight = nil paintHighlight() hoverDot:Hide() GameTooltip:Hide() end
+      return
+    end
+    if best ~= G.highlight then G.highlight = best paintHighlight() end
+    local s = G.series[best]
+    hoverDot:ClearAllPoints()
+    hoverDot:SetPoint("CENTER", self, "BOTTOMLEFT", mx, (bestL - G.lMin) / (G.lMax - G.lMin) * G.H)
+    hoverDot:SetVertexColor(s.r, s.g, s.b, 1)
+    hoverDot:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    GameTooltip:AddLine((ns:PersonAlias(s.p) or ns:PersonFirst(s.p)) .. (s.c.name and ("  (" .. s.c.name .. ")") or ""), s.r, s.g, s.b)
+    GameTooltip:AddLine("Level " .. math.floor(bestL) .. " on " .. date("%d.%m %H:%M", math.floor(t)), 0.85, 0.87, 0.9)
+    GameTooltip:AddLine("Now level " .. s.pts[#s.pts].l, 0.6, 0.63, 0.66)
+    GameTooltip:Show()
+  end)
 
   -------------------------------------------------------------------------
   -- 3) Tabell (sorterbar, uke/totalt)
