@@ -104,9 +104,9 @@ ns:RegisterTab("more", "Crafters", "More", function(tab)
       if not g then g = { what = what, sub = sub, ask = ask, people = {}, sort = sub and 1 or 0 } groups[key] = g order[#order + 1] = g end
       g.people[#g.people + 1] = { pid = pid, detail = detail, skill = skill or 0 }
     end
-    local hidden = ns:HiddenDuplicates()
+    -- every install counts here: an alt's profession is still something the person can make
     for pid, p in pairs(ns.db.people) do
-      if p.main and not hidden[pid] then
+      if p.main then
         for _, prof in ipairs(p.profs or {}) do
           if q == "" or prof.name:lower():find(q, 1, true) then
             add("P:" .. prof.name, prof.name, nil, nil, pid, prof.skill .. "/" .. prof.max, prof.skill)

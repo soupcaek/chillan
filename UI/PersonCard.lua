@@ -34,10 +34,11 @@ end
 function PC:FindByChar(name)
   if not name or name == "" then return nil end
   local short = ns.ShortName(name)
+  local hidden = ns:HiddenDuplicates()
   for pid, p in pairs(ns.db.people or {}) do
-    if p.whisperTo == name then return pid end
+    if p.whisperTo == name then return hidden[pid] or pid end
     for full, ch in pairs(p.chars or {}) do
-      if full == name or ch.name == name or ns.ShortName(full) == short then return pid end
+      if full == name or ch.name == name or ns.ShortName(full) == short then return hidden[pid] or pid end
     end
   end
 end

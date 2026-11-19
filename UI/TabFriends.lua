@@ -132,7 +132,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     local st = ns.STATUS[status] or ns.STATUS.QUEST
     row.avatar:Set(c.name, c.class, online and (status == "AFK" and C.amber or C.green) or nil)
     row.name:SetText(nameText(p))
-    row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or ""))
+    local nAlts = #ns:AllChars(p) - 1
+    row.sub:SetText(string.format("Lvl %s · %s %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or "")
+      .. (nAlts > 0 and ns.Colorize("  ·  +" .. ns.Plural(nAlts, "alt"), C.muted) or ""))
     if online then
       local z = L.zone or ""
       if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end

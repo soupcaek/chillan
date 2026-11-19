@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.9", date = "19.11", items = {
+    "Alts on other installs are now one person: everyone with the same name (\"Simon\") is shown once, and their page lists all their characters under Other characters – with the professions from those characters too",
+    "Friends shows \"+2 alts\" next to people with more characters. Clicking an alt's name anywhere opens the person",
+    "Crafters lists professions from every character again, so an alt's profession can still be asked for",
+  } },
   { v = "1.1.8", date = "19.11", items = {
     "Carrot on a Stick stuck on: when it's on while you're on foot and Chillan has nothing saved to put back, it now picks your own trinket – the last one you wore in that slot, else the one from your other trinket slot, else the best trinket in your bags",
     "/chill qol test also shows which of your own items it remembers per slot",

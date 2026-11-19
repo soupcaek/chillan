@@ -296,11 +296,22 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
       local gain = pr.base and (pr.skill - pr.base) or 0
       gearRows[#gearRows + 1] = { pr.name, pr.skill .. " / " .. pr.max .. (gain > 0 and ns.Colorize("  +" .. gain .. " this week", C.green) or "") }
     end
+    -- (1.1.9) professions on their other installs (same name), marked with that character
+    for i, pid in ipairs(ns:LinkedPids(p)) do
+      local q = i > 1 and ns.db.people[pid]
+      if q then
+        local cn = (q.chars and q.main and q.chars[q.main] and q.chars[q.main].name) or ns.ShortName(q.main or "?")
+        for _, pr in ipairs(q.profs or {}) do
+          gearRows[#gearRows + 1] = { pr.name .. ns.Colorize("  (" .. cn .. ")", C.dim), pr.skill .. " / " .. pr.max }
+        end
+      end
+    end
     yR = section(xR, yR, "Gear and professions", gearRows)
 
+    -- (1.1.9) every character of the person, from all their installs (same name typed in)
     local alts = {}
-    for full, ch in pairs(p.chars) do
-      if full ~= p.main then alts[#alts + 1] = ch end
+    for _, x in ipairs(ns:AllChars(p)) do
+      if x.full ~= p.main then alts[#alts + 1] = x.ch end
     end
     table.sort(alts, function(a, b) return (a.level or 0) > (b.level or 0) end)
     local altRows = {}
@@ -311,7 +322,7 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
           "Level " .. (ch.level or "?") .. " " .. cn .. (ch.played and (" · " .. dur(ch.played)) or "") }
       end
     else
-      altRows[1] = { "Count", #alts == 0 and "no other characters" or (#alts .. (#alts == 1 and " karakter" or " karakterer")) }
+      altRows[1] = { "Count", #alts == 0 and "no other characters" or ns.Plural(#alts, "character") }
     end
     yR = section(xR, yR, "Other characters", altRows, #alts > 0 and {
       label = showAlts and "Hide" or "Show other characters",

@@ -921,6 +921,29 @@ function ns.Plural(n, one, many)
   return n .. " " .. (n == 1 and one or (many or (one .. "s")))
 end
 
+-- (1.1.9) one person, all installs: the shown entry plus the hidden duplicates with the same name
+function ns:LinkedPids(p)
+  local pid = p and p.pid
+  if not pid then
+    for k, v in pairs(ns.db.people or {}) do if v == p then pid = k break end end
+  end
+  local out = { pid }
+  for hid, best in pairs(ns:HiddenDuplicates()) do if best == pid then out[#out + 1] = hid end end
+  return out
+end
+-- every character of that person: { full, ch, pid }, highest level first
+function ns:AllChars(p)
+  local out, seen = {}, {}
+  for _, pid in ipairs(ns:LinkedPids(p)) do
+    local q = ns.db.people[pid]
+    for full, ch in pairs(q and q.chars or {}) do
+      if not seen[full] then seen[full] = true out[#out + 1] = { full = full, ch = ch, pid = pid } end
+    end
+  end
+  table.sort(out, function(a, b) return (a.ch.level or 0) > (b.ch.level or 0) end)
+  return out
+end
+
 function ns:SortedPeople(filter)
   local out = {}
   local hidden = ns:HiddenDuplicates()
