@@ -265,15 +265,13 @@ function Q:MountTick()
     local isSpeed = false
     for _, r in ipairs(Q.RIDE) do if matches(r, cur) then isSpeed = true end end
     if cur and not isSpeed then own[slot] = cur
-    elseif isSpeed and not mounted and sv[slot] == nil and not plan[slot] and own[slot] then
-      local inBags
-      bagSlots(function(bag, bs)
-        local l = GetSlotLink(bag, bs)
-        if l and sameItem(l, own[slot]) then inBags = true return true end
-      end)
-      if inBags then
-        sv[slot] = own[slot]
-        log("speed item on foot with nothing saved: putting back " .. nameOf(own[slot]))
+    elseif isSpeed and not mounted and sv[slot] == nil and not plan[slot] then
+      local back = Q:OwnFor(slot, own)
+      if back then
+        sv[slot] = back
+        log("speed item on foot with nothing saved: putting back " .. nameOf(back))
+      else
+        warnOnce("noown:" .. slot, "Chillan QoL: " .. nameOf(cur) .. " is on while you're on foot, and there's nothing in your bags to put back. Equip your own item once and it swaps from then on.")
       end
     end
   end
@@ -308,6 +306,34 @@ function Q:MountTick()
       return
     end
   end
+end
+
+-- (1.1.8) what to put back in a slot when nothing was saved: the last own item seen there, else the
+-- one seen in the other trinket slot, else (trinkets) the best trinket in your bags
+local function inBags(link)
+  return bagSlots(function(bag, bs)
+    local l = GetSlotLink(bag, bs)
+    if l and sameItem(l, link) then return l end
+  end)
+end
+local function isSpeedLink(link)
+  for _, r in ipairs(Q.RIDE) do if matches(r, link) then return true end end
+  return false
+end
+function Q:OwnFor(slot, own)
+  if own[slot] and inBags(own[slot]) then return own[slot] end
+  if slot ~= 13 and slot ~= 14 then return nil end
+  local other = slot == 13 and 14 or 13
+  if own[other] and inBags(own[other]) and not sameItem(equipped(other), own[other]) then return own[other] end
+  local best, bestLvl
+  bagSlots(function(bag, bs)
+    local l = GetSlotLink(bag, bs)
+    if l and not isSpeedLink(l) and not sameItem(l, equipped(other)) then
+      local _, _, _, ilvl, _, _, _, _, loc = itemInfo(l)
+      if loc == "INVTYPE_TRINKET" and (not bestLvl or (ilvl or 0) > bestLvl) then best, bestLvl = l, ilvl or 0 end
+    end
+  end)
+  return best
 end
 
 function Q:RestoreSlot(slot)
@@ -425,6 +451,7 @@ function Q:Test()
   end
   if not any then ns.Print("  no speed items found (Carrot on a Stick, Desert Rose, Wintersaber gloves, Riding Skill gloves, Mithril Spurs boots)") end
   for s2, v in pairs(saved()) do ns.Print("  will give back: " .. (v and nameOf(v) or "empty slot") .. " -> slot " .. s2) end
+  for s2, v in pairs(ns.db.qolLastOwn or {}) do ns.Print("  your own item in slot " .. s2 .. ": " .. nameOf(v)) end
   if #Q.lastLog == 0 then ns.Print("  nothing tried yet – mount up and run this again")
   else for _, l in ipairs(Q.lastLog) do ns.Print("  " .. l) end end
 end

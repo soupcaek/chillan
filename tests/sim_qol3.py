@@ -23,4 +23,11 @@ LA.execute('''local b, s; for bb, t in pairs(BAGS) do for ss, l in pairs(t) do i
 if b then local old = INV[14]; INV[14] = BAGS[b][s]; BAGS[b][s] = old end; ADDON_NS.db.qolSaved = {}''')
 tick(8)
 print("carrot on by hand on foot ->", LA.eval('INV[14]'))
+# the stuck case from 1.1.7: carrot worn on foot, nothing saved, nothing remembered -> best trinket in bags
+LA.execute('''local b, s; for bb, t in pairs(BAGS) do for ss, l in pairs(t) do if l:find("Carrot") then b, s = bb, ss end end end
+if b then local old = INV[14]; INV[14] = BAGS[b][s]; BAGS[b][s] = old end; ADDON_NS.db.qolSaved = {}; ADDON_NS.db.qolLastOwn = {}''')
+tick(2)
+LA.execute('ADDON_NS.db.qolLastOwn = {}')
+tick(8)
+print("stuck case ->", LA.eval('INV[14]'))
 print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:4])

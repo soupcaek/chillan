@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.8", date = "19.11", items = {
+    "Carrot on a Stick stuck on: when it's on while you're on foot and Chillan has nothing saved to put back, it now picks your own trinket – the last one you wore in that slot, else the one from your other trinket slot, else the best trinket in your bags",
+    "/chill qol test also shows which of your own items it remembers per slot",
+  } },
   { v = "1.1.7", date = "19.11", items = {
     "The same friend no longer shows up twice (a second PC or a new install): the one online, or furthest along, is shown",
     "Deaths are counted the same everywhere – the Legend book now agrees with the Wall of Shame",
