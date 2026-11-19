@@ -412,16 +412,13 @@ end)
 -- money with the gold / silver / copper coins, like the game's own tooltips
 local function coins(copper)
   copper = math.floor(copper or 0)
-  local f = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
-  if f then
-    local ok, s = pcall(f, copper)
-    if ok and type(s) == "string" and s ~= "" then return s end
-  end
+  -- (1.3.8) our own coins with a fixed size: icons sized "0" (line height) aren't counted when the
+  -- tooltip works out its width, so the text ran out over the right edge
   local g, sv, c = math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100
   local parts = {}
-  if g > 0 then parts[#parts + 1] = g .. "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t" end
-  if sv > 0 then parts[#parts + 1] = sv .. "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t" end
-  if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t" end
+  if g > 0 then parts[#parts + 1] = g .. "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t" end
+  if sv > 0 then parts[#parts + 1] = sv .. "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t" end
+  if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t" end
   return table.concat(parts, " ")
 end
 M.Coins = coins
@@ -483,7 +480,7 @@ local function addLine(tt, id, count)
     if not deRes then deRes = ns.Disenchant:Results(id) end
     if deRes then
       if deVal then
-        tt:AddDoubleLine("Disenchant", "≈ " .. coins(deVal) .. "  |cff858B92expected|r", 0.75, 0.78, 0.82, 1, 1, 1)
+        tt:AddDoubleLine("Disenchant", "≈ " .. coins(deVal), 0.75, 0.78, 0.82, 1, 1, 1)
       else
         ns.Disenchant:AskMats(id)
         if not opt("mkDEList") then tt:AddLine("Disenchant: " .. ns.Disenchant:Describe(deRes), 0.6, 0.63, 0.66, true) end
@@ -495,7 +492,7 @@ local function addLine(tt, id, count)
           local q = r.min == r.max and tostring(r.min) or (r.min .. "–" .. r.max)
           local me = M:Get(r.id)
           tt:AddDoubleLine("   " .. q .. "× " .. ((i and i.name) or ("item " .. r.id)) .. (r.chance < 1 and ("  |cff858B92" .. math.floor(r.chance * 100 + 0.5) .. " %|r") or ""),
-            me and (coins(me.v) .. " each") or "|cff858B92no price|r", 0.75, 0.78, 0.82, 0.85, 0.85, 0.85)
+            me and coins(me.v) or "|cff858B92no price|r", 0.75, 0.78, 0.82, 0.85, 0.85, 0.85)
         end
       end
       shown = true
@@ -514,7 +511,7 @@ local function addLine(tt, id, count)
       local diff = best[2] - second[2]
       if diff > 0 then
         local col = best[1] == "Auction" and { 0.37, 0.82, 0.55 } or best[1] == "Disenchant" and { 0.73, 0.6, 0.95 } or { 0.88, 0.69, 0.31 }
-        tt:AddDoubleLine("Best: " .. best[1], "+" .. coins(diff) .. " over " .. second[1]:lower(), 0.75, 0.78, 0.82, col[1], col[2], col[3])
+        tt:AddDoubleLine("Best: " .. best[1], "+" .. coins(diff) .. " vs " .. second[1]:lower(), 0.75, 0.78, 0.82, col[1], col[2], col[3])
         shown = true
       end
     end
