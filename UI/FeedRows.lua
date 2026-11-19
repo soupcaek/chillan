@@ -121,15 +121,21 @@ local function fill(fr, row, msg)
     if not counts[rx.idx] then counts[rx.idx] = 0 order[#order + 1] = rx.idx end
     counts[rx.idx] = counts[rx.idx] + 1
   end
-  local px, n = x, 0
+  -- (1.3.6) pills wrap onto a new line when the window is narrow
+  local px, n, lines = x, 0, 1
   local function pill(label, link, tip, onClick)
     n = n + 1
     local p = row.pills[n] or newPill(row)
     row.pills[n] = p
     p.text:SetText(label)
-    p:SetWidth((p.text:GetStringWidth() or 20) + 14)
+    local pw = (p.text:GetStringWidth() or 20) + 14
+    p:SetWidth(pw)
+    if px > x and px + pw > w then
+      px = x
+      lines = lines + 1
+    end
     p:ClearAllPoints()
-    p:SetPoint("TOPLEFT", px, -(h + 3))
+    p:SetPoint("TOPLEFT", px, -(h + 3 + (lines - 1) * (PILL_H + 4)))
     p.link, p.tip = link, tip
     p:SetScript("OnClick", onClick)
     p:Show()
@@ -141,7 +147,7 @@ local function fill(fr, row, msg)
     pill(ns.ReactionText(item, idx) .. (c > 1 and ("  " .. c) or ""), "chillanrx:" .. tostring(item.id) .. ":" .. idx, nil,
       function() if canReact(item) then ns.Data:React(item, idx) end end)
   end
-  if n > 0 then h = h + PILL_H + 5 end
+  if n > 0 then h = h + lines * (PILL_H + 4) + 1 end
   -- "+" to react: top right of the line, shown while the mouse is on it (no jumping lines)
   if not row.plusBtn then
     row.plusBtn = newPill(row)
