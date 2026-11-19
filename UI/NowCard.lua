@@ -151,8 +151,9 @@ function N:Update()
     local c = ns.Tracker:MyChar() or {}
     local eta = ns.St and ns.St:ETA(ns:GetPerson(ns.pid, true))
     if (c.level or 0) < 60 then
-      f.big:SetText(eta and ns.Duration(eta) or "–")
-      f.bigSub:SetText("to level " .. ((c.level or 0) + 1))
+      local pct = (d.xp and d.xpMax and d.xpMax > 0) and math.floor(d.xp / d.xpMax * 100) or nil
+      f.big:SetText(pct and (pct .. " %") or "–")
+      f.bigSub:SetText("of level " .. (c.level or "?"))
       local ql = P:QuestsLeft()
       f.right:SetText(ql and ("≈ " .. ql .. " quests") or "")
       if d.xp and d.xpMax and d.xpMax > 0 then f.meter.pct = d.xp / d.xpMax end

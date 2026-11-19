@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.1", date = "19.11", items = {
+    "Gang pulse is slimmer: the four boxes are narrower and the panel can be dragged down to 270 px wide (starts at 300)",
+    "The Now card shows how far into your level you are (%) instead of the time to level again – that's in the box above",
+    "React is a small star at the end of the line, only on the last 30 minutes, so lines wrap less",
+    "The 'earlier today' marker no longer shows as empty boxes",
+  } },
   { v = "1.1.0", date = "19.11", items = {
     "Gang pulse: the bar, the stat tiles and the event window are now one panel that changes with where you are – open world, dungeon or battleground",
     "Top bar: the friends online as small overlapping dots and \"N online\" – hover for who, where, level and layer. The chip says your status, or the dungeon or battleground you're in",

@@ -58,8 +58,8 @@ local REACTABLE = { DING = true, DEAD = true, KILL = true, ACH = true }
 local function reactLink(item)
   if not item or not item.id or not REACTABLE[item.kind] or item.pid == ns.pid then return "" end
   for _, r in ipairs(item.reacts or {}) do if r.pid == ns.pid then return "" end end
-  if (ns.Now() - (item.t or 0)) > 6 * 3600 then return "" end
-  return "  |Hchillanreact:" .. tostring(item.id) .. "|h" .. ns.Colorize("[react]", C.purple) .. "|h"
+  if (ns.Now() - (item.t or 0)) > 1800 then return "" end
+  return " |Hchillanreact:" .. tostring(item.id) .. "|h" .. UI.InlineIcon("Star", C.purple, 11) .. "|h"
 end
 E.ReactLink = reactLink
 
@@ -478,7 +478,7 @@ function E:SetDocked(on)
   self:Redraw()
 end
 
-E.DOCK_MIN_W, E.DOCK_MAX_W = 330, 700
+E.DOCK_MIN_W, E.DOCK_MAX_W = 270, 700
 
 -- called by the bar when its layout changes; returns true if the window is attached under `anchor`
 function E:Reanchor(anchor)
@@ -579,7 +579,7 @@ function E:Backfill()
   local first = math.max(1, #items - 30)
   while first <= #items and items[first].t < cutoff do first = first + 1 end
   if first <= #items then
-    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("──  earlier today  ──", "5A6067"), t = time() }, MAX_KEEP)
+    ns.PushCapped(self.entries, { kind = "sep", text = ns.Colorize("·  ·  ·   earlier today   ·  ·  ·", "5A6067"), t = time() }, MAX_KEEP)
   end
   for i = first, #items do
     local x = items[i]

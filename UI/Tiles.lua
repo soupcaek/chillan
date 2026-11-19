@@ -8,7 +8,7 @@ ns.Tiles = T
 
 local MAX = 4
 local PER_ROW = 4
-local W, H, GAP = 96, 44, 0   -- cards sit flush under the bar, sharing its background
+local W, H, GAP = 70, 40, 0   -- cards sit flush under the bar, sharing its background
 
 local function me() return ns:GetPerson(ns.pid, true) end
 local function s3() return ns.Tracker:S3Data() end
@@ -63,7 +63,7 @@ T.DEFS = {
   end },
   { key = "xph", name = "XP per hour", get = function()
     local rate, label = ns.St:XPRate(me())
-    return rate and ns.Num(rate) or "–", "XP/h" .. (label == "this session" and " · session" or label and " · week" or "")
+    return rate and ns.Num(rate) or "–", "XP/h"
   end },
   { key = "eta", name = "Time to next level", get = function()
     local eta = ns.St:ETA(me())
@@ -266,12 +266,12 @@ local function makeTile(i)
   t.hl:Hide()
   t:HookScript("OnEnter", function(self) self.hl:Show() end)
   t:HookScript("OnLeave", function(self) self.hl:Hide() end)
-  t.v = UI.Text(t, 14, "bold", C.text)
-  t.v:SetPoint("TOPLEFT", 9, -7)
+  t.v = UI.Text(t, 13, "bold", C.text)
+  t.v:SetPoint("TOPLEFT", 8, -6)
   t.v:SetPoint("RIGHT", -6, 0)
   t.v:SetWordWrap(false)
   t.k = UI.Text(t, 10, nil, C.muted)
-  t.k:SetPoint("BOTTOMLEFT", 9, 7)
+  t.k:SetPoint("BOTTOMLEFT", 8, 6)
   t.k:SetPoint("RIGHT", -6, 0)
   t.k:SetWordWrap(false)
   -- action tiles: a coloured edge on the left and an icon on the right
@@ -322,8 +322,9 @@ function T:Update()
         t.edge:Show()
         t.icon:SetTexture(ns.TEX .. "Icon" .. d.icon)
         t.icon:SetVertexColor(hex(d.color))
-        t.icon:Show()
-        t.v:SetPoint("RIGHT", -28, 0)
+        local roomy = (t:GetWidth() or 0) >= 100
+        t.icon:SetShown(roomy)
+        t.v:SetPoint("RIGHT", roomy and -28 or -6, 0)
       else
         t.edge:Hide()
         t.icon:Hide()
@@ -353,7 +354,7 @@ function T:Layout()
   -- attached chat lets you drag the group narrower, so cards may shrink to 110 px (never less)
   local E = ns.EventWindow
   local docked = ns.db.settings.evDocked and E and E.frame and E.frame:IsShown()
-  local blockW = math.max(cols * (docked and 110 or W), ns.Overlays:BaseWidth())
+  local blockW = math.max(cols * W, ns.Overlays:BaseWidth())
   blockW = math.floor(blockW)
   local tw = math.floor(blockW / cols)   -- the last column takes the leftover pixels
   n = 0

@@ -602,6 +602,11 @@ ns.MIGRATIONS = {
     S.eventFeed = true
     S.evMin = nil
   end,
+  -- 6 (1.1.1): Gang pulse slimmer by default
+  [6] = function(db)
+    local S = db.settings
+    if not S.evDockW or S.evDockW > 300 then S.evDockW = 300 end
+  end,
 }
 
 -- reasons only the old automatic enemy log wrote (a person adding someone always types a reason)
