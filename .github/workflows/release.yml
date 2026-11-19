@@ -68,11 +68,14 @@ jobs:
           # Same content under two names: "-forever" for WowUp builds that know Forever,
           # and without the suffix for WowUp builds that take the Forever folder for Retail.
           zip -r -q "Chillan-${TAG}-forever.zip" Chillan
-          cp "Chillan-${TAG}-forever.zip" "Chillan-${TAG}.zip"
+          cp "Chillan-${TAG}-forever.zip" "v${TAG}.zip"
+          # WowUp shows a GitHub addon's version as the name of the file it installs, so the file
+          # release.json points WowUp to (Forever) is called just "v1.2.3" – uploaded below with a zip
+          # content type. "-forever.zip" stays for WowUp builds that don't read release.json.
           cat > release.json <<JSON
           {"releases":[
-            {"name":"Chillan","version":"${TAG}","filename":"Chillan-${TAG}-forever.zip","nolib":false,"metadata":[{"flavor":"forever","interface":16001}]},
-            {"name":"Chillan","version":"${TAG}","filename":"Chillan-${TAG}.zip","nolib":false,"metadata":[{"flavor":"mainline","interface":16001}]}
+            {"name":"Chillan","version":"v${TAG}","filename":"v${TAG}","nolib":false,"metadata":[{"flavor":"forever","interface":16001}]},
+            {"name":"Chillan","version":"v${TAG}","filename":"v${TAG}.zip","nolib":false,"metadata":[{"flavor":"mainline","interface":16001}]}
           ]}
           JSON
           ls -la
@@ -85,6 +88,13 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
-          gh release create "$TAG" .release/Chillan-${TAG}-forever.zip .release/Chillan-${TAG}.zip .release/release.json \
-            --title "${TAG}" --notes "Update in WowUp, or download the zip and put the Chillan folder in _forever_\\Interface\\AddOns." \
-            --verify-tag
+          gh release create "$TAG" .release/Chillan-${TAG}-forever.zip .release/v${TAG}.zip .release/release.json \
+            --title "v${TAG}" --notes "Update in WowUp, or download the zip and put the Chillan folder in _forever_\\Interface\\AddOns." \
+            --verify-tag --draft
+          # the Forever file without ".zip" in its name, marked as a zip so WowUp accepts it; the release
+          # stays a draft until it's there, so WowUp never sees a release.json pointing at a missing file
+          RID=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -1)
+          curl -sSf -X POST -H "Authorization: Bearer ${GH_TOKEN}" -H "Content-Type: application/zip" \
+            --data-binary @".release/Chillan-${TAG}-forever.zip" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${RID}/assets?name=v${TAG}" > /dev/null
+          gh release edit "$TAG" --draft=false --latest

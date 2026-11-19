@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.4", date = "19.11", items = {
+    "WowUp shows the version as v1.1.4 instead of the zip file's name",
+    "A /reload (or a quick relog) no longer starts the session over: gold/h, quests and mobs carry on. After 15 minutes away a new session starts",
+  } },
   { v = "1.1.3", date = "19.11", items = {
     "Carrot on a Stick that stayed on after dismounting: when the game drops the swap back (it often does right after you dismount), Chillan now keeps trying until your own trinket is really back on – before, it forgot after the first try",
     "If the game blocks a gear swap, the mount swap pauses for a minute instead of until /reload",

@@ -44,6 +44,11 @@ for i in range(3, 0, -1):
 # feed rows: tiles and reaction pills at B
 LB.execute('local e = ADDON_NS.EventWindow.entries[#ADDON_NS.EventWindow.entries]; e.item.reacts = { { pid = "x1", char = "Bob-R", idx = 1 }, { pid = "x2", char = "Rob-R", idx = 1 }, { pid = "x3", char = "Tob-R", idx = 2 } }; ADDON_NS.EventWindow:Redraw()'); run(2)
 print("rows:", LB.eval('(function() local fr = ADDON_NS.EventWindow.msg local n, t, p = 0, 0, 0 for _, r in ipairs(fr.rows) do if r:IsShown() then n = n + 1 if r.tile:IsShown() then t = t + 1 end for _, x in ipairs(r.pills) do if x:IsShown() then p = p + 1 end end end end return n .. " rows, " .. t .. " icons, " .. p .. " pills" end)()'))
+# a /reload keeps the session (gold/h, quests, mobs)
+LA.execute('ADDON_NS.Pulse.sess.quests = 7; local st = ADDON_NS.Pulse.sess.start; ADDON_NS.Pulse:StartSession(); RELOAD_OK = ADDON_NS.Pulse.sess.quests == 7 and ADDON_NS.Pulse.sess.start == st')
+print("reload keeps session:", LA.eval('RELOAD_OK'))
+LA.execute('ADDON_NS.db.pulseSess.seen = ADDON_NS.Now() - 3600; ADDON_NS.Pulse:StartSession()')
+print("after an hour away, new session:", LA.eval('ADDON_NS.Pulse.sess.quests == 0'))
 # Progress chart: a character remade at level 1 must not draw a line going down
 LA.execute('''local p = ADDON_NS:GetPerson(ADDON_NS.pid, true)
 local c = ADDON_NS.Tracker:MyChar()

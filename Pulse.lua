@@ -57,13 +57,26 @@ ns:On("ZONE_CHANGED_NEW_AREA", function() C_Timer.After(1, setMode) end)
 ---------------------------------------------------------------------------
 P.sess = { start = nil, money0 = nil, quests = 0, mobs = 0 }
 
+-- (1.1.4) a /reload or a quick relog (under 15 min) carries on the same session, so gold/h and the
+-- session counts don't start over; a real break starts a new one
 function P:StartSession()
-  self.sess = { start = now(), money0 = money(), quests = 0, mobs = 0 }
+  local me = ns.Comm and ns.Comm.MyFull and ns.Comm:MyFull() or "?"
+  local saved = ns.db.pulseSess
+  if saved and saved.char == me and saved.start and (now() - (saved.seen or 0)) < 900 then
+    self.sess = saved
+  else
+    self.sess = { start = now(), money0 = money(), quests = 0, mobs = 0, char = me }
+  end
+  self.sess.seen = now()
+  ns.db.pulseSess = self.sess
 end
+C_Timer.NewTicker(30, function() if P.sess and P.sess.start then P.sess.seen = now() end end)
+ns:On("PLAYER_LOGOUT", function() if P.sess and P.sess.start then P.sess.seen = now() end end)
 
 function P:GoldPerHour()
   local s = self.sess
   local m = money()
+  if s.start and not s.money0 and m then s.money0 = m end
   if not s.start or not s.money0 or not m then return nil end
   local hours = (now() - s.start) / 3600
   if hours < 5 / 60 then return nil end   -- too early to say
@@ -280,5 +293,12 @@ function P:Danger()
   return nil
 end
 
-ns:On("PLAYER_LOGIN", function() P:StartSession() lastMoney = money() end)
-C_Timer.After(0, function() if not P.sess.start and ns.db then P:StartSession() lastMoney = money() end end)
+local started
+local function start()
+  if started or not ns.db then return end
+  started = true
+  P:StartSession()
+  lastMoney = money()
+end
+ns:On("PLAYER_LOGIN", start)
+C_Timer.After(0, start)
