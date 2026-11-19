@@ -97,6 +97,7 @@ end)
 local function help()
   ns.Print("Commands:")
   print("  /chill – open/close the window")
+  print("  /chill market – auction prices: how many you have (/chill market sync asks the gang)")
   print("  /chill selftest – which game functions work on this client")
   print("  /chill edit – move all Chillan pieces on screen")
   print("  /chill summary – show your session summary")
@@ -134,6 +135,13 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Window:Toggle()
   elseif cmd == "selftest" or cmd == "test" then
     ns.SelfTest()
+  elseif cmd == "market" and ns.Market then
+    if rest == "sync" then
+      ns.Comm:Broadcast(ns.Comm:Build("MQ", 0), 2)
+      ns.Print("Market: asked the gang for their prices – they arrive over the next few minutes.")
+    else
+      ns.Print("Market: " .. ns.Market:StatusText() .. ". /chill market sync asks the gang again.")
+    end
   elseif cmd == "kveld" or cmd == "summary" then
     ns:Fire("SHOW_SUMMARY", ns.Tracker:SessionSummary(), false)
   elseif cmd == "fiende" or cmd == "enemy" then

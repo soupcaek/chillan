@@ -31,6 +31,10 @@ print("B tooltip lines:", LB.eval('table.concat(TT.lines, " // "):gsub("|T.-|t",
 LB.execute('ADDON_NS.db.market = {}')
 LB.execute('ADDON_NS.Comm:Broadcast(ADDON_NS.Comm:Build("MQ", 0), 3)'); run(30)
 print("B after login sync:", LB.eval('ADDON_NS.Market:Count()'))
+# hovering an unknown item asks the gang; A answers at once
+LB.execute('ADDON_NS.db.market = {}; TT.lines = {}; ADDON_NS.Market.AddTooltipLine(TT, 11684, 1)'); run(10)
+print("B asked and got:", LB.eval('ADDON_NS.Market:Get(11684) and ADDON_NS.Market:Get(11684).v'))
+LB.execute('ADDON_NS.Print(ADDON_NS.Market:StatusText())')
 # cooldown
 LA.execute('ADDON_NS.Market:FullScan()')
 print("cooldown:", LA.eval('ADDON_NS.Market.status'))

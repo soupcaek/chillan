@@ -14,8 +14,8 @@ ns.Market = M
 local FULL_COOLDOWN = 15 * 60
 local KEEP_DAYS = 14
 local STALE = 3 * 86400
-local SEND_EVERY = 1.5          -- seconds between price messages (one message ≈ 15 prices)
-local MAX_SYNC = 1500           -- prices sent to someone logging in
+local SEND_EVERY = 1.0          -- seconds between price messages (one message ≈ 14 prices)
+local MAX_SYNC = 6000           -- prices sent to someone logging in (all of them, in practice)
 local PER_MSG = 14
 
 local function db()
@@ -335,6 +335,32 @@ Comm:Handle("MQ", function(f, sender)
     queueIds(ids, sender)
   end)
 end)
+-- (1.3.4) "MI": someone hovered items we may know the price of – answer those right away
+local asked, askQueue, askTimer = {}, {}, false
+function M:Ask(id)
+  if not on() or not id or asked[id] and ns.Now() - asked[id] < 600 then return end
+  asked[id] = ns.Now()
+  askQueue[#askQueue + 1] = id
+  if askTimer then return end
+  askTimer = true
+  C_Timer.After(1, function()
+    askTimer = false
+    local ids = {}
+    for i = 1, math.min(PER_MSG, #askQueue) do ids[#ids + 1] = b36(table.remove(askQueue, 1)) end
+    if #ids > 0 then Comm:Broadcast(Comm:Build("MI", table.concat(ids, ",")), 2) end
+  end)
+end
+Comm:Handle("MI", function(f, sender)
+  if not on() or ns.db.settings.marketShare == false or Comm:IsMe(sender) then return end
+  local have = {}
+  for part in tostring(f[1] or ""):gmatch("[^,]+") do
+    local id = un36(part)
+    if id and db()[id] then have[#have + 1] = id end
+  end
+  if #have == 0 then return end
+  C_Timer.After(0.3 + math.random() * 1.5, function() queueIds(have, sender) end)
+end)
+
 Comm:Handle("MA", function(f)
   M.answering = M.answering or {}
   if f[1] then M.answering[f[1]] = ns.Now() end
@@ -399,7 +425,7 @@ local AH_CUT = 0.05   -- what the auction house keeps when it sells
 local function addLine(tt, id, count)
   if not on() or not id or not tt or not tt.AddDoubleLine then return end
   local e = M:Get(id)
-  if not e then return end
+  if not e then M:Ask(id) return end
   count = count or hoveredCount(tt)
   local old = ns.Now() - (e.t or 0) > STALE
   local age = ns.Ago(e.t)
@@ -529,6 +555,13 @@ ns:On("AUCTION_HOUSE_CLOSED", function()
 end)
 
 ns:On("PLAYER_LOGIN", function() C_Timer.After(1, function() if on() then M:HookTooltips() end end) end)
+
+function M:StatusText()
+  local newest = self:Latest()
+  return ns.Num(self:Count()) .. " prices" .. (newest > 0 and (", newest " .. ns.Ago(newest)) or "")
+    .. (M.heardFrom and (" · last received from " .. M.heardFrom .. " " .. ns.Ago(M.heardAt)) or "")
+    .. (#outbox > 0 and (" · sending " .. #outbox .. " messages") or "")
+end
 
 -- /chill selftest: what this auction house lets us do
 function M:SelfTest()

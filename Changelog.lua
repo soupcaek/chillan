@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.4", date = "19.11", items = {
+    "Market: hover an item with no price and Chillan asks the gang for it – whoever has it answers within a second or two (hover again to see it)",
+    "Market: when you log in you now get all the gang's newer prices, not just the first 1 500, and a bit faster",
+    "/chill market shows how many prices you have and who sent the last ones; /chill market sync asks the gang again",
+  } },
   { v = "1.3.3", date = "19.11", items = {
     "Mount swap: never tries to put on a trinket that isn't bound to you yet. A Bind-on-Equip trinket in the bags made it ask \"bind it to you?\" again and again – now it's left alone, and only trinkets you've already worn are put back",
   } },
