@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.0", date = "19.11", items = {
+    "Chillan? Market: auction house prices for the whole gang. Open the auction house and click \"Chillan? scan\" (top right) – the game allows a full scan every 15 minutes",
+    "Every item tooltip shows its market value and how old the price is (greyed after 3 days). Market value = the typical price of the cheapest listings, ignoring silly ones",
+    "Prices are shared: after you scan, the ones that changed go to the gang quietly over a few minutes, and when you log in a friend with newer prices sends you what you missed. The newest scan always wins",
+    "On the classic-style auction house it also checks the items in your bags when you open it (and stops as soon as you search yourself)",
+    "Settings → Modules: switch the tooltip prices or the sharing off. /chill selftest shows which auction house this is",
+  } },
   { v = "1.2.4", date = "19.11", items = {
     "Gang pulse: the faces of the friends online are bigger, and at most 4 are shown – the rest as \"+2\"",
     "On a low alt, XP/h and time to level no longer borrow your main's pace for the week (it said 218k XP/h and 0m at level 1)",

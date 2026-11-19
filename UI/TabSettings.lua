@@ -343,6 +343,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   local mh = section(right, lastN, "Modules")
   checkList(right, mh, {
     { "Quest buddy", "questBuddy", nil, "Alert when you pick up a quest a friend also has (not when you're grouped)." },
+    { "Market: auction prices in tooltips", "market", function() if ns.Market then ns.Market:HookTooltips() end end, "Chillan? Market: scan the auction house (button on the AH) and see a market value on item tooltips. On by default." },
+    { "Market: share prices with the gang", "marketShare", nil, "After you scan, the prices that changed go to the gang quietly over a few minutes, and friends logging in get the newest ones." },
     { "Group radar", "radar", nil, "Alert when a friend within ±3 levels is in your zone and you're not grouped (max once per 30 min)." },
     { "Weekly titles", "titles", function() ns:MarkDirty() end, "Alert when a title like «Floor Inspector» changes hands." },
     { "Friends on the world map", "mapPins", function() ns:Fire("MAP_PINS") end, "Class-coloured pins where your friends are." },
