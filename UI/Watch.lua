@@ -7,7 +7,7 @@ local W = {}
 ns.Watch = W
 
 local MAX = 4
-local ROW_H = 30
+local ROW_H = 38
 
 local function list()
   ns.db.watch = ns.db.watch or {}
@@ -87,15 +87,21 @@ end
 ---------------------------------------------------------------------------
 -- the strip
 ---------------------------------------------------------------------------
+-- "Ruins of Andorhal, Western Plaguelands" → "Western Plaguelands"
+local function mainZone(z)
+  z = tostring(z or "")
+  return z:match(",%s*([^,]+)$") or z
+end
+
 local function where(p)
   local L = p.live or {}
   if not ns:IsOnline(p) then
     return ns.Colorize("offline · " .. ns.Ago(p.lastSeen), C.dim)
   end
   if p.deathAt and ns.Now() - p.deathAt < 150 and (not p.aliveAt or p.aliveAt < p.deathAt) then
-    return ns.Colorize("dead · " .. tostring(p.deathZone or L.zone or "?"), C.red)
+    return ns.Colorize("dead", C.red) .. ns.Colorize(" · " .. mainZone(p.deathZone or L.zone), C.dim)
   end
-  local z = L.zone or ""
+  local z = mainZone(L.zone)
   if L.inInst then return ns.Colorize(z ~= "" and z or "in a dungeon", "8FB8E8") end
   local mine = ns.Layer and ns.Layer:Current()
   if L.layer and mine and L.layer == mine then z = z .. ns.Colorize("  · your layer", "9BE08A") end
@@ -120,9 +126,13 @@ local function makeRow(f, i)
   r.where:SetPoint("TOPRIGHT", -2, -3)
   r.where:SetJustifyH("RIGHT")
   r.where:SetPoint("LEFT", r.name, "RIGHT", 8, 0)
+  r.fact = UI.Text(r, 10, nil, C.dim)
+  r.fact:SetPoint("TOPLEFT", 12, -17)
+  r.fact:SetPoint("RIGHT", -2, 0)
+  r.fact:SetWordWrap(false)
   r.bar = UI.Track(r:CreateTexture(nil, "ARTWORK"))
-  r.bar:SetPoint("BOTTOMLEFT", 0, 5)
-  r.bar:SetPoint("BOTTOMRIGHT", 0, 5)
+  r.bar:SetPoint("BOTTOMLEFT", 0, 4)
+  r.bar:SetPoint("BOTTOMRIGHT", 0, 4)
   r.bar:SetHeight(3)
   r.bar:SetColorTexture(hex(C.active))
   r.fill = r:CreateTexture(nil, "OVERLAY")
@@ -199,7 +209,7 @@ function W:Create()
     if not item or not W:Has(item.pid) then return end
     if item.kind == "DING" or item.kind == "DEAD" or (item.kind == "LOOT" and (tonumber(item.b) or 0) >= 4) then W:Flash(item.pid) end
   end)
-  C_Timer.NewTicker(5, function() W:Update() end)
+  C_Timer.NewTicker(6, function() W.tick = (W.tick or 0) + 1 W:Update() end)
   self:Update()
 end
 
@@ -216,6 +226,35 @@ function W:Flash(pid)
       end)
     end
   end
+end
+
+-- (1.2.5) a small fact under each name, a new one every 6 s: pace, gold, progress, the week
+local function facts(p)
+  local out = {}
+  local s3 = ns:PersonS3(p) or {}
+  local c = ns:PersonChar(p) or {}
+  local rate = ns.St and ns.St:XPRate(p)
+  if rate and (c.level or 0) < 60 then out[#out + 1] = ns.Num(math.floor(rate)) .. " XP/h" end
+  local pct = ns.Pct(s3.xp, s3.xpMax)
+  if pct and (c.level or 0) < 60 then out[#out + 1] = pct .. " % of level " .. tostring(c.level or "?") end
+  local eta = ns.St and ns.St:ETA(p)
+  if eta then out[#out + 1] = ns.Duration(eta) .. " to " .. ((c.level or 0) + 1) end
+  local wg, wo = ns:WeekStat(p, "Gold"), ns:WeekStat(p, "Online")
+  if wg > 0 and wo > 1800 then out[#out + 1] = ns.Money(math.floor(wg / wo * 3600)) .. "/h this week" end
+  if s3.money then out[#out + 1] = ns.Money(s3.money) .. " in the bags" end
+  local q = ns:WeekStat(p, "Quests")
+  if q > 0 then out[#out + 1] = q .. " quests this week" end
+  local lv = ns:WeekStat(p, "Levels")
+  if lv > 0 then out[#out + 1] = "+" .. ns.Plural(lv, "level") .. " this week" end
+  local k = ns:WeekStat(p, "Kills")
+  if k > 0 then out[#out + 1] = ns.Plural(k, "kill") .. " this week" end
+  local d = ns:WeekStat(p, "Deaths")
+  if d > 0 then out[#out + 1] = ns.Plural(d, "death") .. " this week" end
+  if s3.today and s3.today > 0 then out[#out + 1] = "online " .. ns.Duration(s3.today) .. " today" end
+  if (s3.streak or 0) >= 2 then out[#out + 1] = s3.streak .. "-day streak" end
+  if s3.ilvl then out[#out + 1] = "item level " .. math.floor(s3.ilvl) end
+  if s3.dura and s3.dura < 30 then out[#out + 1] = ns.Colorize("gear at " .. s3.dura .. " %", C.amber) end
+  return out
 end
 
 function W:Update()
@@ -245,6 +284,8 @@ function W:Update()
       r.dot:SetVertexColor(hex(online and C.green or "4A4F55"))
       r.name:SetText(ns.Colorize(ns:PersonFirst(p) or c.name or "?", ns.ClassHex(c.class)) .. ns.Colorize("  " .. tostring(c.level or "?"), C.muted))
       r.where:SetText(where(p))
+      local list = facts(p)
+      r.fact:SetText(#list > 0 and list[(self.tick or 0) % #list + 1] or "")
       local s3 = ns:PersonS3(p) or {}
       local pct = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or nil
       if (c.level or 0) >= 60 then pct = 1 end

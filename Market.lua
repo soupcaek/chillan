@@ -51,7 +51,7 @@ function M:Set(id, value, t, by)
   local d = db()
   local old = d[id]
   if old and (old.t or 0) >= t then return false end
-  d[id] = { v = value, t = t, by = by }
+  d[id] = { v = value, t = t, by = by, p = old and old.v or nil }
   return true, old
 end
 
@@ -368,17 +368,64 @@ local function coins(copper)
 end
 M.Coins = coins
 
+-- how many are in the stack you're hovering (bag slots), else 1
+local function hoveredCount(tt)
+  local owner = tt and tt.GetOwner and tt:GetOwner()
+  if not owner then return 1 end
+  local okB, bag = pcall(function() return owner.GetBagID and owner:GetBagID() or (owner.GetParent and owner:GetParent() and owner:GetParent().GetID and owner:GetParent():GetID()) end)
+  local okS, slot = pcall(function() return owner.GetID and owner:GetID() end)
+  if okB and okS and type(bag) == "number" and type(slot) == "number" and C_Container and C_Container.GetContainerItemInfo then
+    local ok, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
+    if ok and type(info) == "table" and type(info.stackCount) == "number" then return info.stackCount end
+  end
+  return 1
+end
+
+local function vendorPrice(id)
+  local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if not f then return nil end
+  local ok, _, _, _, _, _, _, _, _, _, _, sell = pcall(f, id)
+  return ok and type(sell) == "number" and sell or nil
+end
+M.VendorPrice = vendorPrice
+
+local AH_CUT = 0.05   -- what the auction house keeps when it sells
+
+-- (1.3.2) the tooltip block:
+--   Chillan? Market   4s each · 22 min ago
+--   Stack of 20       39s 40c              (when you hover a stack)
+--   Best: Auction     +35c over vendor     (after the auction house's 5 % cut)
+--   Since last scan   +12 %                (when the price moved)
 local function addLine(tt, id, count)
   if not on() or not id or not tt or not tt.AddDoubleLine then return end
   local e = M:Get(id)
   if not e then return end
+  count = count or hoveredCount(tt)
   local old = ns.Now() - (e.t or 0) > STALE
   local age = ns.Ago(e.t)
-  local money = coins(e.v)
+  local each = count > 1 and " each" or ""
   if old then
-    tt:AddDoubleLine("Market (old)", money .. "  · " .. age, 0.55, 0.57, 0.6, 0.55, 0.57, 0.6)
+    tt:AddDoubleLine("Market (old)", coins(e.v) .. each .. "  · " .. age, 0.55, 0.57, 0.6, 0.55, 0.57, 0.6)
   else
-    tt:AddDoubleLine("|cffC69B6DChillan?|r Market", money .. "  |cff858B92· " .. age .. "|r", 0.9, 0.9, 0.9, 1, 1, 1)
+    tt:AddDoubleLine("|cffC69B6DChillan?|r Market", coins(e.v) .. each .. "  |cff858B92· " .. age .. "|r", 0.9, 0.9, 0.9, 1, 1, 1)
+  end
+  if count > 1 then tt:AddDoubleLine("Stack of " .. count, coins(e.v * count), 0.75, 0.78, 0.82, 1, 1, 1) end
+  local sell = vendorPrice(id)
+  if sell and sell > 0 then
+    local net = math.floor(e.v * (1 - AH_CUT))
+    local n = math.max(1, count)
+    if net > sell then
+      tt:AddDoubleLine("Best: Auction", "+" .. coins((net - sell) * n) .. " over vendor", 0.75, 0.78, 0.82, 0.37, 0.82, 0.55)
+    elseif sell > net then
+      tt:AddDoubleLine("Best: Vendor", "+" .. coins((sell - net) * n) .. " over auction", 0.75, 0.78, 0.82, 0.88, 0.69, 0.31)
+    end
+  end
+  if e.p and e.p > 0 and not old then
+    local pct = math.floor((e.v - e.p) / e.p * 100 + 0.5)
+    if math.abs(pct) >= 5 then
+      tt:AddDoubleLine("Since last scan", (pct > 0 and "+" or "") .. pct .. " %", 0.75, 0.78, 0.82,
+        pct > 0 and 0.37 or 0.95, pct > 0 and 0.82 or 0.47, pct > 0 and 0.55 or 0.48)
+    end
   end
   if tt.Show then tt:Show() end
 end

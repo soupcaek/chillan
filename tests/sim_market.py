@@ -24,6 +24,9 @@ print("B got:", LB.eval('ADDON_NS.Market:Get(2589) and ADDON_NS.Market:Get(2589)
 # tooltip line
 LB.execute('TT = { lines = {} }; function TT:AddDoubleLine(a, b) table.insert(self.lines, a .. " | " .. b) end; ADDON_NS.Market.AddTooltipLine(TT, 11684)')
 print("B tooltip:", LB.eval('TT.lines[1]'))
+LB.execute('C_Item = C_Item or {}; C_Item.GetItemInfo = function(id) return "x", "l", 1, 1, 1, "", "", 20, "", 1, id == 2589 and 25 or 500000 end')
+LB.execute('TT.lines = {}; ADDON_NS.Market.AddTooltipLine(TT, 2589, 20); ADDON_NS.Market.AddTooltipLine(TT, 11684, 1)')
+print("B tooltip lines:", LB.eval('table.concat(TT.lines, " // "):gsub("|T.-|t", "¤")'))
 # B logs in fresh: asks, A answers with what B is missing
 LB.execute('ADDON_NS.db.market = {}')
 LB.execute('ADDON_NS.Comm:Broadcast(ADDON_NS.Comm:Build("MQ", 0), 3)'); run(30)
