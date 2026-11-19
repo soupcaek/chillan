@@ -21,6 +21,7 @@ Layer.lua
 CuntList.lua
 DiedTo.lua
 Market.lua
+Disenchant.lua
 Data.lua
 Sync.lua
 Quests.lua
@@ -43,6 +44,7 @@ UI\FeedRows.lua
 UI\PersonQuick.lua
 UI\MainWindow.lua
 UI\TabHome.lua
+UI\TabMarket.lua
 UI\TabFriends.lua
 UI\TabChat.lua
 UI\TabStats.lua

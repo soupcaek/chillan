@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.5", date = "19.11", items = {
+    "Chillan? Market has its own page: Market in the top bar. It shows where your prices stand, an \"Ask the gang now\" button, a switch for each tooltip line and for sharing",
+    "Disenchantry: the tooltip shows what green, blue and purple gear gives when disenchanted and what the mats are worth, and Best: now picks between auction, vendor and disenchant. The Market page lists the gear in your bags with the verdict for each",
+    "Prices reach the gang much better: one message carries more prices, it goes on the gang channel only (not a copy per friend), and it waits while chat and status are sending – before, a big scan could take very long to arrive",
+    "When a friend scans, prices you hover that are older than their scan are asked for and update in a second or two",
+    "The scan button is a tab on top of the auction house window (top left), clear of the tabs other addons put along the bottom",
+  } },
   { v = "1.3.4", date = "19.11", items = {
     "Market: hover an item with no price and Chillan asks the gang for it – whoever has it answers within a second or two (hover again to see it)",
     "Market: when you log in you now get all the gang's newer prices, not just the first 1 500, and a bit faster",

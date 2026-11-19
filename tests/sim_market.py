@@ -35,6 +35,20 @@ print("B after login sync:", LB.eval('ADDON_NS.Market:Count()'))
 LB.execute('ADDON_NS.db.market = {}; TT.lines = {}; ADDON_NS.Market.AddTooltipLine(TT, 11684, 1)'); run(10)
 print("B asked and got:", LB.eval('ADDON_NS.Market:Get(11684) and ADDON_NS.Market:Get(11684).v'))
 LB.execute('ADDON_NS.Print(ADDON_NS.Market:StatusText())')
+# Disenchantry: a green level-20 sword vs selling it
+LB.execute("""local gi = C_Item.GetItemInfo
+C_Item.GetItemInfo = function(id) if id == 3333 then return "Green Sword", "|cff1eff00|Hitem:3333|h[Green Sword]|h|r", 2, 20, 15, "Weapon", "Swords", 1, "INVTYPE_WEAPON", 1, 150, 2 end
+  if id == 10940 then return "Strange Dust", "l", 1, 1, 1, "", "", 20, "", 1, 5, 7 end
+  if id == 10939 then return "Greater Magic Essence", "l", 2, 1, 1, "", "", 20, "", 1, 50, 7 end
+  if id == 10978 then return "Small Glimmering Shard", "l", 2, 1, 1, "", "", 20, "", 1, 50, 7 end
+  return gi(id) end
+local M = ADDON_NS.Market
+M:Set(10940, 300, time(), "x"); M:Set(10939, 5000, time(), "x"); M:Set(10978, 4000, time(), "x")""")
+print("DE results:", LB.eval('ADDON_NS.Disenchant:Describe((ADDON_NS.Disenchant:Results(3333)))'))
+print("DE value:", LB.eval('ADDON_NS.Disenchant:Value(3333)'))
+LB.execute('TT.lines = {}; ADDON_NS.Market.AddTooltipLine(TT, 3333, 1)')
+print("sword tooltip:", LB.eval('table.concat(TT.lines, " // "):gsub("|T.-|t", "¤")'))
+LB.execute('ADDON_NS.Window:Create(); ADDON_NS.Window.frame:Show(); ADDON_NS.Window:Select("market")'); run(2)
 # cooldown
 LA.execute('ADDON_NS.Market:FullScan()')
 print("cooldown:", LA.eval('ADDON_NS.Market.status'))

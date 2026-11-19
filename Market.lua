@@ -161,6 +161,7 @@ end
 local function afterScan(n, changed)
   M.scanning = nil
   ns:Fire("MARKET")
+  Comm:Broadcast(Comm:Build("MS", n), 2)
   ns.Cnt("marketScans")
   if #changed > 0 then M:Share(changed) end
   ns.Print("Market: " .. ns.Num(n) .. " prices updated" .. (#changed > 0 and (" – sharing " .. ns.Num(#changed) .. " changed ones with the gang") or "") .. ".")
@@ -269,29 +270,52 @@ local b36 = function(n)
 end
 local function un36(s) return tonumber(s, 36) end
 
+-- (1.3.5) the outbox holds item ids, not finished messages: each message is built when it goes out
+-- (so the age is right), packed as full as a message allows, sent on the gang channel only (no
+-- copy per friend), and only when the line is free – chat, dings and status always go first
 local outbox, sending = {}, false
-local function pump()
-  local job = table.remove(outbox, 1)
-  if not job then sending = false return end
-  if job.to then Comm:SendTo(job.to, job.msg, 3) else Comm:Broadcast(job.msg, 3) end
-  C_Timer.After(SEND_EVERY, pump)
-end
-local function queueIds(ids, to)
-  local now, parts = ns.Now(), {}
-  local function flush()
-    if #parts == 0 then return end
-    outbox[#outbox + 1] = { msg = Comm:Build("MK", table.concat(parts, ";")), to = to }
-    parts = {}
-  end
-  for _, id in ipairs(ids) do
+local MAX_LEN = 230
+local function build(ids)
+  local now, parts, used, len = ns.Now(), {}, 0, 24
+  for k, id in ipairs(ids) do
     local e = db()[id]
     if e then
-      parts[#parts + 1] = b36(id) .. "," .. b36(e.v) .. "," .. b36(math.max(0, math.floor((now - e.t) / 60)))
-      if #parts >= PER_MSG then flush() end
+      local part = b36(id) .. "," .. b36(e.v) .. "," .. b36(math.max(0, math.floor((now - e.t) / 60)))
+      if len + #part + 1 > MAX_LEN then break end
+      parts[#parts + 1] = part
+      len = len + #part + 1
     end
+    used = k
   end
-  flush()
-  if not sending and #outbox > 0 then sending = true C_Timer.After(1, pump) end
+  return #parts > 0 and Comm:Build("MK", table.concat(parts, ";")) or nil, used
+end
+local function pump()
+  local job = outbox[1]
+  if not job then sending = false return end
+  -- wait while the low-priority line is busy
+  if Comm._queue and #Comm._queue[3] > 1 then C_Timer.After(0.5, pump) return end
+  local msg, used = build(job.ids)
+  for _ = 1, used do table.remove(job.ids, 1) end
+  if #job.ids == 0 then table.remove(outbox, 1) end
+  if msg then
+    if job.to then Comm:SendTo(job.to, msg, job.prio or 3)
+    elseif Comm:ChannelUsable() then Comm:SendChannel(msg, 3)
+    else Comm:Broadcast(msg, 3) end
+  end
+  C_Timer.After(job.prio == 2 and 0.2 or SEND_EVERY, pump)
+end
+local function queueIds(ids, to, urgent)
+  if #ids == 0 then return end
+  local copy = {}
+  for k, id in ipairs(ids) do copy[k] = id end
+  local job = { ids = copy, to = to, prio = urgent and 2 or 3 }
+  if urgent then table.insert(outbox, 1, job) else outbox[#outbox + 1] = job end
+  if not sending then sending = true C_Timer.After(urgent and 0.1 or 1, pump) end
+end
+M.Pending = function()
+  local n = 0
+  for _, j in ipairs(outbox) do n = n + #j.ids end
+  return n
 end
 
 function M:Share(ids)
@@ -338,7 +362,8 @@ end)
 -- (1.3.4) "MI": someone hovered items we may know the price of – answer those right away
 local asked, askQueue, askTimer = {}, {}, false
 function M:Ask(id)
-  if not on() or not id or asked[id] and ns.Now() - asked[id] < 600 then return end
+  if not on() or not id then return end
+  if asked[id] and ns.Now() - asked[id] < 600 and asked[id] >= (M.gangScanAt or 0) then return end
   asked[id] = ns.Now()
   askQueue[#askQueue + 1] = id
   if askTimer then return end
@@ -358,7 +383,14 @@ Comm:Handle("MI", function(f, sender)
     if id and db()[id] then have[#have + 1] = id end
   end
   if #have == 0 then return end
-  C_Timer.After(0.3 + math.random() * 1.5, function() queueIds(have, sender) end)
+  C_Timer.After(0.3 + math.random() * 1.5, function() queueIds(have, sender, true) end)
+end)
+
+-- someone just scanned: prices we hover that are older than their scan get asked for
+Comm:Handle("MS", function(f, sender)
+  if Comm:IsMe(sender) then return end
+  M.gangScanAt, M.gangScanBy = ns.Now(), ns.ShortName(sender or "")
+  ns:Fire("MARKET")
 end)
 
 Comm:Handle("MA", function(f)
@@ -417,43 +449,74 @@ M.VendorPrice = vendorPrice
 
 local AH_CUT = 0.05   -- what the auction house keeps when it sells
 
--- (1.3.2) the tooltip block:
+local function opt(key) return ns.db.settings[key] ~= false end
+
+-- (1.3.5) the tooltip block (each line can be switched off on the Market page):
 --   Chillan? Market   4s each · 22 min ago
---   Stack of 20       39s 40c              (when you hover a stack)
---   Best: Auction     +35c over vendor     (after the auction house's 5 % cut)
---   Since last scan   +12 %                (when the price moved)
+--   Stack of 20       39s 40c                    (when you hover a stack)
+--   Disenchant        ≈ 1g 20s                   (expected value of the mats; or what it gives)
+--   Best: Disenchant  +40s over auction          (auction after the 5 % cut, vendor, disenchant)
+--   Since last scan   +12 %                      (when the price moved)
 local function addLine(tt, id, count)
   if not on() or not id or not tt or not tt.AddDoubleLine then return end
   local e = M:Get(id)
-  if not e then M:Ask(id) return end
+  -- no price, or a friend has scanned since ours: ask the gang (answers come in a second or two)
+  if not e or (M.gangScanAt and e.t < M.gangScanAt - 120) then M:Ask(id) end
   count = count or hoveredCount(tt)
-  local old = ns.Now() - (e.t or 0) > STALE
-  local age = ns.Ago(e.t)
-  local each = count > 1 and " each" or ""
-  if old then
-    tt:AddDoubleLine("Market (old)", coins(e.v) .. each .. "  · " .. age, 0.55, 0.57, 0.6, 0.55, 0.57, 0.6)
-  else
-    tt:AddDoubleLine("|cffC69B6DChillan?|r Market", coins(e.v) .. each .. "  |cff858B92· " .. age .. "|r", 0.9, 0.9, 0.9, 1, 1, 1)
+  local n = math.max(1, count)
+  local shown = false
+  local old = e and ns.Now() - (e.t or 0) > STALE
+  if e and opt("mkPrice") then
+    local each = count > 1 and " each" or ""
+    if old then
+      tt:AddDoubleLine("Market (old)", coins(e.v) .. each .. "  · " .. ns.Ago(e.t), 0.55, 0.57, 0.6, 0.55, 0.57, 0.6)
+    else
+      tt:AddDoubleLine("|cffC69B6DChillan?|r Market", coins(e.v) .. each .. "  |cff858B92· " .. ns.Ago(e.t) .. "|r", 0.9, 0.9, 0.9, 1, 1, 1)
+    end
+    shown = true
   end
-  if count > 1 then tt:AddDoubleLine("Stack of " .. count, coins(e.v * count), 0.75, 0.78, 0.82, 1, 1, 1) end
-  local sell = vendorPrice(id)
-  if sell and sell > 0 then
-    local net = math.floor(e.v * (1 - AH_CUT))
-    local n = math.max(1, count)
-    if net > sell then
-      tt:AddDoubleLine("Best: Auction", "+" .. coins((net - sell) * n) .. " over vendor", 0.75, 0.78, 0.82, 0.37, 0.82, 0.55)
-    elseif sell > net then
-      tt:AddDoubleLine("Best: Vendor", "+" .. coins((sell - net) * n) .. " over auction", 0.75, 0.78, 0.82, 0.88, 0.69, 0.31)
+  if e and count > 1 and opt("mkStack") then tt:AddDoubleLine("Stack of " .. count, coins(e.v * count), 0.75, 0.78, 0.82, 1, 1, 1) end
+  -- disenchanting
+  local deVal, deRes
+  if opt("mkDE") and ns.Disenchant then
+    deVal, deRes = ns.Disenchant:Value(id)
+    if not deRes then deRes = ns.Disenchant:Results(id) end
+    if deRes then
+      if deVal then
+        tt:AddDoubleLine("Disenchant", "≈ " .. coins(deVal) .. "  |cff858B92expected|r", 0.75, 0.78, 0.82, 1, 1, 1)
+      else
+        ns.Disenchant:AskMats(id)
+        tt:AddLine("Disenchant: " .. ns.Disenchant:Describe(deRes), 0.6, 0.63, 0.66, true)
+      end
+      shown = true
     end
   end
-  if e.p and e.p > 0 and not old then
+  -- what pays most
+  if opt("mkBest") then
+    local options = {}
+    if e and not old then options[#options + 1] = { "Auction", math.floor(e.v * (1 - AH_CUT)) * n } end
+    local sell = vendorPrice(id)
+    if sell and sell > 0 then options[#options + 1] = { "Vendor", sell * n } end
+    if deVal then options[#options + 1] = { "Disenchant", deVal * n } end
+    if #options >= 2 then
+      table.sort(options, function(a, b) return a[2] > b[2] end)
+      local best, second = options[1], options[2]
+      local diff = best[2] - second[2]
+      if diff > 0 then
+        local col = best[1] == "Auction" and { 0.37, 0.82, 0.55 } or best[1] == "Disenchant" and { 0.73, 0.6, 0.95 } or { 0.88, 0.69, 0.31 }
+        tt:AddDoubleLine("Best: " .. best[1], "+" .. coins(diff) .. " over " .. second[1]:lower(), 0.75, 0.78, 0.82, col[1], col[2], col[3])
+        shown = true
+      end
+    end
+  end
+  if e and e.p and e.p > 0 and not old and opt("mkTrend") then
     local pct = math.floor((e.v - e.p) / e.p * 100 + 0.5)
     if math.abs(pct) >= 5 then
       tt:AddDoubleLine("Since last scan", (pct > 0 and "+" or "") .. pct .. " %", 0.75, 0.78, 0.82,
         pct > 0 and 0.37 or 0.95, pct > 0 and 0.82 or 0.47, pct > 0 and 0.55 or 0.48)
     end
   end
-  if tt.Show then tt:Show() end
+  if shown and tt.Show then tt:Show() end
 end
 M.AddTooltipLine = addLine
 
@@ -502,24 +565,9 @@ function M:AttachButton()
   self.button:SetParent(host)
   self.button:SetFrameLevel((host:GetFrameLevel() or 1) + 20)
   self.button:ClearAllPoints()
-  -- (1.3.1) a tab along the bottom, right after the last tab of the auction house (its own, or ones
-  -- other addons add); if none are found, a tab on top of the window
-  local last, right
-  local function consider(t)
-    if t and t.IsShown and t:IsShown() and t.GetRight and t:GetRight() and (not right or t:GetRight() > right) then
-      local b = t:GetBottom()
-      local hb = host:GetBottom()
-      if b and hb and math.abs(b - hb) < 60 then last, right = t, t:GetRight() end
-    end
-  end
-  local name = host:GetName()
-  if name then for i = 1, 20 do consider(_G[name .. "Tab" .. i]) end end
-  if type(host.Tabs) == "table" then for _, t in ipairs(host.Tabs) do consider(t) end end
-  if last then
-    self.button:SetPoint("LEFT", last, "RIGHT", 6, 0)
-  else
-    self.button:SetPoint("BOTTOMRIGHT", host, "TOPRIGHT", -40, 2)
-  end
+  -- (1.3.5) a tab on top of the window, top left: the bottom row is full of tabs from the auction
+  -- house and other addons
+  self.button:SetPoint("BOTTOMLEFT", host, "TOPLEFT", 12, 2)
   self.button.status:ClearAllPoints()
   self.button.status:SetPoint("LEFT", self.button, "RIGHT", 8, 0)
   self.button.status:SetJustifyH("LEFT")
@@ -560,7 +608,7 @@ function M:StatusText()
   local newest = self:Latest()
   return ns.Num(self:Count()) .. " prices" .. (newest > 0 and (", newest " .. ns.Ago(newest)) or "")
     .. (M.heardFrom and (" · last received from " .. M.heardFrom .. " " .. ns.Ago(M.heardAt)) or "")
-    .. (#outbox > 0 and (" · sending " .. #outbox .. " messages") or "")
+    .. (M.Pending() > 0 and (" · still sending " .. ns.Num(M.Pending()) .. " prices") or "")
 end
 
 -- /chill selftest: what this auction house lets us do
