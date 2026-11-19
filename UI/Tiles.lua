@@ -140,7 +140,7 @@ local function dur(sec) return sec and ns.Duration(sec) or "–" end
 for _, d in ipairs({
   { key = "goldh", name = "Gold per hour", get = function()
     local g = P():GoldPerHour()
-    if not g then return "–", "gold/h" end
+    if not g or g == 0 then return "–", "gold/h" end
     return (g < 0 and "−" or "") .. goldText(math.abs(g)), "gold/h", g < 0 and C.red or nil
   end },
   { key = "bosses", name = "Bosses this run", get = function()

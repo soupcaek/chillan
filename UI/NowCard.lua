@@ -197,7 +197,7 @@ function N:Update()
     local b = P.bg
     local kills = P:BGNumbers()
     f.big:SetText(kills and tostring(kills) or "–")
-    f.bigSub:SetText("kills  ·  " .. (b and b.deaths or 0) .. " deaths")
+    f.bigSub:SetText("kills  ·  " .. ns.Plural(b and b.deaths or 0, "death"))
     f.right:SetText((b and b.streak > 0) and ns.Colorize("streak " .. b.streak, C.green) or "")
     local t = P.Today()
     rows[#rows + 1] = ns.Colorize("Today: ", C.dim) .. ns.Num(t.honor) .. " honor · " .. t.played .. " played"
@@ -222,7 +222,7 @@ function N:Tooltip(owner)
       GameTooltip:AddLine("Loot this run", 0.6, 0.63, 0.66)
       for i = #pr.items, math.max(1, #pr.items - 9), -1 do GameTooltip:AddLine(pr.items[i]) end
     end
-    if r then GameTooltip:AddLine(r.bosses .. " bosses · " .. (r.deaths or 0) .. " deaths", 0.6, 0.63, 0.66) end
+    if r then GameTooltip:AddLine(ns.Plural(r.bosses, "boss", "bosses") .. " · " .. ns.Plural(r.deaths or 0, "death"), 0.6, 0.63, 0.66) end
   elseif mode == "world" then
     local d = ns.Tracker:S3Data() or {}
     GameTooltip:AddLine("Session " .. ns.Duration(d.sessSec or 0), 0.6, 0.63, 0.66)

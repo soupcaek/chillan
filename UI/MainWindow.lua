@@ -33,15 +33,18 @@ W.SECTIONS = {
   { key = "home", label = "Home", pages = { "home" } },
   { key = "gang", label = "Gang", pages = { "friends", "cunts", "diedto", "more" }, hidden = { "player", "compare" } },
   { key = "chat", label = "Chat", pages = { "chat" } },
-  { key = "progress", label = "Progress", pages = { "stats", "ach" } },
+  { key = "progress", label = "Progress", pages = { "stats", "graph", "titles", "ach", "history", "legend" } },
   { key = "tools", label = "Tools", pages = { "qol", "ideas" } },
   { key = "settings", label = "Settings", pages = { "settings" }, header = true },
   { key = "changelog", label = "What's new", pages = { "changelog" }, header = true },
 }
-W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", diedto = "Died to", more = "Gang & crafters", chat = "Gang chat",
-  stats = "Stats", ach = "Trophies", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
+W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", diedto = "Died to", more = "Crafters", chat = "Gang chat",
+  stats = "Overview", graph = "Chart", titles = "Titles", history = "History", legend = "Legend book", ach = "Trophies", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
   player = "Player", compare = "Compare" }
 W.lastPage = {}
+-- (1.1.7) Progress is one row of pages; Chart, Titles, History and Legend book live inside the Stats page
+W.VIRTUAL = { graph = { "stats", "graph" }, titles = { "stats", "titles" }, history = { "stats", "history" }, legend = { "stats", "legend" } }
+local function realOf(key) local v = W.VIRTUAL[key] return v and v[1] or key end
 local function has(list, v) for _, x in ipairs(list or {}) do if x == v then return true end end return false end
 
 function W:SectionOf(key)
@@ -215,6 +218,18 @@ function W:Create()
   self.cogBtn, self.bellBtn = cog, bell
   online:ClearAllPoints()
   online:SetPoint("RIGHT", bell, "LEFT", -12, 0)
+  -- (1.1.7) "N online" opens the Friends page
+  local onlineBtn = CreateFrame("Button", nil, title)
+  onlineBtn:SetPoint("TOPLEFT", online, "TOPLEFT", -16, 4)
+  onlineBtn:SetPoint("BOTTOMRIGHT", online, "BOTTOMRIGHT", 2, -4)
+  onlineBtn:SetScript("OnClick", function() W:Select("friends") end)
+  onlineBtn:SetScript("OnEnter", function(self)
+    online:SetTextColor(hex(C.text))
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Friends")
+    GameTooltip:Show()
+  end)
+  onlineBtn:SetScript("OnLeave", function() online:SetTextColor(hex(C.muted)) GameTooltip:Hide() end)
 
   -- page bar: the pages of the current section, the gang code and the version on the right
   local pagebar = CreateFrame("Frame", nil, f)
@@ -328,6 +343,7 @@ function W:PaintPageBar(secKey, sec)
   for _, k in ipairs(sec.pages) do pages[#pages + 1] = k end
   -- a hidden page (player, compare) shows as an extra pill while it's open
   if self.current and not has(pages, self.current) then pages[#pages + 1] = self.current end
+  if #pages == 1 then return end   -- (1.1.7) one page: no pill (Home, Chat)
   local prev
   for _, key in ipairs(pages) do
     local b = self.pageButtons[key]
@@ -350,17 +366,21 @@ function W:PaintPageBar(secKey, sec)
 end
 
 function W:Select(key)
-  if not self.tabs[key] then key = "home" end
+  if not self.tabs[realOf(key)] then key = "home" end
   self.current = key
+  local real = realOf(key)
   if key == "chat" or key == "ideas" or key == "changelog" then ns.Badges:MarkSeen(key) end
-  local tab = self.tabs[key]
+  local tab = self.tabs[real]
   if tab and not tab.built then
     tab.built = true
     local ok, err = pcall(tab.def.build, tab)
     if not ok and ns.debug then ns.Print("UI error building " .. key .. ":", err) end
   end
   for k, t in pairs(self.tabs) do
-    if k == key then t:Show() else t:Hide() end
+    if k == real then t:Show() else t:Hide() end
+  end
+  if real == "stats" and tab and tab.SetPage then
+    pcall(tab.SetPage, tab, W.VIRTUAL[key] and W.VIRTUAL[key][2] or "overview")
   end
   local secKey, sec = self:SectionOf(key)
   if not has(sec.hidden or {}, key) then self.lastPage[secKey] = key end
@@ -398,15 +418,15 @@ function W:Refresh()
   self.chip:SetWidth(self.chip.text:GetStringWidth() + 20)
   local n = self:OnlineCount()
   self.onlineText:SetText(n .. " online")
-  if not hasCode and self.current ~= "more" then
+  if not hasCode and self.current ~= "settings" then
     self.setup:Show()
     for _, tab in pairs(self.tabs) do tab:Hide() end
     return
   end
-  local cur = self.tabs[self.current]
+  local cur = self.tabs[realOf(self.current)]
   if cur and not cur.built then self:Select(self.current) return end
   self.setup:Hide()
-  local tab = self.tabs[self.current]
+  local tab = self.tabs[realOf(self.current)]
   if tab then
     tab:Show()
     if tab.Refresh then

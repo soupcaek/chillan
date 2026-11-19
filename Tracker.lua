@@ -597,7 +597,7 @@ ns:On("PLAYER_DEAD", function()
   local me = Tracker:Me()
   local loc = Tracker:Location()
   local zone = loc.zone ~= "" and loc.zone or "unknown place"
-  if loc.sub and loc.sub ~= "" and not loc.inInst then zone = loc.sub .. ", " .. zone end
+  if loc.sub and loc.sub ~= "" and loc.sub ~= zone and not loc.inInst then zone = loc.sub .. ", " .. zone end
   me.deathZone = zone
   me.deathAt = ns.Now()
   session.deaths = session.deaths + 1

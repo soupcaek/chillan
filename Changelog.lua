@@ -2,6 +2,22 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.7", date = "19.11", items = {
+    "The same friend no longer shows up twice (a second PC or a new install): the one online, or furthest along, is shown",
+    "Deaths are counted the same everywhere – the Legend book now agrees with the Wall of Shame",
+    "Progress chart: lines run to the level people have now, the legend shows the right level, and history that started late no longer draws a wall from level 1",
+    "Level race and Neck and neck are for the ones still levelling – level 60 is the finish line",
+    "Time to next level uses this week's pace until a session has run 20 minutes, and ignores a session spent standing in town",
+    "Gold/h shows – until you've earned or spent something",
+    "Died to: pets aren't listed (we can't tell whose pet it was), and \"Maraudon, Maraudon\" is just Maraudon",
+    "\"Last seen\" no longer turns into \"just now\" when a friend passes on someone they had no time for",
+    "QoL: under a switch that's off, the small options show unticked",
+    "Navigation: Progress is one row – Overview, Chart, Titles, Trophies, History, Legend book. The side cards are on Overview only, so the other pages get the full width",
+    "Pages with only one tab (Home, Chat) no longer show a page pill. \"N online\" in the top bar opens Friends",
+    "Gang: \"Gang & crafters\" is now Crafters, grouped by profession – click a name to ask them. The gang code, your name and \"add a friend\" moved to Settings → Your gang",
+    "Friends: no \"Offline\" pill or map button on offline friends, no gap when nobody is online, and the crown is explained",
+    "Cunt List and Died to have the same margins as the other pages; small text fixes (1 death, titles and card headings no longer cut off)",
+  } },
   { v = "1.1.6", date = "19.11", items = {
     "Gang pulse: the XP bar and level line are gone at level 60",
     "Gang pulse: before 60 it says how much XP is left to the next level instead of a guess at how many quests",

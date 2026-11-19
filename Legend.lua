@@ -169,6 +169,8 @@ function L:Snapshot(w)
       if p.main and pv and pv.wk == w.wk then
         snap.quests[pid], snap.online[pid], snap.gold[pid] = pv.Quests or 0, pv.Online or 0, pv.Gold or 0
         snap.levels[pid] = pv.Levels or 0
+        snap.deaths = snap.deaths or {}
+        snap.deaths[pid] = pv.Deaths or 0
         any = true
       end
     end
@@ -183,6 +185,8 @@ function L:Snapshot(w)
       snap.gold[pid] = ns:WeekStat(p, "Gold")
       snap.levels[pid] = ns:WeekStat(p, "Levels")
       snap.level[pid] = ns:PersonMaxLevel(p)
+      snap.deaths = snap.deaths or {}
+      snap.deaths[pid] = ns:WeekStat(p, "Deaths")
     end
   end
   local chal, leader, v = ns.Data:CurrentLeader()
@@ -265,7 +269,10 @@ function L:Chapter(wk)
   end
 
   -- the floor inspector
-  local dPid, dN = maxOf(w.deaths)
+  -- (1.1.7) deaths come from the same counter as the Wall of Shame (every death, BGs included);
+  -- the feed only has the deaths that were posted
+  local dPid, dN = maxOf(snap.deaths or {})
+  if not dPid then dPid, dN = maxOf(w.deaths) end
   if dPid and dN >= 2 then
     local zone = w.dz[dPid] and maxOf(w.dz[dPid])
     story[#story + 1] = pick({

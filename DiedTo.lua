@@ -13,9 +13,21 @@ local function db()
 end
 
 -- one death post: pid died to killer in zone at time t (extra = level/class text from the death recap)
+-- "Maraudon, Maraudon" → "Maraudon"
+local function cleanZone(z)
+  z = tostring(z or "")
+  local a, b = z:match("^(.-),%s*(.+)$")
+  if a and a == b then return a end
+  return z
+end
+DT.CleanZone = cleanZone
+
 function DT:Record(id, pid, killer, zone, t, extra)
+  -- (1.1.7) a pet's killing blow: we can't tell whose pet it was, so it isn't listed
+  if type(killer) == "string" and killer:find("%(pet%)%s*$") then return end
   killer = ns.ShortName(killer or "")
   if killer == "" or not pid then return end
+  zone = cleanZone(zone)
   local k = killer:lower()
   local list = db()
   local e = list[k]
@@ -49,7 +61,8 @@ function DT:Prune()
   local cutoff = ns.Now() - KEEP_DAYS * 86400
   local all = {}
   for k, e in pairs(list) do
-    if (e.last or 0) < cutoff then list[k] = nil else all[#all + 1] = { k = k, t = e.last or 0 } end
+    if e.zone then e.zone = cleanZone(e.zone) end
+    if (e.last or 0) < cutoff or (e.name or ""):find("%(pet%)") then list[k] = nil else all[#all + 1] = { k = k, t = e.last or 0 } end
   end
   if #all > MAX_ENTRIES then
     table.sort(all, function(a, b) return a.t > b.t end)

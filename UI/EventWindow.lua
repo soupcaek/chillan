@@ -348,9 +348,7 @@ function E:Create()
     if type(link) == "string" and link:find("^chillantitle:") and ns.Window then
       ns.Window:Create()
       ns.Window.frame:Show()
-      ns.Window:Select("stats")
-      local st = ns.Window.tabs.stats
-      if st and st.SetPage then st:SetPage("titles") end
+      ns.Window:Select("titles")
     end
   end)
   self.msg = m

@@ -63,8 +63,9 @@ function T:Compute()
   for _, def in ipairs(self.DEFS) do
     local counts = def.count and def.count() or nil
     local values, best, bestV, second = {}, nil, 0, 0
+    local hidden = ns:HiddenDuplicates()
     for pid, p in pairs(ns.db.people) do
-      if p.main and (pid == ns.pid or (ns.Now() - (p.lastSeen or 0)) < 14 * 86400) then
+      if p.main and not hidden[pid] and (pid == ns.pid or (ns.Now() - (p.lastSeen or 0)) < 14 * 86400) then
         local v = counts and (counts[pid] or 0) or (def.val(p) or 0)
         values[pid] = v
         -- ties are broken the same way on every client (lowest pid), so everyone sees the same holder

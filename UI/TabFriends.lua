@@ -30,6 +30,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   mine:SetPoint("LEFT", count, "RIGHT", 10, 0)
   local mapBtn = UI.IconButton(tab, 26, "Map", "Open the world map (friends are pinned on it)", function() ns.OpenMapAt(nil) end)
   mapBtn:SetPoint("LEFT", mine, "RIGHT", 6, 0)
+  local crownKey = UI.Text(tab, 11, nil, C.dim)
+  crownKey:SetPoint("LEFT", mapBtn, "RIGHT", 12, 0)
+  crownKey:SetText(UI.InlineIcon("Crown", "E0C068", 11) .. " holds a title this week")
 
   local filterButtons = {}
   local function setFilter(key)
@@ -149,6 +152,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       row.invite:Hide()
     end
     row.pill:Set(st.label, st.color)
+    -- (1.1.7) offline friends: no "Offline" pill (the section says it) and no waypoint button
+    row.pill:SetShown(online)
+    row.wp:SetShown(online)
     -- columns size to the content: name column as wide as the longest name in the list,
     -- zone column takes everything up to the status pill (no more "..." when there is room)
     if row.colX ~= colX then
@@ -321,7 +327,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     if filter == "all" then
       local firstOff
       for i, p in ipairs(people) do if not ns:IsOnline(p) then firstOff = i break end end
-      if firstOff then
+      if firstOff and firstOff > 1 then   -- (1.1.7) no gap when nobody is online
         table.insert(people, firstOff, { sep = true, label = "OFFLINE  ·  " .. (#people - firstOff + 1) })
       end
     end

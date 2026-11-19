@@ -227,8 +227,9 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     local me = ns:GetPerson(ns.pid, true)
     local function ws(k) return ns:WeekStat(me, k) end
     mine.title:SetText("Your week")
-    mine.body:SetText(ws("Quests") .. " quests · " .. ws("Levels") .. " levels · " .. goldText(ws("Gold")) .. "\n"
-      .. ws("Kills") .. " kills · " .. ws("Deaths") .. " deaths · " .. ns.Duration(ws("Online")))
+    local P = ns.Plural
+    mine.body:SetText(P(ws("Quests"), "quest") .. " · " .. P(ws("Levels"), "level") .. " · " .. goldText(ws("Gold")) .. "\n"
+      .. P(ws("Kills"), "kill") .. " · " .. P(ws("Deaths"), "death") .. " · " .. ns.Duration(ws("Online")))
     mine:Fit()
     -- most kills on the gang this week ("Died to")
     local e, n

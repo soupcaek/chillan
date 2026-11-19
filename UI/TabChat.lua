@@ -163,7 +163,7 @@ ns:RegisterTab("chat", "Chat", "Chat", function(tab)
   sendBtn:SetPoint("LEFT", input, "RIGHT", 8, 0)
 
   local feedLink = UI.Button(tab, 120, 26, "Gang feed ›", "ghost", function()
-    ns.Window:Select("stats")
+    ns.Window:Select("history")
     local st = ns.Window.tabs.stats
     if st and st.SetPage then st:SetPage("history", "feed") end
   end)

@@ -877,10 +877,55 @@ function ns:TotalStat(p, key)
   return (p.stats or {})["t" .. key] or 0
 end
 
+-- (1.1.7) the same friend twice: a second PC or a fresh install gets a new id, so one person can show up
+-- as two (same name typed in, "Simon"). Only one is shown – the one online, else the one furthest
+-- along, else the one seen last. Your own other installs are hidden too.
+function ns:HiddenDuplicates()
+  local groups, hidden = {}, {}
+  for pid, p in pairs(ns.db.people or {}) do
+    local a = p.main and ns:PersonAlias(p)
+    if a then
+      a = a:lower()
+      groups[a] = groups[a] or {}
+      table.insert(groups[a], pid)
+    end
+  end
+  for _, list in pairs(groups) do
+    if #list > 1 then
+      local best
+      for _, pid in ipairs(list) do
+        if pid == ns.pid then best = pid break end
+      end
+      if not best then
+        table.sort(list, function(x, y)
+          local px, py = ns.db.people[x], ns.db.people[y]
+          local ox, oy = ns:IsOnline(px) and 1 or 0, ns:IsOnline(py) and 1 or 0
+          if ox ~= oy then return ox > oy end
+          local mx, my = ns.db.muted and ns.db.muted[x] and 1 or 0, ns.db.muted and ns.db.muted[y] and 1 or 0
+          if mx ~= my then return mx < my end
+          local lx, ly = ns:PersonMaxLevel(px), ns:PersonMaxLevel(py)
+          if lx ~= ly then return lx > ly end
+          return (px.lastSeen or 0) > (py.lastSeen or 0)
+        end)
+        best = list[1]
+      end
+      for _, pid in ipairs(list) do if pid ~= best then hidden[pid] = best end end
+    end
+  end
+  return hidden
+end
+
+-- "1 death", "3 deaths"
+function ns.Plural(n, one, many)
+  n = n or 0
+  return n .. " " .. (n == 1 and one or (many or (one .. "s")))
+end
+
 function ns:SortedPeople(filter)
   local out = {}
+  local hidden = ns:HiddenDuplicates()
   for pid, p in pairs(ns.db.people) do
-    if p.main and (not filter or filter(p, pid)) then
+    if p.main and not hidden[pid] and (not filter or filter(p, pid)) then
       p.pid = pid
       out[#out + 1] = p
     end

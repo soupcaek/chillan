@@ -29,13 +29,16 @@ end
 function St:XPRate(p)
   local s = ns:PersonS3(p)
   if not s then return nil end
-  if (s.sessSec or 0) >= 600 and (s.sessXP or 0) > 0 then
-    return s.sessXP / s.sessSec * 3600, "this session"
-  end
+  -- (1.1.7) the session only counts after 20 minutes, and not when it's far below your week's pace
+  -- (standing in town for an hour shouldn't make the next level "4 days" away)
+  local week
   local wOnline = ns:WeekStat(p, "Online")
-  if (s.wXP or 0) > 0 and wOnline >= 600 then
-    return s.wXP / wOnline * 3600, "average this week"
+  if (s.wXP or 0) > 0 and wOnline >= 600 then week = s.wXP / wOnline * 3600 end
+  if (s.sessSec or 0) >= 1200 and (s.sessXP or 0) > 0 then
+    local sess = s.sessXP / s.sessSec * 3600
+    if not week or sess >= week * 0.5 then return sess, "this session" end
   end
+  if week then return week, "average this week" end
   return nil
 end
 

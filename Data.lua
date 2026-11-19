@@ -230,7 +230,8 @@ local function buildSC(pid, p)
   local s = p.stats or {}
   local pv = s.prev or {}
   return Comm:Build("SC", pid, ns.Clean(p.alias or "", 20), p.main or "", c.class or "", c.race or "",
-    c.level or 0, ns:PersonPlayed(p), ns.Now() - (p.lastSeen or ns.Now()),
+    -- (1.1.7) -1 = "I don't know when"; it used to say "just now", which made people look recently online
+    c.level or 0, ns:PersonPlayed(p), p.lastSeen and (ns.Now() - p.lastSeen) or -1,
     s.wk or "", s.wOnline or 0, s.wQuests or 0, s.wGold or 0, s.wDeaths or 0,
     s.tOnline or 0, s.tQuests or 0, s.tGold or 0, s.tDeaths or 0,
     pv.wk or "", pv.Online or 0, pv.Quests or 0, pv.Gold or 0, pv.Deaths or 0,
@@ -240,7 +241,8 @@ end
 Comm:Handle("SC", function(f)
   local pid = f[1]
   if not pid or pid == ns.pid then return end
-  local lastSeen = ago2t(f[8])
+  local agoN = tonumber(f[8])
+  local lastSeen = (agoN and agoN >= 0) and ago2t(f[8]) or 0
   local p = ns:GetPerson(pid, true)
   if p.lastSeen and p.lastSeen >= lastSeen - 5 then return end
   if ns:IsOnline(p) then return end
@@ -259,7 +261,7 @@ Comm:Handle("SC", function(f)
     p.main = char
     if not ns.db.roster[char] then ns.db.roster[char] = { pid = pid } end
   end
-  p.lastSeen = lastSeen
+  if lastSeen > 0 then p.lastSeen = lastSeen end
   local s = p.stats or {}
   p.stats = s
   if setWeek(s, f[9]) then

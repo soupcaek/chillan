@@ -11,7 +11,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   scroll:SetPoint("TOPLEFT", 0, -4)
   scroll:SetPoint("BOTTOMRIGHT", 0, 4)
   local content = CreateFrame("Frame", nil, scroll)
-  content:SetSize(700, 1180)
+  content:SetSize(700, 1300)
   scroll:SetScrollChild(content)
   scroll:EnableMouseWheel(true)
   scroll:SetScript("OnMouseWheel", function(self, d)
@@ -63,8 +63,54 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   -------------------------------------------------------------------------
   -- Appearance (full width)
   -------------------------------------------------------------------------
+  -------------------------------------------------------------------------
+  -- Your gang (1.1.7, moved here from the Gang page): code, your name, add a friend by hand
+  -------------------------------------------------------------------------
+  local gang = CreateFrame("Frame", nil, content)
+  gang:SetPoint("TOPLEFT", 18, -14)
+  gang:SetSize(700, 10)
+  local gh = section(gang, nil, "Your gang")
+  local gver = UI.Text(gang, 11, nil, C.dim)
+  gver:SetPoint("LEFT", gh, "RIGHT", 10, 0)
+  gver:SetText("version " .. ns.VERSION)
+  local cl = UI.Text(gang, 11, nil, C.dim)
+  cl:SetPoint("TOPLEFT", gh, "BOTTOMLEFT", 0, -8)
+  cl:SetText("Gang code – share it with your friends")
+  local codeBox = UI.EditBox(gang, 200, 30, "No code")
+  codeBox:SetPoint("TOPLEFT", cl, "BOTTOMLEFT", 0, -5)
+  codeBox.edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  codeBox.edit:SetScript("OnTextChanged", function(self, user)
+    if user then self:SetText(ns.db.code or "") self:HighlightText() end
+  end)
+  local change = UI.Button(gang, 76, 30, "Change", "ghost", function()
+    UI.Prompt("Change gang", { { label = "New gang code", placeholder = "CHILL-XXXX" } }, function(v)
+      if ns.ChangeCode(v) then ns.Print("Switched to the gang " .. ns.db.code .. ".") else return true end
+    end)
+  end)
+  change:SetPoint("LEFT", codeBox, "RIGHT", 6, 0)
+  local al = UI.Text(gang, 11, nil, C.dim)
+  al:SetPoint("LEFT", cl, "LEFT", 320, 0)
+  al:SetText("Your name (IRL) – shown next to your characters")
+  local aliasBox = UI.EditBox(gang, 200, 30, "e.g. Henrik", function(self) ns.SetAlias(self:GetText()) self:ClearFocus() end)
+  aliasBox:SetPoint("TOPLEFT", al, "BOTTOMLEFT", 0, -5)
+  local saveAlias = UI.Button(gang, 66, 30, "Save", "secondary", function() ns.SetAlias(aliasBox:GetText()) aliasBox.edit:ClearFocus() end)
+  saveAlias:SetPoint("LEFT", aliasBox, "RIGHT", 6, 0)
+  local addFriend = UI.Button(gang, 282, 26, "Friend not showing up? Add them by name", "ghost", function()
+    UI.Prompt("Add friend manually", {
+      { label = "Character name (use this if a friend doesn't show up)", placeholder = "Name or Name-Realm" },
+    }, function(v) ns.Data:AddManual(v) end)
+  end)
+  addFriend:SetPoint("TOPLEFT", codeBox, "BOTTOMLEFT", 0, -8)
+  local cmds = UI.Text(gang, 11, nil, C.dim)
+  cmds:SetPoint("LEFT", addFriend, "RIGHT", 38, 0)
+  cmds:SetText("Commands: /chill · /cg text · /chill edit · /chill selftest")
+  tab.gangRefresh = function()
+    codeBox:SetText(ns.db.code or "")
+    if not aliasBox.edit:HasFocus() then aliasBox:SetText(ns.db.alias or "") end
+  end
+
   local top = CreateFrame("Frame", nil, content)
-  top:SetPoint("TOPLEFT", 18, -14)
+  top:SetPoint("TOPLEFT", addFriend, "BOTTOMLEFT", 0, -22)
   top:SetSize(660, 10)
   local ah = section(top, nil, "Appearance")
   local th = hint(top, ah, "Theme – changes the whole addon")
@@ -307,6 +353,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   })
 
   function tab:Refresh()
+    if tab.gangRefresh then tab.gangRefresh() end
     S().blueLoot = (S().lootMinQuality or 4) <= 3
     for _, cb in ipairs(checks) do cb:Refresh() end
     refreshMuted()

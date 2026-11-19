@@ -25,6 +25,11 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
     end
     for k, f in pairs(pages) do f:SetShown(k == page) end
+    -- (1.1.7) the side cards only on Overview; the other pages get the full width
+    if tab.rightCol then
+      tab.rightCol:SetShown(page == "overview")
+      left:SetPoint("BOTTOMRIGHT", page == "overview" and (-RIGHT_W - 30) or -16, 14)
+    end
   end
   local prev
   for _, def in ipairs(PAGES) do
@@ -32,12 +37,12 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     b:SetWidth(b.label:GetStringWidth() + 22)
     if prev then b:SetPoint("LEFT", prev, "RIGHT", 6, 0) else b:SetPoint("TOPLEFT", 0, 2) end
     prev = b
-    pageBtns[def[1]] = b
+    b:Hide()   -- (1.1.7) these pages are pills in the window's page bar now (Progress section)
   end
 
   local function newPage(key)
     local f = CreateFrame("Frame", nil, left)
-    f:SetPoint("TOPLEFT", 0, -40)
+    f:SetPoint("TOPLEFT", 0, 0)
     f:SetPoint("BOTTOMRIGHT", 0, 0)
     pages[key] = f
     return f
@@ -180,6 +185,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for i = 2, #pts do if pts[i].l < pts[i - 1].l then start = i end end
     local out = {}
     for i = start, #pts do out[#out + 1] = pts[i] end
+    -- (1.1.7) a lone first point far below the next one (history that started late) draws a wall
+    while #out >= 3 and out[2].l - out[1].l > 5 do table.remove(out, 1) end
     return out
   end
 
@@ -225,6 +232,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
           if h.l < lMin then lMin = h.l end
           if h.l > lMax then lMax = h.l end
         end
+        if (tonumber(c.level) or 0) > lMax then lMax = tonumber(c.level) end
       end
     end
     if #series == 0 then
@@ -267,7 +275,11 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       -- carry the line to now at today's level
       local pts = {}
       for _, h in ipairs(s.pts) do pts[#pts + 1] = h end
-      pts[#pts + 1] = { t = tMax, l = pts[#pts].l }
+      -- carry the line on to now, at the level the character has now (the last ding may not be in
+      -- the history yet)
+      local nowL = math.max(pts[#pts].l, tonumber(s.c.level) or 0)
+      pts[#pts + 1] = { t = tMax, l = nowL }
+      s.nowL = nowL
       s.draw = pts
       local n = 0
       for i = 1, #pts - 1 do
@@ -289,7 +301,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       local col, row = (si - 1) % 4, math.floor((si - 1) / 4)
       lg:SetPoint("BOTTOMLEFT", graphPage, "BOTTOMLEFT", col * 112, 20 - row * 18)
       local hx = string.format("%02X%02X%02X", math.floor(s.r * 255), math.floor(s.g * 255), math.floor(s.b * 255))
-      lg:SetText(ns.Colorize("— " .. (ns:PersonAlias(s.p) or ns:PersonFirst(s.p)) .. "  " .. tostring(s.pts[#s.pts].l), hx))
+      lg:SetText(ns.Colorize("— " .. (ns:PersonAlias(s.p) or ns:PersonFirst(s.p)) .. "  " .. tostring(s.nowL or s.pts[#s.pts].l), hx))
       lg:Show()
       s.legend = lg
     end
@@ -345,7 +357,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     GameTooltip:AddLine((ns:PersonAlias(s.p) or ns:PersonFirst(s.p)) .. (s.c.name and ("  (" .. s.c.name .. ")") or ""), s.r, s.g, s.b)
     GameTooltip:AddLine("Level " .. math.floor(bestL) .. " on " .. date("%d.%m %H:%M", math.floor(t)), 0.85, 0.87, 0.9)
-    GameTooltip:AddLine("Now level " .. s.pts[#s.pts].l, 0.6, 0.63, 0.66)
+    GameTooltip:AddLine("Now level " .. (s.nowL or s.pts[#s.pts].l), 0.6, 0.63, 0.66)
     GameTooltip:Show()
   end)
 
@@ -504,18 +516,18 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     row.icon:SetPoint("CENTER")
     row.name = UI.Text(row, 13, "semi", C.text)
     row.name:SetPoint("TOPLEFT", 48, -7)
-    row.name:SetPoint("RIGHT", -170, 0)
+    row.name:SetPoint("RIGHT", -230, 0)
     row.desc = UI.Text(row, 11, nil, C.muted)
     row.desc:SetPoint("BOTTOMLEFT", 48, 7)
-    row.desc:SetPoint("RIGHT", -170, 0)
+    row.desc:SetPoint("RIGHT", -230, 0)
     row.who = UI.Text(row, 13, "semi", C.text)
     row.who:SetPoint("TOPRIGHT", -12, -7)
     row.who:SetJustifyH("RIGHT")
-    row.who:SetWidth(156)
+    row.who:SetWidth(216)
     row.val = UI.Text(row, 11, nil, C.muted)
     row.val:SetPoint("BOTTOMRIGHT", -12, 7)
     row.val:SetJustifyH("RIGHT")
-    row.val:SetWidth(156)
+    row.val:SetWidth(216)
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
       if self.item then ns.Titles:Tooltip(self, self.item.def.key) end
@@ -841,6 +853,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   right:SetPoint("TOPRIGHT", -16, -14)
   right:SetPoint("BOTTOMRIGHT", -16, 14)
   right:SetWidth(RIGHT_W)
+  tab.rightCol = right
 
   local function card(height, titleText)
     local cd = UI.Panel(right, C.card, C.line, false)
@@ -978,10 +991,10 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     btn:SetAllPoints()
     cd.title = UI.Text(cd, 10, "semi", C.muted)
     cd.title:SetPoint("TOPLEFT", 12, -12)
-    cd.title:SetPoint("RIGHT", -34, 0)
     cd.page = UI.Text(cd, 10, nil, C.dim)
     cd.page:SetPoint("TOPRIGHT", -10, -12)
     cd.page:SetJustifyH("RIGHT")
+    cd.title:SetPoint("RIGHT", cd.page, "LEFT", -6, 0)   -- (1.1.7) the title stops before "3 of 11"
     cd.big = UI.Text(cd, 15, "semi", C.text)
     cd.big:SetPoint("TOPLEFT", 12, -30)
     cd.big:SetPoint("RIGHT", -10, 0)
@@ -1168,7 +1181,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         local s3 = ns:PersonS3(p) or {}
         local lvl = ns:PersonMaxLevel(p)
         local frac = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or 0
-        if lvl and lvl > 0 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
+        -- (1.1.7) the race is for the ones still levelling: level 60 is the finish line
+        if lvl and lvl > 0 and lvl < 60 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
       end
       table.sort(list, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
       if #list < 2 then return nil end
@@ -1184,7 +1198,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         local s3 = ns:PersonS3(p) or {}
         local lvl = ns:PersonMaxLevel(p)
         local frac = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or 0
-        if lvl and lvl > 0 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
+        if lvl and lvl > 0 and lvl < 60 then list[#list + 1] = { p = p, v = lvl + frac, lvl = lvl, frac = frac } end
       end
       table.sort(list, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
       local best

@@ -4,7 +4,7 @@ local UI, C = ns.UI, ns.C
 
 ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
   local head = UI.Text(tab, 16, "semi", C.text)
-  head:SetPoint("TOPLEFT", 4, -2)
+  head:SetPoint("TOPLEFT", 16, -16)   -- (1.1.7) same margins as Friends
   head:SetText("The Cunt List")
   local add = UI.Button(tab, 150, 28, "Add your target", "secondary", function()
     local n = ns.S(UnitIsPlayer, "target") and ns.S(UnitName, "target")
@@ -12,7 +12,7 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
     ns.Cunts:AskAdd(n)
   end)
   add:SetIcon("Plus", 13)
-  add:SetPoint("TOPRIGHT", -4, 0)
+  add:SetPoint("TOPRIGHT", -16, -12)
 
   -- anyone, by name: no target needed
   local byName = UI.Button(tab, 130, 28, "Add by name", "secondary", function() ns.Cunts:AskAddByName() end)
@@ -30,7 +30,7 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
 
   local search = UI.EditBox(tab, 100, 30, "Search names and reasons …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
-  search:SetPoint("RIGHT", tab, "RIGHT", -4, 0)
+  search:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
 
   local function createRow(list)
@@ -79,7 +79,7 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
   end
   local list = UI.List(tab, 62, 6, createRow, updateRow)
   list:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
-  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", 2, 0)
+  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", -14, 14)
   list.emptyText = "Nobody yet. Right-click a player's name or portrait → «Add to the Cunt List»."
 
   function tab:Refresh()

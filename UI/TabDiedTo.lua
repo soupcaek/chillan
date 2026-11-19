@@ -5,18 +5,18 @@ local UI, C = ns.UI, ns.C
 
 ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
   local head = UI.Text(tab, 16, "semi", C.text)
-  head:SetPoint("TOPLEFT", 4, -2)
+  head:SetPoint("TOPLEFT", 16, -16)   -- (1.1.7) same margins as Friends
   head:SetText("Died to")
   local sub = UI.Text(tab, 11, nil, C.dim)
   sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
-  sub:SetPoint("RIGHT", tab, "RIGHT", -4, 0)
+  sub:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
   sub:SetJustifyH("LEFT")
   sub:SetWordWrap(true)
   sub:SetText("Alliance players who killed someone in the gang, the last 60 days. It fills itself and warns nobody. Killing one of them within a week of their last kill counts as revenge.")
 
   local search = UI.EditBox(tab, 100, 30, "Search names and zones …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
-  search:SetPoint("RIGHT", tab, "RIGHT", -4, 0)
+  search:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
 
   local function createRow(list)
@@ -59,7 +59,7 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
   end
   local list = UI.List(tab, 62, 6, createRow, updateRow)
   list:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
-  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", 2, 0)
+  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", -14, 14)
   list.emptyText = "Nobody yet. When an Alliance player kills one of the gang, they show up here."
 
   function tab:Refresh()

@@ -113,7 +113,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
   local function others(id, exceptPid)
     local names = {}
     for pid, p in pairs(ns.db.people) do
-      if pid ~= exceptPid and p.main and A:Has(pid, id) then names[#names + 1] = ns:PersonAlias(p) or ns:PersonName(p) end
+      if pid ~= exceptPid and p.main and not ns:HiddenDuplicates()[pid] and A:Has(pid, id) then names[#names + 1] = ns:PersonAlias(p) or ns:PersonName(p) end
     end
     table.sort(names)
     return names
