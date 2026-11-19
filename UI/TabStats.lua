@@ -21,7 +21,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for k, b in pairs(pageBtns) do
       local on = k == page
       b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
-      b.label:SetTextColor(hex(on and C.text or C.muted))
+      UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
       b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
     end
     for k, f in pairs(pages) do f:SetShown(k == page) end
@@ -65,7 +65,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     row.lvl:SetPoint("RIGHT", -12, 0)
     row.track = row:CreateTexture(nil, "ARTWORK")
     row.track:SetTexture(ns.TEX .. "RoundedSmall")
-    row.track:SetVertexColor(hex(C.active))
+    UI.Track(row.track):SetVertexColor(hex(C.active))
     row.track:SetHeight(8)
     row.track:SetPoint("LEFT", 214, 0)
     row.track:SetPoint("RIGHT", -48, 0)
@@ -84,7 +84,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     local c = ns:PersonChar(p) or {}
     local lvl = ns:PersonMaxLevel(p)
     row.rank:SetText(idx)
-    row.rank:SetTextColor(hex(medal[idx] or C.dim))
+    UI.Track(row.rank):SetTextColor(hex(medal[idx] or C.dim))
     row.name:SetText(ns:PersonLabel(p))
     local played = ns:PersonPlayed(p)
     row.sub:SetText((played > 0 and ("/played " .. ns.Duration(played)) or "/played unknown") .. (p.pid == ns.pid and "  ·  you" or ""))
@@ -111,7 +111,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local gridLines, gridLabels, lines, legend = {}, {}, {}, {}
   for i = 1, 7 do
     local g = plot:CreateTexture(nil, "BACKGROUND")
-    g:SetColorTexture(hex(C.line))
+    UI.Track(g):SetColorTexture(hex(C.line))
     g:SetHeight(1)
     gridLines[i] = g
     local l = UI.Text(graph, 10, nil, C.dim)
@@ -371,7 +371,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for k, b in pairs(segBtns) do
       local on = k == mode
       b.panel:SetColors(on and C.activeHover or nil, nil)
-      b.label:SetTextColor(hex(on and C.text or C.muted))
+      UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
       b.style = { fill = on and C.activeHover or nil, text = on and C.text or C.muted, hover = C.cardHover }
     end
   end
@@ -452,7 +452,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     row.cells.name:SetPoint("RIGHT", row.cells.level, "LEFT", -8, 0)
     row.track = row:CreateTexture(nil, "ARTWORK")
     row.track:SetTexture(ns.TEX .. "RoundedSmall")
-    row.track:SetVertexColor(hex(C.active))
+    UI.Track(row.track):SetVertexColor(hex(C.active))
     row.track:SetHeight(4)
     row.track:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 40, 7)
     row.track:SetWidth(120)
@@ -470,7 +470,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local function updateRow(row, p, idx)
     local c = ns:PersonChar(p) or {}
     row.cells.rank:SetText(idx)
-    row.cells.rank:SetTextColor(hex(medal[idx] or C.dim))
+    UI.Track(row.cells.rank):SetTextColor(hex(medal[idx] or C.dim))
     row.cells.name:SetText(ns:ShortWho(p))   -- alias in class colour (full name on hover)
     row.cells.level:SetText(ns:PersonMaxLevel(p))
     row.cells.quests:SetText(math.floor(value(p, "quests")))
@@ -482,7 +482,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     local s3 = ns:PersonS3(p)
     local frac = (s3 and s3.xpMax and s3.xpMax > 0) and ((s3.xp or 0) / s3.xpMax) or 0
     row.bar:SetWidth(math.max(2, 120 * math.min(1, (lvl - 1 + frac) / 59)))
-    row.bar:SetVertexColor(hex(ns.ClassHex(c.class)))
+    UI.Track(row.bar):SetVertexColor(hex(ns.ClassHex(c.class)))
   end
   local tableList = UI.List(tablePage, 36, 5, createRow, updateRow)
   tableList:SetPoint("TOPLEFT", 0, -58)
@@ -526,9 +526,9 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local function updateTitle(row, e)
     local def = e.def
     row.icon:SetTexture(ns.TEX .. "Icon" .. def.icon)
-    row.icon:SetVertexColor(hex(def.color))
+    UI.Track(row.icon):SetVertexColor(hex(def.color))
     row.name:SetText(def.name)
-    row.name:SetTextColor(hex(e.holder and C.gold or C.dim))
+    UI.Track(row.name):SetTextColor(hex(e.holder and C.gold or C.dim))
     row.desc:SetText(def.desc)
     if e.holder then
       local p = ns:GetPerson(e.holder.pid) or {}
@@ -644,7 +644,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for k, b in pairs(hsegBtns) do
       local on = k == histMode
       b.panel:SetColors(on and C.activeHover or nil, nil)
-      b.label:SetTextColor(hex(on and C.text or C.muted))
+      UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
       b.style = { fill = on and C.activeHover or nil, text = on and C.text or C.muted, hover = C.cardHover }
     end
     for k, f in pairs(histFrames) do f:SetShown(k == histMode) end
@@ -690,7 +690,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local function updateMs(row, e)
     row.date:SetText(e.t and date("%d.%m", e.t) or "")
     row.icon:SetTexture(ns.TEX .. "Icon" .. (e.icon or "Star"))
-    row.icon:SetVertexColor(hex(e.color or C.gold))
+    UI.Track(row.icon):SetVertexColor(hex(e.color or C.gold))
     local p = ns:GetPerson(e.pid) or {}
     row.text:SetText(ns:ShortWho(p, e.char) .. " " .. ns.Colorize(e.text, C.text2))
   end
@@ -866,7 +866,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     r.value:SetJustifyH("RIGHT")
     r.label = UI.Text(cd, 12, nil, C.text)
     r.bg = cd:CreateTexture(nil, "ARTWORK")
-    r.bg:SetColorTexture(hex(C.input))
+    UI.Track(r.bg):SetColorTexture(hex(C.input))
     r.fill = cd:CreateTexture(nil, "ARTWORK", nil, 1)
     cd.rows[k] = r
     return r
@@ -905,7 +905,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         r.fill:SetPoint("TOPLEFT", r.bg, "TOPLEFT")
         r.fill:SetHeight(4)
         r.fill:SetWidth(math.max(1, w * f))
-        r.fill:SetColorTexture(hex(spec.color or C.accent))
+        UI.Track(r.fill):SetColorTexture(hex(spec.color or C.accent))
         r.bg:Show()
         r.fill:SetShown(f > 0)
       else
@@ -1033,7 +1033,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b)
       end)
       tableList:SetData(people)
-      for key, t in pairs(headerTexts) do t:SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
+      for key, t in pairs(headerTexts) do UI.Track(t):SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
     elseif page == "history" then
       paintHist()
       if histMode == "feed" then drawFeed()

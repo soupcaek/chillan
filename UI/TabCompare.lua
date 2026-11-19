@@ -62,7 +62,7 @@ ns:RegisterTab("compare", "Compare", "Compare", function(tab)
     for k, b in pairs(seg) do
       local on = k == mode
       b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
-      b.label:SetTextColor(hex(on and C.text or C.muted))
+      UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
       b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
     end
   end
@@ -136,7 +136,7 @@ ns:RegisterTab("compare", "Compare", "Compare", function(tab)
     cell.lvl:SetText(lvl and tostring(lvl) or "")
     local col = C.text
     if lvl and olvl then col = lvl > olvl and C.green or (lvl < olvl and C.red or C.text) elseif lvl and not other then col = C.green end
-    cell.lvl:SetTextColor(hex(col))
+    UI.Track(cell.lvl):SetTextColor(hex(col))
   end
 
   local function fillGear(them)
@@ -224,10 +224,10 @@ ns:RegisterTab("compare", "Compare", "Compare", function(tab)
       local bWins = (def[4] and b < a) or (not def[4] and b > a)
       if aWins then lw = lw + 1 end
       if bWins then rw = rw + 1 end
-      r.lbar:SetVertexColor(hex(aWins and C.accent or C.activeLine))
-      r.rbar:SetVertexColor(hex(bWins and C.accent or C.activeLine))
-      r.lv:SetTextColor(hex(aWins and C.text or C.muted))
-      r.rv:SetTextColor(hex(bWins and C.text or C.muted))
+      UI.Track(r.lbar):SetVertexColor(hex(aWins and C.accent or C.activeLine))
+      UI.Track(r.rbar):SetVertexColor(hex(bWins and C.accent or C.activeLine))
+      UI.Track(r.lv):SetTextColor(hex(aWins and C.text or C.muted))
+      UI.Track(r.rv):SetTextColor(hex(bWins and C.text or C.muted))
     end
     score:SetText("You lead " .. lw .. " – " .. rw .. (lw > rw and "  ·  nice work" or (lw < rw and "  ·  time to catch up" or "  ·  dead even")))
     if lastPid ~= W.comparePid then

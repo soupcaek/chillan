@@ -131,7 +131,7 @@ function W:Create()
   local ver = UI.Text(title, 11, nil, C.dim)
   ver:SetPoint("LEFT", chip, "RIGHT", 10, 0)
   ver:SetText("v" .. ns.VERSION)
-  ver:SetTextColor(hex(C.muted))
+  UI.Track(ver):SetTextColor(hex(C.muted))
   self.ver = ver
   -- "update available" when someone in the gang runs a newer version
   local upd = CreateFrame("Button", nil, title)
@@ -155,7 +155,7 @@ function W:Create()
   close:SetPoint("RIGHT", -10, 0)
   close.panel:SetColors(nil, nil)
   close.style = { fill = nil, line = nil, text = C.muted, hover = C.card }
-  close.icon:SetVertexColor(hex(C.muted))
+  UI.Track(close.icon):SetVertexColor(hex(C.muted))
 
   local online = UI.Text(title, 13, nil, C.muted)
   online:SetPoint("RIGHT", close, "LEFT", -10, 0)
@@ -163,7 +163,7 @@ function W:Create()
   local dot = title:CreateTexture(nil, "ARTWORK")
   dot:SetTexture(ns.TEX .. "Circle")
   dot:SetSize(8, 8)
-  dot:SetVertexColor(hex(C.green))
+  UI.Track(dot):SetVertexColor(hex(C.green))
   dot:SetPoint("RIGHT", online, "LEFT", -6, 0)
 
   local line1 = UI.SolidLine(f)
@@ -175,6 +175,8 @@ function W:Create()
   local secX = nil
   self.secButtons = {}
   for i, sec in ipairs(W.SECTIONS) do
+    -- Settings and What's new are the cog and the bell on the right, not tabs as well (1.1.5)
+    if sec.header then break end
     local b = UI.Button(title, 10, 30, sec.label, "nav")
     b.label:SetFont(ns.FONT_SEMI, 13, "")
     b:SetWidth(b.label:GetStringWidth() + 26)
@@ -192,7 +194,7 @@ function W:Create()
     b.badge.bg = b.badge:CreateTexture(nil, "OVERLAY")
     b.badge.bg:SetTexture(ns.TEX .. "Circle")
     b.badge.bg:SetAllPoints()
-    b.badge.bg:SetVertexColor(hex(C.red))
+    UI.Track(b.badge.bg):SetVertexColor(hex(C.red))
     b.badge.text = UI.Text(b.badge, 9, "bold", "FFFFFF")
     b.badge.text:SetPoint("CENTER", 0, 0)
     b.badge:Hide()
@@ -208,7 +210,7 @@ function W:Create()
   bell.badge:SetTexture(ns.TEX .. "Circle")
   bell.badge:SetSize(8, 8)
   bell.badge:SetPoint("TOPRIGHT", -5, -5)
-  bell.badge:SetVertexColor(hex(C.accent))
+  UI.Track(bell.badge):SetVertexColor(hex(C.accent))
   bell.badge:Hide()
   self.cogBtn, self.bellBtn = cog, bell
   online:ClearAllPoints()
@@ -341,7 +343,7 @@ function W:PaintPageBar(secKey, sec)
     prev = b
     local on = key == self.current
     b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
-    b.label:SetTextColor(hex(on and C.text or C.muted))
+    UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
     b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
     b:Show()
   end
@@ -365,14 +367,14 @@ function W:Select(key)
   for k, b in pairs(self.secButtons or {}) do
     if k == secKey then
       b.panel:SetColors(C.active, nil)
-      b.label:SetTextColor(hex(C.accent))
+      UI.Track(b.label):SetTextColor(hex(C.accent))
     else
       b.panel:SetColors(nil, nil)
-      b.label:SetTextColor(hex(C.muted))
+      UI.Track(b.label):SetTextColor(hex(C.muted))
     end
   end
-  if self.cogBtn then self.cogBtn.icon:SetVertexColor(hex(key == "settings" and C.accent or C.muted)) end
-  if self.bellBtn then self.bellBtn.icon:SetVertexColor(hex(key == "changelog" and C.accent or C.muted)) end
+  if self.cogBtn then UI.Track(self.cogBtn.icon):SetVertexColor(hex(key == "settings" and C.accent or C.muted)) end
+  if self.bellBtn then UI.Track(self.bellBtn.icon):SetVertexColor(hex(key == "changelog" and C.accent or C.muted)) end
   self:PaintPageBar(secKey, sec)
   self:Refresh()
   self:UpdateBadges()

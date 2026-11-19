@@ -64,7 +64,7 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
       self.pin:SetShown(self.isMe and true or false)
       local on = ns.Tiles:IsPinned(self.pinKey)
       self.pin:SetTexture(ns.TEX .. "Icon" .. (on and "Check" or "Plus"))
-      self.pin:SetVertexColor(hex(on and C.green or C.dim))
+      UI.Track(self.pin):SetVertexColor(hex(on and C.green or C.dim))
     end
     t:SetScript("OnEnter", function(self)
       if not self.isMe then return end

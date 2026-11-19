@@ -44,7 +44,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
     for k, b in pairs(catButtons) do
       local on = k == cat
       b.panel:SetColors(on and C.active or nil, nil)
-      b.label:SetTextColor(hex(on and C.text or C.muted))
+      UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
       b.style = { fill = on and C.active or nil, text = on and C.text or C.muted, hover = C.card }
     end
   end
@@ -82,7 +82,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
     row.desc:SetPoint("RIGHT", -110, 0)
     row.track = row:CreateTexture(nil, "ARTWORK")
     row.track:SetTexture(ns.TEX .. "RoundedSmall")
-    row.track:SetVertexColor(hex(C.active))
+    UI.Track(row.track):SetVertexColor(hex(C.active))
     row.track:SetHeight(4)
     row.track:SetPoint("BOTTOMLEFT", 58, 8)
     row.track:SetPoint("RIGHT", -110, 0)
@@ -125,13 +125,13 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
     local tier = A.TIERS[d.tier]
     local hidden = d.secret and not got
     row.name:SetText(hidden and "Secret achievement" or d.name)
-    row.name:SetTextColor(hex(got and C.text or C.text2))
+    UI.Track(row.name):SetTextColor(hex(got and C.text or C.text2))
     row.desc:SetText(hidden and "Unlock it to see what it is" or d.desc)
-    row.icon:SetVertexColor(hex(got and tier.color or C.dim))
+    UI.Track(row.icon):SetVertexColor(hex(got and tier.color or C.dim))
     row.tile:SetColors(got and C.active or C.input, nil)
     row:SetAlpha(got and 1 or 0.8)
     row.tier:SetText(tier.name .. " · " .. tier.points .. " p")
-    row.tier:SetTextColor(hex(tier.color))
+    UI.Track(row.tier):SetTextColor(hex(tier.color))
     -- fremdrift (bare for deg selv; andres tellere kjenner vi ikke)
     row.track:Hide() row.bar:Hide()
     if got then
@@ -149,7 +149,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
       local w = row.track:GetWidth()
       if not w or w <= 0 then w = 300 end
       row.bar:SetWidth(math.max(1, w * pct))
-      row.bar:SetVertexColor(hex(tier.color))
+      UI.Track(row.bar):SetVertexColor(hex(tier.color))
       row.track:Show() row.bar:Show()
     else
       row.right:SetText("")

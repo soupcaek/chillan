@@ -2,6 +2,15 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.1.5", date = "19.11", items = {
+    "Themes and accent colours change straight away – no more reload",
+    "Home: everyone in the gang as a small card on the left (online first, then offline with when they were last on)",
+    "Home: the gang's latest moments are drawn like the feed – icons in tinted boxes, reactions as pills, + on hover to react",
+    "Home: quick actions are Layer hop, Plan something (post a plan the gang can say yes to), Cunt List: your target, and Move things on screen",
+    "Home: under This week you also see your own week (quests, levels, gold, kills, deaths, time played), the enemy of the week and the next plan",
+    "Settings and What's new are only the cog and the bell in the top right now, not tabs as well",
+    "Your own ding popup no longer says 'the gang can react now'",
+  } },
   { v = "1.1.4", date = "19.11", items = {
     "WowUp shows the version as v1.1.4 instead of the zip file's name",
     "A /reload (or a quick relog) no longer starts the session over: gold/h, quests and mobs carry on. After 15 minutes away a new session starts",

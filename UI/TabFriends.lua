@@ -36,9 +36,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     filter = key
     for k, b in pairs(filterButtons) do
       if k == key then
-        b.panel:SetColors(C.active, C.activeLine) b.label:SetTextColor(hex(C.text)) b.style = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover }
+        b.panel:SetColors(C.active, C.activeLine) UI.Track(b.label):SetTextColor(hex(C.text)) b.style = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover }
       else
-        b.panel:SetColors(nil, C.inputLine) b.label:SetTextColor(hex(C.muted)) b.style = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card }
+        b.panel:SetColors(nil, C.inputLine) UI.Track(b.label):SetTextColor(hex(C.muted)) b.style = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card }
       end
     end
     tab:Refresh()
@@ -275,7 +275,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   sl:SetText("Your status")
   local statusBtn = UI.Button(tab, 170, 32, "", "ghost")
   statusBtn:SetPoint("LEFT", sl, "RIGHT", 10, 0)
-  statusBtn.label:SetTextColor(hex(C.text))
+  UI.Track(statusBtn.label):SetTextColor(hex(C.text))
   statusBtn:SetScript("OnClick", function(self)
     local items = {}
     for _, code in ipairs(ns.MANUAL_STATUS) do

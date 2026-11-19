@@ -46,7 +46,7 @@ function O:CreateMinibar()
   m.avatars = {}
   for i = 1, 8 do
     local a = UI.Avatar(m, 16)
-    a.bg:SetVertexColor(hex(C.active))
+    UI.Track(a.bg):SetVertexColor(hex(C.active))
     a:Hide()
     m.avatars[i] = a
   end
@@ -129,7 +129,7 @@ function O:UpdateMinibar()
       UI.Menu(self, items, true)
     end)
     sb:SetScript("OnEnter", function(self)
-      self.text:SetTextColor(hex(C.text))
+      UI.Track(self.text):SetTextColor(hex(C.text))
       GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
       GameTooltip:AddLine("Your status")
       GameTooltip:AddLine(ns.db.statusOverride and "Set by you – click to change" or "Automatic – click to set LFG, Needs help or Do not disturb", 0.6, 0.63, 0.66, true)
@@ -137,13 +137,13 @@ function O:UpdateMinibar()
       GameTooltip:AddLine("Layer: " .. (cur or "unknown – target or mouse over an NPC"), 0.6, 0.63, 0.66, true)
       GameTooltip:Show()
     end)
-    sb:SetScript("OnLeave", function(self) self.text:SetTextColor(hex(C.text2)) GameTooltip:Hide() end)
+    sb:SetScript("OnLeave", function(self) UI.Track(self.text):SetTextColor(hex(C.text2)) GameTooltip:Hide() end)
     m.status = sb
   end
   local SHORT = { QUEST = "Questing", DUNGEON = "Dungeon", BG = "BG", AFK = "AFK", LFG = "LFG", HELP = "Help!", DND = "DND" }
   local st = ns.Tracker:Status()
   local info = ns.STATUS[st] or ns.STATUS.QUEST
-  m.status.dot:SetVertexColor(hex(info.color))
+  UI.Track(m.status.dot):SetVertexColor(hex(info.color))
   local lay = ns.Layer and ns.Layer:CurrentLabel()
   -- Gang pulse (1.1.0): the chip says where you are – your status in the open world, else the
   -- dungeon or battleground (the layer has its own box under the bar)
@@ -166,13 +166,13 @@ function O:CreatePulseButtons(m)
   local pin = UI.IconButton(m, 22, ns.db.settings.pulsePin and "Lock" or "Unlock", "Pin: stay open in combat", function(b)
     ns.db.settings.pulsePin = not ns.db.settings.pulsePin
     b:SetIcon(ns.db.settings.pulsePin and "Lock" or "Unlock")
-    b.icon:SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
+    UI.Track(b.icon):SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
     if ns.NowCard then ns.NowCard:Relayout() end
   end)
-  pin.icon:SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
+  UI.Track(pin.icon):SetVertexColor(hex(ns.db.settings.pulsePin and C.accent or C.muted))
   m.pin = pin
   local more = UI.IconButton(m, 22, "More", "Filters, mode, layout and settings", function(b) O:PulseMenu(b) end)
-  more.icon:SetVertexColor(hex(C.muted))
+  UI.Track(more.icon):SetVertexColor(hex(C.muted))
   m.more = more
 end
 
@@ -251,7 +251,7 @@ function O:UpdateGroup()
         N.topLine:SetPoint("TOPLEFT", 8, 0)
         N.topLine:SetPoint("TOPRIGHT", -8, 0)
       end
-      N.topLine:SetColorTexture(hex(C.line))
+      UI.Track(N.topLine):SetColorTexture(hex(C.line))
       last = N
     end
   end
@@ -272,7 +272,7 @@ function O:UpdateGroup()
     m.divider:SetPoint("BOTTOMLEFT", 8, 0)
     m.divider:SetPoint("BOTTOMRIGHT", -8, 0)
   end
-  m.divider:SetColorTexture(hex(C.line))
+  UI.Track(m.divider):SetColorTexture(hex(C.line))
   m.divider:SetShown(last ~= m)
 end
 
@@ -404,7 +404,7 @@ local function newToast()
   t.close:SetPoint("TOPRIGHT", -6, -6)
   t.close.panel:SetColors(nil, nil)
   t.close.style = { text = C.dim, hover = C.card }
-  t.close.icon:SetVertexColor(hex(C.dim))
+  UI.Track(t.close.icon):SetVertexColor(hex(C.dim))
   t:SetScript("OnUpdate", function(self, dt)
     self.life = self.life - dt
     if self.life < 0.6 then self:SetAlpha(math.max(0, self.life / 0.6)) end
@@ -420,7 +420,7 @@ function O:Toast(info)
   local t = newToast()
   t.kind:SetText(k.label:upper())
   t.icon:SetTexture(ns.TEX .. "Icon" .. k.icon)
-  t.icon:SetVertexColor(hex(k.color))
+  UI.Track(t.icon):SetVertexColor(hex(k.color))
   local title, text = info.title, info.text
   if info.kind == "ding" and info.item then
     local it = info.item
@@ -501,7 +501,7 @@ function O:CreateSummary()
   close:SetPoint("TOPRIGHT", -8, -8)
   close.panel:SetColors(nil, nil)
   close.style = { text = C.dim, hover = C.card }
-  close.icon:SetVertexColor(hex(C.dim))
+  UI.Track(close.icon):SetVertexColor(hex(C.dim))
   s.cells = {}
   local cw = math.floor((380 - 32 - 16) / 3)
   for i = 1, 6 do
@@ -593,7 +593,7 @@ function O:CreateDing()
   d.close:SetPoint("TOPRIGHT", -8, -8)
   d.close.panel:SetColors(nil, nil)
   d.close.style = { text = C.dim, hover = C.card }
-  d.close.icon:SetVertexColor(hex(C.dim))
+  UI.Track(d.close.icon):SetVertexColor(hex(C.dim))
   d.buttons = {}
   for i = 1, 5 do
     d.buttons[i] = UI.Button(d, 100, 36, "", i == 1 and "primary" or "secondary")
@@ -622,26 +622,26 @@ function O:ShowDing(item)
     local def = ns.Ach.byId[item.a] or { name = tostring(item.a), desc = "", tier = item.b or "S" }
     local tier = ns.Ach.TIERS[def.tier] or ns.Ach.TIERS.S
     d.kicker:SetText("ACHIEVEMENT · " .. tier.name:upper())
-    d.kicker:SetTextColor(hex(tier.color))
+    UI.Track(d.kicker):SetTextColor(hex(tier.color))
     d.icon:SetTexture(ns.TEX .. "IconTrophy")
-    d.icon:SetVertexColor(hex(tier.color))
+    UI.Track(d.icon):SetVertexColor(hex(tier.color))
     d.title:SetText(ns:ShortWho(p, item.char) .. " unlocked " .. ns.Colorize("«" .. def.name .. "»", tier.color))
     parts[#parts + 1] = (item.c and item.c ~= "") and item.c or def.desc
     parts[#parts + 1] = tier.points .. " points"
   elseif item.kind == "KILL" and ns.Kills then
     d.kicker:SetText(ns.Kills:Kicker(item))
-    d.kicker:SetTextColor(hex(C.gold))
+    UI.Track(d.kicker):SetTextColor(hex(C.gold))
     d.icon:SetTexture(ns.TEX .. "IconTarget")
-    d.icon:SetVertexColor(hex(C.gold))
+    UI.Track(d.icon):SetVertexColor(hex(C.gold))
     local funny = ns.Kills:Line(item, ns.Kills:Names(item, true), C.text)
     d.title:SetText(funny or (ns:PersonLabel(p, item.char) .. " killed " .. tostring(item.c)))
     if item.d and item.d ~= "" then parts[#parts + 1] = tostring(item.c) .. " · " .. item.d end
     parts[#parts + 1] = "in " .. tostring(item.a or "?")
   elseif dead then
     d.kicker:SetText(ns.Deaths and ns.Deaths:Kicker(item) or "DEAD!")
-    d.kicker:SetTextColor(hex(C.red))
+    UI.Track(d.kicker):SetTextColor(hex(C.red))
     d.icon:SetTexture(ns.TEX .. "IconSkull")
-    d.icon:SetVertexColor(hex(C.red))
+    UI.Track(d.icon):SetVertexColor(hex(C.red))
     local funny = ns.Deaths and ns.Deaths:Line(item, ns:ShortWho(p, item.char), C.text)
     d.title:SetText(funny or (ns:PersonLabel(p, item.char) .. " died"))
     if funny then
@@ -656,9 +656,9 @@ function O:ShowDing(item)
   else
     local max = tonumber(item.a) == 60
     d.kicker:SetText(max and "LEVEL 60 – MAX LEVEL!" or "DING!")
-    d.kicker:SetTextColor(hex(max and C.gold or C.green))
+    UI.Track(d.kicker):SetTextColor(hex(max and C.gold or C.green))
     d.icon:SetTexture(ns.TEX .. "IconUp")
-    d.icon:SetVertexColor(hex(C.green))
+    UI.Track(d.icon):SetVertexColor(hex(C.green))
     d.title:SetText(ns:PersonLabel(p, item.char) .. " reached level " .. tostring(item.a))
     if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
     if item.first then parts[#parts + 1] = ns.Colorize("first in the gang!", C.gold)
@@ -705,8 +705,7 @@ function O:ShowDing(item)
   -- egne hendelser: ingen knapper (du kan ikke gratulere eller le av deg selv)
   if item.pid == ns.pid then
     for _, b in ipairs(d.buttons) do b:Hide() end
-    if d.sent.SetText then d.sent:SetText("The gang can react now – replies show up in the event window") end
-    d.sent:Show()
+    d.sent:Hide()   -- (1.1.5) no "the gang can react now" line on your own ding
     d.life = 6
   end
   d:SetAlpha(1)
@@ -734,12 +733,12 @@ function O:CreateMinimapButton()
   b.bg = b:CreateTexture(nil, "BACKGROUND")
   b.bg:SetTexture(ns.TEX .. "Circle")
   b.bg:SetAllPoints()
-  b.bg:SetVertexColor(hex(C.window))
+  UI.Track(b.bg):SetVertexColor(hex(C.window))
   b.ring = b:CreateTexture(nil, "BORDER")
   b.ring:SetTexture(ns.TEX .. "Circle")
   b.ring:SetPoint("TOPLEFT", -1, 1)
   b.ring:SetPoint("BOTTOMRIGHT", 1, -1)
-  b.ring:SetVertexColor(hex(C.activeLine))
+  UI.Track(b.ring):SetVertexColor(hex(C.activeLine))
   b.bg:SetDrawLayer("ARTWORK", 0)
   -- the Chillan? seal (Media/Textures/Logo), a round badge of its own: no extra background or ring
   b.bg:Hide()
@@ -755,7 +754,7 @@ function O:CreateMinimapButton()
   b.dot:SetTexture(ns.TEX .. "Circle")
   b.dot:SetSize(9, 9)
   b.dot:SetPoint("TOPRIGHT", -1, -1)
-  b.dot:SetVertexColor(hex(C.green))
+  UI.Track(b.dot):SetVertexColor(hex(C.green))
 
   local function place()
     local a = math.rad(ns.db.settings.minimapAngle or 200)
@@ -779,7 +778,7 @@ function O:CreateMinimapButton()
     if btn == "RightButton" then ns.EventWindow:ShowOrToggle() else ns.Window:Toggle() end
   end)
   b:SetScript("OnEnter", function(self)
-    self.ring:SetVertexColor(hex(C.accent))
+    UI.Track(self.ring):SetVertexColor(hex(C.accent))
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("Chillan?", 1, 1, 1)
     local n = ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
@@ -788,7 +787,7 @@ function O:CreateMinimapButton()
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function(self)
-    self.ring:SetVertexColor(hex(C.activeLine))
+    UI.Track(self.ring):SetVertexColor(hex(C.activeLine))
     GameTooltip:Hide()
   end)
   place()
@@ -875,7 +874,7 @@ function O:CreateReady()
   close:SetPoint("TOPRIGHT", -8, -8)
   close.panel:SetColors(nil, nil)
   close.style = { text = C.dim, hover = C.card }
-  close.icon:SetVertexColor(hex(C.dim))
+  UI.Track(close.icon):SetVertexColor(hex(C.dim))
   local heads = { { "Player", 16 }, { "Bags", 186 }, { "Gear", 250 }, { "Food/drink", 310 } }
   for _, hd in ipairs(heads) do
     local t = UI.Text(r, 10, "semi", C.dim)
@@ -923,11 +922,11 @@ function O:FillReady()
       local p = ns:GetPerson(e.pid) or {}
       row.name:SetText(ns:ShortWho(p))
       row.bags:SetText(e.d.free .. "/" .. e.d.total)
-      row.bags:SetTextColor(hex(col(e.d.free, 8, 3, true)))
+      UI.Track(row.bags):SetTextColor(hex(col(e.d.free, 8, 3, true)))
       row.dur:SetText(e.d.dur .. " %")
-      row.dur:SetTextColor(hex(col(e.d.dur, 50, 20, true)))
+      UI.Track(row.dur):SetTextColor(hex(col(e.d.dur, 50, 20, true)))
       row.food:SetText(tostring(e.d.food))
-      row.food:SetTextColor(hex(col(e.d.food, 10, 0, true)))
+      UI.Track(row.food):SetTextColor(hex(col(e.d.food, 10, 0, true)))
       row.name:Show() row.bags:Show() row.dur:Show() row.food:Show()
     else
       row.name:Hide() row.bags:Hide() row.dur:Hide() row.food:Hide()

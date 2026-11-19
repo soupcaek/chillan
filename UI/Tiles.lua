@@ -315,13 +315,13 @@ function T:Update()
       local ok, v, sub, col = pcall(d.get)
       if not ok then v, sub, col = "–", d.name, nil end
       t.v:SetText(v or "–")
-      t.v:SetTextColor(hex(col or C.text))
+      UI.Track(t.v):SetTextColor(hex(col or C.text))
       t.k:SetText(sub or "")
       if d.action then
-        t.edge:SetColorTexture(hex(d.color))
+        UI.Track(t.edge):SetColorTexture(hex(d.color))
         t.edge:Show()
         t.icon:SetTexture(ns.TEX .. "Icon" .. d.icon)
-        t.icon:SetVertexColor(hex(d.color))
+        UI.Track(t.icon):SetVertexColor(hex(d.color))
         local roomy = (t:GetWidth() or 0) >= 100
         t.icon:SetShown(roomy)
         t.v:SetPoint("RIGHT", roomy and -28 or -6, 0)
@@ -383,7 +383,7 @@ function T:Layout()
     li = li + 1
     local l = self.lines[li]
     if not l then l = self.holder:CreateTexture(nil, "ARTWORK") self.lines[li] = l end
-    l:SetColorTexture(hex(C.line))
+    UI.Track(l):SetColorTexture(hex(C.line))
     l:ClearAllPoints()
     l:SetPoint("TOPLEFT", self.holder, "TOPLEFT", x1, y1)
     l:SetPoint("BOTTOMRIGHT", self.holder, "TOPLEFT", x2, y2)

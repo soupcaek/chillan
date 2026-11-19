@@ -152,9 +152,9 @@ function PC:Fill(pid)
 
   -- farger hentes på nytt hver gang, så temaer/aksentfarger slår inn
   f.panel:SetColors(C.card, C.activeLine, UI.OverlayAlpha and UI.OverlayAlpha() or 1)
-  f.divider:SetColorTexture(hex(C.line))
-  f.track:SetVertexColor(hex(C.active))
-  f.fill:SetVertexColor(hex(ns.ClassHex(c.class)))
+  UI.Track(f.divider):SetColorTexture(hex(C.line))
+  UI.Track(f.track):SetVertexColor(hex(C.active))
+  UI.Track(f.fill):SetVertexColor(hex(ns.ClassHex(c.class)))
 
   f.avatar:Set(c.name, c.class, online and (L.status == "AFK" and C.amber or C.green) or nil, C.card)
   local badge = (ns.Titles and ns.Titles.Badge) and ns.Titles:Badge(pid) or ""

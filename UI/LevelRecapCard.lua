@@ -64,7 +64,7 @@ local function createRecap()
   f.x = UI.IconButton(f, 24, "Close", nil, function() f:Hide() end)
   f.x:SetPoint("TOPRIGHT", -10, -10)
   f.x.panel:SetColors(nil, nil)
-  f.x.icon:SetVertexColor(hex(C.dim))
+  UI.Track(f.x.icon):SetVertexColor(hex(C.dim))
   f.cards = {}
   for i = 1, 6 do
     local c = UI.Panel(f, C.card, C.line, false)
@@ -109,10 +109,10 @@ end
 
 local function card(c, big, label, note, color, noteColor)
   c.big:SetText(big)
-  c.big:SetTextColor(hex(color or C.text))
+  UI.Track(c.big):SetTextColor(hex(color or C.text))
   c.label:SetText(label)
   c.note:SetText(note or "")
-  c.note:SetTextColor(hex(noteColor or C.dim))
+  UI.Track(c.note):SetTextColor(hex(noteColor or C.dim))
 end
 
 local function money(v)

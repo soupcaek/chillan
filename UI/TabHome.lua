@@ -1,39 +1,63 @@
--- Chillan? – "Home": what's going on right now, in one look (1.0).
--- Who's online, the gang's latest moments, quick actions and this week's race.
+-- Chillan? – "Home": what's going on right now, in one look (1.0, reworked 1.1.5).
+-- Left: everyone in the gang as a small card (online first). Middle: the gang's latest moments, drawn
+-- like the feed (icons in tinted boxes, reactions as pills). Right: quick actions and this week.
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
-ns:RegisterTab("home", "Home", "Friends", function(tab)
-  local LEFT_W, RIGHT_W = 250, 214
+-- "4m", "19h", "2d" for the time column
+local function shortAgo(t)
+  local s = ns.Now() - (t or ns.Now())
+  if s < 60 then return "now" end
+  if s < 3600 then return math.floor(s / 60) .. "m" end
+  if s < 86400 then return math.floor(s / 3600) .. "h" end
+  return math.floor(s / 86400) .. "d"
+end
 
-  -- left: online now
+local function goldText(copper)
+  copper = math.floor(copper or 0)
+  local g = math.floor(copper / 10000)
+  if g > 0 then return ns.Num(g) .. "g" end
+  return math.floor((copper % 10000) / 100) .. "s"
+end
+
+ns:RegisterTab("home", "Home", "Friends", function(tab)
+  local LEFT_W, RIGHT_W = 230, 214
+
+  ---------------------------------------------------------------------------
+  -- left: the gang, one card each
+  ---------------------------------------------------------------------------
   local left = CreateFrame("Frame", nil, tab)
   left:SetPoint("TOPLEFT", 14, -12)
   left:SetPoint("BOTTOMLEFT", 14, 12)
   left:SetWidth(LEFT_W)
   local lh = UI.Text(left, 11, "semi", C.dim)
   lh:SetPoint("TOPLEFT", 2, 0)
-  lh:SetText("ONLINE NOW")
+  lh:SetText("THE GANG")
 
   local function createRow(list)
     local row = CreateFrame("Button", nil, list)
     row.panel = UI.Panel(row, C.card, C.line, false)
     row.panel:SetAllPoints()
     row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.dot = row:CreateTexture(nil, "ARTWORK")
+    row.dot:SetTexture(ns.TEX .. "Circle")
+    row.dot:SetSize(7, 7)
+    row.dot:SetPoint("TOPLEFT", 10, -12)
     row.name = UI.Text(row, 13, "semi", C.text)
-    row.name:SetPoint("TOPLEFT", 10, -7)
-    row.name:SetPoint("RIGHT", -56, 0)
+    row.name:SetPoint("TOPLEFT", 22, -7)
+    row.name:SetPoint("RIGHT", -64, 0)
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
     row.tag = UI.Text(row, 10, nil, C.muted)
     row.tag:SetPoint("TOPRIGHT", -10, -9)
+    row.tag:SetJustifyH("RIGHT")
     row.sub = UI.Text(row, 11, nil, C.dim)
-    row.sub:SetPoint("BOTTOMLEFT", 10, 7)
+    row.sub:SetPoint("BOTTOMLEFT", 22, 7)
     row.sub:SetPoint("RIGHT", -10, 0)
     row.sub:SetJustifyH("LEFT")
     row.sub:SetWordWrap(false)
     row:SetScript("OnEnter", function(self)
-      if not self.item or self.item.note then return end
+      if not self.item then return end
       self.panel:SetColors(C.cardHover, C.line)
       ns.Overlays:ShowProfile(self, self.item.pid)
     end)
@@ -42,41 +66,45 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
       ns.Overlays:HideProfile()
     end)
     row:SetScript("OnClick", function(self)
-      if not self.item or self.item.note then return end
+      if not self.item then return end
       ns.Overlays:HideProfile()
       if IsShiftKeyDown() then ns.PersonCard:Pin(self.item.pid) else ns.Window:OpenPlayer(self.item.pid) end
     end)
     return row
   end
   local function updateRow(row, p)
-    if p.note then
-      row.panel:Hide()
-      row.name:SetText("")
-      row.tag:SetText("")
-      row.sub:SetText(p.note)
-      return
-    end
-    row.panel:Show()
     local c = ns:PersonChar(p) or {}
+    local online = ns:IsOnline(p)
     local L = p.live or {}
+    row:SetAlpha(online and 1 or 0.55)
+    UI.Track(row.dot):SetVertexColor(hex(online and C.green or C.dim))
+    local cr, cg, cb = ns.ClassColor(c.class)
     row.name:SetText(ns:ShortWho(p) .. ns.Colorize(" · " .. tostring(c.level or "?"), C.muted))
-    local tag = ""
-    if L.inInst then tag = "dungeon"
-    elseif L.status == "AFK" then tag = "AFK"
-    elseif L.layer and ns.Layer then tag = ns.Layer.Label(L.layer) end
-    local mine = ns.Layer and ns.Layer:Current()
-    row.tag:SetText(tag)
-    row.tag:SetTextColor(hex((L.layer and mine and L.layer == mine and not L.inInst) and "9BE08A" or C.muted))
-    local z = L.zone or ""
-    if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
-    row.sub:SetText(z ~= "" and z or "online")
+    if online then
+      local tag = ""
+      if L.inInst then tag = "dungeon"
+      elseif L.status == "AFK" then tag = "AFK"
+      elseif L.layer and ns.Layer then tag = ns.Layer.Label(L.layer) end
+      local mine = ns.Layer and ns.Layer:Current()
+      row.tag:SetText(tag)
+      UI.Track(row.tag):SetTextColor(hex((L.layer and mine and L.layer == mine and not L.inInst) and "9BE08A" or C.muted))
+      local z = L.zone or ""
+      if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
+      row.sub:SetText(z ~= "" and z or "online")
+    else
+      row.tag:SetText(p.lastSeen and ns.Ago(p.lastSeen) or "")
+      UI.Track(row.tag):SetTextColor(hex(C.dim))
+      row.sub:SetText(c.zone or (p.live and p.live.zone) or "offline")
+    end
   end
   local list = UI.List(left, 44, 6, createRow, updateRow)
   list:SetPoint("TOPLEFT", lh, "BOTTOMLEFT", -2, -8)
   list:SetPoint("BOTTOMRIGHT", 0, 0)
-  list.emptyText = "Nobody else online right now."
+  list.emptyText = "Nobody in the gang yet."
 
+  ---------------------------------------------------------------------------
   -- right: quick actions and this week
+  ---------------------------------------------------------------------------
   local right = CreateFrame("Frame", nil, tab)
   right:SetPoint("TOPRIGHT", -14, -12)
   right:SetPoint("BOTTOMRIGHT", -14, 12)
@@ -86,7 +114,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   rh:SetText("QUICK ACTIONS")
 
   local function action(label, icon, tip, fn)
-    local b = UI.Button(right, RIGHT_W, 36, label, "secondary", fn)
+    local b = UI.Button(right, RIGHT_W, 32, label, "secondary", fn)
     if icon then b:SetIcon(icon, 14) end
     b.tooltip = tip
     return b
@@ -94,37 +122,50 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   local hop = action("Layer hop", "Radar", "Join someone on another layer – the gang first, then LayerSwap users nearby",
     function() ns.LayerHop:Request() end)
   hop:SetPoint("TOPLEFT", rh, "BOTTOMLEFT", -2, -8)
-  local ready = action("Ready check", "Check", "Bag space, durability and food/drink for everyone in the group",
-    function() ns.Extras:StartReadyCheck() end)
-  ready:SetPoint("TOPLEFT", hop, "BOTTOMLEFT", 0, -8)
+  local plan = action("Plan something", "Calendar", "Put a plan up for the gang (a dungeon run, a BG night) – they can say if they're coming",
+    function()
+      UI.Prompt("Plan something", {
+        { label = "What", placeholder = "Strat run" },
+        { label = "When", placeholder = "Saturday 20:00" },
+      }, function(what, when)
+        if ns.Data:CreateEvent(what or "", when or "") then ns.Print("Plan posted to the gang.") end
+      end)
+    end)
+  plan:SetPoint("TOPLEFT", hop, "BOTTOMLEFT", 0, -6)
+  local tag = action("Cunt List: your target", "Skull", "Put the player you have targeted on the Cunt List (you write why)",
+    function() if ns.TagTarget then ns.TagTarget() end end)
+  tag:SetPoint("TOPLEFT", plan, "BOTTOMLEFT", 0, -6)
   local edit = action("Move things on screen", "Gear", "Edit mode: drag every Chillan piece on screen at once (/chill edit)",
     function() ns.UI.EditMode(true) end)
-  edit:SetPoint("TOPLEFT", ready, "BOTTOMLEFT", 0, -8)
+  edit:SetPoint("TOPLEFT", tag, "BOTTOMLEFT", 0, -6)
 
   local wh = UI.Text(right, 11, "semi", C.dim)
-  wh:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", 2, -18)
+  wh:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", 2, -16)
   wh:SetText("THIS WEEK")
-  local week = UI.Panel(right, C.card, C.line, false)
-  week:SetPoint("TOPLEFT", wh, "BOTTOMLEFT", -2, -8)
-  week:SetPoint("RIGHT", right, "RIGHT", 0, 0)
-  week:SetHeight(112)
-  week.title = UI.Text(week, 12, "semi", C.text)
-  week.title:SetPoint("TOPLEFT", 12, -10)
-  week.title:SetPoint("RIGHT", -12, 0)
-  week.title:SetJustifyH("LEFT")
-  week.body = UI.Text(week, 12, nil, C.text2)
-  week.body:SetPoint("TOPLEFT", week.title, "BOTTOMLEFT", 0, -6)
-  week.body:SetPoint("RIGHT", -12, 0)
-  week.body:SetJustifyH("LEFT")
-  week.body:SetSpacing(3)
+  local function card(anchor, gap)
+    local k = UI.Panel(right, C.card, C.line, false)
+    k:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", anchor == wh and -2 or 0, -(gap or 6))
+    k:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+    k.title = UI.Text(k, 12, "semi", C.text)
+    k.title:SetPoint("TOPLEFT", 10, -8)
+    k.title:SetPoint("RIGHT", -10, 0)
+    k.body = UI.Text(k, 11, nil, C.text2)
+    k.body:SetPoint("TOPLEFT", k.title, "BOTTOMLEFT", 0, -4)
+    k.body:SetPoint("RIGHT", -10, 0)
+    k.body:SetJustifyH("LEFT")
+    k.body:SetWordWrap(true)
+    k.body:SetSpacing(2)
+    function k:Fit() self:SetHeight(math.max(36, 8 + (self.title:GetStringHeight() or 14) + 4 + (self.body:GetStringHeight() or 0) + 9)) end
+    return k
+  end
+  local week = card(wh, 8)
+  local mine = card(week)
+  local enemy = card(mine)
+  local nextEv = card(enemy)
 
-  local nextEv = UI.Text(right, 12, nil, C.text2)
-  nextEv:SetPoint("TOPLEFT", week, "BOTTOMLEFT", 2, -12)
-  nextEv:SetPoint("RIGHT", right, "RIGHT", 0, 0)
-  nextEv:SetJustifyH("LEFT")
-  nextEv:SetWordWrap(true)
-
-  -- middle: the gang's latest moments
+  ---------------------------------------------------------------------------
+  -- middle: the gang's latest moments (rows with icon boxes and reaction pills)
+  ---------------------------------------------------------------------------
   local mid = CreateFrame("Frame", nil, tab)
   mid:SetPoint("TOPLEFT", left, "TOPRIGHT", 16, 0)
   mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", -16, 0)
@@ -134,46 +175,71 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   local box = UI.Panel(mid, C.card, C.line, false)
   box:SetPoint("TOPLEFT", mh, "BOTTOMLEFT", -2, -8)
   box:SetPoint("BOTTOMRIGHT", 0, 0)
-  local feed = UI.MessageFrame(box, 12)
-  feed:SetPoint("TOPLEFT", 12, -10)
-  feed:SetPoint("BOTTOMRIGHT", -12, 10)
-  feed:SetSpacing(6)
+  local feed = UI.FeedRows(box)
+  feed:SetPoint("TOPLEFT", 10, -8)
+  feed:SetPoint("BOTTOMRIGHT", -10, 8)
+  feed.timeText = function(e) return shortAgo(e.t) end
+  feed.onLinkClick = function(_, link, text, button)
+    if type(link) == "string" and link:find("^item:") then ns.ItemLinkClick(link, text, button) return end
+    if ns.PersonCard then ns.PersonCard:OnLinkClick(link) end
+  end
 
-  -- small things (quests, online/offline) aren't feed items; the feed is already the big moments
   local function drawFeed()
     feed:Clear()
     local items = ns.db.feed or {}
     for i = math.max(1, #items - 40), #items do
-      local ok, line = pcall(ns.FeedLine, items[i], true)
-      if ok and line then feed:AddMessage(line) end
+      local it = items[i]
+      local ok, line = pcall(ns.FeedShort, it)
+      if ok and line then feed:AddMessage(line, { kind = "ev", base = line, t = it.t, item = it }) end
     end
     if #items == 0 then feed:AddMessage(ns.Colorize("Dings, drops, kills and trophies from the gang show up here.", C.dim)) end
   end
 
   local function drawWeek()
-    local ok, chal, leader = pcall(ns.Data.CurrentLeader, ns.Data)
-    if not ok or not chal then week.title:SetText("Weekly challenge") week.body:SetText("") return end
-    week.title:SetText("Challenge: " .. tostring(chal.label))
-    local rank = {}
-    for _, p in ipairs(ns:SortedPeople()) do
-      local x = ns:WeekStat(p, chal.key)
-      if x > 0 then rank[#rank + 1] = { p = p, v = x } end
-    end
-    table.sort(rank, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
-    local lines = {}
-    for k = 1, math.min(3, #rank) do
-      lines[k] = k .. ". " .. ns:ShortWho(rank[k].p) .. ns.Colorize("  " .. (chal.fmt and chal.fmt(rank[k].v) or tostring(rank[k].v)), C.muted)
-    end
-    -- where am I? (titles and challenges are a race)
-    local me = ns:GetPerson(ns.pid)
-    for k, r in ipairs(rank) do
-      if r.p == me and k > 1 then
-        local gap = rank[k - 1].v - r.v
-        lines[#lines + 1] = ns.Colorize("You're no. " .. k .. ", " .. (chal.fmt and chal.fmt(gap) or gap) .. " behind", C.accent)
-        break
+    local ok, chal = pcall(ns.Data.CurrentLeader, ns.Data)
+    if not ok or not chal then
+      week.title:SetText("Weekly challenge")
+      week.body:SetText(ns.Colorize("No challenge this week.", C.dim))
+    else
+      week.title:SetText("Challenge: " .. tostring(chal.label))
+      local rank = {}
+      for _, p in ipairs(ns:SortedPeople()) do
+        local x = ns:WeekStat(p, chal.key)
+        if x > 0 then rank[#rank + 1] = { p = p, v = x } end
       end
+      table.sort(rank, function(a, b) if a.v ~= b.v then return a.v > b.v end return (a.p.pid or "") < (b.p.pid or "") end)
+      local lines = {}
+      for k = 1, math.min(3, #rank) do
+        lines[k] = k .. ". " .. ns:ShortWho(rank[k].p) .. ns.Colorize("  " .. (chal.fmt and chal.fmt(rank[k].v) or tostring(rank[k].v)), C.muted)
+      end
+      local me = ns:GetPerson(ns.pid)
+      for k, r in ipairs(rank) do
+        if r.p == me and k > 1 then
+          local gap = rank[k - 1].v - r.v
+          lines[#lines + 1] = ns.Colorize("You're no. " .. k .. ", " .. (chal.fmt and chal.fmt(gap) or gap) .. " behind", C.accent)
+          break
+        end
+      end
+      week.body:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("No points yet this week.", C.dim))
     end
-    week.body:SetText(#lines > 0 and table.concat(lines, "\n") or ns.Colorize("No points yet this week.", C.dim))
+    week:Fit()
+    -- your own week
+    local me = ns:GetPerson(ns.pid, true)
+    local function ws(k) return ns:WeekStat(me, k) end
+    mine.title:SetText("Your week")
+    mine.body:SetText(ws("Quests") .. " quests · " .. ws("Levels") .. " levels · " .. goldText(ws("Gold")) .. "\n"
+      .. ws("Kills") .. " kills · " .. ws("Deaths") .. " deaths · " .. ns.Duration(ws("Online")))
+    mine:Fit()
+    -- most kills on the gang this week ("Died to")
+    local e, n
+    if ns.DiedTo then e, n = ns.DiedTo:WeekTop() end
+    enemy.title:SetText("Enemy of the week")
+    if e and (n or 0) > 0 then
+      enemy.body:SetText(ns.Colorize(e.name, C.red) .. ns.Colorize("  " .. n .. (n == 1 and " kill" or " kills") .. " on the gang", C.muted))
+    else
+      enemy.body:SetText(ns.Colorize("Nobody has killed the gang this week.", C.dim))
+    end
+    enemy:Fit()
   end
 
   local function drawEvent()
@@ -181,21 +247,25 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     for _, ev in ipairs(ns.db.events or {}) do
       if not best or (ev.t or 0) > (best.t or 0) then best = ev end
     end
+    nextEv.title:SetText("Next plan")
     if best then
       local coming = 0
       for _, st in pairs(best.rsvp or {}) do if st == "yes" or st == 1 or st == "coming" then coming = coming + 1 end end
-      nextEv:SetText(ns.Colorize(tostring(best.when or ""), C.text) .. "\n" .. tostring(best.title or "") .. (coming > 0 and ns.Colorize("  ·  " .. coming .. " coming", C.muted) or ""))
+      nextEv.body:SetText(tostring(best.title or "") .. "\n" .. ns.Colorize(tostring(best.when or "") .. (coming > 0 and ("  ·  " .. coming .. " coming") or ""), C.muted))
     else
-      nextEv:SetText(ns.Colorize("No plans yet – add one under Gang.", C.dim))
+      nextEv.body:SetText(ns.Colorize("Nothing planned – use Plan something above.", C.dim))
     end
+    nextEv:Fit()
   end
 
   function tab:Refresh()
-    local people = ns:SortedPeople(function(p, pid) return pid ~= ns.pid and ns:IsOnline(p) end)
-    table.sort(people, function(a, b) return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end)
-    local total = 0
-    for pid, p in pairs(ns.db.people or {}) do if pid ~= ns.pid and p.main then total = total + 1 end end
-    if total > #people then people[#people + 1] = { note = (total - #people) .. " offline · see Gang" } end
+    local people = ns:SortedPeople(function(p, pid) return pid ~= ns.pid end)
+    table.sort(people, function(a, b)
+      local oa, ob = ns:IsOnline(a) and 1 or 0, ns:IsOnline(b) and 1 or 0
+      if oa ~= ob then return oa > ob end
+      if oa == 1 then return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end
+      return (a.lastSeen or 0) > (b.lastSeen or 0)
+    end)
     list:SetData(people)
     local cur = ns.Layer and ns.Layer:CurrentLabel()
     hop:SetLabel(cur and ("Layer hop  ·  " .. cur) or "Layer hop")

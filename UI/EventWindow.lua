@@ -125,7 +125,7 @@ function E:Redraw()
   if off > 0 and self.msg.SetScrollOffset then pcall(self.msg.SetScrollOffset, self.msg, off) end
   for key, btn in pairs(self.filterBtns or {}) do
     local on = (ns.db.settings.evFilter or "all") == key
-    btn.text:SetTextColor(hex(on and C.text or C.dim))
+    UI.Track(btn.text):SetTextColor(hex(on and C.text or C.dim))
     btn.line:SetShown(on)
   end
 end
@@ -260,14 +260,14 @@ function E:Create()
   mini.bar = mini:CreateTexture(nil, "OVERLAY")
   mini.bar:SetSize(10, 2)
   mini.bar:SetPoint("CENTER", 0, 0)
-  mini.bar:SetColorTexture(hex(C.muted))
+  UI.Track(mini.bar):SetColorTexture(hex(C.muted))
   mini:SetScript("OnEnter", function(self)
-    self.bar:SetColorTexture(hex(C.text))
+    UI.Track(self.bar):SetColorTexture(hex(C.text))
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine(ns.db.settings.evMin and "Expand" or "Minimize to header")
     GameTooltip:Show()
   end)
-  mini:SetScript("OnLeave", function(self) self.bar:SetColorTexture(hex(C.muted)) GameTooltip:Hide() end)
+  mini:SetScript("OnLeave", function(self) UI.Track(self.bar):SetColorTexture(hex(C.muted)) GameTooltip:Hide() end)
   mini:SetScript("OnClick", function() E:SetMinimized(not ns.db.settings.evMin) end)
   self.miniBtn = mini
   -- double-click the header does the same
@@ -294,7 +294,7 @@ function E:Create()
     b.text:SetText(label)
     b:SetSize(b.text:GetStringWidth() + 12, 22)
     b.line = b:CreateTexture(nil, "ARTWORK")
-    b.line:SetColorTexture(hex(C.accent))
+    UI.Track(b.line):SetColorTexture(hex(C.accent))
     b.line:SetHeight(1)
     b.line:SetPoint("BOTTOMLEFT", 6, 2)
     b.line:SetPoint("BOTTOMRIGHT", -6, 2)
@@ -306,7 +306,7 @@ function E:Create()
 
   local sep = f:CreateTexture(nil, "ARTWORK")
   self.sep = sep
-  sep:SetColorTexture(hex(C.line))
+  UI.Track(sep):SetColorTexture(hex(C.line))
   sep:SetHeight(1)
   sep:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 8, 0)
   sep:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT", -8, 0)
@@ -363,7 +363,7 @@ function E:Create()
   local gt = grip:CreateTexture(nil, "OVERLAY")
   gt:SetAllPoints()
   gt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-  gt:SetVertexColor(hex(C.muted))
+  UI.Track(gt):SetVertexColor(hex(C.muted))
   grip:SetShown(not UI.IsLocked() and not ns.db.settings.evMin)
   ns:Listen("LOCK_CHANGED", function(v) grip:SetShown(not v and not ns.db.settings.evMin) end)
   grip:SetScript("OnMouseDown", function(g)
@@ -518,7 +518,7 @@ function E:Reanchor(anchor)
     self.topLine:SetPoint("TOPLEFT", 8, 0)
     self.topLine:SetPoint("TOPRIGHT", -8, 0)
   end
-  self.topLine:SetColorTexture(hex(C.line))
+  UI.Track(self.topLine):SetColorTexture(hex(C.line))
   self.topLine:SetShown(anchor ~= m)
   if self.count then self.count:Hide() end   -- the bar above already shows who's online
   if self.title then self.title:SetText("Gang feed") end   -- the bar above already says Chillan?

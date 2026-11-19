@@ -5,6 +5,29 @@ ns.UI = UI
 local C = ns.C
 local hex = ns.hex
 
+---------------------------------------------------------------------------
+-- Live themes (1.1.5): every texture and text drawn through these helpers remembers the colour it was
+-- given, so a theme change can swap old theme colours for new ones without a /reload
+---------------------------------------------------------------------------
+local themed = setmetatable({}, { __mode = "k" })
+local themedButtons = setmetatable({}, { __mode = "k" })
+local function wrap(o, method, field)
+  local orig = o[method]
+  if not orig then return end
+  o[method] = function(self, r, g, b, a, ...)
+    if type(r) == "number" then self[field] = { r, g, b, a } end
+    return orig(self, r, g, b, a, ...)
+  end
+end
+function UI.Track(o)
+  if not o or themed[o] then return o end
+  themed[o] = true
+  wrap(o, "SetColorTexture", "_ct")
+  wrap(o, "SetVertexColor", "_vc")
+  wrap(o, "SetTextColor", "_tc")
+  return o
+end
+
 local SLICE_MODE = (Enum and Enum.UITextureSliceMode and Enum.UITextureSliceMode.Stretched) or 0
 
 function UI.Rounded(tex, small)
@@ -63,10 +86,10 @@ function UI.Slider(parent, w, minV, maxV, step, get, set, fmt)
   track:SetPoint("LEFT")
   track:SetPoint("RIGHT")
   track:SetHeight(4)
-  track:SetVertexColor(hex(C.activeLine))
+  UI.Track(track):SetVertexColor(hex(C.activeLine))
   s:SetThumbTexture(ns.TEX .. "Circle")
   local thumb = s:GetThumbTexture()
-  if thumb then thumb:SetSize(14, 14) thumb:SetVertexColor(hex(C.accent)) end
+  if thumb then thumb:SetSize(14, 14) UI.Track(thumb):SetVertexColor(hex(C.accent)) end
   s:EnableMouseWheel(true)
   s:SetScript("OnMouseWheel", function(self, d) self:SetValue(self:GetValue() + d * step) end)
   s:SetScript("OnValueChanged", function(_, v)
@@ -86,10 +109,10 @@ end
 
 function UI.Panel(parent, fill, line, small, alpha)
   local f = CreateFrame("Frame", nil, parent)
-  f.bg = f:CreateTexture(nil, "BACKGROUND")
+  f.bg = UI.Track(f:CreateTexture(nil, "BACKGROUND"))
   f.bg:SetAllPoints()
   UI.Rounded(f.bg, small)
-  f.border = f:CreateTexture(nil, "BORDER")
+  f.border = UI.Track(f:CreateTexture(nil, "BORDER"))
   f.border:SetAllPoints()
   roundedBorder(f.border, small)
   function f:SetColors(fillHex, lineHex, a)
@@ -113,19 +136,19 @@ function UI.Panel(parent, fill, line, small, alpha)
 end
 
 function UI.SolidLine(parent, h)
-  local t = parent:CreateTexture(nil, "ARTWORK")
-  t:SetColorTexture(hex(h or C.line))
+  local t = UI.Track(parent:CreateTexture(nil, "ARTWORK"))
+  UI.Track(t):SetColorTexture(hex(h or C.line))
   return t
 end
 
 function UI.Text(parent, size, weight, color, layer)
-  local fs = parent:CreateFontString(nil, layer or "OVERLAY")
+  local fs = UI.Track(parent:CreateFontString(nil, layer or "OVERLAY"))
   local font = ns.FONT
   if weight == "semi" then font = ns.FONT_SEMI elseif weight == "bold" then font = ns.FONT_BOLD end
   if not fs:SetFont(font, size or 13, "") then
     fs:SetFontObject(GameFontNormal)
   end
-  fs:SetTextColor(hex(color or C.text))
+  UI.Track(fs):SetTextColor(hex(color or C.text))
   fs:SetJustifyH("LEFT")
   fs:SetWordWrap(false)
   fs:SetShadowOffset(0, 0)
@@ -133,10 +156,10 @@ function UI.Text(parent, size, weight, color, layer)
 end
 
 function UI.Icon(parent, name, size, color)
-  local t = parent:CreateTexture(nil, "ARTWORK")
+  local t = UI.Track(parent:CreateTexture(nil, "ARTWORK"))
   t:SetTexture(ns.TEX .. "Icon" .. name)
   t:SetSize(size or 16, size or 16)
-  t:SetVertexColor(hex(color or C.text))
+  UI.Track(t):SetVertexColor(hex(color or C.text))
   return t
 end
 
@@ -247,7 +270,7 @@ local function standFor(key, target)
     st.edges = {}
     for i, pt in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
       local e = st:CreateTexture(nil, "BORDER")
-      e:SetColorTexture(hex(C.accent))
+      UI.Track(e):SetColorTexture(hex(C.accent))
       e:SetPoint(pt[1]) e:SetPoint(pt[2])
       if i <= 2 then e:SetHeight(2) else e:SetWidth(2) end
       st.edges[i] = e
@@ -362,20 +385,22 @@ function UI.Button(parent, w, h, label, style, onClick)
   b.label = UI.Text(b, 12, nil, C.text)
   b.label:SetPoint("CENTER", 0, 0)
   b.label:SetText(label or "")
+  themedButtons[b] = true
   function b:SetStyle(st)
+    self._styleName = st
     self.style = STYLES[st] or STYLES.secondary
     local s = self.style
     self.panel:SetColors(s.fill, s.line)
     self.label:SetFont(s.weight == "semi" and ns.FONT_SEMI or ns.FONT, 12, "")
-    self.label:SetTextColor(hex(s.text))
-    if self.icon then self.icon:SetVertexColor(hex(s.text)) end
+    UI.Track(self.label):SetTextColor(hex(s.text))
+    if self.icon then UI.Track(self.icon):SetVertexColor(hex(s.text)) end
   end
   function b:SetLabel(t) self.label:SetText(t) end
   function b:SetIcon(name, size)
-    if not self.icon then self.icon = self:CreateTexture(nil, "ARTWORK") end
+    if not self.icon then self.icon = UI.Track(self:CreateTexture(nil, "ARTWORK")) end
     self.icon:SetTexture(ns.TEX .. "Icon" .. name)
     self.icon:SetSize(size or 14, size or 14)
-    self.icon:SetVertexColor(hex(self.style.text))
+    UI.Track(self.icon):SetVertexColor(hex(self.style.text))
     if self.label:GetText() and self.label:GetText() ~= "" then
       self.icon:SetPoint("RIGHT", self.label, "LEFT", -6, 0)
       self.label:ClearAllPoints()
@@ -404,10 +429,10 @@ end
 function UI.IconButton(parent, size, icon, tooltip, onClick)
   local b = UI.Button(parent, size, size, "", "ghost", onClick)
   b:SetIcon(icon, math.floor(size * 0.5))
-  b.icon:SetVertexColor(hex(C.accent))
+  UI.Track(b.icon):SetVertexColor(hex(C.accent))
   b.tooltip = tooltip
   local base = b.SetStyle
-  function b:SetStyle(st) base(self, st) if self.icon then self.icon:SetVertexColor(hex(C.accent)) end end
+  function b:SetStyle(st) base(self, st) if self.icon then UI.Track(self.icon):SetVertexColor(hex(C.accent)) end end
   return b
 end
 
@@ -419,7 +444,7 @@ function UI.Pill(parent)
   p.text:SetPoint("CENTER")
   function p:Set(label, colorHex)
     self.text:SetText(label)
-    self.text:SetTextColor(hex(colorHex))
+    UI.Track(self.text):SetTextColor(hex(colorHex))
     local r, g, b = hex(colorHex)
     self.bg:SetVertexColor(r, g, b, 0.14)
     self.bg:Show()
@@ -436,7 +461,7 @@ function UI.Avatar(parent, size)
   a.bg = a:CreateTexture(nil, "BACKGROUND")
   a.bg:SetAllPoints()
   a.bg:SetTexture(ns.TEX .. "Circle")
-  a.bg:SetVertexColor(hex(C.active))
+  UI.Track(a.bg):SetVertexColor(hex(C.active))
   a.letter = UI.Text(a, math.floor(size * 0.42), "bold", C.text)
   a.letter:SetPoint("CENTER", 0, 0)
   a.letter:SetJustifyH("CENTER")
@@ -445,7 +470,7 @@ function UI.Avatar(parent, size)
   a.ring:SetTexture(ns.TEX .. "Circle")
   a.ring:SetSize(ds + 4, ds + 4)
   a.ring:SetPoint("BOTTOMRIGHT", 2, -2)
-  a.ring:SetVertexColor(hex(C.card))
+  UI.Track(a.ring):SetVertexColor(hex(C.card))
   a.dot = a:CreateTexture(nil, "OVERLAY")
   a.dot:SetTexture(ns.TEX .. "Circle")
   a.dot:SetSize(ds, ds)
@@ -454,8 +479,8 @@ function UI.Avatar(parent, size)
     self.letter:SetText((name or "?"):sub(1, 1):upper())
     self.letter:SetTextColor(ns.ClassColor(classFile))
     if dotHex then
-      self.dot:SetVertexColor(hex(dotHex))
-      self.ring:SetVertexColor(hex(ringHex or C.card))
+      UI.Track(self.dot):SetVertexColor(hex(dotHex))
+      UI.Track(self.ring):SetVertexColor(hex(ringHex or C.card))
       self.dot:Show() self.ring:Show()
     else
       self.dot:Hide() self.ring:Hide()
@@ -474,7 +499,7 @@ function UI.EditBox(parent, w, h, placeholder, onEnter)
   e:SetPoint("TOPLEFT", 10, 0)
   e:SetPoint("BOTTOMRIGHT", -10, 0)
   e:SetFont(ns.FONT, 13, "")
-  e:SetTextColor(hex(C.text))
+  UI.Track(e):SetTextColor(hex(C.text))
   e:SetAutoFocus(false)
   e:SetMaxLetters(200)
   e.ph = UI.Text(holder, 13, nil, C.dim)
@@ -543,7 +568,7 @@ function UI.List(parent, rowHeight, gap, createRow, updateRow)
   list.rowHeight = rowHeight
   list.gap = gap or 6
   list.thumb = list:CreateTexture(nil, "OVERLAY")
-  list.thumb:SetColorTexture(hex(C.activeLine))
+  UI.Track(list.thumb):SetColorTexture(hex(C.activeLine))
   list.thumb:SetWidth(3)
   list.empty = UI.Text(list, 12, nil, C.dim)
   list.empty:SetPoint("TOP", 0, -20)
@@ -692,7 +717,7 @@ function UI.MessageFrame(parent, size)
   m:SetInsertMode("BOTTOM")
   m:SetSpacing(4)
   m:SetShadowOffset(0, 0)
-  m:SetTextColor(hex(C.text2))
+  UI.Track(m):SetTextColor(hex(C.text2))
   m:EnableMouseWheel(true)
   m:SetScript("OnMouseWheel", function(self, delta)
     if delta > 0 then self:ScrollUp() self:ScrollUp() else self:ScrollDown() self:ScrollDown() end
@@ -750,7 +775,7 @@ function UI.Menu(anchor, items, below)
     end
     b:SetWidth(w - 12)
     b:SetLabel(it.text)
-    b.label:SetTextColor(hex(it.color or C.text2))
+    UI.Track(b.label):SetTextColor(hex(it.color or C.text2))
     b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 30)
     b:SetScript("OnClick", function()
       -- the item runs first, straight from the click (some game actions only work that way)
@@ -1008,9 +1033,9 @@ local function refreshMentions(holder)
     local it = items[i]
     if it then
       b.name:SetText(it.label)
-      b.name:SetTextColor(hex(it.color or C.text))
+      UI.Track(b.name):SetTextColor(hex(it.color or C.text))
       b.sub:SetText(it.sub or "")
-      b.dot:SetVertexColor(hex(it.online and C.green or C.dim))
+      UI.Track(b.dot):SetVertexColor(hex(it.online and C.green or C.dim))
       b.dot:SetShown(not it.emote)
       b:Show()
       w = math.max(w, 30 + b.name:GetStringWidth() + 8 + math.min(160, b.sub:GetStringWidth() + 8))
@@ -1094,7 +1119,7 @@ local function ensurePicker()
     b.star:SetTexture(ns.TEX .. "IconStar")
     b.star:SetSize(10, 10)
     b.star:SetPoint("TOPRIGHT", -1, -1)
-    b.star:SetVertexColor(hex(C.gold))
+    UI.Track(b.star):SetVertexColor(hex(C.gold))
     b:SetScript("OnEnter", function(self)
       self.hl:Show()
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -1191,15 +1216,15 @@ function UI.AttachEmotePicker(holder)
   b.icon:SetTexture(ns.TEX .. "IconStar")
   b.icon:SetSize(15, 15)
   b.icon:SetPoint("CENTER")
-  b.icon:SetVertexColor(hex(C.muted))
+  UI.Track(b.icon):SetVertexColor(hex(C.muted))
   b:SetScript("OnEnter", function(self)
-    self.icon:SetVertexColor(hex(C.accent))
+    UI.Track(self.icon):SetVertexColor(hex(C.accent))
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("Emotes")
     GameTooltip:AddLine("Or type :name / a name + Tab", 0.6, 0.63, 0.66)
     GameTooltip:Show()
   end)
-  b:SetScript("OnLeave", function(self) self.icon:SetVertexColor(hex(C.muted)) GameTooltip:Hide() end)
+  b:SetScript("OnLeave", function(self) UI.Track(self.icon):SetVertexColor(hex(C.muted)) GameTooltip:Hide() end)
   b:SetScript("OnClick", function()
     local P = ensurePicker()
     if P:IsShown() and P.edit == e then P:Hide() return end
@@ -1211,4 +1236,55 @@ function UI.AttachEmotePicker(holder)
     P:Fill()
   end)
   holder.emoteBtn = b
+end
+
+
+-- switch theme (or accent) now: swap every remembered colour from the old theme for the new one,
+-- then let everything that draws text with colour codes redraw itself
+function UI.ApplyThemeLive()
+  local old = {}
+  for k, v in pairs(C) do if type(v) == "string" then old[k] = v:upper() end end
+  ns:ApplyAccent()
+  local map = {}
+  for k, v in pairs(C) do
+    if type(v) == "string" and old[k] and old[k] ~= v:upper() and not map[old[k]] then map[old[k]] = v end
+  end
+  if not next(map) then return end
+  local function key(r, g, b)
+    return string.format("%02X%02X%02X", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+  end
+  local function swap(o, field, method)
+    local c = o[field]
+    if not c then return end
+    local nh = map[key(c[1], c[2], c[3])]
+    if nh then
+      local r, g, b = hex(nh)
+      pcall(o[method], o, r, g, b, c[4])
+    end
+  end
+  for o in pairs(themed) do
+    swap(o, "_ct", "SetColorTexture")
+    swap(o, "_vc", "SetVertexColor")
+    swap(o, "_tc", "SetTextColor")
+  end
+  for b in pairs(themedButtons) do
+    if b._styleName and b.SetStyle then
+      b:SetStyle(b._styleName)
+      if b.style and b.style.hover and b:IsMouseOver() then b.panel:SetColors(b.style.hover, b.style.line) end
+    end
+  end
+  for _, p in ipairs(UI.overlayPanels or {}) do
+    if p.ofill then p.ofill = map[p.ofill:upper()] or p.ofill end
+    if p.oline then p.oline = map[p.oline:upper()] or p.oline end
+  end
+  UI.ApplyOverlayAlpha()
+  -- redraw what is drawn with colour codes in the text
+  ns.lastThemeMap = map
+  ns:Fire("THEME", map)
+  if ns.Window and ns.Window.frame and ns.Window.frame:IsShown() then pcall(ns.Window.Refresh, ns.Window) end
+  if ns.Overlays and ns.Overlays.UpdateMinibar then pcall(ns.Overlays.UpdateMinibar, ns.Overlays) end
+  if ns.EventWindow and ns.EventWindow.Redraw then pcall(ns.EventWindow.Redraw, ns.EventWindow) end
+  if ns.NowCard and ns.NowCard.Update then pcall(ns.NowCard.Update, ns.NowCard) end
+  if ns.Tiles and ns.Tiles.Layout then pcall(ns.Tiles.Layout, ns.Tiles) end
+  ns:Fire("DATA")
 end

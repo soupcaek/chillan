@@ -49,11 +49,11 @@ function N:Create()
   f.meter:SetHeight(5)
   f.meter.bg = f.meter:CreateTexture(nil, "ARTWORK")
   f.meter.bg:SetAllPoints()
-  f.meter.bg:SetColorTexture(hex(C.active))
+  UI.Track(f.meter.bg):SetColorTexture(hex(C.active))
   f.meter.fill = f.meter:CreateTexture(nil, "OVERLAY")
   f.meter.fill:SetPoint("TOPLEFT")
   f.meter.fill:SetPoint("BOTTOMLEFT")
-  f.meter.fill:SetColorTexture(hex(C.accent))
+  UI.Track(f.meter.fill):SetColorTexture(hex(C.accent))
   f.lines = {}
   for i = 1, 3 do
     local l = UI.Text(f, 11, nil, C.text2)

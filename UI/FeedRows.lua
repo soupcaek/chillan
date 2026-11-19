@@ -97,7 +97,7 @@ local function fill(fr, row, msg)
     return h
   end
   row.body:SetJustifyH("LEFT")
-  row.time:SetText(date("%H:%M", e.t or time()))
+  row.time:SetText(fr.timeText and fr.timeText(e) or date("%H:%M", e.t or time()))
   local name, r, g, b, rest = splitIcon(e.base or text or "")
   local x = TIME_W
   if name then
