@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.10", date = "20.11", items = { "Market: the tooltip you're looking at updates by itself when a newer price for it arrives from the gang" } },
   { v = "1.3.9", date = "19.11", items = { "Market tooltip: items on the character sheet, an inspect window or any other place that isn't a bag no longer count as a stack – a ring could count as 12, which made Best: show 12× too much" } },
   { v = "1.3.8", date = "19.11", items = { "Market tooltip: the text no longer runs out over the right edge (coin icons now count when the tooltip sizes itself), and the lines are a bit shorter" } },
   { v = "1.3.7", date = "19.11", items = { "Market: the tooltip can list what disenchanting gives – one line per mat with how many, the chance and the mat's price. Switch: Market page → Tooltip → What disenchanting gives" } },

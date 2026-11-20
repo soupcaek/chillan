@@ -325,17 +325,23 @@ end
 
 Comm:Handle("MK", function(f, sender)
   if not on() then return end
-  local n = 0
+  local n, got = 0, {}
   for part in tostring(f[1] or ""):gmatch("[^;]+") do
     local a, b, c = part:match("^(%w+),(%w+),(%w+)$")
     local id, v, ago = a and un36(a), b and un36(b), c and un36(c)
     if id and v and ago then
-      if M:Set(id, v, ns.Now() - ago * 60, ns.ShortName(sender or "")) then n = n + 1 end
+      if M:Set(id, v, ns.Now() - ago * 60, ns.ShortName(sender or "")) then n = n + 1 got[id] = true end
     end
   end
   if n > 0 then
     M.heardFrom = ns.ShortName(sender or "")
     M.heardAt = ns.Now()
+    -- (1.3.10) the tooltip you're looking at updates by itself when its price arrives
+    if GameTooltip and GameTooltip:IsShown() and GameTooltip.RefreshData then
+      local ok, _, link = pcall(GameTooltip.GetItem, GameTooltip)
+      local id = ok and itemIdOf(link)
+      if id and got[id] then pcall(GameTooltip.RefreshData, GameTooltip) end
+    end
   end
 end)
 
