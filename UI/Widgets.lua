@@ -674,6 +674,10 @@ function UI.LinkEnter(self, link)
     GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     pcall(GameTooltip.SetHyperlink, GameTooltip, link)
     GameTooltip:Show()
+  elseif link:find("^chillantip:") then
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    GameTooltip:AddLine(link:match("^chillantip:(.+)$"), 1, 1, 1)
+    GameTooltip:Show()
   elseif link:find("^chillanemote:") then
     local word = link:match("^chillanemote:(.+)$")
     if word and ns.Emotes then

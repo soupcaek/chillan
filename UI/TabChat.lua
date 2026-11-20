@@ -2,6 +2,27 @@
 local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
+-- (1.3.12) short dungeon names in feed lines; hover shows the full name
+local SHORT = {
+  ["Ragefire Chasm"] = "RFC", ["Wailing Caverns"] = "WC", ["The Deadmines"] = "VC", ["Deadmines"] = "VC",
+  ["Shadowfang Keep"] = "SFK", ["Blackfathom Deeps"] = "BFD", ["The Stockade"] = "Stocks",
+  ["Gnomeregan"] = "Gnomer", ["Razorfen Kraul"] = "RFK", ["Scarlet Monastery"] = "SM",
+  ["Razorfen Downs"] = "RFD", ["Uldaman"] = "Ulda", ["Zul'Farrak"] = "ZF", ["Maraudon"] = "Mara",
+  ["Sunken Temple"] = "ST", ["The Temple of Atal'Hakkar"] = "ST", ["Blackrock Depths"] = "BRD",
+  ["Lower Blackrock Spire"] = "LBRS", ["Upper Blackrock Spire"] = "UBRS", ["Blackrock Spire"] = "BRS",
+  ["Dire Maul"] = "DM", ["Scholomance"] = "Scholo", ["Stratholme"] = "Strat",
+}
+function ns.ShortDungeon(name)
+  name = tostring(name or "?")
+  local short = SHORT[name]
+  if not short then
+    local base, wing = name:match("^(.-)%s*[%-–:]%s*(.+)$")
+    if base and SHORT[base] then short = SHORT[base] .. " " .. wing end
+  end
+  if not short then return name end
+  return "|Hchillantip:" .. name .. "|h" .. short .. "|h"
+end
+
 -- Tekst for en feed-hendelse (brukes også i Feed-fanen)
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}
@@ -74,7 +95,7 @@ function ns.FeedLine(it, withTime)
       who = table.concat(names, ns.Colorize(", ", C.dim))
     end
     local bosses = tostring(it.d or ""):match("^(%d+)")
-    text = "finished " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+    text = "finished " .. ns.ShortDungeon(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
       .. " · " .. (tonumber(it.c) or 0) .. " deaths" .. (bosses and (" · " .. bosses .. " bosses") or "")
     if it.first then text = text .. ns.Colorize(" · first in the gang!", C.gold) end
   else
@@ -118,7 +139,7 @@ function ns.FeedShort(it)
   if it.kind == "DUNGEON" then
     local bosses = tonumber(((it.d or ""):match("^(%d+)")))
     local deaths = tonumber(it.c) or 0
-    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" ran " .. tostring(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" ran " .. ns.ShortDungeon(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
       .. (bosses and (" · " .. bosses .. " boss" .. (bosses == 1 and "" or "es")) or "")
       .. (deaths > 0 and (" · " .. deaths .. " death" .. (deaths == 1 and "" or "s")) or ""), C.text2)
   end
