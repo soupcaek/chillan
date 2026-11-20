@@ -27,6 +27,7 @@ local CARDS = {
       { "Also turn in finished quests", "qolQuestTurnIn", "Hands in finished quests. Stops when there are rewards to pick from, and never hands in repeatable item turn-ins (cloth, tokens)." },
       { "Pick quests from NPC chat lists", "qolQuestGossip", "When an NPC has a list, picks a finished quest first, then a new one." },
     } },
+    { "Gold coin on the best-selling reward", "qolRewardCoin", "When a quest lets you pick a reward, a gold coin marks the one that sells for the most at a vendor (count included). Hover the coin for the price." },
     { "Skip cutscenes you've seen", "qolSkipCine", "The first time you always see it. After that it's skipped (hold Shift to watch it again)." },
     { "XP bar text", "qolXPText", "Shows % done on your XP bar.", subs = {
       { "Rested XP", "qolXPRested", "How much rested XP you have, as % of the level." },

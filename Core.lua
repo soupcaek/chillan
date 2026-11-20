@@ -536,7 +536,7 @@ local DEFAULTS = {
     qolRepair = true, qolGuildRepair = true, qolJunk = true, qolFastLoot = true,
     qolAutoQuest = false, qolSkipCine = true, qolXPText = true,
     qolNoDuels = false, qolNoGuildInv = false, qolSummon = false, qolRes = false, qolNoErrors = true, qolMaxZoom = false,
-    qolTint = true, qolFlightTimer = true,
+    qolTint = true, qolFlightTimer = true, qolRewardCoin = true,
     qolMountMsg = false, qolRepairMsg = true, qolJunkMsg = true, qolQuestTurnIn = true, qolQuestGossip = true,
     qolXPRested = true, qolXPQuests = true, qolDuelsGang = true, qolGuildGang = true, qolResBoss = true,
   },
