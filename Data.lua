@@ -675,15 +675,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
         ns:Fire("DING", item)
         ns.Sound("dead", pid)
       end
-    elseif kind == "KILL" and pid ~= ns.pid then
-      -- group kill: everyone in the group reports it and the first report wins. Wait a moment, and
-      -- skip the popup if my own report was folded into this one (I was in on the kill myself).
-      C_Timer.After(4, function()
-        for _, w in ipairs(item.w or {}) do if w[1] == ns.pid then return end end
-        if ns:Silenced(pid, kind) or not ns.PopupGate("KILL") then return end
-        ns:Fire("DING", item)
-        ns.Sound("ding", pid)
-      end)
+    -- (1.4.5) Alliance kills: no popup – they're in the feed, where anyone can react
     elseif kind == "ACH" then
       -- only the big ones pop up (the rest are in the feed)
       if ns.Ach and ns.Ach:IsBig(a) then Data:PopupFor(pid, item, "ding") end

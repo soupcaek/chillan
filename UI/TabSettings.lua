@@ -256,14 +256,14 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     function() return ns:IsDND() end,
     function(v) ns.Tracker:SetStatus(v and "DND" or "AUTO") end)
   dnd:SetWidth(320)
-  -- how many popups (1.0.1): calm = milestones only, normal = deaths/kills once per 10 min, all = every one
+  -- how many popups (1.0.1): calm = milestones only, normal = deaths once per 10 min, all = every death. Kills never pop up (1.4.5)
   local plabel = UI.Text(left, 12, nil, C.text)
   plabel:SetPoint("TOPLEFT", qh, "BOTTOMLEFT", 0, -10)
   plabel:SetText("Popups")
   local LEVELS = {
-    { "calm", "Calm", "Only the big moments: level 60, epics, first mounts, the big trophies and enemy warnings. Deaths and kills only go to the event window." },
-    { "normal", "Normal", "Someone's death or Alliance kill pops up once, then stays quiet for 10 minutes. At most 6 of those an hour – the rest go to the event window, where you can still react." },
-    { "all", "All", "Every death and kill pops up, like before 1.0.1." },
+    { "calm", "Calm", "Only the big moments: level 60, epics, first mounts, the big trophies and enemy warnings. Deaths only go to the event window." },
+    { "normal", "Normal", "Someone's death pops up once, then stays quiet for 10 minutes. At most 6 of those an hour – the rest go to the event window, where you can still react." },
+    { "all", "All", "Every death pops up. Alliance kills never pop up – they're in the feed to react to." },
   }
   local pbtns = {}
   local function paintLevels()
