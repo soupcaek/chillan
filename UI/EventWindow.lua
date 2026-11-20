@@ -104,7 +104,8 @@ function E:Add(kind, text, t, item)
       return
     end
   end
-  if kind == "ev" and item and (item.kind == "KILL" or item.kind == "DEAD") then
+  -- (1.4.7) deaths are no longer merged into "died 2 times": each gets its own line with its funny text
+  if kind == "ev" and item and item.kind == "KILL" then
     local now = t or time()
     for i = #self.entries, math.max(1, #self.entries - 8), -1 do
       local x = self.entries[i]

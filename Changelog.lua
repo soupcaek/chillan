@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.7", date = "20.11", items = { "Feed: every death gets its own line with its funny text again (no more \"died 2 times\"). The first death pops up; more deaths within 10 minutes only go to the feed" } },
   { v = "1.4.6", date = "20.11", items = { "An Alliance kill can't pop up any more, whatever version the friend has", "/chill popups lists the popups you've had this session and what they were about" } },
   { v = "1.4.5", date = "20.11", items = { "Alliance kills no longer pop up – they're in the feed, where you can react if you want" } },
   { v = "1.4.4", date = "20.11", items = { "QoL: a gold coin on the quest reward that sells for the most at a vendor (count included), in the quest window and the quest log – hover it for the price. Switch: QoL › Questing" } },
