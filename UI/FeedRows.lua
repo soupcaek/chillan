@@ -7,22 +7,15 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 
 -- (1.3.12) no time column: the time shows on the right when you hover a row, and a thin divider
 -- with the time sits between groups of lines 10+ minutes apart.
--- (1.4.0) icons, hybrid: loot shows the real item icon (16 px, quality border); everything else a
--- small tinted line icon (14 px, no box). Both sit in an 18 px lane so the text lines up.
-local TILE, LANE, GLYPH, GAP, PILL_H, DIV_H, GROUP_GAP = 16, 18, 14, 6, 18, 14, 600
+-- (1.4.1) icons: a small line icon in its colour inside a framed box (18 px) – loot is a diamond
+-- in the item's quality colour
+local TILE, LANE, GLYPH, GAP, PILL_H, DIV_H, GROUP_GAP = 16, 18, 12, 6, 18, 14, 600
 local TIME_W = 0
 local GUTTER = 32
 
-local function itemIdOf(a)
-  return tonumber(a) or tonumber(tostring(a or ""):match("item:(%d+)"))
-end
 -- returns texture, border hex
-local function feedIcon(it)
-  if not it or it.kind ~= "LOOT" then return nil end
-  local id = itemIdOf(it.a)
-  local tex = id and ((C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or (GetItemIcon and GetItemIcon(id)))
-  if tex then return tex, ns.QUALITY_HEX and ns.QUALITY_HEX[tonumber(it.b) or 4] or "A335EE" end
-end
+-- (1.4.1) every line uses a framed line icon (loot: a diamond), so no item icon here
+local function feedIcon(it) return nil end
 UI.FeedIcon = feedIcon
 local REACTABLE = setmetatable({}, { __index = function(_, k) return ns.REACTABLE and ns.REACTABLE[k] end })
 
@@ -84,8 +77,12 @@ local function newRow(fr)
   row.time:SetJustifyH("RIGHT")
   row.time:Hide()
   row.edge = row:CreateTexture(nil, "BACKGROUND")
-  row.edge:SetSize(TILE + 2, TILE + 2)
+  row.edge:SetSize(LANE, LANE)
   row.edge:SetPoint("TOPLEFT", 0, 0)
+  row.fill = row:CreateTexture(nil, "BORDER")
+  row.fill:SetPoint("TOPLEFT", row.edge, "TOPLEFT", 1, -1)
+  row.fill:SetPoint("BOTTOMRIGHT", row.edge, "BOTTOMRIGHT", -1, 1)
+  row.fill:Hide()
   row.tile = row:CreateTexture(nil, "ARTWORK")
   row.tile:SetSize(TILE, TILE)
   row.tile:SetPoint("TOPLEFT", 1, -1)
@@ -112,7 +109,7 @@ local function fill(fr, row, msg)
   if not e or e.kind == "sep" or e.kind == "div" then
     row.time:SetText("")
     row.tile:Hide()
-    row.edge:Hide()
+    row.edge:Hide() row.fill:Hide()
     row.body:ClearAllPoints()
     row.body:SetPoint("TOPLEFT", 0, 0)
     row.body:SetWidth(w)
@@ -135,21 +132,24 @@ local function fill(fr, row, msg)
     row.tile:SetSize(TILE, TILE)
     row.tile:SetPoint("TOPLEFT", 1, -1)
     row.edge:SetColorTexture(hex(edge))
-    row.tile:Show() row.edge:Show()
+    row.tile:Show() row.edge:Show() row.fill:Hide()
     x = LANE + GAP
   elseif name then
-    -- the line icon, tinted, no box
+    -- the line icon in its colour, in a framed box tinted the same colour
     row.tile:SetTexture(ns.TEX .. "Icon" .. name)
     row.tile:SetTexCoord(0, 1, 0, 1)
     row.tile:SetVertexColor(r, g, b, e.old and 0.55 or 1)
     row.tile:ClearAllPoints()
     row.tile:SetSize(GLYPH, GLYPH)
-    row.tile:SetPoint("TOPLEFT", (LANE - GLYPH) / 2, -(LANE - GLYPH) / 2 - 1)
-    row.edge:Hide()
+    row.tile:SetPoint("CENTER", row.edge, "CENTER", 0, 0)
+    local a = e.old and 0.5 or 1
+    row.edge:SetColorTexture(r * 0.55 + 0.08, g * 0.55 + 0.08, b * 0.55 + 0.08, 0.75 * a)
+    row.fill:SetColorTexture(r * 0.16 + 0.07, g * 0.16 + 0.07, b * 0.16 + 0.08, 0.95 * a)
+    row.edge:Show() row.fill:Show()
     row.tile:Show()
     x = LANE + GAP
   else
-    row.tile:Hide() row.edge:Hide()
+    row.tile:Hide() row.edge:Hide() row.fill:Hide()
   end
   row.body:ClearAllPoints()
   row.body:SetPoint("TOPLEFT", x, -2)

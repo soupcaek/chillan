@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.1", date = "20.11", items = { "Feed icons are back in small framed boxes, tinted in the line's colour", "Loot uses a diamond icon in the item's quality colour" } },
   { v = "1.4.0", date = "20.11", items = {
     "Feed icons: loot shows the real item icon with its quality border, everything else a small coloured icon with no box",
     "Dungeons: the first box is \"3 / 8 bosses\" – hover it for every boss here, the ones you've killed struck through with the time the kill took. Covers the classic dungeons and raids and the new Forever dungeons; bosses the list doesn't know are learned from the gang's kills",

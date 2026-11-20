@@ -121,7 +121,7 @@ function ns.FeedLine(it, withTime)
       text = text .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.red)
     end
   elseif it.kind == "LOOT" then
-    icon, color = "Star", ns.QUALITY_HEX[tonumber(it.b) or 4] or C.purple
+    icon, color = "Diamond", ns.QUALITY_HEX[tonumber(it.b) or 4] or C.purple
     text = "got " .. (ns.ItemLink(it.a) or ns.Colorize("an item (loading…)", C.dim))
   elseif it.kind == "MOUNT" then
     icon, color = "Star", C.amber
@@ -190,7 +190,7 @@ function ns.FeedShort(it)
   if it.kind == "LOOT" then
     -- ekte item-lenke (riktig kvalitetsfarge + tooltip når du holder musa over)
     local qhex = ns.QUALITY_HEX[tonumber(it.b) or 4] or ns.QUALITY_HEX[4]
-    return I("Star", qhex) .. who .. " · " .. (ns.ItemLink(it.a) or ns.Colorize("a nice drop (loading…)", C.dim))
+    return I("Diamond", qhex) .. who .. " · " .. (ns.ItemLink(it.a) or ns.Colorize("a nice drop (loading…)", C.dim))
   end
   if it.kind == "SOS" then return I("SOS", C.red) .. ns.Colorize("SOS: ", C.red) .. who .. ns.Colorize(" · " .. tostring(it.a or "?"), C.text2) end
   if it.kind == "MOUNT" then return I("Star", C.amber) .. who .. ns.Colorize(" got a mount", C.text2) end
