@@ -5,6 +5,7 @@
 --  2) the game's own encounter journal, for instances the list doesn't have
 --  3) bosses the gang has killed in that instance before (learned from boss kills, shared in the feed)
 -- "A|B" means the same boss under two names (the client and the guides don't always agree).
+-- "?Name" is a boss the guides list but that may be optional: it only counts once it's killed.
 local ADDON, ns = ...
 local B = {}
 ns.Bosses = B
@@ -50,6 +51,11 @@ local LIST = {
   ["ruins of lordaeron"] = { "Witherfang|Broodling", "The Abandoned", "The Baron", "Rath'mael", "Lordaeron Captain", "Viktor the Vile", "Bjork" },
   ["excavation site"] = { "Saltspine", "Shadetooth", "Highland Horror", "Relic Guardian" },
   ["city of dalaran"] = { "Arcane Anomaly", "Fel Ancient", "Mana Devourer", "Mana Elemental", "Unstable Sentinel", "Shade of the Archmage", "Lyn the Ignored", "Atrexis the Grave Knight", "Mana Wraith" },
+  ["blackmaw hold"] = { "Impaan the Imprisoner", "Bonesnout the Unbroken", "Withermaw", "Unbound Spirit", "Elder Shaman Bloodmane",
+    "Blackmaw Behemoth", "Varrox Bleakhoof", "?Moontouched Wanderer", "?Gortek the Apprentice", "?Tunnelweb Matriarch" },
+  ["krol'dok stronghold"] = { "Slavecrusher Grox", "Twilight Commander Zarmork", "Handler Ashka", "Nar'Gurk", "Bossman Toof", "Overlord Mugg" },
+  ["alcaz prison"] = { "Tidemistress Ca'zass", "Overseer Wrex", "The Questioner", "Katerina the Cleaner", "Blazeroar" },
+  ["shaper's terrace"] = { "Cinder", "Titanosaur", "Snowtalon", "Tor'Rel and Izha'Rel", "Vitrix", "Direhorn Matriarch", "Thunderhoof", "Venomridge", "Bolt", "Nanaya" },
   ["drowned city"] = { "Zul'Alai", "Var'Taka", "Captain Dreadrise", "Deathless Marrow", "Primeval Elemental", "Min'loth the Serpent" },
   -- raids
   ["molten core"] = { "Lucifron", "Magmadar", "Gehennas", "Garr", "Shazzrah", "Baron Geddon", "Sulfuron Harbinger", "Golemagg the Incinerator", "Majordomo Executus", "Ragnaros" },
@@ -67,7 +73,8 @@ local ALIAS = {
   ["the deadmines"] = "deadmines", ["the stockade"] = "stockade", ["stormwind stockade"] = "stockade",
   ["the temple of atal'hakkar"] = "sunken temple", ["temple of atal'hakkar"] = "sunken temple",
   ["the hall of thanes"] = "hall of thanes", ["excavation site: wetlands"] = "excavation site",
-  ["the drowned city"] = "drowned city", ["dalaran"] = "city of dalaran",
+  ["the drowned city"] = "drowned city", ["krol'dor stronghold"] = "krol'dok stronghold",
+  ["alcaz island prison"] = "alcaz prison", ["the shaper's terrace"] = "shaper's terrace", ["shapers terrace"] = "shaper's terrace", ["dalaran"] = "city of dalaran",
   ["lower blackrock spire"] = "blackrock spire", ["upper blackrock spire"] = "blackrock spire",
   ["onyxia’s lair"] = "onyxia's lair", ["ahn'qiraj"] = "ahn'qiraj temple", ["temple of ahn'qiraj"] = "ahn'qiraj temple",
 }
@@ -98,7 +105,7 @@ local function wingHint(instance)
 end
 
 -- does a killed encounter name match a list entry ("A|B" = either name; small spelling slips ok)
-local function bare(s) return norm(s):gsub("^the ", ""):gsub("[^%w]", "") end
+local function bare(s) return (norm(s):gsub("^%?", ""):gsub("^the ", ""):gsub("[^%w]", "")) end
 function B.Same(entry, name)
   local n = bare(name)
   if n == "" then return false end
@@ -108,7 +115,8 @@ function B.Same(entry, name)
   end
   return false
 end
-local function show(entry) return (tostring(entry):match("^[^|]+")) end
+local function show(entry) return (tostring(entry):gsub("^%?", ""):match("^[^|]+")) end
+local function optional(entry) return tostring(entry):sub(1, 1) == "?" end
 
 -- the game's encounter journal, when it has the instance (cached per instance)
 local ejCache = {}
@@ -173,7 +181,7 @@ function B:For(instance, killed, here)
   for _, b in ipairs(base or {}) do
     local hit
     for k, v in pairs(killed) do if not used[k] and B.Same(b, k) then hit = k used[k] = v end end
-    out[#out + 1] = { name = show(b), killed = hit ~= nil, secs = hit and type(killed[hit]) == "number" and killed[hit] or nil }
+    out[#out + 1] = { name = show(b), killed = hit ~= nil, secs = hit and type(killed[hit]) == "number" and killed[hit] or nil, opt = optional(b) }
   end
   -- bosses the list doesn't know: the gang has killed them here (or you just did)
   local function add(name, v)
@@ -192,14 +200,16 @@ end
 -- "3 / 8" for the box (or "3 / ?" when we don't know how many there are)
 function B:Count(instance, killed)
   local list, _, known = self:For(instance, killed, true)
-  local n = 0
-  for _, b in ipairs(list) do if b.killed then n = n + 1 end end
-  local total = #list
+  local n, total = 0, 0
+  for _, b in ipairs(list) do
+    if b.killed then n = n + 1 end
+    if b.killed or not b.opt then total = total + 1 end   -- an optional boss counts once it's dead
+  end
   return n, (known or total > n) and total or nil, list
 end
 
 -- the next boss you haven't killed (by list order)
 function B:Next(instance, killed)
   local list = self:For(instance, killed, true)
-  for _, b in ipairs(list) do if not b.killed then return b.name end end
+  for _, b in ipairs(list) do if not b.killed and not b.opt then return b.name end end
 end

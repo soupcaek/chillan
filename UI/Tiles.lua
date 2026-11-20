@@ -220,7 +220,11 @@ function T:BossList(owner)
     f:SetFrameStrata("TOOLTIP")
     f.panel = UI.Panel(f, "101113", "3A3F45")
     f.panel:SetAllPoints()
-    f.title = UI.Text(f, 12, "bold", C.text)
+    -- (1.4.2) text goes on a layer above the panel (the panel is its own frame and hid the text)
+    f.c = CreateFrame("Frame", nil, f)
+    f.c:SetAllPoints()
+    f.c:SetFrameLevel(f.panel:GetFrameLevel() + 2)
+    f.title = UI.Text(f.c, 12, "bold", C.text)
     f.title:SetPoint("TOPLEFT", 10, -8)
     f.rows = {}
     self.bossFrame = f
@@ -234,9 +238,9 @@ function T:BossList(owner)
     local rw = f.rows[i]
     if not rw then
       rw = {}
-      rw.text = UI.Text(f, 11, nil, C.text2)
-      rw.time = UI.Text(f, 10, nil, C.dim)
-      rw.line = f:CreateTexture(nil, "OVERLAY")
+      rw.text = UI.Text(f.c, 11, nil, C.text2)
+      rw.time = UI.Text(f.c, 10, nil, C.dim)
+      rw.line = f.c:CreateTexture(nil, "OVERLAY")
       rw.line:SetHeight(1)
       f.rows[i] = rw
     end
@@ -271,12 +275,17 @@ function T:BossList(owner)
     local nextShown = false
     for _, b in ipairs(list) do
       i = i + 1
-      local isNext = not b.killed and not nextShown
+      local isNext = not b.killed and not b.opt and not nextShown
       if isNext then nextShown = true end
-      row(i, (isNext and "› " or "") .. b.name, b.killed, b.secs, isNext and C.accent or nil)
+      if b.opt and not b.killed then
+        row(i, b.name .. " (optional)", false, nil, C.dim)
+      else
+        row(i, (isNext and "› " or "") .. b.name, b.killed, b.secs, isNext and C.accent or nil)
+      end
     end
     if #list == 0 then i = i + 1 row(i, "No boss killed here yet – the list fills in as you go", false, nil, C.dim) end
     if not known and #list > 0 then i = i + 1 row(i, "More may come – learned from the gang's kills", false, nil, C.dim) end
+    i = i + 1 row(i, "Struck through = killed (with the time it took) · › = next", false, nil, C.dim)
   end
   f:SetSize(math.min(320, w), -y + 6)
   f:ClearAllPoints()

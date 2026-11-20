@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.2", date = "20.11", items = { "Dungeons: the boss list on hover showed only a black box – fixed", "Boss lists for Blackmaw Hold, Krol'dok Stronghold, Alcaz Prison and Shaper's Terrace (bosses the guides call optional only count once killed)", "Hover the little boss track in the Now card for the boss list; the card's tooltip says what the parts are" } },
   { v = "1.4.1", date = "20.11", items = { "Feed icons are back in small framed boxes, tinted in the line's colour", "Loot uses a diamond icon in the item's quality colour" } },
   { v = "1.4.0", date = "20.11", items = {
     "Feed icons: loot shows the real item icon with its quality border, everything else a small coloured icon with no box",

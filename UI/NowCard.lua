@@ -78,8 +78,13 @@ function N:Create()
   end
   -- the boss track: one small block per boss (green = dead, accent = next)
   f.track = CreateFrame("Frame", nil, f)
-  f.track:SetHeight(6)
+  f.track:SetHeight(10)
   f.track.blocks = {}
+  -- (1.4.2) hover the track: the list of bosses (green = killed, accent = next)
+  f.track:EnableMouse(true)
+  f.track:SetScript("OnEnter", function(self) GameTooltip:Hide() if ns.Tiles and ns.Tiles.BossList then ns.Tiles:BossList(self) end end)
+  f.track:SetScript("OnLeave", function() if ns.Tiles and ns.Tiles.bossFrame then ns.Tiles.bossFrame:Hide() end end)
+  f.track:SetScript("OnMouseUp", function() end)
   f.btn = UI.Button(f, 96, 20, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
   f.btn.label:SetFont(ns.FONT_SEMI or ns.FONT, 11, "")
   f.btn.tooltip = "Bags, durability and food/drink for everyone in your group"
@@ -337,7 +342,8 @@ function N:Update()
     local r, pr = P:Run()
     if r then
       local n, total, list = ns.Bosses:Count(r.name, r.killed)
-      track = list
+      track = {}
+      for _, b in ipairs(list) do if b.killed or not b.opt then track[#track + 1] = b end end
       local nextB = ns.Bosses:Next(r.name, r.killed)
       if ns.Extras.inEncounter then
         rows[#rows + 1] = ns.Colorize("Boss fight", C.amber) .. dim("  · gang news waits until it's dead")
@@ -451,6 +457,9 @@ function N:Tooltip(owner)
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
   local mode = P:Mode()
   GameTooltip:AddLine(P.MODES[mode] .. (mode ~= "world" and (" · " .. P:Place()) or ""), 1, 1, 1)
+  if mode == "dungeon" or mode == "raid" then
+    GameTooltip:AddLine("Next boss, the boss track (green = killed, bright = next – hover it for the list), deaths and wipes", 0.6, 0.63, 0.66, true)
+  end
   if mode == "dungeon" or mode == "raid" then
     local r, pr = P:Run()
     if pr and #pr.items > 0 then
