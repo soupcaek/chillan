@@ -12,6 +12,10 @@ local SHORT = {
   ["Lower Blackrock Spire"] = "LBRS", ["Upper Blackrock Spire"] = "UBRS", ["Blackrock Spire"] = "BRS",
   ["Dire Maul"] = "DM", ["Scholomance"] = "Scholo", ["Stratholme"] = "Strat",
 }
+function ns.ShortDungeonPlain(name)
+  name = tostring(name or "?")
+  return SHORT[name] or name
+end
 function ns.ShortDungeon(name)
   name = tostring(name or "?")
   local short = SHORT[name]
@@ -23,12 +27,66 @@ function ns.ShortDungeon(name)
   return "|Hchillantip:" .. name .. "|h" .. short .. "|h"
 end
 
+
+-- (1.4.0) lines for bosses, raids, battlegrounds and "about to ding"
+local function mmss(secs)
+  secs = tonumber(secs) or 0
+  if secs <= 0 then return nil end
+  if secs >= 3600 then return ns.Duration(secs) end
+  return string.format("%d:%02d", math.floor(secs / 60), secs % 60)
+end
+function ns.SceneLine(it, who)
+  local C = ns.C
+  if it.kind == "BOSS" then
+    local deaths, tries, gangN = tostring(it.d or ""):match("^(%d*):?(%d*):?(%d*)")
+    deaths, tries, gangN = tonumber(deaths) or 0, tonumber(tries) or 1, tonumber(gangN) or 1
+    local subject = gangN > 1 and "Gang" or who
+    local bits = { ns.Colorize(" killed ", C.text2) .. ns.Colorize(tostring(it.b or "?"), C.text) }
+    local t = mmss(it.c)
+    if t then bits[#bits + 1] = t end
+    if deaths == 0 then bits[#bits + 1] = ns.Colorize("no deaths", C.green)
+    else bits[#bits + 1] = ns.Plural(deaths, "death") end
+    if tries > 1 then bits[#bits + 1] = ns.Colorize((tries == 2 and "2nd" or tries == 3 and "3rd" or (tries .. "th")) .. " try", C.amber) end
+    return "Shield", "8FB8E8", subject .. table.concat(bits, ns.Colorize(" · ", C.dim))
+      .. ns.Colorize(" · " .. ns.ShortDungeon(it.a), C.dim)
+  elseif it.kind == "RAID" then
+    local bosses, gangN = tostring(it.d or ""):match("^([^|]*)|?(%d*)")
+    return "Crown", "F0A060", who .. ns.Colorize(" · raid night in " .. tostring(it.a) .. " · " .. (bosses or "?") .. " bosses · "
+      .. ns.Duration(tonumber(it.b) or 0) .. " · " .. ns.Plural(tonumber(it.c) or 0, "wipe"), C.text2)
+  elseif it.kind == "NEARDING" then
+    return "Up", "E0B04F", who .. ns.Colorize(" is " .. (tonumber(it.b) or 2) .. " % from level " .. tostring(it.a) .. " – get your grats ready", C.text2)
+  elseif it.kind == "BGEND" then
+    if it.a == "streak" then
+      return "Trophy", "E0C068", who .. ns.Colorize(" won " .. tostring(it.b) .. " battlegrounds in a row today", C.text2)
+    end
+    local won = tostring(it.b) == "1"
+    local mvp, hk, honor = tostring(it.d or ""):match("^([^:]*):?(%d*):?(%d*)")
+    local line = ns.Colorize(won and "Won " or "Lost ", won and C.green or C.red) .. ns.Colorize(tostring(it.a), C.text)
+      .. ((it.c and it.c ~= "") and ns.Colorize(" " .. it.c, C.text2) or "")
+    if mvp and mvp ~= "" then line = line .. ns.Colorize(" · MVP " .. mvp .. ((tonumber(hk) or 0) > 0 and (" (" .. hk .. " HKs)") or ""), C.text2) end
+    return "Trophy", won and "5FD18B" or "F2777A", who .. ns.Colorize(" · ", C.dim) .. line
+  elseif it.kind == "BGREV" then
+    return "Target", "5FD18B", who .. ns.Colorize(" got Revenge on ", C.text2) .. ns.Colorize(tostring(it.a), C.red)
+      .. ((it.b and it.b ~= "") and ns.Colorize(" · " .. it.b, C.dim) or "")
+  elseif it.kind == "FLAG" then
+    return "Star", "E0C068", who .. ns.Colorize(it.a == "cap" and " captured the flag" or " returned the flag", C.text2)
+      .. ((it.b and it.b ~= "") and ns.Colorize(" · " .. it.b, C.dim) or "")
+  end
+end
+
 -- Tekst for en feed-hendelse (brukes også i Feed-fanen)
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}
   local c = (p.chars and p.chars[it.char]) or ns:PersonChar(p) or {}
   local who = ns:PersonLinked(p, ns:PersonLabel(p, it.char))
   local icon, color, text = "Star", C.purple, ""
+  local sIcon, sColor, sLine = ns.SceneLine(it, who)
+  if sIcon then
+    local line = UI.InlineIcon(sIcon, sColor, 13) .. "  " .. sLine
+    if it.reacts and #it.reacts > 0 then line = line .. ns.Colorize(" · " .. #it.reacts .. (#it.reacts == 1 and " reaction" or " reactions"), C.purple) end
+    if withTime then line = line .. ns.Colorize("  " .. ns.Ago(it.t), C.dim) end
+    return line
+  end
   if it.kind == "DING" then
     icon, color = "Up", C.green
     text = "reached level " .. tostring(it.a)
@@ -111,6 +169,8 @@ function ns.FeedShort(it)
   local p = ns:GetPerson(it.pid) or {}
   local who = ns:PersonLinked(p, ns:ShortWho(p, it.char))
   local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
+  local sIcon, sColor, sLine = ns.SceneLine(it, who)
+  if sIcon then return I(sIcon, sColor) .. sLine end
   if it.kind == "DING" then return I("Up", C.green) .. who .. ns.Colorize(" · level " .. tostring(it.a), C.text2) end
   if it.kind == "KILL" and ns.Kills then
     local funny = ns.Kills:Line(it, ns.Kills:Names(it, true), C.text2)

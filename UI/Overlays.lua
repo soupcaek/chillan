@@ -199,7 +199,7 @@ function O:PulseMenu(anchor)
   end
   head("MODE")
   opt("Automatic (where you are)", not S.pulseMode, function() S.pulseMode = nil ns:Fire("PULSE_MODE") end)
-  for _, k in ipairs({ "world", "dungeon", "bg" }) do
+  for _, k in ipairs({ "world", "dungeon", "raid", "bg" }) do
     opt("Always " .. ns.Pulse.MODES[k]:lower(), S.pulseMode == k, function() S.pulseMode = k ns:Fire("PULSE_MODE") end)
   end
   head("WATCHING")

@@ -170,11 +170,124 @@ for _, d in ipairs({
     local d = P().Today()
     return d.won .. " / " .. d.played, "won today"
   end },
+  -- (1.4.0) dungeons, raids and battlegrounds
+  { key = "bossesx", name = "Bosses x / y", tip = "Hover: the bosses here, the ones you've killed struck through", get = function()
+    local r = P():Run()
+    if not r then return "–", "bosses" end
+    local n, total = ns.Bosses:Count(r.name, r.killed)
+    return n .. " / " .. (total or "?"), "bosses"
+  end, hover = function(owner) T:BossList(owner) end },
+  { key = "lootval", name = "Loot value this run", get = function()
+    local _, pr = P():Run()
+    local v = P():LootValue(pr)
+    return v > 0 and goldText(v) or "–", "loot value"
+  end },
+  { key = "wipes", name = "Wipes this raid", get = function()
+    local r = P():Run()
+    local w = r and r.wipes or 0
+    return tostring(w), w == 1 and "wipe" or "wipes", w > 0 and C.amber or nil
+  end },
+  { key = "repair", name = "Repair so far", get = function()
+    local cost = T.RepairCost()
+    if cost and cost > 0 then return goldText(cost), "repair so far" end
+    local low = ns.Durability and ns.Durability()
+    return low and (math.floor(low) .. " %") or "–", "durability", (low and low < 30) and C.red or nil
+  end },
+  { key = "bgscore", name = "Battleground score", get = function()
+    return P():BGScore() or "–", "score"
+  end },
 }) do T.DEFS[#T.DEFS + 1] = d end
+
+-- what repairing your gear would cost now (from the item tooltips; nil when the game won't say)
+function T.RepairCost()
+  if not C_TooltipInfo or not C_TooltipInfo.GetInventoryItem then return nil end
+  local sum, any = 0, false
+  for slot = 1, 18 do
+    local ok, data = pcall(C_TooltipInfo.GetInventoryItem, "player", slot)
+    local c = ok and type(data) == "table" and data.repairCost
+    if type(c) == "number" and not ns.isSecret(c) then sum = sum + c any = true end
+  end
+  return any and sum or nil
+end
+
+-- (1.4.0) hover list for "3 / 8 bosses": every boss here, killed ones struck through with the time
+-- the kill took. A small frame of its own (a game tooltip can't strike text through).
+function T:BossList(owner)
+  local r = ns.Pulse:Run()
+  local f = self.bossFrame
+  if not f then
+    f = CreateFrame("Frame", nil, UIParent)
+    f:SetFrameStrata("TOOLTIP")
+    f.panel = UI.Panel(f, "101113", "3A3F45")
+    f.panel:SetAllPoints()
+    f.title = UI.Text(f, 12, "bold", C.text)
+    f.title:SetPoint("TOPLEFT", 10, -8)
+    f.rows = {}
+    self.bossFrame = f
+  end
+  for _, row in ipairs(f.rows) do row.text:Hide() row.time:Hide() row.line:Hide() end
+  if not r then f:Hide() return end
+  local list, wing, known, wings = ns.Bosses:For(r.name, r.killed, true)
+  f.title:SetText(r.name .. (wing and (" · " .. wing) or ""))
+  local y, w = -26, 180
+  local function row(i, label, killed, secs, color)
+    local rw = f.rows[i]
+    if not rw then
+      rw = {}
+      rw.text = UI.Text(f, 11, nil, C.text2)
+      rw.time = UI.Text(f, 10, nil, C.dim)
+      rw.line = f:CreateTexture(nil, "OVERLAY")
+      rw.line:SetHeight(1)
+      f.rows[i] = rw
+    end
+    rw.text:ClearAllPoints() rw.time:ClearAllPoints() rw.line:ClearAllPoints()
+    rw.text:SetPoint("TOPLEFT", 10, y)
+    rw.text:SetText(label)
+    rw.text:SetTextColor(hex(color or (killed and "6E747B" or C.text)))
+    rw.text:Show()
+    if killed then
+      local tw = rw.text:GetStringWidth() or 60
+      rw.line:SetPoint("LEFT", rw.text, "LEFT", -1, 0)
+      rw.line:SetWidth(tw + 2)
+      rw.line:SetColorTexture(0.6, 0.62, 0.65, 0.9)
+      rw.line:Show()
+      if secs then
+        rw.time:SetPoint("LEFT", rw.text, "RIGHT", 8, 0)
+        rw.time:SetText(secs >= 60 and string.format("%d:%02d", math.floor(secs / 60), secs % 60) or (secs .. " s"))
+        rw.time:Show()
+      end
+    end
+    w = math.max(w, (rw.text:GetStringWidth() or 0) + 70)
+    y = y - 15
+  end
+  local i = 0
+  if wings then
+    -- a dungeon with wings and no kill yet: list each wing
+    for _, wg in ipairs(wings) do
+      i = i + 1 row(i, wg.name, false, nil, C.accent)
+      for _, b in ipairs(wg.list) do i = i + 1 row(i, "  " .. (b:match("^[^|]+")), false) end
+    end
+  else
+    local nextShown = false
+    for _, b in ipairs(list) do
+      i = i + 1
+      local isNext = not b.killed and not nextShown
+      if isNext then nextShown = true end
+      row(i, (isNext and "› " or "") .. b.name, b.killed, b.secs, isNext and C.accent or nil)
+    end
+    if #list == 0 then i = i + 1 row(i, "No boss killed here yet – the list fills in as you go", false, nil, C.dim) end
+    if not known and #list > 0 then i = i + 1 row(i, "More may come – learned from the gang's kills", false, nil, C.dim) end
+  end
+  f:SetSize(math.min(320, w), -y + 6)
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -4)
+  f:Show()
+end
 T.MODE_TILES = {
   world = { "act_layer", "xph", "goldh", "eta" },
-  dungeon = { "bosses", "runtime", "runxp", "xph" },
-  bg = { "honorh", "bghk", "bgtime", "bgwon" },
+  dungeon = { "bossesx", "runtime", "runxp", "lootval" },
+  raid = { "bossesx", "runtime", "wipes", "repair" },
+  bg = { "bgscore", "honorh", "bghk", "bgtime" },
 }
 
 -- action buttons: same size as the stat tiles, a coloured edge and an icon; left-click does it
@@ -298,12 +411,13 @@ local function makeTile(i)
   end)
   t:SetScript("OnEnter", function(self)
     local d = self.key and T.byKey[self.key]
+    if d and d.hover then d.hover(self) return end
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(d and d.name or "Chillan?", 1, 1, 1)
     GameTooltip:AddLine((d and d.tip) or "Click: the Stats page", 0.52, 0.55, 0.57, true)
     GameTooltip:Show()
   end)
-  t:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  t:SetScript("OnLeave", function() GameTooltip:Hide() if T.bossFrame then T.bossFrame:Hide() end end)
   return t
 end
 

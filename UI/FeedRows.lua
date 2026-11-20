@@ -6,71 +6,25 @@ local ADDON, ns = ...
 local UI, C, hex = ns.UI, ns.C, ns.hex
 
 -- (1.3.12) no time column: the time shows on the right when you hover a row, and a thin divider
--- with the time sits between groups of lines 10+ minutes apart. Icons are the game's own, 22 px.
-local TILE, GAP, PILL_H, DIV_H, GROUP_GAP = 22, 7, 18, 14, 600
+-- with the time sits between groups of lines 10+ minutes apart.
+-- (1.4.0) icons, hybrid: loot shows the real item icon (16 px, quality border); everything else a
+-- small tinted line icon (14 px, no box). Both sit in an 18 px lane so the text lines up.
+local TILE, LANE, GLYPH, GAP, PILL_H, DIV_H, GROUP_GAP = 16, 18, 14, 6, 18, 14, 600
 local TIME_W = 0
 local GUTTER = 32
 
--- the game's own icon for a feed line: the item itself for loot, else one per kind
-local KIND_ICON = {
-  DING = "Interface\\Icons\\Spell_Holy_SurgeOfLight",
-  DEAD = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
-  KILL = "Interface\\Icons\\Ability_DualWield",
-  ACH = "Interface\\Icons\\INV_Misc_Trophy_Argent",
-  MOUNT = "Interface\\Icons\\Ability_Mount_RidingHorse",
-  SOS = "Interface\\Icons\\Ability_Warrior_BattleShout",
-  CUNT = "Interface\\Icons\\Spell_Shadow_DeathScream",
-  ENSEEN = "Interface\\Icons\\Ability_Hunter_SniperShot",
-  DUNGEON = "Interface\\Icons\\INV_Misc_Key_10",
-}
-local DUNGEON_ICON = {
-  ["Ragefire Chasm"] = "RagefireChasm", ["Wailing Caverns"] = "WailingCaverns", ["The Deadmines"] = "Deadmines",
-  ["Deadmines"] = "Deadmines", ["Shadowfang Keep"] = "ShadowFangKeep", ["Blackfathom Deeps"] = "BlackfathomDeeps",
-  ["The Stockade"] = "StormwindStockades", ["Gnomeregan"] = "Gnomeregan", ["Razorfen Kraul"] = "RazorfenKraul",
-  ["Scarlet Monastery"] = "ScarletMonastery", ["Razorfen Downs"] = "RazorfenDowns", ["Uldaman"] = "Uldaman",
-  ["Zul'Farrak"] = "ZulFarak", ["Maraudon"] = "Maraudon", ["Sunken Temple"] = "SunkenTemple",
-  ["The Temple of Atal'Hakkar"] = "SunkenTemple", ["Blackrock Depths"] = "BlackrockDepths",
-  ["Lower Blackrock Spire"] = "BlackrockSpire", ["Upper Blackrock Spire"] = "BlackrockSpire",
-  ["Blackrock Spire"] = "BlackrockSpire", ["Dire Maul"] = "DireMaul", ["Scholomance"] = "Scholomance",
-  ["Stratholme"] = "Stratholme",
-}
-local exists = {}
-local function fileOK(path)
-  if not path then return false end
-  if exists[path] == nil then
-    if GetFileIDFromPath then
-      local ok, id = pcall(GetFileIDFromPath, path)
-      exists[path] = ok and id ~= nil
-    else
-      exists[path] = true
-    end
-  end
-  return exists[path]
-end
 local function itemIdOf(a)
   return tonumber(a) or tonumber(tostring(a or ""):match("item:(%d+)"))
 end
 -- returns texture, border hex
 local function feedIcon(it)
-  if not it or not it.kind then return nil end
-  if it.kind == "LOOT" then
-    local id = itemIdOf(it.a)
-    local tex = id and ((C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or (GetItemIcon and GetItemIcon(id)))
-    if tex then return tex, ns.QUALITY_HEX and ns.QUALITY_HEX[tonumber(it.b) or 4] or "A335EE" end
-  elseif it.kind == "DUNGEON" then
-    local key = DUNGEON_ICON[tostring(it.a or ""):gsub("^%s+", "")]
-    local path = key and ("Interface\\LFGFrame\\LFGIcon-" .. key)
-    if fileOK(path) then return path, "3A3F47" end
-  elseif it.kind == "ACH" and ns.Ach and ns.Ach.byId and ns.Ach.TIERS then
-    local d = ns.Ach.byId[it.a]
-    local tier = d and ns.Ach.TIERS[d.tier]
-    return KIND_ICON.ACH, tier and tier.color or "3A3F47"
-  end
-  local path = KIND_ICON[it.kind]
-  if fileOK(path) then return path, "3A3F47" end
+  if not it or it.kind ~= "LOOT" then return nil end
+  local id = itemIdOf(it.a)
+  local tex = id and ((C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or (GetItemIcon and GetItemIcon(id)))
+  if tex then return tex, ns.QUALITY_HEX and ns.QUALITY_HEX[tonumber(it.b) or 4] or "A335EE" end
 end
 UI.FeedIcon = feedIcon
-local REACTABLE = { DING = true, DEAD = true, KILL = true, ACH = true }
+local REACTABLE = setmetatable({}, { __index = function(_, k) return ns.REACTABLE and ns.REACTABLE[k] end })
 
 -- "|T…IconSkull:12:12:…:r:g:b|t  text" → "Skull", r, g, b, "text" (with any leading colour kept)
 local function splitIcon(text)
@@ -177,16 +131,23 @@ local function fill(fr, row, msg)
     row.tile:SetTexture(tex)
     row.tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     row.tile:SetVertexColor(1, 1, 1, e.old and 0.55 or 1)
+    row.tile:ClearAllPoints()
+    row.tile:SetSize(TILE, TILE)
+    row.tile:SetPoint("TOPLEFT", 1, -1)
     row.edge:SetColorTexture(hex(edge))
     row.tile:Show() row.edge:Show()
-    x = TILE + 2 + GAP
+    x = LANE + GAP
   elseif name then
-    row.tile:SetTexture(ns.TEX .. "Tile" .. name)
+    -- the line icon, tinted, no box
+    row.tile:SetTexture(ns.TEX .. "Icon" .. name)
     row.tile:SetTexCoord(0, 1, 0, 1)
     row.tile:SetVertexColor(r, g, b, e.old and 0.55 or 1)
+    row.tile:ClearAllPoints()
+    row.tile:SetSize(GLYPH, GLYPH)
+    row.tile:SetPoint("TOPLEFT", (LANE - GLYPH) / 2, -(LANE - GLYPH) / 2 - 1)
     row.edge:Hide()
     row.tile:Show()
-    x = TILE + 2 + GAP
+    x = LANE + GAP
   else
     row.tile:Hide() row.edge:Hide()
   end
@@ -194,7 +155,7 @@ local function fill(fr, row, msg)
   row.body:SetPoint("TOPLEFT", x, -2)
   row.body:SetWidth(math.max(40, w - x - GUTTER))   -- the time's lane on the right (shown on hover)
   row.body:SetText(rest)
-  local h = math.max(TILE + 2, (row.body:GetStringHeight() or 14) + 4)
+  local h = math.max(LANE, (row.body:GetStringHeight() or 14) + 4)
   -- reactions: one pill per kind, with the count, on their own line
   local item = e.item
   row.item = item
@@ -241,7 +202,7 @@ local function fill(fr, row, msg)
   row.plusBtn:ClearAllPoints()
   row.plusBtn:SetFrameLevel(row:GetFrameLevel() + 3)
   if row.tile:IsShown() then
-    row.plusBtn:SetSize(TILE + 2, TILE + 2)
+    row.plusBtn:SetSize(LANE, LANE)
     row.plusBtn:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
     row.plusBtn.panel:SetColors("24203A", nil)
     row.plusBtn:SetAlpha(0.92)

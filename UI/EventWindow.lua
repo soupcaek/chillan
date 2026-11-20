@@ -54,7 +54,7 @@ end
 
 -- "react" on others' dings, deaths, kills and trophies you haven't reacted to (1.0.1): a death that
 -- didn't pop up (popup rules) can still get its laugh or F from here
-local REACTABLE = { DING = true, DEAD = true, KILL = true, ACH = true }
+local REACTABLE = setmetatable({}, { __index = function(_, k) return ns.REACTABLE and ns.REACTABLE[k] end })
 local function reactLink(item)
   if not item or not item.id or not REACTABLE[item.kind] or item.pid == ns.pid then return "" end
   for _, r in ipairs(item.reacts or {}) do if r.pid == ns.pid then return "" end end

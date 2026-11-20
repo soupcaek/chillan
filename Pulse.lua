@@ -5,7 +5,7 @@ local ADDON, ns = ...
 local P = {}
 ns.Pulse = P
 
-local MODES = { world = "Open world", dungeon = "Dungeon", bg = "Battleground" }
+local MODES = { world = "Open world", dungeon = "Dungeon", raid = "Raid", bg = "Battleground" }
 P.MODES = MODES
 
 local function now() return ns.Now() end
@@ -17,7 +17,8 @@ local function money() local m = ns.S(GetMoney) return type(m) == "number" and m
 function P:Detect()
   local inInst, kind = ns.S(IsInInstance)
   if inInst and (kind == "pvp" or kind == "arena") then return "bg" end
-  if inInst and (kind == "party" or kind == "raid") then return "dungeon" end
+  if inInst and kind == "raid" then return "raid" end
+  if inInst and kind == "party" then return "dungeon" end
   return "world"
 end
 
@@ -136,7 +137,7 @@ local lastXP, lastMax, lastMoney
 ns:On("PLAYER_XP_UPDATE", function()
   local xp, mx = ns.S(UnitXP, "player"), ns.S(UnitXPMax, "player")
   if type(xp) ~= "number" or type(mx) ~= "number" then return end
-  if lastXP and P:Mode() == "dungeon" then
+  if lastXP and (P:Mode() == "dungeon" or P:Mode() == "raid") then
     local _, pr = P:Run()
     if pr then
       local gain = (xp >= lastXP) and (xp - lastXP) or ((lastMax or 0) - lastXP + xp)
@@ -144,11 +145,21 @@ ns:On("PLAYER_XP_UPDATE", function()
     end
   end
   lastXP, lastMax = xp, mx
+  -- (1.4.0) about to ding: the gang gets a line so they can be ready to react
+  local lvl = ns.S(UnitLevel, "player")
+  if type(lvl) == "number" and lvl > 1 and lvl < 60 and mx > 0 and xp / mx >= 0.98 then
+    ns.db.nearDing = ns.db.nearDing or {}
+    local me = ns.Comm and ns.Comm:MyFull() or "?"
+    if ns.db.nearDing[me] ~= lvl then
+      ns.db.nearDing[me] = lvl
+      ns.Tracker:Event("NEARDING", lvl + 1, math.max(1, math.floor((mx - xp) / mx * 100 + 0.5)))
+    end
+  end
 end)
 ns:On("PLAYER_MONEY", function()
   local m = money()
   if not m then return end
-  if lastMoney and m > lastMoney and P:Mode() == "dungeon" and not (MerchantFrame and MerchantFrame:IsShown()) then
+  if lastMoney and m > lastMoney and (P:Mode() == "dungeon" or P:Mode() == "raid") and not (MerchantFrame and MerchantFrame:IsShown()) then
     local _, pr = P:Run()
     if pr then pr.money = pr.money + (m - lastMoney) end
   end
@@ -171,15 +182,69 @@ function P.LinkQuality(link)
   local hexc = type(link) == "string" and link:match("|c%x%x(%x%x%x%x%x%x)")
   return hexc and QCOL[hexc:lower()] or 1
 end
+-- (1.4.0) what the loot is worth: the Market price (or what a vendor pays) plus the gold looted
+local function itemId(link) return tonumber(tostring(link or ""):match("item:(%d+)")) end
+local function sellPrice(id)
+  local info = C_Item and C_Item.GetItemInfo or GetItemInfo
+  if not info then return 0 end
+  local ok, _, _, _, _, _, _, _, _, _, _, price = pcall(info, id)
+  return (ok and type(price) == "number") and price or 0
+end
+function P.ItemValue(link)
+  local id = itemId(link)
+  if not id then return 0 end
+  local count = tonumber(tostring(link):match("x(%d+)$")) or 1
+  local e = ns.Market and ns.Market:Get(id)
+  local q = P.LinkQuality(link)
+  if e and e.v and q > 0 then return e.v * count end
+  return sellPrice(id) * count
+end
+function P:LootValue(pr)
+  if not pr then return 0 end
+  local v = pr.money or 0
+  for _, link in ipairs(pr.items or {}) do v = v + P.ItemValue(link) end
+  return v + (pr.greyValue or 0)
+end
+
+-- gathering this session: herbs, ore and stone, leather (class 7 = trade goods)
+local GATHER = { [9] = true, [7] = true, [6] = true }
+P.gather = { n = 0, value = 0 }
+local function gathered(link, count)
+  if P:Mode() ~= "world" then return end
+  local id = itemId(link)
+  if not id or not C_Item or not C_Item.GetItemInfoInstant then return end
+  local ok, _, _, _, _, _, classID, subID = pcall(C_Item.GetItemInfoInstant, id)
+  if not ok or classID ~= 7 or not GATHER[subID] then return end
+  local g = P.sess.gather or { n = 0, value = 0 }
+  P.sess.gather = g
+  g.n = g.n + (count or 1)
+  local e = ns.Market and ns.Market:Get(id)
+  g.value = g.value + ((e and e.v) or sellPrice(id)) * (count or 1)
+end
+
 ns:On("CHAT_MSG_LOOT", function(msg)
-  if type(msg) ~= "string" or ns.isSecret(msg) or P:Mode() ~= "dungeon" then return end
+  if type(msg) ~= "string" or ns.isSecret(msg) then return end
+  if P:Mode() == "world" then
+    if not lootPatterns then buildLoot() end
+    for _, pat in ipairs(lootPatterns) do
+      local link = msg:match(pat)
+      if link then
+        gathered(link, tonumber(msg:match("x(%d+)%.?$")) or 1)
+        break
+      end
+    end
+    return
+  end
+  if P:Mode() ~= "dungeon" and P:Mode() ~= "raid" then return end
   if not lootPatterns then buildLoot() end
   local link
   for _, pat in ipairs(lootPatterns) do link = msg:match(pat) if link then break end end
   if not link then return end
   local _, pr = P:Run()
   if not pr then return end
-  if P.LinkQuality(link) == 0 then pr.grey = pr.grey + 1
+  if P.LinkQuality(link) == 0 then
+    pr.grey = pr.grey + 1
+    pr.greyValue = (pr.greyValue or 0) + P.ItemValue(link)
   else
     pr.items[#pr.items + 1] = link
     while #pr.items > 30 do table.remove(pr.items, 1) end
@@ -211,7 +276,8 @@ P.Today = today
 
 function P:StartBG()
   local hk, honor = pvpSession()
-  self.bg = { start = now(), hk0 = hk, honor0 = honor, deaths = 0, streak = 0, best = 0, done = false }
+  self.bg = { start = now(), hk0 = hk, honor0 = honor, deaths = 0, streak = 0, best = 0, done = false,
+    name = ns.S(GetInstanceInfo), flags = {}, revs = {} }
   today().played = today().played + 1
 end
 
@@ -266,9 +332,168 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
   if not ok or type(w) ~= "number" or ns.isSecret(w) then return end
   b.done = true
   local mine = ns.S(UnitFactionGroup, "player") == "Horde" and 0 or 1
-  if w == mine then today().won = today().won + 1 end
+  local won = w == mine
+  local d = today()
+  if won then d.won = d.won + 1 d.streak = (d.streak or 0) + 1 else d.streak = 0 end
+  P:ReadBoard()
+  local sum = P:BGSummary(won)
   ns:Fire("PULSE")
+  if sum then
+    C_Timer.After(1, function() ns:Fire("BG_CARD", sum) end)
+    -- one of the gang in the BG posts the result
+    local poster = true
+    for _, g in ipairs(sum.gang) do if g.pid < ns.pid then poster = false end end
+    if poster then
+      C_Timer.After(3, function()
+        ns.Tracker:Event("BGEND", sum.name or "", won and 1 or 0, sum.score or "",
+          (sum.mvp and sum.mvp.name or "") .. ":" .. (sum.mvp and sum.mvp.hk or 0) .. ":" .. (sum.honor or 0) .. ":" .. #sum.gang)
+      end)
+    end
+    if won and d.streak == 5 then ns.Tracker:Event("BGEND", "streak", 5, "", "") end
+  end
 end)
+
+---------------------------------------------------------------------------
+-- (1.4.0) the battleground in detail: the score at the top of the screen, the scoreboard (your
+-- kills, deaths and the gang's), flags, revenge, and the card when it ends
+---------------------------------------------------------------------------
+-- the score the battleground shows at the top of the screen (flags, bases' resources…)
+function P:BGScore()
+  local W = C_UIWidgetManager
+  if not W or not W.GetTopCenterWidgetSetID or not W.GetAllWidgetsBySetID then return nil end
+  local ok, set = pcall(W.GetTopCenterWidgetSetID)
+  if not ok or not set then return nil end
+  local ok2, widgets = pcall(W.GetAllWidgetsBySetID, set)
+  if not ok2 or type(widgets) ~= "table" then return nil end
+  local parts = {}
+  for _, w in ipairs(widgets) do
+    if w.widgetType == 3 and W.GetDoubleStatusBarWidgetVisualizationInfo then
+      local okI, info = pcall(W.GetDoubleStatusBarWidgetVisualizationInfo, w.widgetID)
+      if okI and type(info) == "table" and info.leftBarValue and info.rightBarValue then
+        return math.floor(info.leftBarValue) .. " – " .. math.floor(info.rightBarValue)
+      end
+    elseif w.widgetType == 0 and W.GetIconAndTextWidgetVisualizationInfo then
+      local okI, info = pcall(W.GetIconAndTextWidgetVisualizationInfo, w.widgetID)
+      local t = okI and type(info) == "table" and info.text
+      if type(t) == "string" and not ns.isSecret(t) then
+        local n = t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("(%d+)%s*/%s*%d+")
+        if n then parts[#parts + 1] = n end
+      end
+    end
+  end
+  if #parts >= 2 then return parts[1] .. " – " .. parts[2] end
+  return nil
+end
+
+-- the scoreboard: your kills/deaths and the gang's in this battleground
+local function gangByName()
+  local out = {}
+  for pid, p in pairs(ns.db.people) do
+    for _, c in pairs(p.chars or {}) do if c.name then out[c.name] = pid end end
+  end
+  return out
+end
+function P:ReadBoard()
+  local b = self.bg
+  if not b or not GetNumBattlefieldScores or not GetBattlefieldScore then return end
+  local okN, n = pcall(GetNumBattlefieldScores)
+  if not okN or type(n) ~= "number" or ns.isSecret(n) then return end
+  local byName, me = gangByName(), ns.S(UnitName, "player")
+  local gang = {}
+  for i = 1, n do
+    local ok, name, kb, hk, deaths, honor = pcall(GetBattlefieldScore, i)
+    if ok and type(name) == "string" and not ns.isSecret(name) then
+      local short = ns.ShortName(name)
+      local row = { name = short, kb = tonumber(kb) or 0, hk = tonumber(hk) or 0, deaths = tonumber(deaths) or 0, honor = tonumber(honor) or 0 }
+      if short == me then b.me = row end
+      local pid = byName[short]
+      if pid then row.pid = pid gang[#gang + 1] = row end
+    end
+  end
+  table.sort(gang, function(a, c) return a.hk > c.hk end)
+  b.gang = gang
+  b.boardAt = now()
+end
+ns:On("UPDATE_BATTLEFIELD_SCORE", function() if P.bg then P:ReadBoard() ns:Fire("PULSE") end end)
+C_Timer.NewTicker(10, function()
+  if P.bg and not P.bg.done and RequestBattlefieldScoreData then pcall(RequestBattlefieldScoreData) end
+end)
+
+-- flags: who captured or returned one ("X captured the Horde flag!", "…returned to its base by X!")
+local function onBGSystem(msg)
+  local b = P.bg
+  if not b or type(msg) ~= "string" or ns.isSecret(msg) then return end
+  local who, act = msg:match("^(.-) captured the"), "cap"
+  if not who then who, act = msg:match("returned to its base by (.-)!"), "ret" end
+  if not who or who == "" then return end
+  who = ns.ShortName(who)
+  b.flags[who] = b.flags[who] or { cap = 0, ret = 0 }
+  b.flags[who][act] = b.flags[who][act] + 1
+  if who == ns.S(UnitName, "player") then ns.Tracker:Event("FLAG", act, b.name or "") end
+  ns:Fire("PULSE")
+end
+ns:On("CHAT_MSG_BG_SYSTEM_HORDE", onBGSystem)
+ns:On("CHAT_MSG_BG_SYSTEM_ALLIANCE", onBGSystem)
+ns:On("CHAT_MSG_BG_SYSTEM_NEUTRAL", onBGSystem)
+
+-- revenge in a battleground: you killed someone who killed you or the gang ("Died to" list)
+ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
+  local b = P.bg
+  if not b or type(text) ~= "string" or ns.isSecret(text) or not ns.Kills or not ns.Kills.VictimFrom then return end
+  local victim = ns.Kills:VictimFrom(text)
+  if not victim or victim == "" then return end
+  local short = ns.ShortName(victim)
+  local dt = ns.db.diedTo and ns.db.diedTo[short:lower()]
+  local mine = ns.db.killedBy and ns.db.killedBy[short:lower()]
+  if not dt and not mine then return end
+  if b.revs[short] and now() - b.revs[short] < 120 then return end
+  b.revs[short] = now()
+  b.revN = (b.revN or 0) + 1
+  ns.Cnt("revengeKills")
+  ns.Tracker:Event("BGREV", short, b.name or "")
+end)
+
+-- this week's honor and your rank
+function P:Week()
+  local honor, rankName, prog
+  if GetPVPThisWeekStats then
+    local ok, _, h = pcall(GetPVPThisWeekStats)
+    if ok and type(h) == "number" and not ns.isSecret(h) then honor = h end
+  end
+  if UnitPVPRank and GetPVPRankInfo then
+    local ok, r = pcall(UnitPVPRank, "player")
+    if ok and type(r) == "number" and r > 0 then
+      local ok2, nm = pcall(GetPVPRankInfo, r)
+      if ok2 and type(nm) == "string" then rankName = nm end
+    end
+  end
+  if GetPVPRankProgress then
+    local ok, p = pcall(GetPVPRankProgress)
+    if ok and type(p) == "number" and not ns.isSecret(p) then prog = math.floor(p * 100) end
+  end
+  return honor, rankName, prog
+end
+
+function P:BGSummary(won)
+  local b = self.bg
+  if not b then return nil end
+  local _, honor = self:BGNumbers()
+  local gang = b.gang or {}
+  local mvp
+  for _, g in ipairs(gang) do if not mvp or g.hk > mvp.hk or (g.hk == mvp.hk and g.deaths < mvp.deaths) then mvp = g end end
+  local hero, heroN
+  for _, g in ipairs(gang) do
+    local f = b.flags[g.name]
+    local k = f and (f.cap * 2 + f.ret) or 0
+    if k > 0 and (not heroN or k > heroN) then hero, heroN = g.name, k end
+  end
+  local revNames = {}
+  for n in pairs(b.revs) do revNames[#revNames + 1] = n end
+  local d = today()
+  return { name = b.name, won = won, score = self:BGScore(), dur = now() - b.start, honor = honor or (b.me and b.me.honor),
+    gang = gang, mvp = mvp, hero = hero, heroFlags = hero and b.flags[hero], revs = revNames,
+    wonToday = d.won, played = d.played, streak = d.streak or 0, best = b.best, me = b.me }
+end
 
 ---------------------------------------------------------------------------
 -- "Died to" players near you (nameplates, target, mouseover)

@@ -91,7 +91,7 @@ end)
 -- Dungeon-logg: tid, dødsfall, bosser og hvem fra gjengen som var med
 ---------------------------------------------------------------------------
 local run
--- the dungeon run in progress (Gang pulse reads time, bosses and deaths from it)
+-- the dungeon or raid run in progress (Gang pulse reads time, bosses and deaths from it)
 function X:CurrentRun() return run end
 local function gangInGroup()
   local pids = { ns.pid }
@@ -102,12 +102,63 @@ local function gangInGroup()
     for _, c in pairs(p.chars or {}) do if c.name then byName[c.name] = pid end end
   end
   local prefix = (ns.S(IsInRaid) and "raid") or "party"
+  local seen = { [ns.pid] = true }
   for i = 1, n do
     local name = ns.S(UnitName, prefix .. i)
     local pid = name and byName[name]
-    if pid and pid ~= ns.pid then pids[#pids + 1] = pid end
+    if pid and not seen[pid] then seen[pid] = true pids[#pids + 1] = pid end
   end
   return pids
+end
+X.GangInGroup = gangInGroup
+
+-- one of the gang in the group posts (the lowest id), so lines don't come twice
+local function iPost()
+  local m = gangInGroup()
+  table.sort(m)
+  return m[1] == ns.pid, #m
+end
+
+-- (1.4.0) the gang's best time for this dungeon/raid before this run (from the feed)
+function X:BestFor(name, kind)
+  local best
+  for _, it in ipairs(ns.db.feed or {}) do
+    if it.kind == (kind or "DUNGEON") and it.a == name then
+      local d = tonumber(it.b)
+      if d and d > 0 and (not best or d < best) then best = d end
+    end
+  end
+  return best
+end
+
+-- the card when a run ends: bosses, time, XP, loot value, deaths, wipes, best drop, most deaths…
+function X:RunSummary(r)
+  r = r or run
+  if not r then return nil end
+  local n, total = ns.Bosses:Count(r.name, r.killed)
+  local _, pr = ns.Pulse:Run()
+  local floorName, floorN = nil, 0
+  for name, k in pairs(r.deathsBy or {}) do if k > floorN then floorName, floorN = name, k end end
+  local fastName, fastSecs
+  for name, secs in pairs(r.killed or {}) do
+    if type(secs) == "number" and secs > 5 and (not fastSecs or secs < fastSecs) then fastName, fastSecs = name, secs end
+  end
+  local bestDrop, bestQ = nil, -1
+  for _, link in ipairs(pr and pr.items or {}) do
+    local q = ns.Pulse.LinkQuality(link)
+    if q > bestQ then bestDrop, bestQ = link, q end
+  end
+  for _, g in ipairs(r.gangLoot or {}) do
+    local q = ns.Pulse.LinkQuality(g.link)
+    if q > bestQ then bestDrop, bestQ = g.link, q end
+  end
+  local dur = (r.endAt or ns.Now()) - r.start
+  local best = self:BestFor(r.name, r.raid and "RAID" or "DUNGEON")
+  return { name = r.name, raid = r.raid, dur = dur, bosses = n, total = total, deaths = r.deaths or 0,
+    wipes = r.wipes or 0, xp = pr and pr.xp or 0, value = ns.Pulse:LootValue(pr),
+    floor = floorName, floorN = floorN, fast = fastName, fastSecs = fastSecs,
+    drop = bestDrop, dropQ = bestQ, record = best and dur < best and n >= (total or n) or false, best = best,
+    gangLoot = r.gangLoot }
 end
 
 local function finishRun()
@@ -121,16 +172,25 @@ local function finishRun()
   r.members = gangInGroup()
   ns.db.runs = ns.db.runs or {}
   ns.PushCapped(ns.db.runs, r, 60)
-  -- bare én i gjengen poster runen (den med lavest id), så den ikke kommer dobbelt
   table.sort(r.members)
+  -- the card, if the last boss didn't already show it
+  if not r.cardShown then
+    local sum = X:RunSummary(r)
+    if sum then ns:Fire("RUN_CARD", sum) end
+  end
   if r.members[1] == ns.pid then
-    ns.Tracker:Event("DUNGEON", r.name, math.floor(dur), r.deaths, r.bosses .. "|" .. table.concat(r.members, ","))
+    if r.raid then
+      local _, total = ns.Bosses:Count(r.name, r.killed)
+      ns.Tracker:Event("RAID", r.name, math.floor(dur), r.wipes or 0, r.bosses .. "/" .. (total or "?") .. "|" .. #r.members)
+    else
+      ns.Tracker:Event("DUNGEON", r.name, math.floor(dur), r.deaths, r.bosses .. "|" .. table.concat(r.members, ","))
+    end
   end
 end
 
 local function onWorld()
   local inInst, kind = ns.S(IsInInstance)
-  if inInst and kind == "party" then
+  if inInst and (kind == "party" or kind == "raid") then
     local name = ns.S(GetInstanceInfo)
     if name and (not run or run.name ~= name) then
       finishRun()
@@ -141,6 +201,11 @@ local function onWorld()
       else
         run = { name = name, start = ns.Now(), deaths = 0, bosses = 0, char = ns.Comm:MyFull() }
       end
+      run.raid = kind == "raid"
+      run.killed = run.killed or {}
+      run.deathsBy = run.deathsBy or {}
+      run.wipes = run.wipes or 0
+      run.gangLoot = run.gangLoot or {}
       run.seen = ns.Now()
       ns.db.curRun = run
     end
@@ -149,7 +214,7 @@ local function onWorld()
     -- The run only ends if you stay out for 10 minutes (or enter another dungeon).
     if not run.leftAt then run.leftAt = ns.Now() end
   end
-  if run and inInst and kind == "party" then run.leftAt = nil end
+  if run and inInst and (kind == "party" or kind == "raid") then run.leftAt = nil end
 end
 
 C_Timer.NewTicker(30, function()
@@ -162,13 +227,124 @@ end)
 
 ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(2, onWorld) end)
 ns:On("ZONE_CHANGED_NEW_AREA", function() C_Timer.After(2, onWorld) end)
-ns:On("PLAYER_DEAD", function() if run then run.deaths = run.deaths + 1 end end)
 C_Timer.NewTicker(60, function() if run then run.seen = ns.Now() end end)
 ns:On("PLAYER_LOGOUT", function() if run then run.seen = ns.Now() end end)
-ns:On("ENCOUNTER_END", function(_, name, _, _, success)
-  if run and success == 1 and not ns.isSecret(success) then
+
+-- (1.4.0) deaths in the group: who's dead now vs a second ago (the combat log is closed to addons)
+local deadNow = {}
+local function groupUnits()
+  local units = { "player" }
+  local n = ns.S(GetNumGroupMembers) or 0
+  if ns.S(IsInRaid) then
+    for i = 1, math.min(40, n) do units[#units + 1] = "raid" .. i end
+  else
+    for i = 1, math.min(4, math.max(0, n - 1)) do units[#units + 1] = "party" .. i end
+  end
+  return units
+end
+local function countDeath(name)
+  if not run then return end
+  run.deaths = (run.deaths or 0) + 1
+  run.deathsBy[name] = (run.deathsBy[name] or 0) + 1
+  if run.pullAt then run.fightDeaths = (run.fightDeaths or 0) + 1 end
+  ns:Fire("PULSE")
+end
+local lastOwnDeath = 0
+C_Timer.NewTicker(1, function()
+  if not run or run.leftAt then deadNow = {} return end
+  local now = {}
+  for _, u in ipairs(groupUnits()) do
+    local name = ns.S(UnitName, u)
+    local dead = ns.S(UnitIsDeadOrGhost, u)
+    if type(name) == "string" and name ~= "" and dead == true then
+      now[name] = true
+      if not deadNow[name] then
+        if u == "player" then
+          if GetTime() - lastOwnDeath > 5 then countDeath(name) end
+          lastOwnDeath = GetTime()
+        else
+          countDeath(name)
+        end
+      end
+    end
+  end
+  deadNow = now
+end)
+-- your own death, in case the group check can't see it (secret value mid-fight)
+ns:On("PLAYER_DEAD", function()
+  if not run or GetTime() - lastOwnDeath < 5 then return end
+  lastOwnDeath = GetTime()
+  countDeath(ns.S(UnitName, "player") or "you")
+end)
+
+-- boss pulls and kills: the time each kill took, wipes, and a line in the feed
+ns:On("ENCOUNTER_START", function(id, name)
+  if not run then return end
+  run.pullAt, run.pullName, run.fightDeaths = GetTime(), (type(name) == "string" and not ns.isSecret(name)) and name or nil, 0
+  X.inEncounter = true
+  ns:Fire("PULSE")
+end)
+ns:On("ENCOUNTER_END", function(id, name, _, _, success)
+  X.inEncounter = false
+  X.lastEncounter = (ns.isSecret(name) and "?" or tostring(name)) .. " (" .. (ns.isSecret(success) and "?" or tostring(success)) .. ") " .. date("%H:%M")
+  if not run then return end
+  local okName = type(name) == "string" and not ns.isSecret(name) and name ~= ""
+  if ns.isSecret(success) then success = nil end
+  local secs = run.pullAt and math.floor(GetTime() - run.pullAt + 0.5) or nil
+  local fightDeaths = run.fightDeaths or 0
+  run.pullAt = nil
+  if success == 1 then
     run.bosses = run.bosses + 1
-    if type(name) == "string" and not ns.isSecret(name) then run.lastBoss = name end
+    if okName then
+      run.lastBoss = name
+      run.killed[name] = secs or true
+      run.tries = run.tries or {}
+      local tries = (run.tries[name] or 0) + 1
+      ns.Bosses:Learn(run.name, name)
+      -- the line for the gang, after the fight (addon messages are blocked during a boss fight)
+      local poster, gangN = iPost()
+      if poster then
+        C_Timer.After(3, function()
+          ns.Tracker:Event("BOSS", run and run.name or "", name, secs or 0, fightDeaths .. ":" .. tries .. ":" .. gangN)
+        end)
+      end
+      -- last boss down: the run card
+      local n, total = ns.Bosses:Count(run.name, run.killed)
+      if total and n >= total and not run.cardShown then
+        run.cardShown = true
+        run.endAt = ns.Now()
+        local sum = X:RunSummary(run)
+        run.endAt = nil
+        C_Timer.After(2, function() if sum then ns:Fire("RUN_CARD", sum) end end)
+      end
+    end
+  elseif success == 0 then
+    run.wipes = (run.wipes or 0) + 1
+    if okName then run.tries = run.tries or {} run.tries[name] = (run.tries[name] or 0) + 1 end
+  end
+  ns:Fire("PULSE")
+end)
+
+-- loot the gang gets in a raid (the gang's epics, not the whole raid's)
+local otherLoot
+ns:On("CHAT_MSG_LOOT", function(msg)
+  if not run or not run.raid or type(msg) ~= "string" or ns.isSecret(msg) then return end
+  if not otherLoot then
+    local f = (LOOT_ITEM or "%s receives loot: %s."):gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+    f = f:gsub("%%%%s", "(.+)")
+    otherLoot = "^" .. f
+  end
+  local who, link = msg:match(otherLoot)
+  if not who then return end
+  link = link:gsub("x%d+$", "")
+  if ns.Pulse.LinkQuality(link) < 4 then return end
+  local gang = false
+  for _, p in pairs(ns.db.people) do
+    for _, c in pairs(p.chars or {}) do if c.name == who then gang = true end end
+  end
+  if gang then
+    ns.PushCapped(run.gangLoot, { who = who, link = link, t = ns.Now() }, 20)
+    ns:Fire("PULSE")
   end
 end)
 

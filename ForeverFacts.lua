@@ -68,6 +68,12 @@ function ns.SelfTest()
   for pid, p in pairs(ns.db.people or {}) do if pid ~= ns.pid and ns:IsOnline(p) then n = n + 1 end end
   print("  gang members heard online: " .. n)
   if ns.Market then print("  auction house: " .. ns.Market:SelfTest()) end
+  -- (1.4.0) what the four scenarios read
+  for _, f in ipairs({ "EJ_GetEncounterInfoByIndex", "GetBattlefieldScore", "GetPVPThisWeekStats", "GetPVPRankProgress",
+    "GetSavedInstanceInfo", "C_UIWidgetManager", "C_UnitAuras" }) do
+    print(string.format("  %s %s", (_G[f] and "|cff5FD18Byes|r" or "|cffF2777Ano |r"), f))
+  end
+  if ns.Extras and ns.Extras.lastEncounter then print("  last boss event: " .. ns.Extras.lastEncounter) end
   for _, f in ipairs({ "GetPVPSessionStats", "GetBattlefieldWinner" }) do
     print(string.format("  %s %s", (_G[f] and "|cff5FD18Byes|r" or "|cffF2777Ano |r"), f))
   end

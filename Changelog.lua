@@ -2,6 +2,17 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.0", date = "20.11", items = {
+    "Feed icons: loot shows the real item icon with its quality border, everything else a small coloured icon with no box",
+    "Dungeons: the first box is \"3 / 8 bosses\" – hover it for every boss here, the ones you've killed struck through with the time the kill took. Covers the classic dungeons and raids and the new Forever dungeons; bosses the list doesn't know are learned from the gang's kills",
+    "Dungeons: boss track and next boss, pace against the gang's best run, deaths (who died most) and wipes, loot value from the Market in the boxes",
+    "Dungeons and raids: a feed line for every boss kill (\"Gang killed X · 1:58 · no deaths\") – no popup, but you can react to it",
+    "Dungeons: a run card when the last boss dies – time, XP, loot value, best drop, floor inspector, fastest boss and a record badge",
+    "Raids get their own mode: bosses, raid time, wipes, repair so far; the gang here, the gang's epics tonight, your fire resist/flask/lockouts, and a raid night card. Gang news waits until a boss is dead (the game blocks addon messages during the fight)",
+    "Battlegrounds: the score in the first box, your kills/deaths from the scoreboard, each friend's kills/deaths in the same BG, this week's honor and rank, wins today and a win streak",
+    "Battlegrounds: feed lines for flag captures and returns, revenge on someone from the Died-to list, and the result with a gang MVP; a victory card with MVP, flag hero and revenges",
+    "Questing: a ding card in the Now card for 20 s; the gang gets \"X is 2 % from 58 – get your grats ready\"; herbs, ore and leather you gather this session with their Market value",
+    "/chill selftest shows whether the boss, scoreboard and honor calls exist in Forever" } },
   { v = "1.3.13", date = "20.11", items = { "Feed: the time you see on hover has its own lane on the right and no longer sits on top of the text", "Feed: the react \"+\" shows on the line's icon while you hover" } },
   { v = "1.3.12", date = "20.11", items = { "Feed: the game's own icons at 22 px – loot shows the item itself with its quality colour, dungeons their own icon, plus skull, level-up, PvP and trophy icons", "Feed: no time column – hover a line to see its time; a thin divider with the time sits between groups of lines 10+ minutes apart", "Feed: short dungeon names (BRD, SM Library …) – hover for the full name" } },
   { v = "1.3.11", date = "20.11", items = { "Market: after a friend's scan, an old price you hover is asked for again until it arrives (\"Asking … for a newer price\" shows in the tooltip)", "Market: at login the friend with the newest prices answers – a friend with older prices no longer blocks them", "/chill market who: which online friends can share prices (version check)", "/chill market shows who scanned last and how many prices" } },

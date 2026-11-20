@@ -616,6 +616,8 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if (num(b) or 0) >= 4 then item.first = setFirst("EPIC", pid, char, t) end
   elseif kind == "DUNGEON" then
     if a and a ~= "" then item.first = setFirst("DG:" .. a, pid, char, t) end
+  elseif kind == "BOSS" then
+    if ns.Bosses then pcall(ns.Bosses.Learn, ns.Bosses, a, b) end
   elseif kind == "ACH" then
     if pid ~= ns.pid then
       p.ach = p.ach or {}
@@ -787,7 +789,19 @@ ns.REACTIONS_SOS = {
   "KEKW", "monkaS", "Sadge",
 }
 
+-- (1.4.0) dungeon and raid bosses, runs and raid nights
+ns.REACTIONS_BOSS = {
+  "Clean!", "GG", "Lok'tar!", "EZ", "Big pull", "Loot pls", "Next!", "Too easy", "Gold farm", "Wipe incoming",
+  "Tank carried", "Heals carried", "Nice!", "Finally", "One more", "Speedrun", "Boss down!", "Zug zug", "Respect", "W",
+  "Swim lessons", "Was that it?", "Again!", "Bring snacks", "peepoClap",
+}
+-- which feed lines can get a reaction
+ns.REACTABLE = { DING = true, DEAD = true, KILL = true, ACH = true, BOSS = true, DUNGEON = true, RAID = true,
+  BGEND = true, BGREV = true, FLAG = true }
+
 function ns.ReactionList(item)
+  if item and (item.kind == "BOSS" or item.kind == "DUNGEON" or item.kind == "RAID") then return ns.REACTIONS_BOSS end
+  if item and (item.kind == "BGEND" or item.kind == "BGREV" or item.kind == "FLAG") then return ns.REACTIONS_KILL end
   if item and item.kind == "SOS" then return ns.REACTIONS_SOS end
   if item and item.kind == "DEAD" then return ns.REACTIONS_DEAD end
   if item and item.kind == "KILL" then return ns.REACTIONS_KILL end
