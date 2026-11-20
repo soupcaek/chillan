@@ -97,13 +97,23 @@ function E:Add(kind, text, t, item)
       -- dropped out of the feed (its id changes then): same key, ended within the group's gap
       local key = ns.FeedGroupKey(item)
       local gap = ns.FEED_GROUP_GAP and ns.FEED_GROUP_GAP[gkind] or 900
-      for i = #self.entries, 1, -1 do
-        local e = self.entries[i]
-        if e.gid == gid or (e.gkey == key and (e.t or 0) >= (g[1].firstT or g[1].t or 0) - gap) then table.remove(self.entries, i) end
-      end
       local ok, line = pcall(ns.FeedGroupLine, g, gkind)
       local e = { kind = "ev", base = ok and line or text, t = t or time(), item = ns.FeedGroupItem(g), gid = gid, gkey = key }
-      ns.PushCapped(self.entries, e, MAX_KEEP)
+      local at, atT
+      for i = #self.entries, 1, -1 do
+        local x = self.entries[i]
+        if x.gid == gid or (x.gkey == key and (x.t or 0) >= (g[1].firstT or g[1].t or 0) - gap) then
+          table.remove(self.entries, i)
+          at, atT = i, x.t
+        end
+      end
+      -- (1.4.11) a kill count is updated where it stands; a run or BG line moves to the bottom
+      if gkind == "KILL" and at then
+        e.t = atT or e.t
+        table.insert(self.entries, math.min(at, #self.entries + 1), e)
+      else
+        ns.PushCapped(self.entries, e, MAX_KEEP)
+      end
       self:Redraw()
       if self.frame and not self.frame:IsMouseOver() then self:Flash() end
       return

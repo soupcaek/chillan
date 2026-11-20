@@ -663,16 +663,32 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
         return
       end
     end
-    -- (1.4.10) the same person's kills within 15 minutes fold into one feed item that counts up, so a
-    -- battleground's 150 kills don't push everything else out of the feed
+    -- (1.4.11) a friend getting 5 kills within 3 minutes is in a battleground (the game may say open
+    -- world): their kills are left out for 15 minutes, whatever version they run
+    Data.killTimes = Data.killTimes or {}
+    Data.bgUntil = Data.bgUntil or {}
+    local now = ns.Now()
+    if (Data.bgUntil[pid] or 0) > now then
+      ns.db.foldedIds = ns.db.foldedIds or {}
+      ns.db.foldedIds[id] = t
+      return
+    end
+    local kt = Data.killTimes[pid] or {}
+    Data.killTimes[pid] = kt
+    kt[#kt + 1] = now
+    for i = #kt, 1, -1 do if now - kt[i] > 180 then table.remove(kt, i) end end
+    if #kt >= 5 and fresh(t) then
+      Data.bgUntil[pid] = now + 900
+      Data.killTimes[pid] = {}
+    end
+    -- (1.4.10) the same person's kills within 15 minutes fold into one feed item that counts up.
+    -- (1.4.11) It stays where it is in the feed (it no longer jumps below newer chat).
     for i = #ns.db.feed, 1, -1 do
       local it = ns.db.feed[i]
-      if it.kind == "KILL" and it.pid == pid and (t or 0) >= (it.t or 0) and (t or 0) - (it.t or 0) < 900 then
+      local last = it.lastT or it.t or 0
+      if it.kind == "KILL" and it.pid == pid and (t or 0) >= (it.t or 0) and (t or 0) - last < 900 then
         it.n = (it.n or 1) + 1
-        it.firstT = it.firstT or it.t
-        it.t = t
-        table.remove(ns.db.feed, i)
-        ns.InsertByTime(ns.db.feed, it, 150)
+        it.lastT = t
         ns.db.foldedIds = ns.db.foldedIds or {}
         ns.db.foldedIds[id] = t
         if math.random(1, 50) == 1 then
