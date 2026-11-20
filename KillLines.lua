@@ -199,8 +199,7 @@ function K:Kicker(item)
 end
 
 function K:InPvPInstance()
-  local inInst, kind = ns.S(IsInInstance)
-  return inInst and (kind == "pvp" or kind == "arena") or false
+  return ns.InBattleground()
 end
 
 ---------------------------------------------------------------------------

@@ -144,6 +144,27 @@ function ns.PopupGate(kind)
   recent[#recent + 1] = now
   return true
 end
+-- (1.4.8) in a battleground or arena? IsInInstance alone isn't enough on every BG in Forever
+function ns.InBattleground()
+  local inInst, kind = ns.S(IsInInstance)
+  if inInst and (kind == "pvp" or kind == "arena") then return true end
+  if UnitInBattleground then
+    local ok, v = pcall(UnitInBattleground, "player")
+    if ok and v and not ns.isSecret(v) then return true end
+  end
+  if C_PvP and C_PvP.IsBattleground then
+    local ok, v = pcall(C_PvP.IsBattleground)
+    if ok and v == true then return true end
+  end
+  if GetBattlefieldStatus and GetMaxBattlefieldID then
+    local okN, n = pcall(GetMaxBattlefieldID)
+    for i = 1, (okN and tonumber(n) or 0) do
+      local ok, st = pcall(GetBattlefieldStatus, i)
+      if ok and st == "active" then return true end
+    end
+  end
+  return false
+end
 function ns.PopupGateReset() quietUntil, recent = {}, {} end
 
 function ns:Fire(name, ...)

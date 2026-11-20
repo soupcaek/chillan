@@ -17,6 +17,7 @@ local function money() local m = ns.S(GetMoney) return type(m) == "number" and m
 function P:Detect()
   local inInst, kind = ns.S(IsInInstance)
   if inInst and (kind == "pvp" or kind == "arena") then return "bg" end
+  if ns.InBattleground and ns.InBattleground() then return "bg" end
   if inInst and kind == "raid" then return "raid" end
   if inInst and kind == "party" then return "dungeon" end
   return "world"

@@ -114,7 +114,10 @@ function E:Add(kind, text, t, item)
         x.count = (x.count or 1) + 1
         x.firstT = x.firstT or x.t
         x.t = now
-        x.item = item
+        -- (1.4.8) the line stands for every kill in the burst: all their reactions show on it
+        x.items = x.items or { x.item }
+        x.items[#x.items + 1] = item
+        x.item = ns.FeedGroupItem(x.items)
         x.base = burstText(x)
         table.remove(self.entries, i)
         ns.PushCapped(self.entries, x, MAX_KEEP)
@@ -198,8 +201,12 @@ function E:OnReaction(item, rp, char, idx)
   if not item or not item.id then return end
   for i = #self.entries, 1, -1 do
     local e = self.entries[i]
-    if e.item and e.item.id == item.id then
-      e.item = item
+    local inGroup = false
+    if e.item and e.item.group then
+      for _, x in ipairs(e.item.group) do if x.id == item.id then inGroup = true end end
+    end
+    if e.item and (e.item.id == item.id or inGroup) then
+      if not inGroup then e.item = item end
       if not self.redrawPending then
         self.redrawPending = true
         C_Timer.After(0.3, function() E.redrawPending = false E:Redraw() end)
@@ -208,7 +215,9 @@ function E:OnReaction(item, rp, char, idx)
       return
     end
   end
-  -- hendelsen er for gammel til å stå i vinduet: vis reaksjonen samlet på én linje
+  -- the event is too old to be in the window: show the reaction on a line of its own
+  -- (1.4.8: not for kills and deaths – those were the spam lines; they show on Home)
+  if item.kind == "KILL" or item.kind == "DEAD" then return end
   self:QueueReaction(item, rp, char, idx)
 end
 
