@@ -74,6 +74,167 @@ function ns.SceneLine(it, who)
   end
 end
 
+
+---------------------------------------------------------------------------
+-- (1.4.3) feed groups: lines that belong together become one line that counts up
+--  * a dungeon/raid run: every boss kill updates one line ("WC 4 / 8 bosses · last Skum 0:36");
+--    the end-of-run line takes its place when the run is done
+--  * a battleground: flags, revenges and the result for everyone in the gang become one line
+--  * "is 2 % from level 23" goes away when the ding comes
+---------------------------------------------------------------------------
+local GROUP_GAP = { RUN = 4 * 3600, BG = 45 * 60 }
+function ns.FeedGroupKey(it)
+  if type(it) ~= "table" then return nil end
+  local k = it.kind
+  if k == "BOSS" or k == "DUNGEON" or k == "RAID" then return "RUN:" .. tostring(it.pid) .. ":" .. tostring(it.a), "RUN" end
+  if k == "FLAG" or k == "BGREV" then return "BG:" .. tostring(it.b or ""), "BG" end
+  if k == "BGEND" and it.a ~= "streak" then return "BG:" .. tostring(it.a or ""), "BG" end
+end
+
+-- the group an item belongs to: the list of items (oldest first), its id and its kind
+function ns.FeedGroupOf(it, items, keys)
+  local key, kind = ns.FeedGroupKey(it)
+  if not key then return nil end
+  local list = {}
+  for i, x in ipairs(items) do
+    local k = keys and keys[i]
+    if k == nil then k = ns.FeedGroupKey(x) or false end
+    if k == key then list[#list + 1] = x end
+  end
+  table.sort(list, function(a, b) return (a.t or 0) < (b.t or 0) end)
+  local cur, found
+  for _, x in ipairs(list) do
+    if not cur or (x.t or 0) - (cur[#cur].t or 0) > GROUP_GAP[kind] or cur.closed then
+      if found then break end
+      cur = {}
+    end
+    cur[#cur + 1] = x
+    if x.kind == "DUNGEON" or x.kind == "RAID" or x.kind == "BGEND" then cur.closed = true end
+    if x == it then found = cur end
+  end
+  if not found then return nil end
+  return found, key .. ":" .. tostring(found[1].t), kind
+end
+
+-- one item standing in for the group: the newest item, with every reaction in the group
+function ns.FeedGroupItem(g)
+  local latest = g[#g]
+  return setmetatable({ group = g }, { __index = function(_, k)
+    if k == "reacts" then
+      local all = {}
+      for _, x in ipairs(g) do for _, r in ipairs(x.reacts or {}) do all[#all + 1] = r end end
+      return all
+    end
+    return latest[k]
+  end })
+end
+
+local function names(pids)
+  local out, seen = {}, {}
+  for _, pid in ipairs(pids) do
+    if pid and pid ~= "" and not seen[pid] then
+      seen[pid] = true
+      local p = ns:GetPerson(pid)
+      if p then out[#out + 1] = ns:PersonLinked(p, ns:PersonName(p)) end
+    end
+  end
+  if #out == 0 then return "?" end
+  if #out == 1 then return out[1] end
+  if #out <= 3 then return table.concat(out, ", ", 1, #out - 1) .. " & " .. out[#out] end
+  return out[1] .. ", " .. out[2] .. " +" .. (#out - 2)
+end
+local function bossPids(x)
+  local list = { x.pid }
+  local field = select(4, tostring(x.d or ""):match("^([^:]*):?([^:]*):?([^:]*):?(.*)$"))
+  for pid in tostring(field or ""):gmatch("[^,]+") do list[#list + 1] = pid end
+  return list
+end
+
+function ns.FeedGroupLine(g, kind)
+  local C = ns.C
+  local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
+  local last = g[#g]
+  if kind == "RUN" then
+    if last.kind == "DUNGEON" or last.kind == "RAID" then return ns.FeedShort(last) end
+    local killed, pids, lastBoss = {}, {}, nil
+    for _, x in ipairs(g) do
+      if x.kind == "BOSS" then
+        killed[tostring(x.b)] = tonumber(x.c) or true
+        lastBoss = x
+        for _, pid in ipairs(bossPids(x)) do pids[#pids + 1] = pid end
+      end
+    end
+    local n, total = ns.Bosses:Count(last.a, killed)
+    local secs = lastBoss and tonumber(lastBoss.c)
+    local t = (secs and secs > 0) and string.format(" %d:%02d", math.floor(secs / 60), secs % 60) or ""
+    return I("Shield", "8FB8E8") .. names(pids) .. ns.Colorize(" · ", C.dim) .. ns.Colorize(ns.ShortDungeon(last.a) .. " ", C.text)
+      .. ns.Colorize(n .. " / " .. (total or "?") .. " bosses", C.text)
+      .. (lastBoss and ns.Colorize(" · last " .. tostring(lastBoss.b) .. t, C.text2) or "")
+      .. ns.Colorize(" · since " .. date("%H:%M", g[1].t or time()), C.dim)
+  end
+  -- a battleground
+  local pids, flags, revs, result = {}, {}, {}, nil
+  for _, x in ipairs(g) do
+    pids[#pids + 1] = x.pid
+    if x.kind == "FLAG" then
+      flags[x.pid] = flags[x.pid] or { cap = 0, ret = 0 }
+      if x.a == "cap" then flags[x.pid].cap = flags[x.pid].cap + 1 else flags[x.pid].ret = flags[x.pid].ret + 1 end
+    elseif x.kind == "BGREV" then
+      revs[x.pid] = revs[x.pid] or {}
+      table.insert(revs[x.pid], tostring(x.a))
+    elseif x.kind == "BGEND" then
+      result = x
+    end
+  end
+  local bits = {}
+  for pid, f in pairs(flags) do
+    local p = ns:GetPerson(pid)
+    local w = {}
+    if f.cap > 0 then w[#w + 1] = ns.Plural(f.cap, "flag capture") end
+    if f.ret > 0 then w[#w + 1] = ns.Plural(f.ret, "flag return") end
+    bits[#bits + 1] = (p and ns:PersonName(p) or "?") .. " " .. table.concat(w, ", ")
+  end
+  for pid, v in pairs(revs) do
+    local p = ns:GetPerson(pid)
+    bits[#bits + 1] = (p and ns:PersonName(p) or "?") .. " revenge on " .. ns.Colorize(table.concat(v, ", "), C.red)
+  end
+  local bg = result and result.a or last.b or "?"
+  local head
+  if result then
+    local won = tostring(result.b) == "1"
+    local mvp, hk = tostring(result.d or ""):match("^([^:]*):?(%d*)")
+    head = ns.Colorize(won and "Won " or "Lost ", won and C.green or C.red) .. ns.Colorize(tostring(bg), C.text)
+      .. ((result.c and result.c ~= "") and ns.Colorize(" " .. result.c, C.text2) or "")
+    if mvp and mvp ~= "" then bits[#bits + 1] = "MVP " .. mvp .. ((tonumber(hk) or 0) > 0 and (" (" .. hk .. " HKs)") or "") end
+  else
+    head = ns.Colorize(tostring(bg), C.text)
+  end
+  return I(result and "Trophy" or "Target", result and (tostring(result.b) == "1" and "5FD18B" or "F2777A") or "E0C068")
+    .. names(pids) .. ns.Colorize(" · ", C.dim) .. head
+    .. (#bits > 0 and ns.Colorize(" · " .. table.concat(bits, " · "), C.text2) or "")
+end
+
+-- the lines to draw for a list of feed items (from index first): groups once, at their newest item
+function ns.FeedEntries(items, first)
+  local keys = {}
+  for i, x in ipairs(items) do keys[i] = ns.FeedGroupKey(x) or false end
+  local out = {}
+  for i = math.max(1, first or 1), #items do
+    local it = items[i]
+    if keys[i] then
+      local g, gid, kind = ns.FeedGroupOf(it, items, keys)
+      if g and it == g[#g] then
+        local ok, line = pcall(ns.FeedGroupLine, g, kind)
+        if ok and line then out[#out + 1] = { line = line, item = ns.FeedGroupItem(g), t = it.t, gid = gid } end
+      end
+    else
+      local ok, line = pcall(ns.FeedShort, it)
+      if ok and line then out[#out + 1] = { line = line, item = it, t = it.t } end
+    end
+  end
+  return out
+end
+
 -- Tekst for en feed-hendelse (brukes også i Feed-fanen)
 function ns.FeedLine(it, withTime)
   local p = ns:GetPerson(it.pid) or {}

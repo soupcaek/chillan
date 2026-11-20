@@ -82,6 +82,28 @@ end
 E.BurstText = burstText
 
 function E:Add(kind, text, t, item)
+  -- (1.4.3) the ding takes the place of "is 2 % from level X"
+  if kind == "ev" and item and item.kind == "DING" then
+    for i = #self.entries, 1, -1 do
+      local x = self.entries[i]
+      if x.item and x.item.kind == "NEARDING" and x.item.pid == item.pid then table.remove(self.entries, i) end
+    end
+  end
+  -- (1.4.3) a run's bosses and a battleground's flags/revenges/result: one line that counts up
+  if kind == "ev" and item and ns.FeedGroupKey(item) then
+    local g, gid, gkind = ns.FeedGroupOf(item, ns.db.feed or {})
+    if g then
+      for i = #self.entries, 1, -1 do
+        if self.entries[i].gid == gid then table.remove(self.entries, i) end
+      end
+      local ok, line = pcall(ns.FeedGroupLine, g, gkind)
+      local e = { kind = "ev", base = ok and line or text, t = t or time(), item = ns.FeedGroupItem(g), gid = gid }
+      ns.PushCapped(self.entries, e, MAX_KEEP)
+      self:Redraw()
+      if self.frame and not self.frame:IsMouseOver() then self:Flash() end
+      return
+    end
+  end
   if kind == "ev" and item and (item.kind == "KILL" or item.kind == "DEAD") then
     local now = t or time()
     for i = #self.entries, math.max(1, #self.entries - 8), -1 do
@@ -569,7 +591,7 @@ end
 -- Litt historikk ved innlogging så vinduet ikke er tomt
 function E:Backfill()
   local items = {}
-  for _, it in ipairs(ns.db.feed or {}) do items[#items + 1] = { t = it.t, kind = "ev", it = it } end
+  for _, x in ipairs(ns.FeedEntries(ns.db.feed or {}, 1)) do items[#items + 1] = { t = x.t, kind = "ev", it = x.item, line = x.line, gid = x.gid } end
   for _, it in ipairs(ns.db.chat or {}) do items[#items + 1] = { t = it.t, kind = "chat", it = it } end
   table.sort(items, function(a, b) return a.t < b.t end)
   local cutoff = time() - 12 * 3600
@@ -582,10 +604,11 @@ function E:Backfill()
   for i = first, #items do
     local x = items[i]
     if x.t >= cutoff then
-      local ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it)
+      local ok, text = true, x.line
+      if not text then ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it) end
       if ok and text then
         -- tidligere hendelser vises dempet, så de ikke ser ut som nye
-        local e = { kind = x.kind, base = ns.Colorize(text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""), "7A8088"), t = x.t, item = x.kind == "ev" and x.it or nil, old = true }
+        local e = { kind = x.kind, base = ns.Colorize(text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""), "7A8088"), t = x.t, item = x.kind == "ev" and x.it or nil, old = true, gid = x.gid }
         e.text = render(e)
         ns.PushCapped(self.entries, e, MAX_KEEP)
         added = added + 1

@@ -178,7 +178,7 @@ local function finishRun()
     local sum = X:RunSummary(r)
     if sum then ns:Fire("RUN_CARD", sum) end
   end
-  if r.members[1] == ns.pid then
+  if r.members[1] == ns.pid and not r.posted then
     if r.raid then
       local _, total = ns.Bosses:Count(r.name, r.killed)
       ns.Tracker:Event("RAID", r.name, math.floor(dur), r.wipes or 0, r.bosses .. "/" .. (total or "?") .. "|" .. #r.members)
@@ -304,8 +304,11 @@ ns:On("ENCOUNTER_END", function(id, name, _, _, success)
       -- the line for the gang, after the fight (addon messages are blocked during a boss fight)
       local poster, gangN = iPost()
       if poster then
+        local others = {}
+        for _, pid in ipairs(gangInGroup()) do if pid ~= ns.pid then others[#others + 1] = pid end end
         C_Timer.After(3, function()
-          ns.Tracker:Event("BOSS", run and run.name or "", name, secs or 0, fightDeaths .. ":" .. tries .. ":" .. gangN)
+          ns.Tracker:Event("BOSS", run and run.name or "", name, secs or 0,
+            fightDeaths .. ":" .. tries .. ":" .. gangN .. ":" .. table.concat(others, ","))
         end)
       end
       -- last boss down: the run card
@@ -316,6 +319,21 @@ ns:On("ENCOUNTER_END", function(id, name, _, _, success)
         local sum = X:RunSummary(run)
         run.endAt = nil
         C_Timer.After(2, function() if sum then ns:Fire("RUN_CARD", sum) end end)
+        -- (1.4.3) the end-of-run line right away, not when you leave
+        local r = run
+        C_Timer.After(5, function()
+          if r.posted then return end
+          r.posted = true
+          local dur = math.floor(ns.Now() - r.start)
+          local members = gangInGroup()
+          table.sort(members)
+          if members[1] ~= ns.pid then return end
+          if r.raid then
+            ns.Tracker:Event("RAID", r.name, dur, r.wipes or 0, r.bosses .. "/" .. (total or "?") .. "|" .. #members)
+          else
+            ns.Tracker:Event("DUNGEON", r.name, dur, r.deaths, r.bosses .. "|" .. table.concat(members, ","))
+          end
+        end)
       end
     end
   elseif success == 0 then

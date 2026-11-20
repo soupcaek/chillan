@@ -601,6 +601,11 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if ch and lvl and lvl > (ch.level or 0) then ch.level = lvl end
     if lvl then Data:AddHistoryPoint(pid, char, t, lvl, num(b)) end
     if lvl and FIRST_LEVELS[lvl] then item.first = setFirst("L" .. lvl, pid, char, t) end
+    -- (1.4.3) the ding takes the place of "is 2 % from level X"
+    for i = #(ns.db.feed or {}), 1, -1 do
+      local x = ns.db.feed[i]
+      if x.kind == "NEARDING" and x.pid == pid then table.remove(ns.db.feed, i) end
+    end
     -- place in the gang for this level. Only for a fresh ding: for an old one (history sync, replay)
     -- everyone who has since passed that level would be counted too, and the number would be wrong.
     if fresh(t) then

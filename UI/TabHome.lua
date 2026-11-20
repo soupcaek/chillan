@@ -191,10 +191,8 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   local function drawFeed()
     feed:Clear()
     local items = ns.db.feed or {}
-    for i = math.max(1, #items - 40), #items do
-      local it = items[i]
-      local ok, line = pcall(ns.FeedShort, it)
-      if ok and line then feed:AddMessage(line, { kind = "ev", base = line, t = it.t, item = it }) end
+    for _, x in ipairs(ns.FeedEntries(items, #items - 60)) do
+      feed:AddMessage(x.line, { kind = "ev", base = x.line, t = x.t, item = x.item })
     end
     if #items == 0 then feed:AddMessage(ns.Colorize("Dings, drops, kills and trophies from the gang show up here.", C.dim)) end
   end
