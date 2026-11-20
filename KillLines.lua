@@ -255,8 +255,22 @@ end
 K.diag = { honour = 0, hidden = 0, counter = 0, session = 0, posted = 0 }
 local lastVictim, lastAt, lastPostAt = nil, 0, 0
 
+-- (1.4.9) a burst of kills (5 within 3 minutes) is almost always a battleground, even where the game
+-- says you're in the open world: stop posting for 15 minutes
+local recentKills, bgGuessUntil = {}, 0
+local function looksLikeBG()
+  local now = GetTime()
+  if now < bgGuessUntil then return true end
+  recentKills[#recentKills + 1] = now
+  for i = #recentKills, 1, -1 do if now - recentKills[i] > 180 then table.remove(recentKills, i) end end
+  if #recentKills >= 5 then bgGuessUntil = now + 900 return true end
+  return false
+end
+K.LooksLikeBG = function() return GetTime() < bgGuessUntil end
+
 local function postKill(victim, via)
   if K:InPvPInstance() then return end
+  if looksLikeBG() then return end
   victim = victim or ""
   if victim ~= "" and victim == lastVictim and GetTime() - lastAt < 10 then return end
   if victim == "" and GetTime() - lastPostAt < 5 then return end   -- the named post already went out

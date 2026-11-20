@@ -82,11 +82,12 @@ end
 --  * a battleground: flags, revenges and the result for everyone in the gang become one line
 --  * "is 2 % from level 23" goes away when the ding comes
 ---------------------------------------------------------------------------
-local GROUP_GAP = { RUN = 4 * 3600, BG = 45 * 60 }
+local GROUP_GAP = { RUN = 4 * 3600, BG = 45 * 60, KILL = 15 * 60 }
 function ns.FeedGroupKey(it)
   if type(it) ~= "table" then return nil end
   local k = it.kind
   if k == "BOSS" or k == "DUNGEON" or k == "RAID" then return "RUN:" .. tostring(it.pid) .. ":" .. tostring(it.a), "RUN" end
+  if k == "KILL" then return "KILL:" .. tostring(it.pid), "KILL" end
   if k == "FLAG" or k == "BGREV" then return "BG:" .. tostring(it.b or ""), "BG" end
   if k == "BGEND" and it.a ~= "streak" then return "BG:" .. tostring(it.a or ""), "BG" end
 end
@@ -154,6 +155,14 @@ function ns.FeedGroupLine(g, kind)
   local C = ns.C
   local I = function(name, color) return UI.InlineIcon(name, color, 12) .. "  " end
   local last = g[#g]
+  if kind == "KILL" then
+    -- one kill: its own funny line; more: one line that counts up
+    if #g == 1 then return ns.FeedShort(last) end
+    local p = ns:GetPerson(last.pid) or {}
+    local who = ns:PersonLinked(p, ns:ShortWho(p, last.char))
+    return I("Target", C.gold) .. who .. ns.Colorize(" killed " .. #g .. " Alliance" .. ((last.a and last.a ~= "") and (" · " .. last.a) or ""), C.text2)
+      .. ns.Colorize("  since " .. date("%H:%M", g[1].t or time()), C.dim)
+  end
   if kind == "RUN" then
     if last.kind == "DUNGEON" or last.kind == "RAID" then return ns.FeedShort(last) end
     local killed, pids, lastBoss = {}, {}, nil

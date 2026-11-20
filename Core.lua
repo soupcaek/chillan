@@ -152,6 +152,15 @@ function ns.InBattleground()
     local ok, v = pcall(UnitInBattleground, "player")
     if ok and v and not ns.isSecret(v) then return true end
   end
+  -- a scoreboard with players on it only exists in a battleground
+  if GetNumBattlefieldScores then
+    local ok, n = pcall(GetNumBattlefieldScores)
+    if ok and type(n) == "number" and not ns.isSecret(n) and n > 0 then return true end
+  end
+  if IsActiveBattlefieldArena then
+    local ok, v = pcall(IsActiveBattlefieldArena)
+    if ok and v == true then return true end
+  end
   if C_PvP and C_PvP.IsBattleground then
     local ok, v = pcall(C_PvP.IsBattleground)
     if ok and v == true then return true end
