@@ -136,11 +136,13 @@ SlashCmdList.CHILLAN = function(msg)
   elseif cmd == "selftest" or cmd == "test" then
     ns.SelfTest()
   elseif cmd == "market" and ns.Market then
-    if rest == "sync" then
+    if rest == "who" then
+      ns.Print("Market – online: " .. ns.Market:WhoText())
+    elseif rest == "sync" then
       ns.Comm:Broadcast(ns.Comm:Build("MQ", 0), 2)
       ns.Print("Market: asked the gang for their prices – they arrive over the next few minutes.")
     else
-      ns.Print("Market: " .. ns.Market:StatusText() .. ". /chill market sync asks the gang again.")
+      ns.Print("Market: " .. ns.Market:StatusText() .. ". /chill market sync asks the gang again, /chill market who shows who can share.")
     end
   elseif cmd == "kveld" or cmd == "summary" then
     ns:Fire("SHOW_SUMMARY", ns.Tracker:SessionSummary(), false)

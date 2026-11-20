@@ -353,11 +353,14 @@ Comm:Handle("MQ", function(f, sender)
   if mine <= theirs + 300 or Comm:IsMe(sender) then return end
   local req = ns.ShortName(sender or "")
   M.answering = M.answering or {}
-  local delay = 2 + math.random() * 6
+  -- (1.3.11) the newer your prices, the sooner you answer; someone with older prices never stops you
+  local age = math.max(0, ns.Now() - mine)
+  local delay = 1 + math.min(6, age / 3600) + math.random() * 2
   C_Timer.After(delay, function()
-    if M.answering[req] and ns.Now() - M.answering[req] < 600 then return end   -- someone else took it
-    M.answering[req] = ns.Now()
-    Comm:Broadcast(Comm:Build("MA", req), 2)
+    local a = M.answering[req]
+    if a and ns.Now() - a.at < 600 and (a.latest or 0) + 300 >= mine then return end   -- someone as fresh took it
+    M.answering[req] = { at = ns.Now(), latest = mine }
+    Comm:Broadcast(Comm:Build("MA", req, mine), 2)
     local ids = {}
     for id, e in pairs(db()) do if (e.t or 0) > theirs then ids[#ids + 1] = id end end
     table.sort(ids, function(a, b) return db()[a].t > db()[b].t end)
@@ -369,7 +372,9 @@ end)
 local asked, askQueue, askTimer = {}, {}, false
 function M:Ask(id)
   if not on() or not id then return end
-  if asked[id] and ns.Now() - asked[id] < 600 and asked[id] >= (M.gangScanAt or 0) then return end
+  local e = db()[id]
+  local behind = M.gangScanAt and (not e or e.t < M.gangScanAt - 120)
+  if asked[id] and asked[id] >= (M.gangScanAt or 0) and ns.Now() - asked[id] < (behind and 20 or 600) then return end
   asked[id] = ns.Now()
   askQueue[#askQueue + 1] = id
   if askTimer then return end
@@ -395,13 +400,18 @@ end)
 -- someone just scanned: prices we hover that are older than their scan get asked for
 Comm:Handle("MS", function(f, sender)
   if Comm:IsMe(sender) then return end
-  M.gangScanAt, M.gangScanBy = ns.Now(), ns.ShortName(sender or "")
+  M.gangScanAt, M.gangScanBy, M.gangScanN = ns.Now(), ns.ShortName(sender or ""), tonumber(f[1])
   ns:Fire("MARKET")
+  if GameTooltip and GameTooltip:IsShown() and GameTooltip.GetItem then
+    local ok, _, link = pcall(GameTooltip.GetItem, GameTooltip)
+    local id = ok and itemIdOf(link)
+    if id then M:Ask(id) end
+  end
 end)
 
 Comm:Handle("MA", function(f)
   M.answering = M.answering or {}
-  if f[1] then M.answering[f[1]] = ns.Now() end
+  if f[1] then M.answering[f[1]] = { at = ns.Now(), latest = tonumber(f[2]) or math.huge } end
 end)
 
 ns:On("PLAYER_LOGIN", function()
@@ -466,7 +476,8 @@ local function addLine(tt, id, count)
   if not on() or not id or not tt or not tt.AddDoubleLine then return end
   local e = M:Get(id)
   -- no price, or a friend has scanned since ours: ask the gang (answers come in a second or two)
-  if not e or (M.gangScanAt and e.t < M.gangScanAt - 120) then M:Ask(id) end
+  local waiting = M.gangScanAt and e and e.t < M.gangScanAt - 120
+  if not e or waiting then M:Ask(id) end
   count = count or hoveredCount(tt, id)
   local n = math.max(1, count)
   local shown = false
@@ -478,6 +489,7 @@ local function addLine(tt, id, count)
     else
       tt:AddDoubleLine("|cffC69B6DChillan?|r Market", coins(e.v) .. each .. "  |cff858B92· " .. ns.Ago(e.t) .. "|r", 0.9, 0.9, 0.9, 1, 1, 1)
     end
+    if waiting and M.gangScanBy and tt.AddLine then tt:AddLine("Asking " .. M.gangScanBy .. " for a newer price …", 0.55, 0.57, 0.6) end
     shown = true
   end
   if e and count > 1 and opt("mkStack") then tt:AddDoubleLine("Stack of " .. count, coins(e.v * count), 0.75, 0.78, 0.82, 1, 1, 1) end
@@ -623,6 +635,7 @@ function M:StatusText()
   local newest = self:Latest()
   return ns.Num(self:Count()) .. " prices" .. (newest > 0 and (", newest " .. ns.Ago(newest)) or "")
     .. (M.heardFrom and (" · last received from " .. M.heardFrom .. " " .. ns.Ago(M.heardAt)) or "")
+    .. (M.gangScanBy and (" · " .. M.gangScanBy .. " scanned " .. ns.Ago(M.gangScanAt) .. (M.gangScanN and (" (" .. ns.Num(M.gangScanN) .. " prices)") or "")) or "")
     .. (M.Pending() > 0 and (" · still sending " .. ns.Num(M.Pending()) .. " prices") or "")
 end
 
@@ -630,4 +643,18 @@ end
 function M:SelfTest()
   return (modern() and "modern (full scan via ReplicateItems)" or classic() and "classic (list queries)" or "none")
     .. " · " .. ns.Num(self:Count()) .. " prices stored"
+end
+
+-- (1.3.11) /chill market who: which online friends run a version that shares prices
+function M:WhoText()
+  local out = {}
+  for pid, p in pairs(ns.db.people or {}) do
+    if pid ~= ns.pid and ns:IsOnline(p) then
+      local v = p.version or "?"
+      local ok = v ~= "?" and (v:find("dev", 1, true) or not ns.NewerVersion("1.3.5", v))
+      out[#out + 1] = ns:PersonName(p) .. " " .. v .. (ok and "" or " |cffff6060(too old for Market – update in WoWUp)|r")
+    end
+  end
+  table.sort(out)
+  return #out > 0 and table.concat(out, ", ") or "nobody online"
 end

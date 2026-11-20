@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.11", date = "20.11", items = { "Market: after a friend's scan, an old price you hover is asked for again until it arrives (\"Asking … for a newer price\" shows in the tooltip)", "Market: at login the friend with the newest prices answers – a friend with older prices no longer blocks them", "/chill market who: which online friends can share prices (version check)", "/chill market shows who scanned last and how many prices" } },
   { v = "1.3.10", date = "20.11", items = { "Market: the tooltip you're looking at updates by itself when a newer price for it arrives from the gang" } },
   { v = "1.3.9", date = "19.11", items = { "Market tooltip: items on the character sheet, an inspect window or any other place that isn't a bag no longer count as a stack – a ring could count as 12, which made Best: show 12× too much" } },
   { v = "1.3.8", date = "19.11", items = { "Market tooltip: the text no longer runs out over the right edge (coin icons now count when the tooltip sizes itself), and the lines are a bit shorter" } },
