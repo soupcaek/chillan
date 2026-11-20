@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.3.13", date = "20.11", items = { "Feed: the time you see on hover has its own lane on the right and no longer sits on top of the text", "Feed: the react \"+\" shows on the line's icon while you hover" } },
   { v = "1.3.12", date = "20.11", items = { "Feed: the game's own icons at 22 px – loot shows the item itself with its quality colour, dungeons their own icon, plus skull, level-up, PvP and trophy icons", "Feed: no time column – hover a line to see its time; a thin divider with the time sits between groups of lines 10+ minutes apart", "Feed: short dungeon names (BRD, SM Library …) – hover for the full name" } },
   { v = "1.3.11", date = "20.11", items = { "Market: after a friend's scan, an old price you hover is asked for again until it arrives (\"Asking … for a newer price\" shows in the tooltip)", "Market: at login the friend with the newest prices answers – a friend with older prices no longer blocks them", "/chill market who: which online friends can share prices (version check)", "/chill market shows who scanned last and how many prices" } },
   { v = "1.3.10", date = "20.11", items = { "Market: the tooltip you're looking at updates by itself when a newer price for it arrives from the gang" } },

@@ -9,6 +9,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 -- with the time sits between groups of lines 10+ minutes apart. Icons are the game's own, 22 px.
 local TILE, GAP, PILL_H, DIV_H, GROUP_GAP = 22, 7, 18, 14, 600
 local TIME_W = 0
+local GUTTER = 32
 
 -- the game's own icon for a feed line: the item itself for loot, else one per kind
 local KIND_ICON = {
@@ -124,16 +125,10 @@ local function newRow(fr)
   row:SetHeight(18)
   if row.SetHyperlinksEnabled then pcall(row.SetHyperlinksEnabled, row, true) end
   row.time = UI.Text(row, 11, nil, "6E747B")
-  row.time:SetPoint("TOPRIGHT", -26, -2)
+  -- (1.3.13) the time has its own narrow lane on the right, so it never sits on the text
+  row.time:SetPoint("TOPRIGHT", 0, -3)
+  row.time:SetJustifyH("RIGHT")
   row.time:Hide()
-  row.time:SetDrawLayer("OVERLAY", 2)
-  row.timeBg = row:CreateTexture(nil, "OVERLAY", nil, 1)
-  row.timeBg:SetColorTexture(0.08, 0.085, 0.1, 0.92)
-  row.timeBg:SetPoint("TOPLEFT", row.time, "TOPLEFT", -5, 2)
-  row.timeBg:SetPoint("BOTTOMRIGHT", row.time, "BOTTOMRIGHT", 3, -2)
-  row.timeBg:SetShown(false)
-  hooksecurefunc(row.time, "Show", function() row.timeBg:Show() end)
-  hooksecurefunc(row.time, "Hide", function() row.timeBg:Hide() end)
   row.edge = row:CreateTexture(nil, "BACKGROUND")
   row.edge:SetSize(TILE + 2, TILE + 2)
   row.edge:SetPoint("TOPLEFT", 0, 0)
@@ -197,7 +192,7 @@ local function fill(fr, row, msg)
   end
   row.body:ClearAllPoints()
   row.body:SetPoint("TOPLEFT", x, -2)
-  row.body:SetWidth(math.max(40, w - x - 24))   -- room on the right for the "+" on hover
+  row.body:SetWidth(math.max(40, w - x - GUTTER))   -- the time's lane on the right (shown on hover)
   row.body:SetText(rest)
   local h = math.max(TILE + 2, (row.body:GetStringHeight() or 14) + 4)
   -- reactions: one pill per kind, with the count, on their own line
@@ -235,16 +230,28 @@ local function fill(fr, row, msg)
       function() if canReact(item) then ns.Data:React(item, idx) end end)
   end
   if n > 0 then h = h + lines * (PILL_H + 4) + 1 end
-  -- "+" to react: top right of the line, shown while the mouse is on it (no jumping lines)
+  -- (1.3.13) "+" to react sits on the line's icon while the mouse is on the line (no jumping lines,
+  -- nothing over the text); a line without an icon shows it in the time's lane instead
   if not row.plusBtn then
     row.plusBtn = newPill(row)
     row.plusBtn.text:SetText("+")
-    row.plusBtn:SetWidth(20)
     row.plusBtn.tip = "React"
   end
   row.plus = canReact(item) and row.plusBtn or nil
   row.plusBtn:ClearAllPoints()
-  row.plusBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
+  row.plusBtn:SetFrameLevel(row:GetFrameLevel() + 3)
+  if row.tile:IsShown() then
+    row.plusBtn:SetSize(TILE + 2, TILE + 2)
+    row.plusBtn:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+    row.plusBtn.panel:SetColors("24203A", nil)
+    row.plusBtn:SetAlpha(0.92)
+    row.timeOff = nil
+  else
+    row.plusBtn:SetSize(20, PILL_H)
+    row.plusBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
+    row.plusBtn:SetAlpha(1)
+    row.timeOff = row.plus ~= nil
+  end
   row.plusBtn:SetScript("OnClick", function(self) UI.ReactMenu(self, item) end)
   row.plusBtn:SetShown(row.plus ~= nil and fr.hoverRow == row)
   row:SetHeight(h)
@@ -349,7 +356,7 @@ function UI.FeedRows(parent)
       if old and old.plusBtn then old.plusBtn:Hide() end
       if old and old.time then old.time:Hide() end
       if hover and hover.plus then hover.plus:Show() end
-      if hover and hover.time and (hover.time:GetText() or "") ~= "" then hover.time:Show() end
+      if hover and hover.time and not hover.timeOff and (hover.time:GetText() or "") ~= "" then hover.time:Show() end
     end
   end)
   return fr
