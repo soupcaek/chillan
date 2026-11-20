@@ -589,6 +589,7 @@ end
 
 function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   for _, it in ipairs(ns.db.feed) do if it.id == id then return end end
+  if ns.db.foldedIds and ns.db.foldedIds[id] then return end
   local item = { id = id, pid = pid, char = char, kind = kind, t = t, a = a, b = b, c = c, d = d }
   local p = ns:GetPerson(pid, true)
   if not p.main then
@@ -659,6 +660,26 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
             if ns.Discord and ns.Discord.SendMerge then pcall(ns.Discord.SendMerge, ns.Discord, it, pid, char) end
           end
         end
+        return
+      end
+    end
+    -- (1.4.10) the same person's kills within 15 minutes fold into one feed item that counts up, so a
+    -- battleground's 150 kills don't push everything else out of the feed
+    for i = #ns.db.feed, 1, -1 do
+      local it = ns.db.feed[i]
+      if it.kind == "KILL" and it.pid == pid and (t or 0) >= (it.t or 0) and (t or 0) - (it.t or 0) < 900 then
+        it.n = (it.n or 1) + 1
+        it.firstT = it.firstT or it.t
+        it.t = t
+        table.remove(ns.db.feed, i)
+        ns.InsertByTime(ns.db.feed, it, 150)
+        ns.db.foldedIds = ns.db.foldedIds or {}
+        ns.db.foldedIds[id] = t
+        if math.random(1, 50) == 1 then
+          for fid, ft in pairs(ns.db.foldedIds) do if ns.Now() - (ft or 0) > 3 * 86400 then ns.db.foldedIds[fid] = nil end end
+        end
+        ns:MarkDirty()
+        if fresh(t) then ns:Fire("FEEDEVENT", ns.FeedShort(it), it) end
         return
       end
     end

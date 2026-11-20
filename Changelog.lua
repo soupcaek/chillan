@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.10", date = "20.11", items = { "Feed: the \"killed 149 Alliance\" line came again and again – fixed (one line that counts up)", "A friend's kills within 15 minutes are stored as one item, so a battleground of kills no longer pushes the rest out of the feed" } },
   { v = "1.4.9", date = "20.11", items = { "Alliance kills: one person's kills within 15 minutes are one line that counts up everywhere – in the feed, in \"earlier today\" and on Home (one kill still gets its funny line)", "Battlegrounds: two more checks, and 5 kills within 3 minutes now counts as a battleground even where the game says you're in the open world – no kill lines for 15 minutes" } },
   { v = "1.4.8", date = "20.11", items = { "Alliance kills in battlegrounds are left out of the feed again (the battleground check now also works where the old one missed)", "Feed: reactions to a kill no longer get a line of their own (\"Simon · kill  Nice gank! Olav\"); a kill burst line shows the reactions to all its kills" } },
   { v = "1.4.7", date = "20.11", items = { "Feed: every death gets its own line with its funny text again (no more \"died 2 times\"). The first death pops up; more deaths within 10 minutes only go to the feed" } },

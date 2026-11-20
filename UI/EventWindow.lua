@@ -93,11 +93,16 @@ function E:Add(kind, text, t, item)
   if kind == "ev" and item and ns.FeedGroupKey(item) then
     local g, gid, gkind = ns.FeedGroupOf(item, ns.db.feed or {})
     if g then
+      -- (1.4.10) the line this group had before goes, even if the group's first item has since
+      -- dropped out of the feed (its id changes then): same key, ended within the group's gap
+      local key = ns.FeedGroupKey(item)
+      local gap = ns.FEED_GROUP_GAP and ns.FEED_GROUP_GAP[gkind] or 900
       for i = #self.entries, 1, -1 do
-        if self.entries[i].gid == gid then table.remove(self.entries, i) end
+        local e = self.entries[i]
+        if e.gid == gid or (e.gkey == key and (e.t or 0) >= (g[1].firstT or g[1].t or 0) - gap) then table.remove(self.entries, i) end
       end
       local ok, line = pcall(ns.FeedGroupLine, g, gkind)
-      local e = { kind = "ev", base = ok and line or text, t = t or time(), item = ns.FeedGroupItem(g), gid = gid }
+      local e = { kind = "ev", base = ok and line or text, t = t or time(), item = ns.FeedGroupItem(g), gid = gid, gkey = key }
       ns.PushCapped(self.entries, e, MAX_KEEP)
       self:Redraw()
       if self.frame and not self.frame:IsMouseOver() then self:Flash() end
@@ -618,7 +623,7 @@ function E:Backfill()
       if not text then ok, text = pcall(x.kind == "chat" and chatText or ns.FeedShort, x.it) end
       if ok and text then
         -- tidligere hendelser vises dempet, så de ikke ser ut som nye
-        local e = { kind = x.kind, base = ns.Colorize(text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""), "7A8088"), t = x.t, item = x.kind == "ev" and x.it or nil, old = true, gid = x.gid }
+        local e = { kind = x.kind, base = ns.Colorize(text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""), "7A8088"), t = x.t, item = x.kind == "ev" and x.it or nil, old = true, gid = x.gid, gkey = x.gid and x.it and ns.FeedGroupKey(x.it) or nil }
         e.text = render(e)
         ns.PushCapped(self.entries, e, MAX_KEEP)
         added = added + 1
