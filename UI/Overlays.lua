@@ -989,8 +989,20 @@ function O:Init()
   self:CreateSummary()
   self:CreateDing()
   self:CreateMinimapButton()
-  ns:Listen("DING", function(item) if not O:QueueOr("ding", item) then O:ShowDing(item) end end)
+  -- (1.4.6) every popup is logged (/chill popups), and an Alliance kill never pops up, whatever sent it
+  ns.popupLog = ns.popupLog or {}
+  local function log(kind, what)
+    ns.PushCapped(ns.popupLog, { t = time(), kind = kind, what = what }, 20)
+  end
+  ns:Listen("DING", function(item)
+    if type(item) == "table" and item.kind == "KILL" then return end
+    local p = type(item) == "table" and ns:GetPerson(item.pid)
+    log("card", (type(item) == "table" and tostring(item.kind) or "?") .. " from " .. (p and ns:PersonName(p) or "?")
+      .. ((type(item) == "table" and item.also) and (" + " .. #item.also .. " more") or ""))
+    if not O:QueueOr("ding", item) then O:ShowDing(item) end
+  end)
   ns:Listen("TOAST", function(info)
+    log("toast", tostring(info and info.kind or "?") .. ": " .. tostring(info and info.title or ""))
     if not O:QueueOr("toast", info) then O:Toast(info) end
   end)
   ns:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(1.5, function() O:FlushCombatQueue() end) end)

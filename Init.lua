@@ -135,6 +135,10 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Window:Toggle()
   elseif cmd == "selftest" or cmd == "test" then
     ns.SelfTest()
+  elseif cmd == "popups" then
+    ns.Print("Popups this session (newest last):")
+    if not ns.popupLog or #ns.popupLog == 0 then print("  none") end
+    for _, x in ipairs(ns.popupLog or {}) do print("  " .. date("%H:%M:%S", x.t) .. "  " .. x.kind .. "  " .. x.what) end
   elseif cmd == "market" and ns.Market then
     if rest == "who" then
       ns.Print("Market – online: " .. ns.Market:WhoText())

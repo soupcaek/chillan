@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.6", date = "20.11", items = { "An Alliance kill can't pop up any more, whatever version the friend has", "/chill popups lists the popups you've had this session and what they were about" } },
   { v = "1.4.5", date = "20.11", items = { "Alliance kills no longer pop up – they're in the feed, where you can react if you want" } },
   { v = "1.4.4", date = "20.11", items = { "QoL: a gold coin on the quest reward that sells for the most at a vendor (count included), in the quest window and the quest log – hover it for the price. Switch: QoL › Questing" } },
   { v = "1.4.3", date = "20.11", items = { "Feed: a dungeon or raid run is one line that counts up (\"WC 4 / 8 bosses · last Skum 0:36\") instead of a line per boss; the end-of-run line takes its place", "Feed: everyone in the gang in the same run or battleground is on one line with all names; a battleground's flags, revenges and result are one line", "Feed: \"is 2 % from level X\" goes away when the ding comes", "The end-of-run line comes the moment the last boss dies, not when you leave" } },
