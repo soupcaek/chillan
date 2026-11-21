@@ -10,6 +10,9 @@ do
 end
 ns.PROTO = "1"
 ns.PREFIX = "Chillan"
+-- (1.4.26) market prices use their own prefixes (each has its own send allowance in the game)
+ns.MARKET_PREFIX = { ChillanM1 = true, ChillanM2 = true }
+ns.MARKET_PREFIXES = { "ChillanM1", "ChillanM2" }
 ns.MEDIA = "Interface\\AddOns\\Chillan\\Media\\"
 ns.TEX = ns.MEDIA .. "Textures\\"
 ns.FONT = ns.MEDIA .. "Fonts\\Inter-Regular.ttf"

@@ -565,7 +565,7 @@ end
 Comm.stats = { recv = 0, recvChan = 0, recvWhisper = 0, otherCode = 0, otherProto = 0, sent = 0, failed = 0 }
 
 local function onAddonMessage(prefix, text, channel, sender, isBN)
-  if prefix ~= ns.PREFIX then return end
+  if prefix ~= ns.PREFIX and not (ns.MARKET_PREFIX and ns.MARKET_PREFIX[prefix]) then return end
   if ns.isSecret(text) or ns.isSecret(sender) then return end
   if type(text) ~= "string" or type(sender) ~= "string" then return end
   if Comm:IsMe(sender) then return end
@@ -832,6 +832,9 @@ end
 function Comm:Init()
   if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
     C_ChatInfo.RegisterAddonMessagePrefix(ns.PREFIX)
+    -- (1.4.26) prices travel on their own prefixes, so they get their own send allowance and never
+    -- hold up chat or status messages
+    for pre in pairs(ns.MARKET_PREFIX or {}) do C_ChatInfo.RegisterAddonMessagePrefix(pre) end
   end
   self:InstallFilters()
 end

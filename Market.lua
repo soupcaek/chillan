@@ -14,7 +14,7 @@ ns.Market = M
 local FULL_COOLDOWN = 15 * 60
 local KEEP_DAYS = 14
 local STALE = 3 * 86400
-local SEND_EVERY = 1.0          -- seconds between price messages (one message ≈ 14 prices)
+local SEND_EVERY = 0.5          -- (1.4.26) seconds between price messages (one message ≈ 20 prices)
 local MAX_SYNC = 6000           -- prices sent to someone logging in (all of them, in practice)
 local PER_MSG = 14
 
@@ -64,7 +64,16 @@ function M:Prune()
   for id, e in pairs(db()) do if (e.t or 0) < cutoff then db()[id] = nil end end
 end
 
--- the newest scan time we have (what a friend who logs in asks about)
+-- (1.4.26) the newest full scan whose prices we hold (our own, or one received nearly complete).
+-- The newest single price was a bad mark: one hovered item from today made it look like we had
+-- everything, so a friend logging in was never sent the scan they missed
+function M:FullT()
+  return math.max(ns.db.marketFullT or 0, ns.db.marketFullAt or 0)
+end
+local function noteFull(t)
+  if t and t > (ns.db.marketFullT or 0) then ns.db.marketFullT = t end
+end
+-- the newest scan time we have
 function M:Latest()
   local best = 0
   for _, e in pairs(db()) do if (e.t or 0) > best then best = e.t end end
@@ -103,15 +112,17 @@ local function digest(rows, done)
     M.status = "Working out prices … " .. math.floor(i / math.max(1, #rows) * 100) .. " %"
     ns:Fire("MARKET")
     if i < #rows then C_Timer.After(0, step) return end
-    local t, changed, n = ns.Now(), {}, 0
+    local t, changed, n, all = ns.Now(), {}, 0, {}
     for id, list in pairs(byId) do
       local v = M.Value(list)
       local ok, old = M:Set(id, v, t, ns.pid)
       if ok then
         n = n + 1
+        all[#all + 1] = id
         if not old or math.abs(v - old.v) > old.v * 0.05 then changed[#changed + 1] = id end
       end
     end
+    M.lastAll = all
     M.status = "Scan done: " .. ns.Num(n) .. " prices"
     ns:Fire("MARKET")
     if done then done(n, changed) end
@@ -160,11 +171,15 @@ end
 
 local function afterScan(n, changed)
   M.scanning = nil
+  ns.db.marketFullT = ns.Now()
   ns:Fire("MARKET")
-  Comm:Broadcast(Comm:Build("MS", n), 2)
+  -- (1.4.26) the whole scan goes to the gang, not only prices that moved 5 % (an unchanged price
+  -- still has a fresh date). "MS" tells them how many are coming, so they know when they have it all
+  local all = M.lastAll or changed
+  Comm:Broadcast(Comm:Build("MS", n, #all), 2)
   ns.Cnt("marketScans")
-  if #changed > 0 then M:Share(changed) end
-  ns.Print("Market: " .. ns.Num(n) .. " prices updated" .. (#changed > 0 and (" – sharing " .. ns.Num(#changed) .. " changed ones with the gang") or "") .. ".")
+  if #all > 0 then M:Share(all) end
+  ns.Print("Market: " .. ns.Num(n) .. " prices updated – sharing them with the gang (about " .. ns.Duration(math.ceil(#all / 18 * SEND_EVERY) + 5) .. ").")
 end
 
 ns:On("REPLICATE_ITEM_LIST_UPDATE", function()
@@ -275,39 +290,79 @@ local function un36(s) return tonumber(s, 36) end
 -- copy per friend), and only when the line is free – chat, dings and status always go first
 local outbox, sending = {}, false
 local MAX_LEN = 230
+-- (1.4.26) "MP": prices from the same scan share one age and one scanner, so each price is just
+-- "id,value" – about 20 per message instead of 14
 local function build(ids)
-  local now, parts, used, len = ns.Now(), {}, 0, 24
+  local now, parts, used, len = ns.Now(), {}, 0, 40
+  local t0, by0
   for k, id in ipairs(ids) do
     local e = db()[id]
     if e then
-      local part = b36(id) .. "," .. b36(e.v) .. "," .. b36(math.max(0, math.floor((now - e.t) / 60)))
+      if not t0 then t0, by0 = e.t, e.by or "" end
+      if math.abs((e.t or 0) - t0) > 90 or (e.by or "") ~= by0 then break end
+      local part = b36(id) .. "," .. b36(e.v)
       if len + #part + 1 > MAX_LEN then break end
       parts[#parts + 1] = part
       len = len + #part + 1
     end
     used = k
   end
-  return #parts > 0 and Comm:Build("MK", table.concat(parts, ";")) or nil, used
+  if #parts == 0 then return nil, used end
+  local byShort = (by0 == ns.pid and ns.ShortName(Comm:MyFull())) or (by0:find("^bn:") and "") or ns.ShortName(by0)
+  byShort = byShort:sub(1, 16)
+  return Comm:Build("MP", b36(math.max(0, math.floor((now - t0) / 60))), byShort, table.concat(parts, ";")), used
+end
+-- (1.4.26) the market lane: two prefixes taking turns, one message every half second (about 40
+-- prices a second). Falls back to the normal queue when the gang channel can't be used.
+local lane = 0
+local function sendFast(msg, to)
+  if Comm:InLockdown() then return false end
+  lane = lane % #ns.MARKET_PREFIXES + 1
+  local pre = ns.MARKET_PREFIXES[lane]
+  local chatType, target
+  if to then
+    if to:sub(1, 3) == "bn:" then return nil end
+    chatType, target = "WHISPER", to
+  else
+    Comm:RefreshChannelId()
+    if not Comm:ChannelUsable() then return nil end
+    chatType, target = "CHANNEL", tostring(Comm.chanId)
+  end
+  local ok, res = pcall(C_ChatInfo.SendAddonMessage, pre, msg, chatType, target)
+  if not ok then return nil end
+  return res == nil or res == true or res == 0
 end
 local function pump()
   local job = outbox[1]
   if not job then sending = false return end
-  -- wait while the low-priority line is busy
-  if Comm._queue and #Comm._queue[3] > 1 then C_Timer.After(0.5, pump) return end
   local msg, used = build(job.ids)
+  if msg then
+    local sent = sendFast(msg, job.to)
+    if sent == false then C_Timer.After(1, pump) return end   -- throttled or boss fight: same message again soon
+    if sent == nil then
+      -- no fast lane (channel down, Battle.net friend): the normal queue, which waits its turn
+      if Comm._queue and #Comm._queue[3] > 1 then C_Timer.After(0.5, pump) return end
+      if job.to then Comm:SendTo(job.to, msg, job.prio or 3) else Comm:Broadcast(msg, 3) end
+      for _ = 1, used do table.remove(job.ids, 1) end
+      if #job.ids == 0 then table.remove(outbox, 1) end
+      C_Timer.After(1, pump)
+      return
+    end
+  end
   for _ = 1, used do table.remove(job.ids, 1) end
   if #job.ids == 0 then table.remove(outbox, 1) end
-  if msg then
-    if job.to then Comm:SendTo(job.to, msg, job.prio or 3)
-    elseif Comm:ChannelUsable() then Comm:SendChannel(msg, 3)
-    else Comm:Broadcast(msg, 3) end
-  end
-  C_Timer.After(job.prio == 2 and 0.2 or SEND_EVERY, pump)
+  C_Timer.After(SEND_EVERY, pump)
 end
 local function queueIds(ids, to, urgent)
   if #ids == 0 then return end
   local copy = {}
   for k, id in ipairs(ids) do copy[k] = id end
+  -- keep prices from the same scan together, newest scans first
+  table.sort(copy, function(a, b)
+    local ea, eb = db()[a] or {}, db()[b] or {}
+    if (ea.t or 0) ~= (eb.t or 0) then return (ea.t or 0) > (eb.t or 0) end
+    return a < b
+  end)
   local job = { ids = copy, to = to, prio = urgent and 2 or 3 }
   if urgent then table.insert(outbox, 1, job) else outbox[#outbox + 1] = job end
   if not sending then sending = true C_Timer.After(urgent and 0.1 or 1, pump) end
@@ -346,17 +401,61 @@ Comm:Handle("MK", function(f, sender)
   end
 end)
 
+-- (1.4.26) incoming batches: a scan ("MS") or a catch-up ("MZ") says how many prices follow; once
+-- 90 % have arrived we count that scan as ours, so the next login doesn't ask for it again
+M.incoming = {}
+local function expect(sender, n, t)
+  if not sender or (n or 0) <= 0 then return end
+  M.incoming[sender] = { n = n, got = 0, t = t, at = ns.Now() }
+end
+local function received(sender, k)
+  local inc = sender and M.incoming[sender]
+  if not inc then return end
+  inc.got = inc.got + k
+  if inc.got >= inc.n * 0.9 then noteFull(inc.t) M.incoming[sender] = nil end
+end
+Comm:Handle("MP", function(f, sender)
+  if not on() then return end
+  local ago = un36(f[1] or "") or 0
+  local by = f[2] ~= "" and f[2] or ns.ShortName(sender or "")
+  local t = ns.Now() - ago * 60
+  local n, k, got = 0, 0, {}
+  for part in tostring(f[3] or ""):gmatch("[^;]+") do
+    local a, b = part:match("^(%w+),(%w+)$")
+    local id, v = a and un36(a), b and un36(b)
+    if id and v then
+      k = k + 1
+      if M:Set(id, v, t, by) then n = n + 1 got[id] = true end
+    end
+  end
+  received(sender, k)
+  if n > 0 then
+    ns:Fire("MARKET")
+    M.heardFrom = ns.ShortName(sender or "")
+    M.heardAt = ns.Now()
+    if GameTooltip and GameTooltip:IsShown() and GameTooltip.RefreshData then
+      local ok, _, link = pcall(GameTooltip.GetItem, GameTooltip)
+      local id = ok and itemIdOf(link)
+      if id and got[id] then pcall(GameTooltip.RefreshData, GameTooltip) end
+    end
+  end
+end)
+Comm:Handle("MZ", function(f, sender)
+  if Comm:IsMe(sender) then return end
+  expect(sender, tonumber(f[1]), ns.Now() - (tonumber(f[2]) or 0))
+end)
+
 -- someone logged in: whoever has newer prices offers; the first to say "MA" sends
 Comm:Handle("MQ", function(f, sender)
   if not on() or ns.db.settings.marketShare == false then return end
   local theirs = tonumber(f[1]) or 0
-  local mine = M:Latest()
+  local mine = M:FullT()
   if mine <= theirs + 300 or Comm:IsMe(sender) then return end
   local req = ns.ShortName(sender or "")
   M.answering = M.answering or {}
   -- (1.3.11) the newer your prices, the sooner you answer; someone with older prices never stops you
   local age = math.max(0, ns.Now() - mine)
-  local delay = 1 + math.min(6, age / 3600) + math.random() * 2
+  local delay = 0.5 + math.min(4, age / 3600) + math.random() * 1.5
   C_Timer.After(delay, function()
     local a = M.answering[req]
     if a and ns.Now() - a.at < 600 and (a.latest or 0) + 300 >= mine then return end   -- someone as fresh took it
@@ -366,7 +465,10 @@ Comm:Handle("MQ", function(f, sender)
     for id, e in pairs(db()) do if (e.t or 0) > theirs then ids[#ids + 1] = id end end
     table.sort(ids, function(a, b) return db()[a].t > db()[b].t end)
     while #ids > MAX_SYNC do table.remove(ids) end
-    queueIds(ids, sender)
+    -- (1.4.26) say how many are coming, then send them on the fast lane
+    local head = Comm:Build("MZ", #ids, math.max(0, ns.Now() - mine))
+    if not sendFast(head, sender) then Comm:SendTo(sender, head, 2) end
+    queueIds(ids, sender, true)
   end)
 end)
 -- (1.3.4) "MI": someone hovered items we may know the price of – answer those right away
@@ -402,6 +504,7 @@ end)
 Comm:Handle("MS", function(f, sender)
   if Comm:IsMe(sender) then return end
   M.gangScanAt, M.gangScanBy, M.gangScanN = ns.Now(), ns.ShortName(sender or ""), tonumber(f[1])
+  expect(sender, tonumber(f[2]), ns.Now())
   ns:Fire("MARKET")
   if GameTooltip and GameTooltip:IsShown() and GameTooltip.GetItem then
     local ok, _, link = pcall(GameTooltip.GetItem, GameTooltip)
@@ -419,7 +522,7 @@ ns:On("PLAYER_LOGIN", function()
   C_Timer.After(25, function()
     if not on() or not ns.db then return end
     M:Prune()
-    Comm:Broadcast(Comm:Build("MQ", M:Latest()), 3)
+    Comm:Broadcast(Comm:Build("MQ", M:FullT()), 3)
   end)
 end)
 
@@ -739,7 +842,7 @@ end
 function M.Warming() return warming, warmQ and #warmQ or 0 end
 
 local function byName(by)
-  if not by or by == "" then return nil end
+  if not by or by == "" or by:find("^bn:") then return nil end
   if by == ns.pid then return "you" end
   local p = ns:GetPerson(by)
   local first = p and p.main and ns.PersonFirst and ns:PersonFirst(p)

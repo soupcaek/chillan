@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.26", date = "22.11", items = {
+    "Market sharing is much faster: after a scan, all prices go to the gang (not only the ones that changed), packed tighter and on their own message lane – about 40 prices a second instead of 14, without slowing chat",
+    "Catching up fixed: friends logging in (or using /chill market sync) now get every price from the newest full scan. Before, one recently hovered item could make Chillan think they were up to date",
+    "Price lines no longer show a garbled name (\"bn:40\") for prices from Battle.net friends" } },
   { v = "1.4.25", date = "22.11", items = { "?price and the Market search now find prices scanned before 1.4.24: Chillan loads the item names first (a minute or two after login) and then answers, instead of saying there is no price" } },
   { v = "1.4.24", date = "21.11", items = {
     "Price search on the Market tab: type part of an item name to see every matching price the gang has scanned, with when and who scanned it",
