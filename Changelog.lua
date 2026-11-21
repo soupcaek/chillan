@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.18", date = "21.11", items = {
+    "Popups now slide out of the side of the Pulse window and back in, with a coloured edge where they join (they grow to the left if the window sits at the right edge of the screen)",
+    "Settings › Quiet › Where: Attached (new default), Free (top of the screen, as before) or Off (feed only). While the Pulse window is hidden, attached popups show at the top of the screen" } },
   { v = "1.4.17", date = "21.11", items = {
     "Level 60: the open-world boxes swap XP/h and time-to-level for Honor today (every other few seconds: bosses and runs today), Reputation per hour (your top faction) and Gold today (net, with gold/h under it)",
     "Level 60: the Now card shows your PvP rank and the bar fills toward the next rank; \"This session\" counts HKs and honor, rep gained and bosses killed",

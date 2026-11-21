@@ -281,7 +281,37 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   end
   paintLevels()
   left:HookScript("OnShow", paintLevels)
-  dnd:SetPoint("TOPLEFT", plabel, "BOTTOMLEFT", 0, -16)
+  -- (1.4.18) where popups show: out of the Pulse window's side, free at the top of the screen, or not at all
+  local wlabel = UI.Text(left, 12, nil, C.text)
+  wlabel:SetPoint("TOPLEFT", plabel, "BOTTOMLEFT", 0, -18)
+  wlabel:SetText("Where")
+  local PLACES = {
+    { "attached", "Attached", "Popups slide out of the side of the Pulse window and back in. When the Pulse window is hidden they show at the top of the screen." },
+    { "free", "Free", "Popups show at the top of the screen (drag them with the layout unlocked)." },
+    { "off", "Off", "No popups – everything is in the feed, where you can still react." },
+  }
+  local wbtns = {}
+  local function curPlace()
+    if S().toasts == false then return "off" end
+    return S().popupPlace or "attached"
+  end
+  local function paintPlaces()
+    for _, b in ipairs(wbtns) do b:SetStyle(curPlace() == b.key and "primary" or "secondary") end
+  end
+  for i, pl in ipairs(PLACES) do
+    local b = UI.Button(left, 74, 24, pl[2], "secondary", function()
+      if pl[1] == "off" then S().toasts = false
+      else S().toasts = true S().popupPlace = pl[1] end
+      paintPlaces()
+      if ns.Settings and ns.Settings.Refresh then pcall(ns.Settings.Refresh, ns.Settings) end
+    end)
+    b.key, b.tooltip = pl[1], pl[3]
+    if i == 1 then b:SetPoint("LEFT", wlabel, "LEFT", 60, 0) else b:SetPoint("LEFT", wbtns[i - 1], "RIGHT", 6, 0) end
+    wbtns[i] = b
+  end
+  paintPlaces()
+  left:HookScript("OnShow", paintPlaces)
+  dnd:SetPoint("TOPLEFT", wlabel, "BOTTOMLEFT", 0, -16)
   dnd:HookScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine("Do not disturb", 1, 1, 1)

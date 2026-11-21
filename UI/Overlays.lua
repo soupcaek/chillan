@@ -391,14 +391,57 @@ local toasts, pool = {}, {}
 local toastAnchor = CreateFrame("Frame", "ChillanToastAnchor", UIParent)
 toastAnchor:SetSize(380, 2)
 
+-- (1.4.18) popups slide out of the side of the Pulse window ("attached", the default) or stack at the
+-- top of the screen ("free"). Attached falls back to free while the Pulse window is hidden.
+local SLIDE = 0.28
+local function attachTarget()
+  if (ns.db.settings.popupPlace or "attached") ~= "attached" then return nil end
+  local m = O.minibar
+  if not m or not m:IsShown() or not m:GetLeft() then return nil end
+  -- grow to the left when the window sits near the right edge of the screen
+  local sc = m:GetEffectiveScale() / UIParent:GetEffectiveScale()
+  local right = m:GetRight() * sc
+  local toLeft = right + 390 * UI.PopupScale() > UIParent:GetWidth()
+  return m, toLeft
+end
+local function placeToast(t)
+  local b = t.base
+  if not b then return end
+  local e = 1 - (1 - math.min(1, t.slide or 1)) ^ 3   -- ease out
+  t:ClearAllPoints()
+  t:SetPoint(b[1], b[2], b[3], b[4] + (1 - e) * b[6], b[5])
+end
 local function layoutToasts()
+  local m, toLeft = attachTarget()
   local y = 0
   for _, t in ipairs(toasts) do
-    t:ClearAllPoints()
-    t:SetPoint("TOP", toastAnchor, "TOP", 0, y)
-    y = y - t:GetHeight() - 8
+    if m then
+      t:SetWidth(330)
+      t:SetFrameStrata(m:GetFrameStrata())
+      t:SetFrameLevel(math.max(1, m:GetFrameLevel() - 1))   -- under the window, so it slides out from behind
+      local w = t:GetWidth()
+      if toLeft then t.base = { "TOPRIGHT", m, "TOPLEFT", 1, y, w }
+      else t.base = { "TOPLEFT", m, "TOPRIGHT", -1, y, -w } end
+      if t.edge then
+        t.edge:ClearAllPoints()
+        t.edge:SetPoint(toLeft and "TOPRIGHT" or "TOPLEFT", 0, 0)
+        t.edge:SetPoint(toLeft and "BOTTOMRIGHT" or "BOTTOMLEFT", 0, 0)
+        t.edge:Show()
+      end
+      if t.slide == nil then t.slide = 0 end
+    else
+      t:SetWidth(380)
+      t:SetFrameStrata("DIALOG")
+      t.base = { "TOP", toastAnchor, "TOP", 0, y, 0 }
+      t.slide = 1
+      if t.edge then t.edge:Hide() end
+    end
+    placeToast(t)
+    y = y - t:GetHeight() - (m and 4 or 8)
   end
 end
+O.LayoutToasts = layoutToasts
+function O.ToastList() return toasts end
 
 local function removeToast(t)
   for i, x in ipairs(toasts) do
@@ -440,8 +483,20 @@ local function newToast()
   t.close.panel:SetColors(nil, nil)
   t.close.style = { text = C.dim, hover = C.card }
   UI.Track(t.close.icon):SetVertexColor(hex(C.dim))
+  t.edge = t:CreateTexture(nil, "OVERLAY")
+  t.edge:SetWidth(3)
+  t.edge:Hide()
   t:SetScript("OnUpdate", function(self, dt)
+    if self.slide and self.slide < 1 then
+      self.slide = math.min(1, self.slide + dt / SLIDE)
+      placeToast(self)
+    end
     self.life = self.life - dt
+    -- attached popups slide back in at the end; free ones fade
+    if self.base and self.base[6] ~= 0 and self.life < SLIDE then
+      self.slide = math.max(0, self.life / SLIDE)
+      placeToast(self)
+    end
     if self.life < 0.6 then self:SetAlpha(math.max(0, self.life / 0.6)) end
     if self.life <= 0 then removeToast(self) end
   end)
@@ -506,6 +561,8 @@ function O:Toast(info)
     t.close:Show()
   end
   t.life = info.sticky and 25 or 7
+  t.slide = nil
+  UI.Track(t.edge):SetColorTexture(hex(k.color))
   t:SetAlpha(1)
   t:Show()
   table.insert(toasts, 1, t)
