@@ -251,3 +251,41 @@ function B:Next(instance, killed)
   local list = self:For(instance, killed, true)
   for _, b in ipairs(list) do if not b.killed and not b.opt then return b.name end end
 end
+
+---------------------------------------------------------------------------
+-- (1.4.15) gang records: the fastest kill of each boss and the fastest run of each dungeon, by anyone
+-- in the gang. Built from the boss and run lines in the feed (yours and everyone's), kept for good.
+---------------------------------------------------------------------------
+local function recKey(instance) return bareKey(instance) end
+function B:BossRecord(instance, boss)
+  local t = ns.db.bossRec and ns.db.bossRec[recKey(instance)]
+  if not t then return nil end
+  for name, r in pairs(t) do if B.Same(name, boss) then return r end end
+end
+function B:RunRecord(instance)
+  return ns.db.runRec and ns.db.runRec[recKey(instance)]
+end
+-- a kill: returns the old record's time if this beat it (nil if not, or if there was none)
+function B:NoteKill(instance, boss, secs, pid, t)
+  secs = tonumber(secs)
+  if not secs or secs < 5 or type(boss) ~= "string" or boss == "" then return nil end
+  ns.db.bossRec = ns.db.bossRec or {}
+  local k = recKey(instance)
+  ns.db.bossRec[k] = ns.db.bossRec[k] or {}
+  local cur = self:BossRecord(instance, boss)
+  if cur and secs >= cur.s then return nil end
+  local name = boss
+  if cur then for n, r in pairs(ns.db.bossRec[k]) do if r == cur then name = n end end end
+  ns.db.bossRec[k][name] = { s = secs, pid = pid, t = t }
+  return cur and cur.s or nil
+end
+function B:NoteRun(instance, dur, pid, t)
+  dur = tonumber(dur)
+  if not dur or dur < 120 then return nil end
+  ns.db.runRec = ns.db.runRec or {}
+  local k = recKey(instance)
+  local cur = ns.db.runRec[k]
+  if cur and dur >= cur.s then return nil end
+  ns.db.runRec[k] = { s = dur, pid = pid, t = t }
+  return cur and cur.s or nil
+end

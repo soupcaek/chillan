@@ -121,7 +121,8 @@ end
 
 -- (1.4.0) the gang's best time for this dungeon/raid before this run (from the feed)
 function X:BestFor(name, kind)
-  local best
+  local rr = ns.Bosses and ns.Bosses.RunRecord and ns.Bosses:RunRecord(name)
+  local best = (kind or "DUNGEON") == "DUNGEON" and rr and rr.s or nil
   for _, it in ipairs(ns.db.feed or {}) do
     if it.kind == (kind or "DUNGEON") and it.a == name then
       local d = tonumber(it.b)

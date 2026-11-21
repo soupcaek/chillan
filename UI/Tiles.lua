@@ -261,7 +261,18 @@ function T:BossList(owner)
         rw.time:Show()
       end
     end
-    w = math.max(w, (rw.text:GetStringWidth() or 0) + 70)
+    -- (1.4.15) the gang's record for this boss
+    local rec = r and ns.Bosses.BossRecord and ns.Bosses:BossRecord(r.name, (label:gsub("^› ", ""):gsub("^%s+", "")))
+    if rec and not (wings and label:sub(1, 2) ~= "  ") then
+      local p = rec.pid and ns:GetPerson(rec.pid)
+      local best = string.format("best %d:%02d", math.floor(rec.s / 60), rec.s % 60) .. (p and (" " .. ns:PersonFirst(p)) or "")
+      if killed and secs and secs <= rec.s then best = "gang record!" end
+      rw.time:ClearAllPoints()
+      rw.time:SetPoint("LEFT", rw.text, "RIGHT", 8, 0)
+      rw.time:SetText(((killed and secs) and (rw.time:GetText() .. "  ·  ") or "") .. best)
+      rw.time:Show()
+    end
+    w = math.max(w, (rw.text:GetStringWidth() or 0) + (rw.time:IsShown() and (rw.time:GetStringWidth() or 0) or 0) + 30)
     y = y - 15
   end
   local i = 0

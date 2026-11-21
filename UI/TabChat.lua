@@ -167,7 +167,11 @@ function ns.FeedGroupLine(g, kind)
       .. ns.Colorize("  since " .. date("%H:%M", g[1].firstT or g[1].t or time()), C.dim)
   end
   if kind == "RUN" then
-    if last.kind == "DUNGEON" or last.kind == "RAID" then return ns.FeedShort(last) end
+    if last.kind == "DUNGEON" or last.kind == "RAID" then
+      local line = ns.FeedShort(last)
+      if last.rec then line = line .. ns.Colorize(" · gang record! (was " .. ns.Duration(last.rec) .. ")", C.gold) end
+      return line
+    end
     local killed, pids, lastBoss = {}, {}, nil
     for _, x in ipairs(g) do
       if x.kind == "BOSS" then
@@ -182,6 +186,7 @@ function ns.FeedGroupLine(g, kind)
     return I("Shield", "8FB8E8") .. names(pids) .. ns.Colorize(" · ", C.dim) .. ns.Colorize(ns.ShortDungeon(last.a) .. " ", C.text)
       .. ns.Colorize(n .. " / " .. (total or "?") .. " bosses", C.text)
       .. (lastBoss and ns.Colorize(" · last " .. tostring(lastBoss.b) .. t, C.text2) or "")
+      .. ((lastBoss and lastBoss.rec) and ns.Colorize(string.format(" · gang record! (was %d:%02d)", math.floor(lastBoss.rec / 60), lastBoss.rec % 60), C.gold) or "")
       .. ns.Colorize(" · since " .. date("%H:%M", g[1].t or time()), C.dim)
   end
   -- a battleground

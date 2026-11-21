@@ -622,8 +622,17 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if (num(b) or 0) >= 4 then item.first = setFirst("EPIC", pid, char, t) end
   elseif kind == "DUNGEON" then
     if a and a ~= "" then item.first = setFirst("DG:" .. a, pid, char, t) end
+    -- (1.4.15) a gang record for the run?
+    if ns.Bosses then
+      local ok, was = pcall(ns.Bosses.NoteRun, ns.Bosses, a, b, pid, t)
+      if ok and was then item.rec = was end
+    end
   elseif kind == "BOSS" then
-    if ns.Bosses then pcall(ns.Bosses.Learn, ns.Bosses, a, b) end
+    if ns.Bosses then
+      pcall(ns.Bosses.Learn, ns.Bosses, a, b)
+      local ok, was = pcall(ns.Bosses.NoteKill, ns.Bosses, a, b, c, pid, t)
+      if ok and was then item.rec = was end
+    end
   elseif kind == "ACH" then
     if pid ~= ns.pid then
       p.ach = p.ach or {}
