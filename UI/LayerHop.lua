@@ -118,6 +118,7 @@ end
 -- another hopper already in their group, or a fight at the wrong moment, left you in the group.
 -- Never leaves a raid or a dungeon group.
 local leaving
+local done, notMoved   -- (1.4.13) defined further down, used by the join handler
 local function leaveHop()
   if leaving then return end
   leaving = true
@@ -150,8 +151,9 @@ function L:GangHosts()
   local out = {}
   for pid, p in pairs(ns.db.people or {}) do
     local lv = p.live
-    if pid ~= ns.pid and p.main and ns:IsOnline(p) and lv and lv.layer and not lv.inInst
-      and lv.layer ~= mine and lv.zone and lv.zone == myZone then
+    local otherLayer = (ns.Layer and ns.Layer.Private()) or (lv and lv.layer and lv.layer ~= mine)
+    if pid ~= ns.pid and p.main and ns:IsOnline(p) and lv and not lv.inInst
+      and otherLayer and lv.zone and lv.zone == myZone then
       out[#out + 1] = p
     end
   end
@@ -161,8 +163,48 @@ end
 ---------------------------------------------------------------------------
 -- asking
 ---------------------------------------------------------------------------
+-- (1.4.13) the game moves a character into a host's layer 10 times in an hour, then refuses without a
+-- word (LayerSwap 1.14.38-41, from logs). An hour opens with the first move after the last hour closed.
+-- Kept per character, across logins. A hop that didn't move us twice in 10 minutes holds 15 minutes
+-- (we may be over a limit we didn't count, e.g. moves made in another addon).
+L.CAP, L.CAP_FOR, L.CAP_UNSURE = 10, 3600, 15 * 60
+local function capData()
+  ns.db.layerCap = ns.db.layerCap or {}
+  local me = ns.Comm:MyFull()
+  ns.db.layerCap[me] = ns.db.layerCap[me] or { start = 0, n = 0 }
+  return ns.db.layerCap[me]
+end
+function L.CountMove()
+  local c = capData()
+  local now = time()
+  if now - (c.start or 0) >= L.CAP_FOR then c.start, c.n = now, 0 end
+  c.n = (c.n or 0) + 1
+end
+-- seconds to wait before a hop can work, or nil; and hops left this hour
+function L.CapWait()
+  local c = capData()
+  local now = time()
+  if c.holdUntil and now < c.holdUntil then return c.holdUntil - now, 0 end
+  if now - (c.start or 0) >= L.CAP_FOR then return nil, L.CAP end
+  local left = L.CAP - (c.n or 0)
+  if left <= 0 then return (c.start + L.CAP_FOR) - now, 0 end
+  return nil, left
+end
+function L.NoteRefusal()
+  local c = capData()
+  local now = time()
+  if c.lastRefusal and now - c.lastRefusal < 600 then c.holdUntil = now + L.CAP_UNSURE end
+  c.lastRefusal = now
+end
+local function mmss(sec) return string.format("%d:%02d", math.floor(sec / 60), sec % 60) end
+
 function L:Request()
   local m = self.mine
+  local wait = L.CapWait()
+  if wait and not (m and m.joinedAt) then
+    ns.Print("Layer hop: the game only allows about 10 layer changes an hour, and you've used them – try again in " .. mmss(wait) .. ".")
+    return
+  end
   -- a round of asks that's done without an invite: a new click starts a fresh round
   if m and m.mode == "ls" and m.doneAt and not m.joinedAt and not m.by and GetTime() - m.doneAt > 3 then
     self.mine, m = nil, nil
@@ -910,17 +952,30 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter)
     if L.mine == myM and prompt and prompt:IsShown() then pcall(prompt.Click, prompt, "LeftButton", true) end
   end)
   C_Timer.After(3, function() L:Verify(myM) end)
+  -- (1.4.13) the group is left 4 s after the join, moved or not (LayerSwap 1.14.40): a move comes
+  -- 0.6-1.1 s after the join
+  C_Timer.After(LEAVE_AFTER + 0.2, function()
+    if L.mine ~= myM then return end
+    if myM.moved or myM.transfer then
+      if not myM.moved then done(myM, ns.Layer and ns.Layer:Current()) end
+    elseif ns.Layer and ns.Layer.Private() then
+      notMoved(myM)
+    end
+  end)
 end)
 
-local function done(m, newKey)
+done = function(m, newKey)
   if L.mine ~= m or m.moved then return end
   m.moved = true
   ns.Cnt("layerHops")
+  L.CountMove()
   ns:Fire("LAYERHOP")
   ns.Print("Layer hop: |cff9BE08Ayou're on " .. label(newKey) .. " now|r" .. (m.from and (" (was " .. label(m.from) .. ")") or "")
     .. ". Leaving the group in " .. LEAVE_AFTER .. " s – the layer stays.")
   if ns.Sound then pcall(ns.Sound, "chat") end
-  C_Timer.After(LEAVE_AFTER, function()
+  -- 4 s after the join (not after we noticed the move)
+  local wait = math.max(0.5, (m.joinedAt or GetTime()) + LEAVE_AFTER - GetTime())
+  C_Timer.After(wait, function()
     if L.mine == m then L.mine = nil end
     local members = GetNumGroupMembers and GetNumGroupMembers() or 0
     leaveHop()
@@ -962,8 +1017,20 @@ local function oldLayerEvidence(m)
   return n
 end
 
-local function notMoved(m)
+notMoved = function(m)
+  if L.mine ~= m or m.moved then return end
   local host = m.host and ns.ShortName(m.host) or "The host"
+  if ns.Layer and ns.Layer.Private() then
+    -- with private layer numbers we can't tell "same layer" from the game's hourly limit
+    L.NoteRefusal()
+    m.host = m.host
+    ns.Print("Layer hop: the game didn't move you – " .. host .. " may be on your layer, or you've hit the game's limit of about 10 hops an hour. Left the group.")
+    if m.host then L.AvoidHost(m.host, m.from) L.notMoved[norm(m.host)] = { at = GetTime(), layer = m.from } end
+    L.mine = nil
+    leaveHop()
+    ns:Fire("LAYERHOP")
+    return
+  end
   if m.host then L.AvoidHost(m.host, m.from) L.notMoved[norm(m.host)] = { at = GetTime(), layer = m.from } end
   ns.Print("Layer hop: " .. host .. " was on your layer, so nothing changed. Left the group – click Layer hop to try again.")
   L.mine = nil
@@ -999,6 +1066,9 @@ function L:TileState()
   local cur = ns.Layer and ns.Layer:CurrentLabel()
   local m = self.mine
   if not m then
+    local wait, left = L.CapWait()
+    if wait then return cur or "Layer ?", "Wait " .. mmss(wait) .. " (hourly limit)", "E0C068" end
+    if left and left <= 3 then return cur or "Layer ?", "Click to hop · " .. left .. " left this hour" end
     return cur or "Layer ?", cur and "Click to hop" or "Click to hop (mouse over an NPC to read it)"
   end
   if m.moved then return cur or "Moved", "Moved! Leaving group soon", "9BE08A" end

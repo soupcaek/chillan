@@ -17,6 +17,23 @@ local stale            -- { untilAt, guid = {} }: creatures of the layer we just
 
 local secret = ns.U.Secret
 
+-- (1.4.13) From game build 71037 (20 Nov 2026) the layer numbers a player reads are their own: a friend
+-- on the same layer reads another number (found by LayerSwap 1.14.41). Your own number still tells you
+-- when you moved, but it can't be compared with a friend's any more.
+Ly.PRIVATE_BUILD = 71037
+function Ly.Private()
+  if Ly.isPrivate == nil then
+    Ly.isPrivate = false
+    if GetBuildInfo then
+      local ok, _, build = pcall(GetBuildInfo)
+      Ly.isPrivate = ok and (tonumber(build) or 0) >= Ly.PRIVATE_BUILD
+    end
+  end
+  return Ly.isPrivate
+end
+-- may we compare our layer with a friend's?
+function Ly.Comparable() return not Ly.Private() end
+
 function Ly.KeyOf(guid)
   if secret(guid) or type(guid) ~= "string" then return nil end
   local kind, _, server, _, zoneUID = strsplit("-", guid)

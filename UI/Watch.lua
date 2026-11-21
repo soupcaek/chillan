@@ -104,7 +104,7 @@ local function where(p)
   local z = mainZone(L.zone)
   if L.inInst then return ns.Colorize(z ~= "" and z or "in a dungeon", "8FB8E8") end
   local mine = ns.Layer and ns.Layer:Current()
-  if L.layer and mine and L.layer == mine then z = z .. ns.Colorize("  · your layer", "9BE08A") end
+  if L.layer and mine and L.layer == mine and ns.Layer and ns.Layer.Comparable() then z = z .. ns.Colorize("  · your layer", "9BE08A") end
   return ns.Colorize(z, C.muted)
 end
 

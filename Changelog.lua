@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.13", date = "21.11", items = {
+    "Layer hop: since the game patch of 20 Nov each player reads their own layer numbers, so Chillan no longer shows a friend's layer or \"same layer\" (it would be wrong) and asks any friend in your zone to host",
+    "Layer hop: the game allows about 10 layer changes an hour and then silently refuses – Chillan counts your hops, shows \"3 left this hour\" and \"Wait 12:30\" instead of trying in vain",
+    "Layer hop: the group is left 4 s after joining, as LayerSwap does now" } },
   { v = "1.4.12", date = "21.11", items = { "Boss lists now come from the Forever dungeon journal data: the right names, order and rares for every Forever dungeon plus The Barrow Deeps and Hyjal Summit. Kills are matched by the game's encounter ID, so a boss can't show up twice under two names" } },
   { v = "1.4.11", date = "20.11", items = { "Feed: a kill count updates where it stands instead of jumping below newer chat", "A friend with 5 kills within 3 minutes is treated as being in a battleground: their kills are left out of the feed for 15 minutes, even if their addon is old" } },
   { v = "1.4.10", date = "20.11", items = { "Feed: the \"killed 149 Alliance\" line came again and again – fixed (one line that counts up)", "A friend's kills within 15 minutes are stored as one item, so a battleground of kills no longer pushes the rest out of the feed" } },

@@ -62,8 +62,9 @@ function O:CreateMinibar()
         local r, g, b = ns.ClassColor(c.class)
         local L = p.live or {}
         local mine = ns.Layer and ns.Layer:Current()
-        local lay = L.inInst and "dungeon" or (L.layer and mine and L.layer == mine) and "|cff9BE08Asame layer|r"
-          or (L.layer and ns.Layer and ns.Layer.Label(L.layer)) or ""
+        local cmp = ns.Layer and ns.Layer.Comparable()
+        local lay = L.inInst and "dungeon" or (cmp and L.layer and mine and L.layer == mine) and "|cff9BE08Asame layer|r"
+          or (cmp and L.layer and ns.Layer and ns.Layer.Label(L.layer)) or ""
         GameTooltip:AddDoubleLine((ns:PersonAlias(p) or c.name or "?") .. "  |cff9BA1A8" .. (c.level or "") .. "|r",
           ((L.zone or "") .. (lay ~= "" and ("  ·  " .. lay) or "")), r, g, b, 0.75, 0.78, 0.82)
         any = true

@@ -147,7 +147,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     if online then
       local z = L.zone or ""
       if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
-      if L.layer and not L.inInst and ns.Layer then
+      if L.layer and not L.inInst and ns.Layer and ns.Layer.Comparable() then
         local mine = ns.Layer:Current()
         z = z .. ns.Colorize("  ·  " .. ns.Layer.Label(L.layer), (mine and mine == L.layer) and "9BE08A" or "9BA1A8")
       end
