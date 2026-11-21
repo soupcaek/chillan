@@ -672,6 +672,8 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
         return
       end
     end
+    -- (1.4.16) the gang's memory of who they killed (tooltip line)
+    if ns.PlayerHistory and c and c ~= "" then pcall(ns.PlayerHistory.NoteKill, ns.PlayerHistory, c, pid, t) end
     -- (1.4.11) a friend getting 5 kills within 3 minutes is in a battleground (the game may say open
     -- world): their kills are left out for 15 minutes, whatever version they run
     Data.killTimes = Data.killTimes or {}

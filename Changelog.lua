@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.16", date = "21.11", items = { "Gang player history: hover a player and the tooltip says what the gang knows – \"Olav grouped with them in Blackrock Depths · 2 days ago\", \"Killed the gang 3× · last Olav\", \"The gang killed them 5×\". Only people you grouped with for 3+ minutes or fought are kept, shared with the gang" } },
   { v = "1.4.15", date = "21.11", items = { "Gang records: the fastest kill of every boss and the fastest run of every dungeon, by anyone in the gang. The boss hover list shows \"best 1:12 Olav\", and the run line in the feed says \"gang record! (was 1:40)\" when someone beats one" } },
   { v = "1.4.14", date = "21.11", items = { "Mount gear knows more speed gear (from AutoCarrot Forever 4.0.22): Rider of the Plaguelands (ring + cloak, mounted in the Plaguelands), swim gear (Azure Silk Belt, Cloak of Hermitic Bliss) while swimming, and run-speed gear on foot (Spry Boots, Hyjal Postal Clasp, Agamaggan's Clutch, Blessing of Kalimdor). The Desert Rose works in more desert zones. Switches in QoL › Mount gear" } },
   { v = "1.4.13", date = "21.11", items = {

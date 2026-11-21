@@ -20,6 +20,7 @@ KillLines.lua
 Layer.lua
 CuntList.lua
 DiedTo.lua
+PlayerHistory.lua
 Market.lua
 Disenchant.lua
 Data.lua
