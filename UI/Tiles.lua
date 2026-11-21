@@ -138,6 +138,31 @@ T.DEFS = {
 local function P() return ns.Pulse end
 local function dur(sec) return sec and ns.Duration(sec) or "–" end
 for _, d in ipairs({
+  -- (1.4.17) level 60 boxes
+  { key = "honor60", name = "Honor today (+ bosses today)", get = function()
+    local hk, honor = P():HonorToday()
+    local pve = P().PvEDay()
+    -- every other 8 s, bosses and runs today, once there are any
+    if pve.bosses > 0 and math.floor(GetTime() / 8) % 2 == 1 then
+      return tostring(pve.bosses), (pve.bosses == 1 and "boss" or "bosses") .. " · " .. ns.Plural(pve.runs, "run")
+    end
+    if not honor and not hk then return "–", "honor today" end
+    return ns.Num(honor or 0), "honor" .. (hk and (" · " .. hk .. " HKs") or "")
+  end },
+  { key = "reph", name = "Reputation per hour", get = function()
+    local fac, n, rate = P():TopRep()
+    if not fac then return "–", "rep/h" end
+    local short = fac:gsub("^The ", "")
+    if #short > 11 then short = short:sub(1, 10) .. "…" end
+    return rate and ns.Num(rate) or ("+" .. ns.Num(n)), short .. (rate and " /h" or "")
+  end },
+  { key = "goldday", name = "Gold today (net)", get = function()
+    local g = P().GoldDay()
+    if not g or g == 0 then return "–", "gold today" end
+    local gh = P():GoldPerHour()
+    return (g < 0 and "−" or "+") .. goldText(math.abs(g)),
+      (gh and gh > 0) and (goldText(gh) .. "/h") or "today", g < 0 and C.red or nil
+  end },
   { key = "goldh", name = "Gold per hour", get = function()
     local g = P():GoldPerHour()
     if not g or g == 0 then return "–", "gold/h" end
@@ -308,6 +333,8 @@ T.MODE_TILES = {
   dungeon = { "bossesx", "runtime", "runxp", "lootval" },
   raid = { "bossesx", "runtime", "wipes", "repair" },
   bg = { "bgscore", "honorh", "bghk", "bgtime" },
+  -- (1.4.17) open world at level 60: no XP to chase, so honor, rep, gold and bosses instead
+  world60 = { "act_layer", "honor60", "reph", "goldday" },
 }
 
 -- action buttons: same size as the stat tiles, a coloured edge and an icon; left-click does it
@@ -341,6 +368,7 @@ for _, d in ipairs(T.ACTIONS) do d.action = true T.byKey[d.key] = d end
 
 function T:List()
   local mode = ns.Pulse and ns.Pulse:Mode() or "world"
+  if mode == "world" and ns.Pulse.AtMax and ns.Pulse.AtMax() then mode = "world60" end
   return self.MODE_TILES[mode] or self.MODE_TILES.world
 end
 
@@ -549,6 +577,7 @@ function T:Init()
   ns:Listen("LAYERHOP", function() T:Update() end)
   ns:Listen("LAYER", function() T:Update() end)
   ns:Listen("PULSE_MODE", function() T:Layout() end)
+  ns:On("PLAYER_LEVEL_UP", function() C_Timer.After(1, function() T:Layout() end) end)
   ns:Listen("PULSE", function() T:Update() end)
   C_Timer.NewTicker(2, function()
     T:Update()

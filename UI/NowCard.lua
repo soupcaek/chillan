@@ -325,10 +325,35 @@ function N:Update()
     end
     local s = P.sess
     local gold = P:SessionGold()
+    if P.AtMax and P.AtMax() then
+      -- (1.4.17) level 60: PvP rank progress up top, and a session line about honor, rep and bosses
+      local rank, rname, prog = P:Rank()
+      if rank or prog then
+        f.big:SetText(rank and ("Rank " .. rank) or (math.floor((prog or 0) * 100) .. " %"))
+        f.bigSub:SetText(rname or "PvP rank")
+        if prog then
+          f.meter.pct = prog
+          f.right:SetText(math.floor(prog * 100) .. " % to rank " .. ((rank or 0) + 1))
+        end
+      else
+        f.big:SetText("60")
+        f.bigSub:SetText("max level")
+      end
+      local hk, honor = P:SessionHonor()
+      local fac, repN = P:TopRep()
+      local bits = {}
+      if (hk or 0) > 0 or (honor or 0) > 0 then bits[#bits + 1] = ns.Num(hk or 0) .. " HKs · " .. ns.Num(honor or 0) .. " honor" end
+      if fac then bits[#bits + 1] = "+" .. ns.Num(repN) .. " " .. fac:gsub("^The ", "") end
+      if (s.bosses or 0) > 0 then bits[#bits + 1] = ns.Plural(s.bosses, "boss", "bosses") end
+      if gold and gold ~= 0 then bits[#bits + 1] = ns.Colorize(goldText(gold), gold > 0 and C.text2 or C.red) end
+      if #bits == 0 then bits[1] = s.quests .. " quests · " .. s.mobs .. " mobs" end
+      rows[#rows + 1] = dim("This session: ") .. table.concat(bits, " · ")
+    else
     local rested = ns.Pct(d.rested or 0, d.xpMax)
     rows[#rows + 1] = dim("This session: ") .. s.quests .. " quests · " .. s.mobs .. " mobs"
       .. (gold and gold ~= 0 and (" · " .. ns.Colorize(goldText(gold), gold > 0 and C.text2 or C.red)) or "")
       .. ((rested and rested > 0 and f.meter.pct) and dim("   rested " .. rested .. " %") or "")
+    end
     -- (1.4.0) what you gathered, with its Market value
     local g = s.gather
     if g and g.n > 0 then

@@ -237,8 +237,29 @@ local function facts(p)
   if rate and (c.level or 0) < 60 then out[#out + 1] = ns.Num(math.floor(rate)) .. " XP/h" end
   local pct = ns.Pct(s3.xp, s3.xpMax)
   if pct and (c.level or 0) < 60 then out[#out + 1] = pct .. " % of level " .. tostring(c.level or "?") end
-  local eta = ns.St and ns.St:ETA(p)
+  local eta = (c.level or 0) < 60 and ns.St and ns.St:ETA(p)
   if eta then out[#out + 1] = ns.Duration(eta) .. " to " .. ((c.level or 0) + 1) end
+  -- (1.4.17) at 60: rank, honor, runs, gold/h and the best drop of the week
+  if (c.level or 0) >= 60 then
+    if s3.rank then
+      out[#out + 1] = "rank " .. s3.rank .. (s3.rankProg and (" · " .. math.floor(s3.rankProg * 100) .. " % to " .. (s3.rank + 1)) or "")
+    end
+    if (s3.hkT or 0) > 0 then out[#out + 1] = ns.Plural(s3.hkT, "HK") .. " today" end
+    if (s3.honorT or 0) > 0 then out[#out + 1] = ns.Num(s3.honorT) .. " honor today" end
+    if (s3.runsT or 0) > 0 then
+      out[#out + 1] = ns.Plural(s3.runsT, "run") .. " today" .. ((s3.bossT or 0) > 0 and (" · " .. ns.Plural(s3.bossT, "boss", "bosses")) or "")
+    end
+    if (s3.goldh or 0) > 0 then out[#out + 1] = ns.Money(s3.goldh) .. "/h" end
+    if s3.best then
+      local name, link = nil, nil
+      if C_Item and C_Item.GetItemInfo then
+        local ok, n, l = pcall(C_Item.GetItemInfo, s3.best)
+        if ok then name, link = n, l end
+      end
+      if type(link) == "string" and not ns.isSecret(link) then out[#out + 1] = "best drop: " .. link
+      elseif C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, s3.best) end
+    end
+  end
   local wg, wo = ns:WeekStat(p, "Gold"), ns:WeekStat(p, "Online")
   if wg > 0 and wo > 1800 then out[#out + 1] = ns.Money(math.floor(wg / wo * 3600)) .. "/h this week" end
   if s3.money then out[#out + 1] = ns.Money(s3.money) .. " in the bags" end
@@ -288,8 +309,10 @@ function W:Update()
       r.fact:SetText(#list > 0 and list[(self.tick or 0) % #list + 1] or "")
       local s3 = ns:PersonS3(p) or {}
       local pct = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or nil
-      if (c.level or 0) >= 60 then pct = 1 end
+      -- (1.4.17) at 60 the bar shows progress to their next PvP rank (empty until they send it)
+      if (c.level or 0) >= 60 then pct = s3.rankProg end
       local cr, cg, cb = ns.ClassColor(c.class)
+      if (c.level or 0) >= 60 then cr, cg, cb = 0.85, 0.3, 0.25 end   -- honor bar: Horde red
       r.fill:SetColorTexture(cr, cg, cb, 0.9)
       r.fill:SetWidth(math.max(1, (w - 20) * (pct or 0)))
       r.fill:SetShown(pct ~= nil)

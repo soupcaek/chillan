@@ -179,6 +179,13 @@ function L.CountMove()
   local now = time()
   if now - (c.start or 0) >= L.CAP_FOR then c.start, c.n = now, 0 end
   c.n = (c.n or 0) + 1
+  c.last = now
+end
+-- (1.4.17) seconds since our last counted move, or nil
+function L.SinceMove()
+  local c = capData()
+  if not c.last then return nil end
+  return time() - c.last
 end
 -- seconds to wait before a hop can work, or nil; and hops left this hour
 function L.CapWait()
@@ -1062,30 +1069,38 @@ function L:Verify(m)
 end
 
 -- what the Layer hop tile shows: big line, small line, colour
+-- (1.4.17) layer numbers are private since build 71037, so the box no longer names a layer. The big text
+-- says what the click does; the small text says how many moves the hour has left, how long to wait, or
+-- when we last moved. A real (non-private) layer number still shows if the game gives one.
 function L:TileState()
-  local cur = ns.Layer and ns.Layer:CurrentLabel()
+  local cur = ns.Layer and not (ns.Layer.Private and ns.Layer.Private()) and ns.Layer:CurrentLabel() or nil
+  local big = cur or "Swap layer"
   local m = self.mine
   if not m then
     local wait, left = L.CapWait()
-    if wait then return cur or "Layer ?", "Wait " .. mmss(wait) .. " (hourly limit)", "E0C068" end
-    if left and left <= 3 then return cur or "Layer ?", "Click to hop · " .. left .. " left this hour" end
-    return cur or "Layer ?", cur and "Click to hop" or "Click to hop (mouse over an NPC to read it)"
+    if wait then return big, "Wait " .. mmss(wait), "E0C068" end
+    local since = L.SinceMove()
+    if since and since < 600 then
+      return big, "Moved " .. (since < 60 and "just now" or (math.floor(since / 60) .. "m ago")), "9BE08A"
+    end
+    left = left or L.CAP
+    return big, left .. (left == 1 and " hop left" or " hops left")
   end
-  if m.moved then return cur or "Moved", "Moved! Leaving group soon", "9BE08A" end
-  if m.joinedAt then return cur or "Joining", "Joined – checking the move…", "E0C068" end
+  if m.moved then return big, "Moved!", "9BE08A" end
+  if m.joinedAt then return big, "Checking the move…", "E0C068" end
   if m.by then
     local p = ns:GetPerson(m.by)
-    return cur or "Layer ?", "Invite from " .. ((p and ns:PersonFirst(p)) or "the gang") .. "…", "E0C068"
+    return big, "Invite from " .. ((p and ns:PersonFirst(p)) or "the gang"), "E0C068"
   end
   if m.mode == "ls" then
     if m.sent then
       local n = 0
       for _ in pairs(m.replies or {}) do n = n + 1 end
-      return cur or "Layer ?", "Asked " .. m.sent .. (n > 0 and (", " .. n .. " answered") or "") .. "…", "E0C068"
+      return big, "Asked " .. m.sent .. (n > 0 and (", " .. n .. " answered") or ""), "E0C068"
     end
-    return cur or "Layer ?", "Searching the zone…", "E0C068"
+    return big, "Searching zone…", "E0C068"
   end
-  return cur or "Layer ?", "Asking the gang…", "E0C068"
+  return big, "Asking the gang…", "E0C068"
 end
 
 ---------------------------------------------------------------------------

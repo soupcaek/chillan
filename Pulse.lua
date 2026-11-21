@@ -77,12 +77,11 @@ ns:On("PLAYER_LOGOUT", function() if P.sess and P.sess.start then P.sess.seen = 
 
 function P:GoldPerHour()
   local s = self.sess
-  local m = money()
-  if s.start and not s.money0 and m then s.money0 = m end
-  if not s.start or not s.money0 or not m then return nil end
+  if not s.start then return nil end
   local hours = (now() - s.start) / 3600
   if hours < 5 / 60 then return nil end   -- too early to say
-  return math.floor((m - s.money0) / hours)
+  -- (1.4.17) only gold that came in (loot, quests, sales); buying things doesn't count against it
+  return math.floor((s.earned or 0) / hours)
 end
 
 function P:SessionGold()
@@ -164,6 +163,11 @@ ns:On("PLAYER_MONEY", function()
     local _, pr = P:Run()
     if pr then pr.money = pr.money + (m - lastMoney) end
   end
+  -- (1.4.17) gold/h counts what came in, not what you spent (a vendor trip made it go negative)
+  if lastMoney and m > lastMoney and P.sess and P.sess.start then
+    P.sess.earned = (P.sess.earned or 0) + (m - lastMoney)
+  end
+  P.GoldDay()
   lastMoney = m
 end)
 
@@ -210,8 +214,35 @@ end
 -- gathering this session: herbs, ore and stone, leather (class 7 = trade goods)
 local GATHER = { [9] = true, [7] = true, [6] = true }
 P.gather = { n = 0, value = 0 }
+-- (1.4.17) only loot that follows your own gathering counts (a quest reward of ore isn't "gathered").
+-- Base spell IDs; ranks and newer IDs are matched by the spell's name.
+local GATHER_SPELLS = { 2575, 2366, 8613 }   -- Mining, Herb Gathering, Skinning
+local gatherNames, gatherUntil = nil, 0
+local function spellName(id)
+  if C_Spell and C_Spell.GetSpellName then local ok, n = pcall(C_Spell.GetSpellName, id) if ok then return n end end
+  if GetSpellInfo then local ok, n = pcall(GetSpellInfo, id) if ok then return n end end
+end
+local GATHER_IDS = { [2575] = 1, [2576] = 1, [3564] = 1, [10248] = 1, [2366] = 1, [2368] = 1, [3570] = 1,
+  [11993] = 1, [8613] = 1, [8617] = 1, [8618] = 1, [10768] = 1, [32640] = 1, [265837] = 1, [265819] = 1, [265856] = 1 }
+function P.IsGatherSpell(id)
+  if type(id) ~= "number" or ns.isSecret(id) then return false end
+  if GATHER_IDS[id] then return true end
+  if not gatherNames then
+    gatherNames = {}
+    for i = 1, 3 do local n = spellName(GATHER_SPELLS[i]) if type(n) == "string" then gatherNames[n] = true end end
+  end
+  local n = spellName(id)
+  return type(n) == "string" and not ns.isSecret(n) and gatherNames[n] == true
+end
+ns:On("UNIT_SPELLCAST_SUCCEEDED", function(unit, _, spellID)
+  if unit == "player" and P.IsGatherSpell(spellID) then gatherUntil = GetTime() + 8 end
+end)
+-- the loot window from a node stays open while you take the items; keep the window open with it
+ns:On("LOOT_OPENED", function() if GetTime() < gatherUntil then gatherUntil = GetTime() + 8 end end)
+function P.Gathering() return GetTime() < gatherUntil end
 local function gathered(link, count)
   if P:Mode() ~= "world" then return end
+  if not P.Gathering() then return end
   local id = itemId(link)
   if not id or not C_Item or not C_Item.GetItemInfoInstant then return end
   local ok, _, _, _, _, _, classID, subID = pcall(C_Item.GetItemInfoInstant, id)
@@ -525,6 +556,149 @@ local function start()
   started = true
   P:StartSession()
   lastMoney = money()
+  P.GoldDay()
+  P:SessionHonor()
 end
 ns:On("PLAYER_LOGIN", start)
 C_Timer.After(0, start)
+
+---------------------------------------------------------------------------
+-- (1.4.17) Level 60: what's fun to track once the XP bar is full
+---------------------------------------------------------------------------
+local MAXLVL = 60
+function P.AtMax()
+  local l = ns.S(UnitLevel, "player")
+  return type(l) == "number" and l >= MAXLVL
+end
+
+local function dayKey() return date("%Y-%m-%d") end
+
+-- gold today, net: money now minus money at the first look today (per character)
+function P.GoldDay()
+  local m = money()
+  if not m then return nil end
+  local me = ns.Comm and ns.Comm.MyFull and ns.Comm:MyFull() or "?"
+  ns.db.goldDay = ns.db.goldDay or {}
+  local g = ns.db.goldDay[me]
+  if not g or g.day ~= dayKey() then
+    g = { day = dayKey(), start = m }
+    ns.db.goldDay[me] = g
+  end
+  return m - g.start
+end
+
+-- bosses and runs today (a run = an instance visit with at least one boss down)
+function P.PvEDay()
+  local d = ns.db.pveDay
+  if not d or d.day ~= dayKey() then
+    d = { day = dayKey(), bosses = 0, runs = 0 }
+    ns.db.pveDay = d
+  end
+  return d
+end
+local runVisit
+ns:On("PLAYER_ENTERING_WORLD", function() runVisit = nil end)
+ns:On("ENCOUNTER_END", function(_, _, _, _, success)
+  if success ~= 1 and success ~= true then return end
+  local d = P.PvEDay()
+  d.bosses = d.bosses + 1
+  if P.sess then P.sess.bosses = (P.sess.bosses or 0) + 1 end
+  if not runVisit then runVisit = true d.runs = d.runs + 1 end
+  ns:Fire("PULSE")
+end)
+
+-- honor and kills today (the game's own count, which resets daily), with our BG tally as a fallback
+function P:HonorToday()
+  local hk, honor = pvpSession()
+  if not honor then honor = today().honor end
+  return hk, honor
+end
+
+-- PvP rank: number, name and progress (0..1) to the next one, or nil when the game doesn't say
+function P:Rank()
+  local rank, name, prog
+  if UnitPVPRank then
+    local ok, r = pcall(UnitPVPRank, "player")
+    if ok and type(r) == "number" and not ns.isSecret(r) then rank = r end
+  end
+  if rank and GetPVPRankInfo then
+    local ok, n, num = pcall(GetPVPRankInfo, rank)
+    if ok and type(n) == "string" and not ns.isSecret(n) then name = n end
+    if ok and type(num) == "number" and not ns.isSecret(num) then rank = num end
+  end
+  if GetPVPRankProgress then
+    local ok, pr = pcall(GetPVPRankProgress)
+    if ok and type(pr) == "number" and not ns.isSecret(pr) then prog = math.max(0, math.min(1, pr)) end
+  end
+  if rank and rank < 1 then rank = nil end
+  if not rank and not prog then return nil end
+  return rank, name, prog
+end
+
+-- reputation this session, per faction ("Your X reputation has increased by N.")
+local repPat
+local function buildRep()
+  local fmt = FACTION_STANDING_INCREASED or "Your %s reputation has increased by %d."
+  local f = fmt:gsub("%%s", "@S@"):gsub("%%d", "@D@")
+  f = f:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+  repPat = "^" .. f:gsub("@S@", "(.+)"):gsub("@D@", "(%%d+)")
+end
+ns:On("CHAT_MSG_COMBAT_FACTION_CHANGE", function(msg)
+  if type(msg) ~= "string" or ns.isSecret(msg) or not P.sess then return end
+  if not repPat then buildRep() end
+  local fac, n = msg:match(repPat)
+  n = tonumber(n)
+  if not fac or not n then return end
+  P.sess.rep = P.sess.rep or {}
+  P.sess.rep[fac] = (P.sess.rep[fac] or 0) + n
+  ns:Fire("PULSE")
+end)
+-- the faction you gained most with this session, its total and its rate per hour
+function P:TopRep()
+  local best, n
+  for fac, v in pairs(self.sess and self.sess.rep or {}) do
+    if not n or v > n then best, n = fac, v end
+  end
+  if not best then return nil end
+  local hours = (now() - (self.sess.start or now())) / 3600
+  local rate = hours >= 5 / 60 and math.floor(n / hours) or nil
+  return best, n, rate
+end
+
+-- best drop this week: the rarest, then most valuable, item you looted (green or better)
+function P.BestDrop()
+  local b = ns.db.bestDrop
+  if b and b.wk == ns.WeekKey() then return b end
+  return nil
+end
+local function noteDrop(link)
+  local q = P.LinkQuality(link)
+  if q < 2 then return end
+  local id = itemId(link)
+  if not id then return end
+  local v = P.ItemValue(link) or 0
+  local b = P.BestDrop()
+  if not b or q > b.q or (q == b.q and v > (b.v or 0)) then
+    ns.db.bestDrop = { wk = ns.WeekKey(), id = id, q = q, v = v, link = link }
+  end
+end
+ns:On("CHAT_MSG_LOOT", function(msg)
+  if type(msg) ~= "string" or ns.isSecret(msg) then return end
+  if not lootPatterns then buildLoot() end
+  for _, pat in ipairs(lootPatterns) do
+    local link = msg:match(pat)
+    if link then noteDrop(link) return end
+  end
+end)
+
+-- honor and kills this session (the game counts per day; we keep the count at session start)
+function P:SessionHonor()
+  local hk, honor = pvpSession()
+  local s = self.sess
+  if not s or not s.start then return nil end
+  if hk and not s.hk0 then s.hk0 = hk end
+  if honor and not s.honor0 then s.honor0 = honor end
+  local dh = hk and math.max(0, hk - (s.hk0 or hk)) or nil
+  local dn = honor and math.max(0, honor - (s.honor0 or honor)) or nil
+  return dh, dn
+end

@@ -223,7 +223,7 @@ end
 function Tracker:S3Data()
   local s = self:Me().stats
   local xp, xpMax, rested = self:ReadXP()
-  return {
+  local d = {
     xp = xp, xpMax = xpMax, rested = rested or 0,
     wXP = s.wk == ns.WeekKey() and (s.wXP or 0) or 0, tXP = s.tXP or 0,
     sessXP = session.xp, sessSec = ns.Now() - session.start,
@@ -231,13 +231,30 @@ function Tracker:S3Data()
     today = (s.days or {})[date("%Y-%m-%d")] or 0, streak = self:Streak(s.days),
     zone = topZone(s.zones), at = ns.Now(), dura = ns.Durability(),
   }
+  -- (1.4.17) level-60 numbers for friends watching you
+  local P = ns.Pulse
+  if P and P.Rank then
+    local ok, rank, _, prog = pcall(P.Rank, P)
+    if ok then d.rank, d.rankProg = rank, prog end
+    local ok2, hk, honor = pcall(P.HonorToday, P)
+    if ok2 then d.hkT, d.honorT = hk, honor end
+    local pve = P.PvEDay()
+    d.runsT, d.bossT = pve.runs, pve.bosses
+    local b = P.BestDrop()
+    d.best = b and b.id or nil
+    d.goldh = P:GoldPerHour()
+  end
+  return d
 end
 
 function Tracker:BuildS3()
   local d = self:S3Data()
   return ns.Comm:Build("S3", ns.pid, d.xp or "", d.xpMax or "", d.rested or 0, math.floor(d.wXP), math.floor(d.tXP),
     math.floor(d.sessXP), math.floor(d.sessSec), d.money or "", d.ilvl or "", math.floor(d.today), d.streak,
-    ns.Clean(d.zone or "", 30), d.dura or "")
+    ns.Clean(d.zone or "", 30), d.dura or "",
+    -- (1.4.17) appended; older clients ignore them
+    d.rank or "", d.rankProg and math.floor(d.rankProg * 100) or "", d.hkT or "", d.honorT or "",
+    d.runsT or "", d.bossT or "", d.best or "", d.goldh or "")
 end
 
 local s3Pending = false

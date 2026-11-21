@@ -49,6 +49,9 @@ end
 
 -- Sekunder (spilletid) til neste level med dagens tempo
 function St:ETA(p)
+  -- (1.4.17) no "time to 61" once the character is at the cap
+  local c = p and ns:PersonChar(p)
+  if c and (c.level or 0) >= 60 then return nil end
   local s = ns:PersonS3(p)
   local rate = self:XPRate(p)
   if not s or not rate or rate <= 0 or not s.xp or not s.xpMax then return nil end

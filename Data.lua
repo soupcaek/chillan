@@ -185,6 +185,8 @@ Comm:Handle("S3", function(f)
     sessXP = num(f[7]) or 0, sessSec = num(f[8]) or 0, money = num(f[9]), ilvl = num(f[10]),
     today = num(f[11]) or 0, streak = num(f[12]) or 0, zone = (f[13] ~= "" and f[13]) or nil, at = ns.Now(),
     dura = num(f[14]), wk = ns.WeekKey(),
+    rank = num(f[15]), rankProg = num(f[16]) and num(f[16]) / 100 or nil, hkT = num(f[17]), honorT = num(f[18]),
+    runsT = num(f[19]), bossT = num(f[20]), best = num(f[21]), goldh = num(f[22]),
   }
   ns:MarkDirty()
 end)

@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.17", date = "21.11", items = {
+    "Level 60: the open-world boxes swap XP/h and time-to-level for Honor today (every other few seconds: bosses and runs today), Reputation per hour (your top faction) and Gold today (net, with gold/h under it)",
+    "Level 60: the Now card shows your PvP rank and the bar fills toward the next rank; \"This session\" counts HKs and honor, rep gained and bosses killed",
+    "Watching a friend at 60: their bar shows progress to their next PvP rank (red), and the rotating line shows rank, HKs and honor today, runs today, gold/h and their best drop this week. No more \"to 61\"",
+    "Layer box: says \"Swap layer\" with \"8 hops left\", \"Wait 12:30\" or \"Moved 3m ago\" (layer numbers are private now)",
+    "Gold/h only counts gold that came in, so buying things no longer makes it negative",
+    "Gathered only counts loot right after your own Mining, Herb Gathering or Skinning – not ore from a quest" } },
   { v = "1.4.16", date = "21.11", items = { "Gang player history: hover a player and the tooltip says what the gang knows – \"Olav grouped with them in Blackrock Depths · 2 days ago\", \"Killed the gang 3× · last Olav\", \"The gang killed them 5×\". Only people you grouped with for 3+ minutes or fought are kept, shared with the gang" } },
   { v = "1.4.15", date = "21.11", items = { "Gang records: the fastest kill of every boss and the fastest run of every dungeon, by anyone in the gang. The boss hover list shows \"best 1:12 Olav\", and the run line in the feed says \"gang record! (was 1:40)\" when someone beats one" } },
   { v = "1.4.14", date = "21.11", items = { "Mount gear knows more speed gear (from AutoCarrot Forever 4.0.22): Rider of the Plaguelands (ring + cloak, mounted in the Plaguelands), swim gear (Azure Silk Belt, Cloak of Hermitic Bliss) while swimming, and run-speed gear on foot (Spry Boots, Hyjal Postal Clasp, Agamaggan's Clutch, Blessing of Kalimdor). The Desert Rose works in more desert zones. Switches in QoL › Mount gear" } },
