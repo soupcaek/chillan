@@ -426,6 +426,13 @@ function Q:RestoreSlot(slot)
   local want = sv[slot]
   local cur = equipped(slot)
   if want == nil then return end
+  -- (1.4.22) the slot only goes back if it still holds the mount gear we put on. Anything else in it
+  -- means you equipped something yourself: that wins, and the saved entry is dropped
+  if cur and not Q.IsMountGear(cur) and not (want and sameItem(cur, want)) then
+    log("slot " .. slot .. " changed by hand to " .. nameOf(cur) .. ": keeping it")
+    sv[slot] = nil
+    return
+  end
   if want == false then
     -- slot was empty: take the speed item off into a free bag slot
     if not cur then sv[slot] = nil return end

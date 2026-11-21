@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.22", date = "21.11", items = { "Mount gear: an item you equip yourself is never swapped back. Previously a leftover \"restore\" entry from an earlier ride could replace or unequip a trinket you put on manually" } },
   { v = "1.4.21", date = "21.11", items = {
     "Mount gear: run-speed gear you equip manually (such as Hyjal Postal Clasp) is no longer removed, even with run-speed gear turned off. While mounted, Carrot on a Stick uses the other trinket slot so the run-speed trinket stays equipped",
     "Option labels no longer extend outside their panels",
