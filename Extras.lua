@@ -192,6 +192,8 @@ local function onWorld()
   local inInst, kind = ns.S(IsInInstance)
   if inInst and (kind == "party" or kind == "raid") then
     local name = ns.S(GetInstanceInfo)
+    local instID = select(8, ns.S(GetInstanceInfo))
+    ns.Bosses.curInstID = (type(instID) == "number" and not ns.isSecret(instID)) and instID or nil
     if name and (not run or run.name ~= name) then
       finishRun()
       -- after /reload inside the same dungeon: carry on with the saved run (time, bosses, deaths)
@@ -288,6 +290,9 @@ ns:On("ENCOUNTER_END", function(id, name, _, _, success)
   X.inEncounter = false
   X.lastEncounter = (ns.isSecret(name) and "?" or tostring(name)) .. " (" .. (ns.isSecret(success) and "?" or tostring(success)) .. ") " .. date("%H:%M")
   if not run then return end
+  -- (1.4.12) the journal's name for this encounter, so the list and the kill always match
+  local canon = (not ns.isSecret(id)) and ns.Bosses.EncounterName(id)
+  if canon then name = canon end
   local okName = type(name) == "string" and not ns.isSecret(name) and name ~= ""
   if ns.isSecret(success) then success = nil end
   local secs = run.pullAt and math.floor(GetTime() - run.pullAt + 0.5) or nil

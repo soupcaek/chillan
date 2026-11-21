@@ -26,6 +26,7 @@ Data.lua
 Sync.lua
 Quests.lua
 Titles.lua
+BossData.lua
 Bosses.lua
 Extras.lua
 Pulse.lua

@@ -79,6 +79,44 @@ local ALIAS = {
   ["onyxia’s lair"] = "onyxia's lair", ["ahn'qiraj"] = "ahn'qiraj temple", ["temple of ahn'qiraj"] = "ahn'qiraj temple",
 }
 
+-- (1.4.12) the Forever journal data (BossData.lua): exact names, order, encounter IDs and rares for
+-- every Forever dungeon and its new raids. It wins over the list above; the list stays for the
+-- raids it doesn't have (Molten Core, Blackwing Lair, Zul'Gurub, Ahn'Qiraj, Naxxramas).
+local DATA, BY_INST, BY_ENC = {}, {}, {}
+local function bareKey(s)
+  return (tostring(s or ""):lower():gsub("’", "'"):gsub("^the ", ""):gsub("[^%w]", ""))
+end
+for _, e in ipairs(ns.BOSS_DATA or {}) do
+  local conv
+  local function listOf(w)
+    local out = {}
+    for _, b in ipairs(w.bosses) do
+      out[#out + 1] = (b.opt and "?" or "") .. b[1]
+      for _, id in ipairs(b.enc or {}) do BY_ENC[id] = b[1] end
+    end
+    return out
+  end
+  if #e.wings == 1 then
+    conv = listOf(e.wings[1])
+  else
+    conv = { wings = {} }
+    for _, w in ipairs(e.wings) do conv.wings[#conv.wings + 1] = { name = w.name or "?", list = listOf(w) } end
+  end
+  conv.raid = e.raid
+  DATA[bareKey(e.name)] = conv
+  if e.inst then BY_INST[e.inst] = conv end
+end
+-- the boss's name as the journal writes it, from the game's encounter ID
+function B.EncounterName(id) return BY_ENC[tonumber(id) or -1] end
+function B.Entry(instance, instID)
+  if instID and BY_INST[instID] then return BY_INST[instID] end
+  local k = bareKey(instance)
+  if DATA[k] then return DATA[k] end
+  -- "Scarlet Monastery - Library" and the like
+  for key, conv in pairs(DATA) do if #key > 5 and k:sub(1, #key) == key then return conv end end
+  return LIST[B.Key(instance)]
+end
+
 local function norm(s)
   s = tostring(s or ""):lower():gsub("’", "'"):gsub("^%s+", ""):gsub("%s+$", "")
   return s
@@ -95,7 +133,7 @@ function B.Key(instance)
 end
 local function wingHint(instance)
   local k = norm(instance)
-  local entry = LIST[B.Key(instance)]
+  local entry = B.Entry(instance)
   if not (entry and entry.wings) then return nil end
   for i, w in ipairs(entry.wings) do
     if k:find(w.name:lower(), 1, true) then return i end
@@ -157,7 +195,7 @@ end
 -- killed = { [name] = secs or true } from the run.
 function B:For(instance, killed, here)
   killed = killed or {}
-  local entry = LIST[B.Key(instance)]
+  local entry = B.Entry(instance, here and B.curInstID or nil)
   local base, wingName
   -- the journal only for instances our list doesn't know (its names may be from a later version of the game)
   local ej = here and not entry and fromJournal()

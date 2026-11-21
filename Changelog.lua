@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.12", date = "21.11", items = { "Boss lists now come from the Forever dungeon journal data: the right names, order and rares for every Forever dungeon plus The Barrow Deeps and Hyjal Summit. Kills are matched by the game's encounter ID, so a boss can't show up twice under two names" } },
   { v = "1.4.11", date = "20.11", items = { "Feed: a kill count updates where it stands instead of jumping below newer chat", "A friend with 5 kills within 3 minutes is treated as being in a battleground: their kills are left out of the feed for 15 minutes, even if their addon is old" } },
   { v = "1.4.10", date = "20.11", items = { "Feed: the \"killed 149 Alliance\" line came again and again – fixed (one line that counts up)", "A friend's kills within 15 minutes are stored as one item, so a battleground of kills no longer pushes the rest out of the feed" } },
   { v = "1.4.9", date = "20.11", items = { "Alliance kills: one person's kills within 15 minutes are one line that counts up everywhere – in the feed, in \"earlier today\" and on Home (one kill still gets its funny line)", "Battlegrounds: two more checks, and 5 kills within 3 minutes now counts as a battleground even where the game says you're in the open world – no kill lines for 15 minutes" } },
