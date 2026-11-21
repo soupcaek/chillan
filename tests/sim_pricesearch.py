@@ -1,0 +1,20 @@
+# 1.4.24 price search: Market:Search and "?price <name>" in gang chat
+exec(open("sim_v09.py").read().split("# reaksjon-linje")[0])
+LA, GA, nsA = A; LB, GB, nsB = B
+run(3)
+LA.execute('''local M = ADDON_NS.Market
+M:Set(4589, 12000, ADDON_NS.Now() - 3*3600, "Adrian-Realm"); M.NoteName(4589, "Long Elegant Feather")
+M:Set(17012, 4000, ADDON_NS.Now() - 600, ADDON_NS.pid); M.NoteName(17012, "Core Leather")
+M:Set(4337, 900, ADDON_NS.Now() - 7200, "Kenny-Realm"); M.NoteName(4337, "Thick Spider's Silk")
+M:Set(5117, 300, ADDON_NS.Now() - 7200, "Kenny-Realm"); M.NoteName(5117, "Vibrant Plume")''')
+print("search feather:", LA.eval('(function() local h, n = ADDON_NS.Market:Search("feather") local o = {} for _, x in ipairs(h) do o[#o+1] = x.name .. "=" .. x.v end return n .. ": " .. table.concat(o, ", ") end)()'))
+print("search 'long elegant feather':", LA.eval('ADDON_NS.Market:Search("long elegant feather")[1].name'))
+LA.execute('ADDON_NS.Data:SendChat("?price long elegant feather")'); run(6)
+print("B feed:", LB.eval('(function() for i = #ADDON_NS.db.feed, 1, -1 do local it = ADDON_NS.db.feed[i] if it.kind == "PRICE" then local _, _, l = ADDON_NS.SceneLine(it, "x") return (l:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end end return "none" end)()'))
+LA.execute('ADDON_NS.Data:SendChat("?price black lotus")'); run(6)
+print("B none:", LB.eval('(function() for i = #ADDON_NS.db.feed, 1, -1 do local it = ADDON_NS.db.feed[i] if it.kind == "PRICE" then local _, _, l = ADDON_NS.SceneLine(it, "x") return (l:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end end end)()'))
+print("wanted:", LA.eval('tostring(ADDON_NS.db.marketWanted and ADDON_NS.db.marketWanted["black lotus"])') != "nil")
+LA.execute('ADDON_NS.Market:Set(13468, 900000, ADDON_NS.Now(), "Simon-Realm"); ADDON_NS.Market.NoteName(13468, "Black Lotus"); ADDON_NS:Fire("MARKET")'); run(14)
+print("B update:", LB.eval('(function() for i = #ADDON_NS.db.feed, 1, -1 do local it = ADDON_NS.db.feed[i] if it.kind == "PRICE" then local _, _, l = ADDON_NS.SceneLine(it, "x") return (l:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end end end)()'))
+LA.execute('ADDON_NS.Window:Create(); ADDON_NS.Window.frame:Show(); ADDON_NS.Window:Select("market")'); run(1)
+print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:5], [e for e in list(GB.ERRORS.values()) if 'HookScript' not in str(e)][:5])

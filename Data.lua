@@ -787,6 +787,14 @@ function Data:SendChat(text)
   ns.CntDay("chatDay")
   ns.CntMax("bestDayChat", (ns.db.cnt.chatDay or {})[date("%Y-%m-%d")] or 0)
   Comm:Broadcast(Comm:Build("CH", id, ns.pid, Comm:MyFull(), 0, text), 1, true)
+  -- (1.4.24) "?price <item>": answer from the gang's scanned prices, for everyone
+  local q = text:match("^%?price%s+(.+)$") or text:match("^%?pris%s+(.+)$")
+  if q and ns.Market then
+    -- a shift-clicked item link arrives as {i:<id>}: search by that item's name
+    local iid = tonumber(q:match("{i:(%d+)}"))
+    if iid then q = (ns.Market.NameOf(iid) or q):gsub("{i:%d+}", "") end
+    C_Timer.After(0.4, function() ns.Market:PostPrice(q) end)
+  end
 end
 
 Comm:Handle("CH", function(f)

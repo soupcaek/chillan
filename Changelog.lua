@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.24", date = "21.11", items = {
+    "Price search on the Market tab: type part of an item name to see every matching price the gang has scanned, with when and who scanned it",
+    "Type ?price followed by an item name (or a shift-clicked item) in gang chat and Chillan posts the price for the whole gang, e.g. \"Price check: Long Elegant Feather 1g 20s (3h ago, Adrian)\"",
+    "No price yet? The question is remembered for a day, and the answer is posted automatically when someone's auction house scan brings it in" } },
   { v = "1.4.23", date = "21.11", items = { "Run-speed gear: if you unequip an item such as Hyjal Postal Clasp yourself (or put another trinket in its slot), Chillan no longer equips it again. It stays off until you equip it yourself" } },
   { v = "1.4.22", date = "21.11", items = { "Mount gear: an item you equip yourself is never swapped back. Previously a leftover \"restore\" entry from an earlier ride could replace or unequip a trinket you put on manually" } },
   { v = "1.4.21", date = "21.11", items = {

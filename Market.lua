@@ -173,8 +173,8 @@ ns:On("REPLICATE_ITEM_LIST_UPDATE", function()
   local rows = {}
   local okN, n = pcall(C_AuctionHouse.GetNumReplicateItems)
   for i = 0, (okN and n or 0) - 1 do
-    local ok, _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(C_AuctionHouse.GetReplicateItemInfo, i)
-    if ok and id then rows[#rows + 1] = { id = id, buyout = buyout, count = count } end
+    local ok, name, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(C_AuctionHouse.GetReplicateItemInfo, i)
+    if ok and id then rows[#rows + 1] = { id = id, buyout = buyout, count = count } M.NoteName(id, name) end
   end
   digest(rows, afterScan)
 end)
@@ -187,8 +187,8 @@ ns:On("AUCTION_ITEM_LIST_UPDATE", function()
   local rows = {}
   local okN, n = pcall(GetNumAuctionItems, "list")
   for i = 1, (okN and n or 0) do
-    local ok, _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(GetAuctionItemInfo, "list", i)
-    if ok and id then rows[#rows + 1] = { id = id, buyout = buyout, count = count } end
+    local ok, name, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(GetAuctionItemInfo, "list", i)
+    if ok and id then rows[#rows + 1] = { id = id, buyout = buyout, count = count } M.NoteName(id, name) end
   end
   if kind == "all" then digest(rows, afterScan)
   else digest(rows, function(_, changed) M:BagNext(changed) end) end
@@ -334,6 +334,7 @@ Comm:Handle("MK", function(f, sender)
     end
   end
   if n > 0 then
+    ns:Fire("MARKET")
     M.heardFrom = ns.ShortName(sender or "")
     M.heardAt = ns.Now()
     -- (1.3.10) the tooltip you're looking at updates by itself when its price arrives
@@ -658,3 +659,130 @@ function M:WhoText()
   table.sort(out)
   return #out > 0 and table.concat(out, ", ") or "nobody online"
 end
+
+---------------------------------------------------------------------------
+-- (1.4.24) price search: find a scanned price by item name, on the Market tab or with
+-- "?price <name>" in gang chat (the answer goes to the whole gang)
+---------------------------------------------------------------------------
+local function names()
+  ns.db.marketNames = ns.db.marketNames or {}
+  return ns.db.marketNames
+end
+function M.NoteName(id, name)
+  if id and type(name) == "string" and name ~= "" and not ns.isSecret(name) then names()[id] = name end
+end
+local function nameOf(id)
+  local n = names()[id]
+  if n then return n end
+  local got
+  if C_Item and C_Item.GetItemNameByID then local ok, x = pcall(C_Item.GetItemNameByID, id) if ok then got = x end end
+  if not got and GetItemInfo then local ok, x = pcall(GetItemInfo, id) if ok then got = x end end
+  if type(got) == "string" and got ~= "" and not ns.isSecret(got) then names()[id] = got return got end
+  return nil
+end
+M.NameOf = nameOf
+
+-- items whose name we don't know yet (prices from friends) are loaded in the background, a few per second
+local warmQ, warming = nil, false
+local function warm()
+  if warming then return end
+  warmQ = {}
+  for id in pairs(db()) do if not names()[id] then warmQ[#warmQ + 1] = id end end
+  if #warmQ == 0 then return end
+  warming = true
+  local function step()
+    for _ = 1, 40 do
+      local id = table.remove(warmQ)
+      if not id then warming = false return end
+      if not nameOf(id) and C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
+    end
+    C_Timer.After(1, step)
+  end
+  step()
+end
+M.Warm = warm
+ns:On("GET_ITEM_INFO_RECEIVED", function(id, ok)
+  if id and ok ~= false and db()[id] and not names()[id] then nameOf(id) end
+end)
+ns:On("PLAYER_LOGIN", function() C_Timer.After(40, warm) end)
+
+-- best matches for a name: exact, then starts with, then whole word, then anywhere; shorter names first
+function M:Search(q, max)
+  q = tostring(q or ""):lower():gsub("^%s+", ""):gsub("%s+$", ""):gsub("[%[%]]", "")
+  if #q < 2 then return {}, 0 end
+  local plain = q:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+  local hits, unnamed = {}, 0
+  for id, e in pairs(db()) do
+    local n = nameOf(id)
+    if not n then unnamed = unnamed + 1
+    else
+      local l = n:lower()
+      local rank
+      if l == q then rank = 0
+      elseif l:sub(1, #q) == q then rank = 1
+      elseif l:find("%f[%w]" .. plain) then rank = 2
+      elseif l:find(q, 1, true) then rank = 3 end
+      if rank then hits[#hits + 1] = { id = id, name = n, v = e.v, t = e.t, by = e.by, rank = rank } end
+    end
+  end
+  table.sort(hits, function(a, b)
+    if a.rank ~= b.rank then return a.rank < b.rank end
+    if #a.name ~= #b.name then return #a.name < #b.name end
+    return a.name < b.name
+  end)
+  local total = #hits
+  while #hits > (max or 8) do table.remove(hits) end
+  if unnamed > 0 then warm() end
+  return hits, total
+end
+
+local function byName(by)
+  if not by or by == "" then return nil end
+  if by == ns.pid then return "you" end
+  local p = ns:GetPerson(by)
+  local first = p and p.main and ns.PersonFirst and ns:PersonFirst(p)
+  return (first and first ~= "" and first ~= "?") and first or ns.ShortName(by)
+end
+M.ByName = byName
+
+-- "?price <name>" in gang chat: the asker's Chillan posts the answer as a feed line for everyone
+local function clean(s) return (tostring(s or ""):gsub("[~;|^]", " ")) end
+function M:PostPrice(q, auto)
+  local hits, total = self:Search(q, 3)
+  local parts = {}
+  for _, h in ipairs(hits) do
+    -- fields joined with "^" ("~" separates the message's own fields)
+    parts[#parts + 1] = h.id .. "^" .. h.v .. "^" .. math.max(0, math.floor((ns.Now() - (h.t or ns.Now())) / 60)) .. "^"
+      .. clean(byName(h.by) or ""):sub(1, 14) .. "^" .. clean(h.name):sub(1, 30)
+  end
+  ns.Tracker:Event("PRICE", clean(q):sub(1, 40), total, auto and "1" or "", table.concat(parts, ";"))
+  if #hits == 0 then
+    ns.db.marketWanted = ns.db.marketWanted or {}
+    ns.db.marketWanted[q:lower()] = ns.Now()
+  end
+end
+function M.ParsePrice(d)
+  local out = {}
+  for part in tostring(d or ""):gmatch("[^;]+") do
+    local id, v, ago, by, name = part:match("^(%d+)%^(%d+)%^(%d+)%^([^%^]*)%^?(.*)$")
+    if id then out[#out + 1] = { id = tonumber(id), v = tonumber(v), ago = tonumber(ago) * 60, by = by, name = name } end
+  end
+  return out
+end
+-- a question nobody had a price for gets answered when a scan brings one in (up to a day later)
+local wantTimer = false
+ns:Listen("MARKET", function()
+  local w = ns.db and ns.db.marketWanted
+  if not w or not next(w) or wantTimer then return end
+  wantTimer = true
+  C_Timer.After(5, function()
+    wantTimer = false
+    for q, at in pairs(w) do
+      if ns.Now() - at > 86400 then w[q] = nil
+      else
+        local hits = M:Search(q, 1)
+        if #hits > 0 and (hits[1].t or 0) >= at then w[q] = nil M:PostPrice(q, true) end
+      end
+    end
+  end)
+end)

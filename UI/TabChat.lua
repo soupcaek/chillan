@@ -55,6 +55,25 @@ local function mmss(secs)
 end
 function ns.SceneLine(it, who)
   local C = ns.C
+  if it.kind == "PRICE" then
+    -- (1.4.24) answer to "?price <item>" from the gang's scanned auction prices
+    local M = ns.Market
+    local res = M and M.ParsePrice(it.d) or {}
+    local coins = function(c) return (M and M.Coins) and M.Coins(c) or ns.Money(c) end
+    local head = ns.Colorize(it.c == "1" and "Price update: " or "Price check: ", C.amber)
+    if #res == 0 then
+      return "Diamond", "E0C068", head .. ns.Colorize("no scanned price for \"" .. tostring(it.a or "?") .. "\" yet. The next auction house scan will answer it.", C.text2)
+    end
+    local bits = {}
+    for _, r in ipairs(res) do
+      local name = ns.ItemLink(r.id) or ns.Colorize("[" .. (r.name ~= "" and r.name or ("item " .. r.id)) .. "]", C.text)
+      bits[#bits + 1] = name .. " " .. ns.Colorize(coins(r.v), C.text)
+        .. ns.Colorize(" (" .. ns.Ago((it.t or ns.Now()) - r.ago) .. ((r.by and r.by ~= "") and (", " .. r.by) or "") .. ")", C.dim)
+    end
+    local more = (tonumber(it.b) or 0) - #res
+    return "Diamond", "E0C068", head .. table.concat(bits, ns.Colorize(" · ", C.dim))
+      .. (more > 0 and ns.Colorize("  +" .. more .. " more on the Market tab", C.dim) or "")
+  end
   if it.kind == "BOSS" then
     local deaths, tries, gangN = tostring(it.d or ""):match("^(%d*):?(%d*):?(%d*)")
     deaths, tries, gangN = tonumber(deaths) or 0, tonumber(tries) or 1, tonumber(gangN) or 1

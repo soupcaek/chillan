@@ -412,7 +412,7 @@ function ns.Duration(sec)
 end
 
 function ns.Ago(t)
-  if not t or t == 0 then return "aldri" end
+  if not t or t == 0 then return "never" end
   local s = ns.Now() - t
   if s < 60 then return "now" end
   if s < 3600 then return math.floor(s / 60) .. " min ago" end

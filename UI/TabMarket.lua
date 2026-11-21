@@ -77,8 +77,84 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   local right = CreateFrame("Frame", nil, tab)
   right:SetPoint("TOPLEFT", left, "TOPRIGHT", 24, 0)
   right:SetPoint("BOTTOMRIGHT", -16, 14)
+  -- (1.4.24) price search: every price the gang has scanned, by item name
+  local sh2 = UI.Text(right, 15, "semi", C.text)
+  sh2:SetPoint("TOPLEFT")
+  sh2:SetText("Price search")
+  local ssub = UI.Text(right, 11, nil, C.dim)
+  ssub:SetPoint("TOPLEFT", sh2, "BOTTOMLEFT", 0, -6)
+  ssub:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+  ssub:SetJustifyH("LEFT")
+  ssub:SetWordWrap(true)
+  ssub:SetText("Search all prices scanned by the gang. In gang chat, type ?price followed by an item name to post the answer for everyone.")
+  local results = {}
+  local box
+  local function runSearch()
+    local q = box:GetText()
+    local hits, total = ns.Market:Search(q, 6)
+    for i, r in ipairs(results) do
+      local h = hits[i]
+      r.hit = h
+      if h then
+        local link = ns.ItemLink(h.id)
+        r.name:SetText(link or ns.Colorize(h.name, C.text))
+        r.price:SetText(ns.Market.Coins(h.v))
+        r.meta:SetText(ns.Ago(h.t) .. ((ns.Market.ByName(h.by)) and (" · " .. ns.Market.ByName(h.by)) or ""))
+        r:Show()
+      else r:Hide() end
+    end
+    if #q >= 2 and #hits == 0 then
+      results.empty:SetText("No scanned price matches \"" .. q .. "\". Prices appear after someone in the gang scans the auction house.")
+    elseif total > #hits then
+      results.empty:SetText(total - #hits .. " more matches – type more of the name to narrow it down.")
+    else results.empty:SetText("") end
+  end
+  box = UI.EditBox(right, 260, 30, "Item name, e.g. long elegant feather", function(e) e:ClearFocus() runSearch() end)
+  box:SetPoint("TOPLEFT", ssub, "BOTTOMLEFT", 0, -8)
+  box:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+  box.edit:HookScript("OnTextChanged", function(_, user) if user then runSearch() end end)
+  local last = box
+  for i = 1, 6 do
+    local r = CreateFrame("Button", nil, right)
+    r:SetHeight(20)
+    r:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, i == 1 and -6 or 0)
+    r:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+    r.name = UI.Text(r, 12, nil, C.text)
+    r.name:SetPoint("LEFT", 2, 0)
+    r.name:SetPoint("RIGHT", -190, 0)
+    r.name:SetJustifyH("LEFT")
+    r.name:SetWordWrap(false)
+    r.meta = UI.Text(r, 10, nil, C.dim)
+    r.meta:SetPoint("RIGHT", -96, 0)
+    r.meta:SetJustifyH("RIGHT")
+    r.price = UI.Text(r, 12, "semi", C.text)
+    r.price:SetPoint("RIGHT", -2, 0)
+    r.price:SetJustifyH("RIGHT")
+    r:SetScript("OnEnter", function(self)
+      if not self.hit then return end
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      pcall(GameTooltip.SetItemByID, GameTooltip, self.hit.id)
+      GameTooltip:Show()
+    end)
+    r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    r:SetScript("OnClick", function(self)
+      if self.hit and IsModifiedClick and IsModifiedClick("CHATLINK") then
+        local link = ns.ItemLink(self.hit.id)
+        if link and ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
+      end
+    end)
+    r:Hide()
+    results[i] = r
+    last = r
+  end
+  results.empty = UI.Text(right, 11, nil, C.dim)
+  results.empty:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -132)
+  results.empty:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+  results.empty:SetJustifyH("LEFT")
+  results.empty:SetWordWrap(true)
+
   local dh = UI.Text(right, 15, "semi", C.text)
-  dh:SetPoint("TOPLEFT")
+  dh:SetPoint("TOPLEFT", results.empty, "BOTTOMLEFT", -2, -14)
   dh:SetText("Disenchantry")
   local dsub = UI.Text(right, 11, nil, C.dim)
   dsub:SetPoint("TOPLEFT", dh, "BOTTOMLEFT", 0, -6)
@@ -171,6 +247,6 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     status:SetText(M and (M:StatusText() .. (M.gangScanBy and (" · " .. M.gangScanBy .. " scanned " .. ns.Ago(M.gangScanAt)) or "")) or "")
     list:SetData(bagItems())
   end
-  ns:Listen("MARKET", function() if tab:IsVisible() then tab:Refresh() end end)
+  ns:Listen("MARKET", function() if tab:IsVisible() then tab:Refresh() if box:GetText() ~= "" then runSearch() end end end)
   ns:On("BAG_UPDATE_DELAYED", function() if tab:IsVisible() then tab:Refresh() end end)
 end)
