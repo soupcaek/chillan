@@ -4,55 +4,55 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 
 -- { label, settingKey, tooltip, subs = { ... } }  ·  sub { kind = "slot" } is the trinket slot picker
 local CARDS = {
-  { col = 1, title = "Mount gear", icon = "Up", desc = "Speed gear on when mounted, your own back after", items = {
-    { "Carrot on a Stick when mounted", "qolMount", "Puts Carrot on a Stick on when you mount and your own trinket back when you get off. Never mid-fight, while casting or with a vendor, mail, bank or loot window open. A new Carrot must be equipped once by hand first (it binds when equipped). Type /chill qol test if it doesn't swap.", subs = {
+  { col = 1, title = "Mount gear", icon = "Up", desc = "Equips speed gear while mounted and restores your gear afterwards", items = {
+    { "Carrot on a Stick", "qolMount", "Equips Carrot on a Stick when you mount and restores your previous trinket when you dismount. Swaps never happen in combat, while casting, or with a vendor, mailbox, bank or loot window open. The item must be equipped manually once to bind it. Use /chill qol test to troubleshoot.", subs = {
       { kind = "slot" },
-      { "Spurs boots and Riding Skill gloves", "qolMountArmor", "Boots with Mithril Spurs and gloves with the Riding Skill enchant go on while mounted too." },
-      { "Zone gear: Desert Rose, Wintersaber gloves, Rider of the Plaguelands", "qolMountZone", "The Desert Rose (desert zones: Tanaris, Silithus, Desolace, Westfall, the Barrens, Durotar and more), Wintersaber Hide Lined Gloves (Winterspring) and two pieces of Rider of the Plaguelands (ring, cloak – Eastern and Western Plaguelands) go on while you ride there." },
-      { "Swim gear while swimming", "qolSwimGear", "Azure Silk Belt and Cloak of Hermitic Bliss go on while you swim and come off when you're out of the water (the cloak slows you on land)." },
-      { "Run-speed gear on foot", "qolRunGear", "Spry Boots and Hyjal Postal Clasp, plus Agamaggan's Clutch and Blessing of Kalimdor in their zones, stay on whenever mount gear doesn't need the slot. Armor can't be swapped in a fight, so they stay on in fights too." },
-      { "Say it in chat when it swaps", "qolMountMsg", "A short line in chat when the riding gear goes on and comes off." },
+      { "Mithril Spurs and Riding Skill gloves", "qolMountArmor", "Equips boots with Mithril Spurs and gloves with the Riding Skill enchant while mounted." },
+      { "Zone-specific gear", "qolMountZone", "Equips zone-specific speed items while mounted in their zones: Desert Rose (desert zones such as Tanaris, Silithus, Desolace and the Barrens), Wintersaber Hide Lined Gloves (Winterspring) and Rider of the Plaguelands ring and cloak (Eastern and Western Plaguelands)." },
+      { "Swim gear while swimming", "qolSwimGear", "Equips Azure Silk Belt and Cloak of Hermitic Bliss while swimming and removes them when you leave the water." },
+      { "Run-speed gear on foot", "qolRunGear", "Keeps Spry Boots and Hyjal Postal Clasp equipped, plus Agamaggan's Clutch and Blessing of Kalimdor in their zones, whenever mount gear does not need the slot. Run-speed gear you equip manually is never removed." },
+      { "Announce swaps in chat", "qolMountMsg", "Prints a short message when mount gear is equipped or removed." },
     } },
   } },
-  { col = 2, title = "Vendor & loot", icon = "Star", desc = "Hold Shift at a vendor to skip once", items = {
-    { "Auto-repair", "qolRepair", "Repairs all your gear when you open a vendor that can repair.", subs = {
-      { "Guild bank money first", "qolGuildRepair", "If your guild lets you, repairs come out of the guild bank first. Your own gold covers the rest." },
-      { "Show the cost in chat", "qolRepairMsg", "A line in chat with what the repair cost." },
+  { col = 2, title = "Vendor and loot", icon = "Star", desc = "Hold Shift when opening a vendor to skip once", items = {
+    { "Auto repair", "qolRepair", "Repairs all equipment when you open a vendor that offers repairs.", subs = {
+      { "Use guild funds first", "qolGuildRepair", "Uses guild bank funds when permitted. Personal gold covers any remainder." },
+      { "Report repair cost", "qolRepairMsg", "Prints the repair cost in chat." },
     } },
-    { "Sell grey junk", "qolJunk", "Sells every grey item in your bags at any vendor. Buy back from the vendor's Buyback tab if needed.", subs = {
-      { "Show the total in chat", "qolJunkMsg", "A line in chat with how much the junk sold for." },
+    { "Sell junk", "qolJunk", "Sells all poor-quality (grey) items when you open a vendor. Items can be bought back from the Buyback tab.", subs = {
+      { "Report sale total", "qolJunkMsg", "Prints the total sale value in chat." },
     } },
-    { "Fast loot", "qolFastLoot", "Loots everything instantly when auto loot is on, so the loot window barely flashes. Your normal auto loot key still works." },
+    { "Faster auto loot", "qolFastLoot", "Loots all items instantly when auto loot is enabled. Your auto loot modifier key still works." },
   } },
-  { col = 1, title = "Questing", icon = "Scroll", desc = "Hold Shift at an NPC to skip once", items = {
-    { "Auto accept quests", "qolAutoQuest", "Accepts quests when the quest text opens.", subs = {
-      { "Also turn in finished quests", "qolQuestTurnIn", "Hands in finished quests. Stops when there are rewards to pick from, and never hands in repeatable item turn-ins (cloth, tokens)." },
-      { "Pick quests from NPC chat lists", "qolQuestGossip", "When an NPC has a list, picks a finished quest first, then a new one." },
+  { col = 1, title = "Questing", icon = "Scroll", desc = "Hold Shift when talking to an NPC to skip once", items = {
+    { "Auto accept quests", "qolAutoQuest", "Accepts quests automatically when the quest dialog opens.", subs = {
+      { "Auto turn in quests", "qolQuestTurnIn", "Turns in completed quests. Stops when a reward choice is required and skips repeatable item turn-ins." },
+      { "Select quests from NPC dialogs", "qolQuestGossip", "Selects completed quests first, then available quests, from NPC dialog lists." },
     } },
-    { "Gold coin on the best-selling reward", "qolRewardCoin", "When a quest lets you pick a reward, a gold coin marks the one that sells for the most at a vendor (count included). Hover the coin for the price." },
-    { "Skip cutscenes you've seen", "qolSkipCine", "The first time you always see it. After that it's skipped (hold Shift to watch it again)." },
-    { "XP bar text", "qolXPText", "Shows % done on your XP bar.", subs = {
-      { "Rested XP", "qolXPRested", "How much rested XP you have, as % of the level." },
-      { "Quests to next level", "qolXPQuests", "Rough number of quests left, from the XP of your last ten hand-ins." },
+    { "Highlight best-selling reward", "qolRewardCoin", "Marks the quest reward with the highest vendor value (including stack size) with a gold coin. Hover the coin to see the price." },
+    { "Skip watched cutscenes", "qolSkipCine", "Skips cutscenes you have already seen. Hold Shift to watch again." },
+    { "Experience bar text", "qolXPText", "Shows progress as a percentage on the experience bar.", subs = {
+      { "Rested experience", "qolXPRested", "Shows rested experience as a percentage of the level." },
+      { "Quests to next level", "qolXPQuests", "Estimates quests remaining, based on your last ten turn-ins." },
     } },
   } },
-  { col = 2, title = "Fewer annoyances", icon = "Shield", desc = "Popups and noise you never wanted", items = {
-    { "Decline duels", "qolNoDuels", "Duel requests are declined straight away.", subs = {
-      { "Let the gang duel me", "qolDuelsGang", "Gang members' duel requests come through as normal." },
+  { col = 2, title = "Interruptions", icon = "Shield", desc = "Blocks unwanted requests and messages", items = {
+    { "Decline duels", "qolNoDuels", "Declines duel requests automatically.", subs = {
+      { "Allow gang members", "qolDuelsGang", "Duel requests from gang members are not declined." },
     } },
-    { "Decline guild invites", "qolNoGuildInv", "Guild invites and charter signature requests are declined.", subs = {
-      { "Let the gang through", "qolGuildGang", "Invites and charters from gang members come through as normal." },
+    { "Decline guild invites", "qolNoGuildInv", "Declines guild invitations and charter signature requests automatically.", subs = {
+      { "Allow gang members", "qolGuildGang", "Invitations and charters from gang members are not declined." },
     } },
-    { "Accept summons", "qolSummon", "Accepts a warlock or meeting stone summon, never while you're in combat." },
-    { "Accept resurrection", "qolRes", "Takes a res as soon as it's offered.", subs = {
-      { "Not during boss fights", "qolResBoss", "During a boss fight you decide yourself." },
+    { "Accept summons", "qolSummon", "Accepts warlock and meeting stone summons automatically. Never accepts in combat." },
+    { "Accept resurrection", "qolRes", "Accepts resurrection offers automatically.", subs = {
+      { "Not during boss encounters", "qolResBoss", "Resurrection offers during boss encounters are left to you." },
     } },
-    { "Hide red error spam", "qolNoErrors", "Hides \"Not enough rage\", \"Out of range\", \"Ability not ready\" and the like. Useful ones like \"Inventory is full\" still show." },
-    { "Max camera zoom-out", "qolMaxZoom", "Zoom the camera further out than normal. Switching it off puts your old setting back." },
+    { "Hide error messages", "qolNoErrors", "Hides frequent error messages such as \"Not enough rage\", \"Out of range\" and \"Ability is not ready yet\". Important messages such as \"Inventory is full\" still show." },
+    { "Maximum camera distance", "qolMaxZoom", "Raises the maximum camera zoom distance. Disabling restores your previous setting." },
   } },
-  { col = 1, title = "Info", icon = "Eye", desc = "Little extras on screen", items = {
-    { "Red tint on items you can't use", "qolTint", "Bag items you can't use yet (level, class, skill, already known) get a red icon." },
-    { "Flight timer", "qolFlightTimer", "A small bar with time left on flight paths. Learns each route the first time you fly it. Drag it to move it." },
+  { col = 1, title = "Interface", icon = "Eye", desc = "Additional information on screen", items = {
+    { "Mark unusable items", "qolTint", "Tints bag items you cannot use (level, class, skill or already learned) red." },
+    { "Flight timer", "qolFlightTimer", "Shows a bar with remaining flight time. Each route is learned the first time you fly it. Drag the bar to move it." },
   } },
 }
 
@@ -83,7 +83,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
   sub:SetPoint("LEFT", head, "RIGHT", 12, -1)
   sub:SetPoint("RIGHT", content, "RIGHT", -16, 0)
   sub:SetJustifyH("LEFT")
-  sub:SetText("Hover any switch to see exactly what it does.")
+  sub:SetText("Hover over an option for details.")
 
   local mid = CreateFrame("Frame", nil, content)
   mid:SetSize(1, 1)

@@ -133,7 +133,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   graphEmpty:SetWordWrap(true)
   graphEmpty:SetWidth(320)
   graphEmpty:SetJustifyH("CENTER")
-  graphEmpty:SetText("The graph fills up as you ding. Level history is stored from version 0.2.")
+  graphEmpty:SetText("The graph fills in as you level. Level history is recorded from version 0.2.")
   for i = 1, 8 do
     local lg = UI.Text(graphPage, 11, "semi", C.text)
     legend[i] = lg
@@ -620,7 +620,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       lgTitle:SetText("No chapters yet")
       lgRange:SetText("")
       lgContent:SetHeight(120)
-      lgStory:SetText("Every week gets a chapter written from what the gang did – dings, deaths, loot, dungeons and firsts. Play a bit and the first page fills in.")
+      lgStory:SetText("Each week gets a chapter based on gang activity: level-ups, deaths, loot, dungeons and firsts. The first chapter appears after some play time.")
       lgFactsText:SetText("")
       lgPrev:SetAlpha(0.3) lgNext:SetAlpha(0.3)
       return

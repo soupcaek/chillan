@@ -37,7 +37,7 @@ ns:RegisterTab("more", "Crafters", "More", function(tab)
   kh:SetText("Who can make what?")
   local khSub = UI.Text(right, 11, nil, C.dim)
   khSub:SetPoint("LEFT", kh, "RIGHT", 10, 0)
-  khSub:SetText("Click a name to ask them · search a recipe to see who has it")
+  khSub:SetText("Click a name to send a request · search for a recipe to see who can craft it")
   local search
   search = UI.EditBox(right, 100, 32, "Search for a recipe or profession …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", kh, "BOTTOMLEFT", 0, -10)

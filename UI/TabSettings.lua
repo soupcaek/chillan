@@ -75,7 +75,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   gver:SetText("version " .. ns.VERSION)
   local cl = UI.Text(gang, 11, nil, C.dim)
   cl:SetPoint("TOPLEFT", gh, "BOTTOMLEFT", 0, -8)
-  cl:SetText("Gang code – share it with your friends")
+  cl:SetText("Gang code – share it with your group to join")
   local codeBox = UI.EditBox(gang, 200, 30, "No code")
   codeBox:SetPoint("TOPLEFT", cl, "BOTTOMLEFT", 0, -5)
   codeBox.edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
@@ -90,12 +90,12 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   change:SetPoint("LEFT", codeBox, "RIGHT", 6, 0)
   local al = UI.Text(gang, 11, nil, C.dim)
   al:SetPoint("LEFT", cl, "LEFT", 320, 0)
-  al:SetText("Your name (IRL) – shown next to your characters")
+  al:SetText("Display name – shown next to your characters")
   local aliasBox = UI.EditBox(gang, 200, 30, "e.g. Henrik", function(self) ns.SetAlias(self:GetText()) self:ClearFocus() end)
   aliasBox:SetPoint("TOPLEFT", al, "BOTTOMLEFT", 0, -5)
   local saveAlias = UI.Button(gang, 66, 30, "Save", "secondary", function() ns.SetAlias(aliasBox:GetText()) aliasBox.edit:ClearFocus() end)
   saveAlias:SetPoint("LEFT", aliasBox, "RIGHT", 6, 0)
-  local addFriend = UI.Button(gang, 282, 26, "Friend not showing up? Add them by name", "ghost", function()
+  local addFriend = UI.Button(gang, 282, 26, "Member missing? Add by character name", "ghost", function()
     UI.Prompt("Add friend manually", {
       { label = "Character name (use this if a friend doesn't show up)", placeholder = "Name or Name-Realm" },
     }, function(v) ns.Data:AddManual(v) end)
@@ -113,7 +113,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   top:SetPoint("TOPLEFT", addFriend, "BOTTOMLEFT", 0, -22)
   top:SetSize(660, 10)
   local ah = section(top, nil, "Appearance")
-  local th = hint(top, ah, "Theme – changes the whole addon")
+  local th = hint(top, ah, "Theme")
 
   local themeCards = {}
   for i, t in ipairs(ns.THEMES) do
@@ -156,7 +156,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
 
   local acl = UI.Text(content, 11, nil, C.dim)
   acl:SetPoint("TOPLEFT", th, "BOTTOMLEFT", 0, -82)
-  acl:SetText("Accent – buttons, tabs and highlights")
+  acl:SetText("Accent colour – buttons, tabs and highlights")
   local swatches = {}
   for i, a in ipairs(ns.ACCENTS) do
     local sw = CreateFrame("Button", nil, content)
@@ -191,7 +191,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     function() return S().overlayAlpha or 0.95 end,
     function(v) S().overlayAlpha = v UI.ApplyOverlayAlpha() end,
     function(v) return math.floor(v * 100 + 0.5) .. " %" end)
-  opacity.label:SetText("Opacity of popups, event window and tiles")
+  opacity.label:SetText("Background opacity")
   opacity:SetPoint("TOPLEFT", acl, "BOTTOMLEFT", 0, -44)
 
   reloadBtn = UI.Button(content, 240, 28, "Apply theme (reloads the UI)", "primary", function() ReloadUI() end)
@@ -202,11 +202,11 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     function() return S().popupScale or 1 end,
     function(v) S().popupScale = v UI.ApplyPopupScale() if ns.Window.ApplyScale then ns.Window:ApplyScale() end end,
     function(v) return math.floor(v * 100 + 0.5) .. " %" end)
-  psize.label:SetText("Size of the window and popups")
+  psize.label:SetText("Interface scale")
   psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
   local phint = UI.Text(content, 10, nil, C.dim)
   phint:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -6)
-  phint:SetText("Window, ding, toasts, ready check – try 80 % on 1080p")
+  phint:SetText("Applies to the main window and notifications. 80 % is recommended at 1080p.")
   local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
     -- a pretend ding of your own (not sent to anyone) and a toast
     if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then
@@ -218,7 +218,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   ptest:SetPoint("LEFT", psize, "RIGHT", 30, -2)
   local editBtn = UI.Button(content, 150, 26, "Move things on screen", "secondary", function() UI.EditMode(true) end)
   editBtn:SetPoint("LEFT", ptest, "RIGHT", 8, 0)
-  editBtn.tooltip = "Edit mode: drag every Chillan piece at once, with 1080p / 1440p size presets (/chill edit)"
+  editBtn.tooltip = "Edit mode: move all Chillan frames at once, with 1080p and 1440p presets (/chill edit)"
 
   -------------------------------------------------------------------------
   -- Two columns below
@@ -252,7 +252,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   -- Do not disturb + muted friends (left column, under the layout buttons)
   -------------------------------------------------------------------------
   local qh = section(left, resetPos, "Quiet", 22)
-  local dnd = UI.Check(left, "Do not disturb (mutes every popup and sound)",
+  local dnd = UI.Check(left, "Do not disturb (mutes all notifications and sounds)",
     function() return ns:IsDND() end,
     function(v) ns.Tracker:SetStatus(v and "DND" or "AUTO") end)
   dnd:SetWidth(320)
@@ -261,9 +261,9 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   plabel:SetPoint("TOPLEFT", qh, "BOTTOMLEFT", 0, -10)
   plabel:SetText("Popups")
   local LEVELS = {
-    { "calm", "Calm", "Only the big moments: level 60, epics, first mounts, the big trophies and enemy warnings. Deaths only go to the event window." },
-    { "normal", "Normal", "Someone's death pops up once, then stays quiet for 10 minutes. At most 6 of those an hour – the rest go to the event window, where you can still react." },
-    { "all", "All", "Every death pops up. Alliance kills never pop up – they're in the feed to react to." },
+    { "calm", "Calm", "Major events only: level 60, epic items, first mounts, rare achievements and enemy warnings. Deaths appear in the feed only." },
+    { "normal", "Normal", "A member's death is shown once, then muted for 10 minutes (up to 6 per hour). Everything else appears in the feed." },
+    { "all", "All", "Shows every death. Player kills appear in the feed only." },
   }
   local pbtns = {}
   local function paintLevels()
@@ -286,9 +286,9 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   wlabel:SetPoint("TOPLEFT", plabel, "BOTTOMLEFT", 0, -18)
   wlabel:SetText("Where")
   local PLACES = {
-    { "attached", "Attached", "Popups slide out of the side of the Pulse window and back in. When the Pulse window is hidden they show at the top of the screen." },
-    { "free", "Free", "Popups show at the top of the screen (drag them with the layout unlocked)." },
-    { "off", "Off", "No popups – everything is in the feed, where you can still react." },
+    { "attached", "Attached", "Notifications slide out from the side of the Pulse window. When the Pulse window is hidden, they appear at the top of the screen." },
+    { "free", "Free", "Notifications appear at the top of the screen. Unlock the layout to move them." },
+    { "off", "Off", "No notifications. Events appear in the feed only." },
   }
   local wbtns = {}
   local function curPlace()
@@ -320,7 +320,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   end)
   dnd:HookScript("OnLeave", function() GameTooltip:Hide() end)
   checks[#checks + 1] = dnd
-  local mutedHint = hint(left, dnd, "Muted friends: no popups or sounds from them.\nMute someone from their row or profile.")
+  local mutedHint = hint(left, dnd, "Muted members: no notifications or sounds.\nMute a member from the Gang page or their profile.")
   local mutedRows = {}
   for i = 1, 12 do
     local r = CreateFrame("Frame", nil, left)
@@ -348,38 +348,38 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
         r.btn:SetScript("OnClick", function() ns:SetMuted(p.pid, false) tab:Refresh() end)
       end
     end
-    mutedHint:SetText(#list == 0 and "Muted friends: none. Mute someone from their row on the\nFriends page or their profile – no popups or sounds from them."
-      or "Muted friends – no popups or sounds from them:")
+    mutedHint:SetText(#list == 0 and "Muted members: none. Mute a member from the Gang page\nor their profile to silence their notifications and sounds."
+      or "Muted members (no notifications or sounds):")
   end
 
   local nh = section(right, nil, "Notifications")
   local lastN = checkList(right, nh, {
     { "Sounds", "sounds" },
-    { "Popup notifications", "toasts" },
-    { "When friends log in", "onlineToasts" },
-    { "Hold popups until after combat", "combatQueue", nil,
-      "Dings, deaths, achievements and notifications wait until you leave combat." },
-    { "\"Since you last played\" card at login", "briefing" },
-    { "Level recap when you ding", "levelRecap" },
-    { "Sound and alert when someone @mentions you", "mentionSound", nil,
-      "Matches your nickname, your character name and @all." },
-    { "Sound for new gang chat messages", "chatSound", nil, "A short pop when someone writes in gang chat (not in combat)." },
-    { "Sound when friends log in and out", "presenceSound" },
-    { "Warn when gear durability is low (30 % and 10 %)", "duraWarn" },
-    { "Also in the normal WoW chat", "chatMirror", function(v) S().activityMirror = v end,
-      "Gang chat and events are also printed in the default chat window." },
+    { "Notifications", "toasts" },
+    { "Member logins", "onlineToasts" },
+    { "Delay notifications until combat ends", "combatQueue", nil,
+      "Level-ups, deaths and achievements are shown after you leave combat." },
+    { "Summary at login", "briefing" },
+    { "Level summary on level-up", "levelRecap" },
+    { "Alert on @mentions", "mentionSound", nil,
+      "Triggers on your display name, character name and @all." },
+    { "Sound on new chat messages", "chatSound", nil, "Plays a short sound for new gang chat messages. Muted in combat." },
+    { "Sound on member login and logout", "presenceSound" },
+    { "Low durability warning (30 % and 10 %)", "duraWarn" },
+    { "Copy to the default chat frame", "chatMirror", function(v) S().activityMirror = v end,
+      "Gang chat and events are also shown in the default chat frame." },
   })
 
   local mh = section(right, lastN, "Modules")
   checkList(right, mh, {
-    { "Quest buddy", "questBuddy", nil, "Alert when you pick up a quest a friend also has (not when you're grouped)." },
-    { "Group radar", "radar", nil, "Alert when a friend within ±3 levels is in your zone and you're not grouped (max once per 30 min)." },
-    { "Weekly titles", "titles", function() ns:MarkDirty() end, "Alert when a title like «Floor Inspector» changes hands." },
-    { "Friends on the world map", "mapPins", function() ns:Fire("MAP_PINS") end, "Class-coloured pins where your friends are." },
-    { "Offline friends on the map (last known spot, dimmed)", "mapPinsOffline", function() ns:Fire("MAP_PINS") end },
-    { "Gang notes on the map", "mapNotes", function() ns:Fire("MAP_PINS") end, "Alt + right-click the world map to add one. Right-click your own note to remove it." },
-    { "Layer hop: invite gang members by myself", "layerHost", nil, "When a friend in your zone on another layer asks for a hop, Chillan invites them (only when you're solo, out of combat and not in a dungeon). They leave by themselves." },
-    { "Layer hop: also host LayerSwap users", "layerStrangers", nil, "Invite players running the LayerSwap addon who ask for another layer in your zone. At most 6 per 10 minutes, only when you're solo." },
+    { "Quest buddy", "questBuddy", nil, "Notifies you when you accept a quest a member also has. Not shown while grouped." },
+    { "Group radar", "radar", nil, "Notifies you when an ungrouped member within 3 levels is in your zone (at most once per 30 minutes)." },
+    { "Weekly titles", "titles", function() ns:MarkDirty() end, "Notifies you when a weekly title changes holder." },
+    { "Members on the world map", "mapPins", function() ns:Fire("MAP_PINS") end, "Shows class-coloured pins at members' positions." },
+    { "Offline members on the map (last known position)", "mapPinsOffline", function() ns:Fire("MAP_PINS") end },
+    { "Gang notes on the map", "mapNotes", function() ns:Fire("MAP_PINS") end, "Alt + right-click the world map to add a note. Right-click your own note to remove it." },
+    { "Layer hop: host gang members", "layerHost", nil, "Invites members on another layer in your zone who request a layer hop. Only when you are ungrouped, out of combat and outside instances. They leave the group automatically." },
+    { "Layer hop: host LayerSwap users", "layerStrangers", nil, "Invites LayerSwap users in your zone who request a layer change. At most 6 per 10 minutes, only while ungrouped." },
   })
 
   function tab:Refresh()

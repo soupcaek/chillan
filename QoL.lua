@@ -131,6 +131,23 @@ local function matches(rule, link)
   if rule.item then return idOf(link) == rule.item end
   return enchOf(link) == rule.ench
 end
+-- (1.4.21) mount/swim gear vs run-speed gear (rules with when = "foot")
+local function ruleHas(r, link)
+  if not link then return false end
+  if r.set then
+    for _, piece in ipairs(r.set) do if matches({ item = piece.item }, link) then return true end end
+    return false
+  end
+  return matches(r, link)
+end
+function Q.IsMountGear(link)
+  for _, r in ipairs(Q.RIDE) do if (r.when or "mount") ~= "foot" and ruleHas(r, link) then return true end end
+  return false
+end
+function Q.IsRunGear(link)
+  for _, r in ipairs(Q.RIDE) do if r.when == "foot" and ruleHas(r, link) then return true end end
+  return false
+end
 
 -- every bag copy of a rule's item: { bag, slot, link, bound }
 local function bagCopies(rule)
@@ -193,11 +210,15 @@ local function planItem(plan, rule, item, slot, tslot)
   end
   if not usable then
     if unbound then
-      warnOnce("bind:" .. rule.key .. ":" .. tostring(item.item), "Chillan QoL: " .. unbound.link .. " isn't soulbound yet, so the game won't let an addon put it on. Equip it once by hand – after that it swaps automatically.")
+      warnOnce("bind:" .. rule.key .. ":" .. tostring(item.item), "Chillan QoL: " .. unbound.link .. " is not soulbound yet and cannot be equipped by an addon. Equip it manually once to enable automatic swapping.")
     end
     return nil
   end
-  -- trinkets keep the slot picked in the QoL tab; rings the second ring slot first
+  -- trinkets keep the slot picked in the QoL tab; rings the second ring slot first. (1.4.21) Mount gear
+  -- leaves a slot holding run-speed gear alone when the other slot is free, so the run gear stays put
+  if (rule.when or "mount") ~= "foot" and #want == 2 and Q.IsRunGear(equipped(want[1])) and not Q.IsRunGear(equipped(want[2])) then
+    want = { want[2], want[1] }
+  end
   for _, s in ipairs(want) do
     if not plan[s] then return s, { rule = rule, copy = usable } end
   end
@@ -265,7 +286,7 @@ local function fail(slot, what)
     Q.useCursor = true
     log("switching to pick-up-and-place swaps")
   elseif failures[slot] >= 4 then
-    warnOnce("fail:" .. slot, "Chillan QoL: couldn't swap " .. nameOf(what) .. ". Type /chill qol test and send a screenshot.")
+    warnOnce("fail:" .. slot, "Chillan QoL: could not swap " .. nameOf(what) .. ". Run /chill qol test for details.")
   end
 end
 
@@ -322,16 +343,18 @@ function Q:MountTick()
   local own = ns.db.qolLastOwn
   for _, slot in ipairs({ 2, 6, 8, 10, 11, 12, 13, 14, 15 }) do
     local cur = equipped(slot)
-    local isSpeed = false
-    for _, r in ipairs(Q.RIDE) do if matches(r, cur) then isSpeed = true end end
-    if cur and not isSpeed then own[slot] = cur
+    -- (1.4.21) only mount and swim gear is taken off when it's left on. Run-speed gear (Hyjal Postal
+    -- Clasp, Spry Boots…) is gear you may wear on purpose: put on by hand, it stays on
+    local isSpeed = Q.IsMountGear(cur)
+    if cur and not isSpeed then
+      if not Q.IsRunGear(cur) then own[slot] = cur end
     elseif isSpeed and sv[slot] == nil and not plan[slot] then
       local back = Q:OwnFor(slot, own)
       if back then
         sv[slot] = back
         log("speed item on foot with nothing saved: putting back " .. nameOf(back))
       else
-        warnOnce("noown:" .. slot, "Chillan QoL: " .. nameOf(cur) .. " is on while you're on foot, and there's nothing in your bags to put back. Equip your own item once and it swaps from then on.")
+        warnOnce("noown:" .. slot, "Chillan QoL: " .. nameOf(cur) .. " is equipped while on foot and no replacement was found in your bags. Equip your regular item once to enable swapping.")
       end
     end
   end
@@ -341,14 +364,13 @@ function Q:MountTick()
     if not p.worn and p.copy and not p.copy.locked then
       if sv[slot] == nil then
         local cur = equipped(slot)
-        local curIsSpeed = false
-        for _, r in ipairs(Q.RIDE) do if matches(r, cur) then curIsSpeed = true end end
-        sv[slot] = (cur and not curIsSpeed) and cur or false
+        -- (1.4.21) run-speed gear you wore yourself comes back after the ride, like your own gear
+        sv[slot] = (cur and not Q.IsMountGear(cur)) and cur or false
       end
       if sendEquip(p.copy, slot) then
         log("putting on " .. nameOf(p.copy.link) .. " (slot " .. slot .. ")")
         startFlight(slot, p.copy.link, "equip")
-        if Q.sayOn then Q.sayOn = nil ns.Print("Riding gear on.") end
+        if Q.sayOn then Q.sayOn = nil ns.Print("Mount gear equipped.") end
         return -- one swap at a time, the next tick does the next
       else
         fail(slot, p.copy.link)
@@ -362,7 +384,7 @@ function Q:MountTick()
     if not plan[slot] and not waitMore then
       Q.lastRestoreTry = GetTime()
       Q:RestoreSlot(slot)
-      if on("qolMountMsg") and not next(saved()) then ns.Print("Your own gear is back on.") end
+      if on("qolMountMsg") and not next(saved()) then ns.Print("Regular gear restored.") end
       return
     end
   end
@@ -409,7 +431,7 @@ function Q:RestoreSlot(slot)
     if not cur then sv[slot] = nil return end
     local free = freeBagSlot()
     if not free or not PickupInventoryItem then
-      warnOnce("bagsfull", "Chillan QoL: bags are full, so " .. nameOf(cur) .. " stays on until a bag slot is free.")
+      warnOnce("bagsfull", "Chillan QoL: bags are full. " .. nameOf(cur) .. " stays equipped until a bag slot is free.")
       return
     end
     pcall(PickupInventoryItem, slot)
@@ -429,7 +451,7 @@ function Q:RestoreSlot(slot)
     end
   end)
   if not copy then
-    warnOnce("gone:" .. slot, "Chillan QoL: " .. nameOf(want) .. " isn't in your bags any more, so the speed item stays on.")
+    warnOnce("gone:" .. slot, "Chillan QoL: " .. nameOf(want) .. " is no longer in your bags. The speed item stays equipped.")
     sv[slot] = nil
     return
   end
@@ -468,7 +490,7 @@ function Q:CheckOtherAddons()
   end
   if #said > 0 and not ns.db.qolStepAsideSaid then
     ns.db.qolStepAsideSaid = true
-    ns.Print("QoL: leaving " .. table.concat(said, " and ") .. " to your other addon.")
+    ns.Print("QoL: leaving " .. table.concat(said, " and ") .. " to another addon.")
   end
 end
 
@@ -481,7 +503,7 @@ function Q:OnBlocked(addon, func)
   if CursorHasItem and CursorHasItem() and ClearCursor then ClearCursor() end
   if short == "EquipItemByName" and not Q.useCursor then
     Q.useCursor = true
-    warnOnce("blk:" .. func, "Chillan QoL: the game blocked " .. func .. "() – switching to another way of swapping.")
+    warnOnce("blk:" .. func, "Chillan QoL: the game blocked " .. func .. "(). Switching to an alternative swap method.")
   elseif (short == "PickupContainerItem" or short == "EquipCursorItem") and Q.useCursor then
     -- the pick-up way is the one blocked: go back to equip-by-name, after a short pause
     Q.useCursor = nil
@@ -490,13 +512,13 @@ function Q:OnBlocked(addon, func)
   elseif short == "EquipItemByName" or short == "PickupContainerItem" or short == "EquipCursorItem" then
     Q.blocked = func
     Q.blockedUntil = GetTime() + 60
-    warnOnce("blocked", "Chillan QoL: the game blocked a gear swap (" .. func .. "). The mount swap pauses for a minute and then tries again.")
+    warnOnce("blocked", "Chillan QoL: the game blocked a gear swap (" .. func .. "). Mount swapping is paused for one minute.")
   end
 end
 
 -- /chill qol test: what the mount swap sees right now, plus the last steps it took
 function Q:Test()
-  if Q.stepAside.mount then ns.Print("QoL mount: off while " .. Q.stepAside.mount .. " is loaded (it does the same job).") return end
+  if Q.stepAside.mount then ns.Print("QoL mount: off while " .. Q.stepAside.mount .. " is loaded (it provides the same feature).") return end
   local slot = (S().qolTrinketSlot == 13) and 13 or 14
   ns.Print(string.format("QoL mount: switch %s · mounted %s · waiting for: %s · trinket slot %d · method: %s",
     on("qolMount") and "on" or "OFF", tostring(ns.S(IsMounted) and true or false), blocker() or "nothing",
@@ -543,7 +565,7 @@ function Q:MountGearSummary()
     end
   end
   if #parts == 0 then return "No speed gear found in your bags yet." end
-  return "Found: " .. table.concat(parts, ", ")
+  return "Detected: " .. table.concat(parts, ", ")
 end
 ---------------------------------------------------------------------------
 -- Vendor: repair and sell junk (hold Shift when you open the vendor to skip)
@@ -567,7 +589,7 @@ function Q:OnMerchant()
       C_Timer.After(0.3, function()
         local still = ns.S(GetRepairAllCost) or 0
         if still == 0 then if on("qolRepairMsg") then ns.Print("Repaired for " .. money(cost) .. (usedGuild and " (guild bank)" or "") .. ".") end
-        else ns.Print("Not enough gold to repair everything (" .. money(still) .. ").") end
+        else ns.Print("Not enough gold for a full repair (" .. money(still) .. " short).") end
       end)
     end
   end
@@ -687,7 +709,7 @@ function Q:OnMovie(movieID)
       if MovieFrame and MovieFrame.StopMovie then pcall(MovieFrame.StopMovie, MovieFrame)
       elseif GameMovieFinished then pcall(GameMovieFinished) end
     end)
-    ns.Print("Skipped a cutscene you've seen (hold Shift next time to watch it).")
+    ns.Print("Cutscene skipped. Hold Shift to watch it next time.")
   end
   seen()[key] = true
 end

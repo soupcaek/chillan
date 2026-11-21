@@ -12,7 +12,7 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
   sub:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
   sub:SetJustifyH("LEFT")
   sub:SetWordWrap(true)
-  sub:SetText("Alliance players who killed someone in the gang, the last 60 days. It fills itself and warns nobody. Killing one of them within a week of their last kill counts as revenge.")
+  sub:SetText("Enemy players who killed a gang member in the last 60 days. The list updates automatically. Killing one within a week of their last kill counts as revenge.")
 
   local search = UI.EditBox(tab, 100, 30, "Search names and zones …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)

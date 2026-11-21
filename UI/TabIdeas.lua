@@ -84,7 +84,7 @@ ns:RegisterTab("ideas", "Ideas", "Star", function(tab)
   copyBtn:SetPoint("TOPRIGHT", addIdea, "BOTTOMRIGHT", 0, -10)
   local claim = UI.Button(tab, 110, 24, "Become admin", "ghost", function() I:ClaimAdmin() tab:Refresh() end)
   claim:SetPoint("RIGHT", copyBtn, "LEFT", -6, 0)
-  claim.tooltip = "The admin sets status (planned, done, rejected). The first one to claim it in the gang gets it."
+  claim.tooltip = "The admin sets the status (planned, done, rejected). The first member to claim an idea owns it."
 
   local function createIdea(list)
     local row = CreateFrame("Frame", nil, list)

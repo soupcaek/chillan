@@ -232,7 +232,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   local ready = UI.Button(tab, 112, 36, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
   ready:SetIcon("Check", 14)
   ready:SetPoint("BOTTOMRIGHT", -16, 8)
-  ready.tooltip = "Bag space, durability and food/drink for everyone in the group – handy before a dungeon"
+  ready.tooltip = "Checks bag space, durability and food and drink for everyone in the group"
 
   function tab:Refresh()
     local myZone = ns.Tracker:Me().live and ns.Tracker:Me().live.zone

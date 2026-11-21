@@ -25,13 +25,13 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   how:SetWidth(LEFT_W)
   how:SetJustifyH("LEFT")
   how:SetWordWrap(true)
-  how:SetText("Scan: open the auction house and click the Chillan? scan tab on top of its window (every 15 min). Prices go to your tooltips and to the gang.")
+  how:SetText("To scan, open the auction house and select the Chillan? scan tab (available every 15 minutes). Prices are added to item tooltips and shared with the gang.")
   local sync = UI.Button(left, 160, 26, "Ask the gang now", "secondary", function()
     ns.Comm:Broadcast(ns.Comm:Build("MQ", 0), 2)
     ns.Print("Market: asked the gang for their prices – they arrive over the next few minutes.")
   end)
   sync:SetPoint("TOPLEFT", how, "BOTTOMLEFT", 0, -10)
-  sync.tooltip = "Get every price the gang has that's newer than yours"
+  sync.tooltip = "Fetch newer prices from other gang members"
 
   local checks = {}
   local function section(anchor, title, gap)
@@ -85,7 +85,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   dsub:SetPoint("RIGHT", right, "RIGHT", 0, 0)
   dsub:SetJustifyH("LEFT")
   dsub:SetWordWrap(true)
-  dsub:SetText("Green, blue and purple gear in your bags: what disenchanting gives (expected value of the mats at the auction house) against selling it. Needs mat prices – a scan, or the gang's.")
+  dsub:SetText("Compares the expected auction value of disenchanting materials with the vendor price for uncommon, rare and epic gear in your bags. Requires material prices from a scan.")
 
   local function createRow(list)
     local row = CreateFrame("Button", nil, list)
