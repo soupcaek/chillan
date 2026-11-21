@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.20", date = "21.11", items = { "Feed: a second match of the same battleground (or a second run of the same dungeon) no longer wipes the first one's result line – each match and run keeps its own line" } },
   { v = "1.4.19", date = "21.11", items = { "Battleground result line: alone in a battleground it no longer says \"MVP <you>\" – it shows your HKs, honor and match time instead. The gang MVP only shows when 2 or more of the gang played. The victory card says \"Your match\" when you were alone" } },
   { v = "1.4.18", date = "21.11", items = {
     "Popups now slide out of the side of the Pulse window and back in, with a coloured edge where they join (they grow to the left if the window sits at the right edge of the screen)",

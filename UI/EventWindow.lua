@@ -102,7 +102,12 @@ function E:Add(kind, text, t, item)
       local at, atT
       for i = #self.entries, 1, -1 do
         local x = self.entries[i]
-        if x.gid == gid or (x.gkey == key and (x.t or 0) >= (g[1].firstT or g[1].t or 0) - gap) then
+        -- (1.4.20) a finished run or battleground line (its own result came) stays: a new match of the
+        -- same battleground or a new run of the same dungeon gets its own line
+        local xi = x.item
+        local done = x.gid ~= gid and xi and ((xi.group and xi.group.closed)
+          or (not xi.group and (xi.kind == "BGEND" or xi.kind == "DUNGEON" or xi.kind == "RAID")))
+        if x.gid == gid or (not done and x.gkey == key and (x.t or 0) >= (g[1].firstT or g[1].t or 0) - gap) then
           table.remove(self.entries, i)
           at, atT = i, x.t
         end
