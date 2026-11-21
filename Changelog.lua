@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.14", date = "21.11", items = { "Mount gear knows more speed gear (from AutoCarrot Forever 4.0.22): Rider of the Plaguelands (ring + cloak, mounted in the Plaguelands), swim gear (Azure Silk Belt, Cloak of Hermitic Bliss) while swimming, and run-speed gear on foot (Spry Boots, Hyjal Postal Clasp, Agamaggan's Clutch, Blessing of Kalimdor). The Desert Rose works in more desert zones. Switches in QoL › Mount gear" } },
   { v = "1.4.13", date = "21.11", items = {
     "Layer hop: since the game patch of 20 Nov each player reads their own layer numbers, so Chillan no longer shows a friend's layer or \"same layer\" (it would be wrong) and asks any friend in your zone to host",
     "Layer hop: the game allows about 10 layer changes an hour and then silently refuses – Chillan counts your hops, shows \"3 left this hour\" and \"Wait 12:30\" instead of trying in vain",

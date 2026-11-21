@@ -63,13 +63,31 @@ local money = ns.U.Money
 -- slot 0 = either trinket slot (the one picked in the QoL tab)
 -- zones: only worn there; listed before the plain item so it wins in its zones
 local F = ns.FOREVER
+-- (1.4.14) when = "mount" (default), "swim" (while swimming) or "foot" (always, unless mounted gear wins
+-- the slot). slot "ring" = either ring slot. A set rule lists its pieces and how many must go on.
+-- The list is in priority order: the first rule to claim a slot gets it.
+local I = F.items
 Q.RIDE = {
-  { key = "desertRose", item = F.items.desertRose.id, slot = 0, zones = F.zones.desert, opt = "qolMountZone" },
-  { key = "carrot", item = F.items.carrot.id, slot = 0 },
-  { key = "wintersaber", item = F.items.wintersaberGloves.id, slot = 10, zones = F.zones.winterspring, opt = "qolMountZone" },
+  { key = "desertRose", item = I.desertRose.id, slot = 0, zones = F.zones.desert, opt = "qolMountZone" },
+  { key = "carrot", item = I.carrot.id, slot = 0 },
+  { key = "wintersaber", item = I.wintersaberGloves.id, slot = 10, zones = F.zones.winterspring, opt = "qolMountZone" },
+  { key = "rider", set = { { item = I.riderRing.id, slot = "ring" }, { item = I.riderCloak.id, slot = 15 } }, need = 2,
+    zones = F.zones.plaguelands, opt = "qolMountZone" },
   { key = "ridingSkill", ench = F.enchants.ridingSkill.id, slot = 10, opt = "qolMountArmor" },  -- Riding Skill (gloves)
   { key = "spurs", ench = F.enchants.mithrilSpurs.id, slot = 8, opt = "qolMountArmor" },         -- Mithril Spurs (boots)
+  { key = "hermitic", item = I.hermiticCloak.id, slot = 15, when = "swim", opt = "qolSwimGear" },
+  { key = "azureBelt", item = I.azureSilkBelt.id, slot = 6, when = "swim", opt = "qolSwimGear" },
+  { key = "agamaggan", item = I.agamaggan.id, slot = "ring", when = "foot", zones = F.zones.agamaggan, opt = "qolRunGear" },
+  { key = "kalimdor", set = { { item = I.kalimdorRing.id, slot = "ring" }, { item = I.kalimdorNeck.id, slot = 2 }, { item = I.kalimdorCloak.id, slot = 15 } },
+    need = 2, when = "foot", zones = F.zones.kalimdor, opt = "qolRunGear" },
+  { key = "spry", item = I.spryBoots.id, slot = 8, when = "foot", opt = "qolRunGear" },
+  { key = "postalClasp", item = I.hyjalClasp.id, slot = 0, when = "foot", opt = "qolRunGear" },
 }
+-- every item a rule can put on (for "is this a speed item?")
+local function ruleItems(r)
+  if r.set then return r.set end
+  return { r }
+end
 local BIND_NONE = (Enum and Enum.ItemBind and Enum.ItemBind.None) or 0
 local BLOCK_FRAMES = { "MerchantFrame", "MailFrame", "TradeFrame", "BankFrame", "BankPanel", "LootFrame", "GuildBankFrame" }
 
@@ -96,15 +114,20 @@ end
 local function inZones(list)
   if not list then return true end
   local here = {}
+  local function key(n) return (n:lower():gsub("^the ", "")) end
   for _, n in ipairs({ ns.S(GetRealZoneText), ns.S(GetZoneText), ns.S(GetSubZoneText) }) do
-    if type(n) == "string" and n ~= "" then here[n:lower()] = true end
+    if type(n) == "string" and n ~= "" then here[key(n)] = true end
   end
-  for _, z in ipairs(list) do if here[z:lower()] then return true end end
+  for _, z in ipairs(list) do if here[key(z)] then return true end end
   return false
 end
 
 local function matches(rule, link)
   if not link then return false end
+  if rule.set then
+    for _, p in ipairs(rule.set) do if idOf(link) == p.item then return true end end
+    return false
+  end
   if rule.item then return idOf(link) == rule.item end
   return enchOf(link) == rule.ench
 end
@@ -149,29 +172,63 @@ local function blocker()
 end
 
 -- what should be on right now? { [slot] = { rule, copy } }
-function Q:Plan(mounted)
+-- state: { mounted = bool, swimming = bool }
+local function slotsFor(slot, tslot)
+  if slot == 0 then return { tslot, tslot == 13 and 14 or 13 }, { 13, 14 } end
+  if slot == "ring" then return { 12, 11 }, { 11, 12 } end
+  return { slot }, { slot }
+end
+-- one item: already worn, or a usable bag copy for a free slot. Returns slot, entry (or nil)
+local function planItem(plan, rule, item, slot, tslot)
+  local want, any = slotsFor(slot, tslot)
+  for _, s in ipairs(any) do
+    if matches(item, equipped(s)) then
+      if plan[s] then return nil end
+      return s, { rule = rule, worn = true }
+    end
+  end
+  local usable, unbound
+  for _, c in ipairs(bagCopies(item)) do
+    if canEquip(c) then usable = usable or c else unbound = unbound or c end
+  end
+  if not usable then
+    if unbound then
+      warnOnce("bind:" .. rule.key .. ":" .. tostring(item.item), "Chillan QoL: " .. unbound.link .. " isn't soulbound yet, so the game won't let an addon put it on. Equip it once by hand – after that it swaps automatically.")
+    end
+    return nil
+  end
+  -- trinkets keep the slot picked in the QoL tab; rings the second ring slot first
+  for _, s in ipairs(want) do
+    if not plan[s] then return s, { rule = rule, copy = usable } end
+  end
+end
+
+function Q:Plan(state)
+  if type(state) ~= "table" then state = { mounted = state and true or false } end
   local plan = {}
-  if not mounted then return plan end
   local tslot = (S().qolTrinketSlot == 13) and 13 or 14
+  local function active(r)
+    local when = r.when or "mount"
+    if when == "mount" and not state.mounted then return false end
+    if when == "swim" and not state.swimming then return false end
+    -- "foot" gear is active on a mount too: mount gear comes first in the list and takes its slots
+    if r.opt and not on(r.opt) then return false end
+    return inZones(r.zones)
+  end
   for _, r in ipairs(Q.RIDE) do
-    local slot = r.slot == 0 and tslot or r.slot
-    if not plan[slot] and (not r.opt or on(r.opt)) and inZones(r.zones) then
-      -- already worn in the other trinket slot counts as done
-      local worn
-      for _, s in ipairs(r.slot == 0 and { 13, 14 } or { slot }) do
-        if matches(r, equipped(s)) then worn = s end
-      end
-      if worn then
-        plan[worn] = { rule = r, worn = true }
+    if active(r) then
+      if r.set then
+        local picks, n = {}, 0
+        local trial = setmetatable({}, { __index = plan })
+        for _, piece in ipairs(r.set) do
+          local item = { item = piece.item }
+          local s, e = planItem(trial, r, item, piece.slot, tslot)
+          if s and n < (r.need or 2) then picks[s] = e trial[s] = e n = n + 1 end
+        end
+        if n >= (r.need or 2) then for s, e in pairs(picks) do plan[s] = e end end
       else
-        local usable, unbound
-        for _, c in ipairs(bagCopies(r)) do
-          if canEquip(c) then usable = usable or c else unbound = unbound or c end
-        end
-        if usable then plan[slot] = { rule = r, copy = usable }
-        elseif unbound then
-          warnOnce("bind:" .. r.key, "Chillan QoL: " .. unbound.link .. " isn't soulbound yet, so the game won't let an addon put it on. Equip it once by hand – after that it swaps automatically.")
-        end
+        local s, e = planItem(plan, r, r, r.slot, tslot)
+        if s then plan[s] = e end
       end
     end
   end
@@ -249,23 +306,26 @@ function Q:MountTick()
   if why then Q.waiting = why return end
   Q.waiting = nil
   local mounted = (ns.S(IsMounted) and not ns.S(UnitOnTaxi, "player")) and true or false
+  -- (1.4.14) swimming, with a second of grace so bobbing at the surface doesn't swap back and forth
+  if ns.S(IsSwimming) then Q.swimAt = GetTime() end
+  local swimming = Q.swimAt and GetTime() - Q.swimAt < 1.5 or false
   if mounted ~= Q.wasMounted then
     log(mounted and "mounted" or "dismounted")
     Q.wasMounted = mounted
     if mounted and on("qolMountMsg") then Q.sayOn = true end
   end
-  local plan = Q:Plan(mounted)
+  local plan = Q:Plan({ mounted = mounted, swimming = swimming })
 
   -- (1.1.3) remember your own gear per slot, so a speed item left on with nothing saved (a swap the
   -- game dropped, a crash, you put it on by hand) still comes off when you're on foot
   ns.db.qolLastOwn = ns.db.qolLastOwn or {}
   local own = ns.db.qolLastOwn
-  for _, slot in ipairs({ 8, 10, 13, 14 }) do
+  for _, slot in ipairs({ 2, 6, 8, 10, 11, 12, 13, 14, 15 }) do
     local cur = equipped(slot)
     local isSpeed = false
     for _, r in ipairs(Q.RIDE) do if matches(r, cur) then isSpeed = true end end
     if cur and not isSpeed then own[slot] = cur
-    elseif isSpeed and not mounted and sv[slot] == nil and not plan[slot] then
+    elseif isSpeed and sv[slot] == nil and not plan[slot] then
       local back = Q:OwnFor(slot, own)
       if back then
         sv[slot] = back

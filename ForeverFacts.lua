@@ -9,8 +9,15 @@ ns.FOREVER = {
     carrot = { id = 11122, checked = "AutoCarrot Forever built-in; binds when equipped" },
     desertRose = { id = 274648, checked = "AutoCarrot Forever: +7% mount speed in Desert areas" },
     wintersaberGloves = { id = 284266, checked = "AutoCarrot Forever: +6% mounted speed in Winterspring" },
-    -- Riding Crop (25653), Skybreaker Whip (32863), Hydrocane, Azure Silk Belt and Deepdive Helmet
-    -- do NOT exist in Forever (AutoCarrot Forever, DESIGN §12).
+    -- (1.4.14, from AutoCarrot Forever 4.0.22) more speed gear that exists in Forever
+    azureSilkBelt = { id = 7052, checked = "AutoCarrot Forever: +15% swim speed (waist)" },
+    hermiticCloak = { id = 273084, checked = "AutoCarrot Forever: +33% swim speed, -25% run speed – only while swimming" },
+    spryBoots = { id = 18411, checked = "AutoCarrot Forever: minor run and swim speed" },
+    hyjalClasp = { id = 260308, checked = "AutoCarrot Forever: +5% run and swim speed (trinket)" },
+    agamaggan = { id = 6693, checked = "AutoCarrot Forever: +3% speed in the Barrens, Thousand Needles, RFK, RFD (ring)" },
+    kalimdorRing = { id = 285330 }, kalimdorNeck = { id = 285331 }, kalimdorCloak = { id = 285329 },  -- Blessing of Kalimdor (2): +5% in the Barrens, Stonetalon
+    riderRing = { id = 284102 }, riderCloak = { id = 284100 },  -- Rider of the Plaguelands (2): +5% mounted in the Plaguelands (the sword is left out)
+    -- Riding Crop (25653), Skybreaker Whip (32863), Hydrocane and Deepdive Helmet do NOT exist in Forever.
   },
   enchants = {
     mithrilSpurs = { id = 464, checked = "boots; matched by enchant id only" },
@@ -18,7 +25,11 @@ ns.FOREVER = {
   },
   zones = {
     -- "Desert areas" for The Desert Rose; Desolace and Westfall confirmed in game by AutoCarrot Forever
-    desert = { "Tanaris", "Silithus", "Desolace", "Westfall" },
+    desert = { "Tanaris", "Silithus", "Desolace", "Westfall", "Zul'Farrak", "Thousand Needles", "Barrens", "Durotar",
+      "Orgrimmar", "Badlands", "Blasted Lands" },   -- (1.4.14) AutoCarrot Forever's list, confirmed by players
+    agamaggan = { "Barrens", "Thousand Needles", "Razorfen Kraul", "Razorfen Downs" },
+    kalimdor = { "Barrens", "Stonetalon Mountains" },
+    plaguelands = { "Eastern Plaguelands", "Western Plaguelands" },
     winterspring = { "Winterspring" },
   },
   -- what the client blocks or hides (each one cost us a bug)

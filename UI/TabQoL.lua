@@ -8,7 +8,9 @@ local CARDS = {
     { "Carrot on a Stick when mounted", "qolMount", "Puts Carrot on a Stick on when you mount and your own trinket back when you get off. Never mid-fight, while casting or with a vendor, mail, bank or loot window open. A new Carrot must be equipped once by hand first (it binds when equipped). Type /chill qol test if it doesn't swap.", subs = {
       { kind = "slot" },
       { "Spurs boots and Riding Skill gloves", "qolMountArmor", "Boots with Mithril Spurs and gloves with the Riding Skill enchant go on while mounted too." },
-      { "Zone gear: Desert Rose, Wintersaber gloves", "qolMountZone", "The Desert Rose (desert zones: Tanaris, Silithus, Desolace, Westfall) and Wintersaber Hide Lined Gloves (Winterspring) go on instead while you're there." },
+      { "Zone gear: Desert Rose, Wintersaber gloves, Rider of the Plaguelands", "qolMountZone", "The Desert Rose (desert zones: Tanaris, Silithus, Desolace, Westfall, the Barrens, Durotar and more), Wintersaber Hide Lined Gloves (Winterspring) and two pieces of Rider of the Plaguelands (ring, cloak – Eastern and Western Plaguelands) go on while you ride there." },
+      { "Swim gear while swimming", "qolSwimGear", "Azure Silk Belt and Cloak of Hermitic Bliss go on while you swim and come off when you're out of the water (the cloak slows you on land)." },
+      { "Run-speed gear on foot", "qolRunGear", "Spry Boots and Hyjal Postal Clasp, plus Agamaggan's Clutch and Blessing of Kalimdor in their zones, stay on whenever mount gear doesn't need the slot. Armor can't be swapped in a fight, so they stay on in fights too." },
       { "Say it in chat when it swaps", "qolMountMsg", "A short line in chat when the riding gear goes on and comes off." },
     } },
   } },
