@@ -378,7 +378,8 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
     if poster then
       C_Timer.After(3, function()
         ns.Tracker:Event("BGEND", sum.name or "", won and 1 or 0, sum.score or "",
-          (sum.mvp and sum.mvp.name or "") .. ":" .. (sum.mvp and sum.mvp.hk or 0) .. ":" .. (sum.honor or 0) .. ":" .. #sum.gang)
+          (sum.mvp and sum.mvp.name or "") .. ":" .. (sum.mvp and sum.mvp.hk or 0) .. ":" .. (sum.honor or 0) .. ":" .. #sum.gang
+          .. ":" .. math.floor(sum.dur or 0))
       end)
     end
     if won and d.streak == 5 then ns.Tracker:Event("BGEND", "streak", 5, "", "") end

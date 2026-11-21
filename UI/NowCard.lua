@@ -253,7 +253,11 @@ local function momentRows(f, mo)
     f.head:SetTextColor(hex(x.won and "5FD18B" or "F2777A"))
     f.big:SetText(x.honor and ("+" .. ns.Num(x.honor)) or "–")
     f.bigSub:SetText("honor · " .. (x.wonToday or 0) .. " / " .. (x.played or 0) .. " won today")
-    if x.mvp then rows[#rows + 1] = dim("Gang MVP  ") .. x.mvp.name .. dim("  " .. x.mvp.hk .. " HKs · " .. ns.Plural(x.mvp.deaths, "death")) end
+    if x.mvp and #(x.gang or {}) <= 1 then
+      -- (1.4.19) alone: your own match, not "Gang MVP: you"
+      rows[#rows + 1] = dim("Your match  ") .. ns.Plural(x.mvp.hk, "HK") .. dim(" · ") .. ns.Plural(x.mvp.deaths, "death")
+        .. ((x.mvp.kb or 0) > 0 and (dim(" · ") .. ns.Plural(x.mvp.kb, "killing blow")) or "")
+    elseif x.mvp then rows[#rows + 1] = dim("Gang MVP  ") .. x.mvp.name .. dim("  " .. x.mvp.hk .. " HKs · " .. ns.Plural(x.mvp.deaths, "death")) end
     if x.hero and x.heroFlags then
       local fl = {}
       if x.heroFlags.cap > 0 then fl[#fl + 1] = ns.Plural(x.heroFlags.cap, "capture") end

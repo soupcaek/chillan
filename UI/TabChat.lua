@@ -12,6 +12,24 @@ local SHORT = {
   ["Lower Blackrock Spire"] = "LBRS", ["Upper Blackrock Spire"] = "UBRS", ["Blackrock Spire"] = "BRS",
   ["Dire Maul"] = "DM", ["Scholomance"] = "Scholo", ["Stratholme"] = "Strat",
 }
+-- (1.4.19) what a battleground result line says after "Won/Lost <bg>": with 2+ of the gang there, the
+-- gang MVP; alone, the MVP would just be you, so your own HKs, honor and time instead
+function ns.BGEndBits(it)
+  local mvp, hk, honor, gangN, dur = tostring(it.d or ""):match("^([^:]*):?(%d*):?(%d*):?(%d*):?(%d*)")
+  hk, honor, gangN, dur = tonumber(hk) or 0, tonumber(honor) or 0, tonumber(gangN), tonumber(dur)
+  local me = it.char and ns.ShortName(it.char) or nil
+  local solo = (gangN and gangN <= 1) or (not gangN and mvp ~= "" and me and mvp == me)
+  local out = {}
+  if solo or not mvp or mvp == "" then
+    if hk > 0 then out[#out + 1] = ns.Plural(hk, "HK") end
+    if honor > 0 then out[#out + 1] = ns.Num(honor) .. " honor" end
+    if dur and dur >= 60 then out[#out + 1] = ns.Duration(dur) end
+  else
+    out[#out + 1] = "MVP " .. mvp .. (hk > 0 and (" (" .. hk .. " HKs)") or "")
+  end
+  return out
+end
+
 function ns.ShortDungeonPlain(name)
   name = tostring(name or "?")
   return SHORT[name] or name
@@ -60,10 +78,10 @@ function ns.SceneLine(it, who)
       return "Trophy", "E0C068", who .. ns.Colorize(" won " .. tostring(it.b) .. " battlegrounds in a row today", C.text2)
     end
     local won = tostring(it.b) == "1"
-    local mvp, hk, honor = tostring(it.d or ""):match("^([^:]*):?(%d*):?(%d*)")
     local line = ns.Colorize(won and "Won " or "Lost ", won and C.green or C.red) .. ns.Colorize(tostring(it.a), C.text)
       .. ((it.c and it.c ~= "") and ns.Colorize(" " .. it.c, C.text2) or "")
-    if mvp and mvp ~= "" then line = line .. ns.Colorize(" · MVP " .. mvp .. ((tonumber(hk) or 0) > 0 and (" (" .. hk .. " HKs)") or ""), C.text2) end
+    local extra = ns.BGEndBits(it)
+    if #extra > 0 then line = line .. ns.Colorize(" · " .. table.concat(extra, " · "), C.text2) end
     return "Trophy", won and "5FD18B" or "F2777A", who .. ns.Colorize(" · ", C.dim) .. line
   elseif it.kind == "BGREV" then
     return "Target", "5FD18B", who .. ns.Colorize(" got Revenge on ", C.text2) .. ns.Colorize(tostring(it.a), C.red)
@@ -219,10 +237,9 @@ function ns.FeedGroupLine(g, kind)
   local head
   if result then
     local won = tostring(result.b) == "1"
-    local mvp, hk = tostring(result.d or ""):match("^([^:]*):?(%d*)")
     head = ns.Colorize(won and "Won " or "Lost ", won and C.green or C.red) .. ns.Colorize(tostring(bg), C.text)
       .. ((result.c and result.c ~= "") and ns.Colorize(" " .. result.c, C.text2) or "")
-    if mvp and mvp ~= "" then bits[#bits + 1] = "MVP " .. mvp .. ((tonumber(hk) or 0) > 0 and (" (" .. hk .. " HKs)") or "") end
+    for _, x in ipairs(ns.BGEndBits(result)) do bits[#bits + 1] = x end
   else
     head = ns.Colorize(tostring(bg), C.text)
   end
