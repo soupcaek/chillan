@@ -10,7 +10,7 @@ local CARDS = {
       { "Mithril Spurs and Riding Skill gloves", "qolMountArmor", "Equips boots with Mithril Spurs and gloves with the Riding Skill enchant while mounted." },
       { "Zone-specific gear", "qolMountZone", "Equips zone-specific speed items while mounted in their zones: Desert Rose (desert zones such as Tanaris, Silithus, Desolace and the Barrens), Wintersaber Hide Lined Gloves (Winterspring) and Rider of the Plaguelands ring and cloak (Eastern and Western Plaguelands)." },
       { "Swim gear while swimming", "qolSwimGear", "Equips Azure Silk Belt and Cloak of Hermitic Bliss while swimming and removes them when you leave the water." },
-      { "Run-speed gear on foot", "qolRunGear", "Keeps Spry Boots and Hyjal Postal Clasp equipped, plus Agamaggan's Clutch and Blessing of Kalimdor in their zones, whenever mount gear does not need the slot. Run-speed gear you equip manually is never removed." },
+      { "Run-speed gear on foot", "qolRunGear", "Keeps Spry Boots and Hyjal Postal Clasp equipped, plus Agamaggan's Clutch and Blessing of Kalimdor in their zones, whenever mount gear does not need the slot. Run-speed gear you equip manually is never removed, and an item you unequip manually stays off until you equip it again." },
       { "Announce swaps in chat", "qolMountMsg", "Prints a short message when mount gear is equipped or removed." },
     } },
   } },

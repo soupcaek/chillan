@@ -204,6 +204,8 @@ local function planItem(plan, rule, item, slot, tslot)
       return s, { rule = rule, worn = true }
     end
   end
+  -- (1.4.23) run-speed gear you took off yourself stays off until you equip it yourself again
+  if rule.when == "foot" and ns.db.qolRunOff and ns.db.qolRunOff[item.item] then return nil end
   local usable, unbound
   for _, c in ipairs(bagCopies(item)) do
     if canEquip(c) then usable = usable or c else unbound = unbound or c end
@@ -260,6 +262,38 @@ end
 local flights = {}
 local function startFlight(slot, want, kind)
   flights[slot] = { want = want, kind = kind, at = GetTime() }
+  Q.lastFlightAt = GetTime()
+end
+
+-- (1.4.23) notice gear changes Chillan didn't make. Taking run-speed gear off by hand (or putting
+-- something else in its slot) switches that item off; equipping it by hand switches it back on.
+local HAND_SLOTS = { 2, 6, 8, 10, 11, 12, 13, 14, 15 }
+local function noteHandChanges()
+  Q.lastSeen = Q.lastSeen or {}
+  local seen = Q.lastSeen
+  local quiet = not next(flights) and GetTime() - (Q.lastFlightAt or 0) > 2
+  ns.db.qolRunOff = ns.db.qolRunOff or {}
+  local off = ns.db.qolRunOff
+  local now = {}
+  for _, slot in ipairs(HAND_SLOTS) do now[slot] = equipped(slot) or false end
+  if quiet then
+    local wornNow = {}
+    for _, slot in ipairs(HAND_SLOTS) do if now[slot] then wornNow[idOf(now[slot])] = true end end
+    for _, slot in ipairs(HAND_SLOTS) do
+      local was, cur = seen[slot], now[slot]
+      if was ~= nil and idOf(was or nil) ~= idOf(cur or nil) then
+        if was and Q.IsRunGear(was) and not wornNow[idOf(was)] then
+          off[idOf(was)] = true
+          log(nameOf(was) .. " taken off by hand: it stays off until you equip it again")
+        end
+        if cur and Q.IsRunGear(cur) and off[idOf(cur)] then
+          off[idOf(cur)] = nil
+          log(nameOf(cur) .. " equipped by hand: run-speed swaps for it are back on")
+        end
+      end
+    end
+  end
+  for _, slot in ipairs(HAND_SLOTS) do seen[slot] = now[slot] end
 end
 
 local function sendEquip(copy, slot)
@@ -317,6 +351,7 @@ end
 function Q:MountTick()
   if Q.stepAside.mount then return end
   checkFlights()
+  noteHandChanges()
   if next(flights) then return end
   local sv = saved()
   if not on("qolMount") then
