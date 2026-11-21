@@ -91,7 +91,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   local box
   local function runSearch()
     local q = box:GetText()
-    local hits, total = ns.Market:Search(q, 6)
+    local hits, total, unnamed = ns.Market:Search(q, 6)
     for i, r in ipairs(results) do
       local h = hits[i]
       r.hit = h
@@ -103,7 +103,10 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
         r:Show()
       else r:Hide() end
     end
-    if #q >= 2 and #hits == 0 then
+    if #q >= 2 and (unnamed or 0) > 0 and #hits < 6 then
+      results.empty:SetText("Loading item names for " .. ns.Num(unnamed) .. " prices – more results appear in a moment.")
+      C_Timer.After(3, function() if tab:IsVisible() and box:GetText() == q then runSearch() end end)
+    elseif #q >= 2 and #hits == 0 then
       results.empty:SetText("No scanned price matches \"" .. q .. "\". Prices appear after someone in the gang scans the auction house.")
     elseif total > #hits then
       results.empty:SetText(total - #hits .. " more matches – type more of the name to narrow it down.")

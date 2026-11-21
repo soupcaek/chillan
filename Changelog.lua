@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.25", date = "22.11", items = { "?price and the Market search now find prices scanned before 1.4.24: Chillan loads the item names first (a minute or two after login) and then answers, instead of saying there is no price" } },
   { v = "1.4.24", date = "21.11", items = {
     "Price search on the Market tab: type part of an item name to see every matching price the gang has scanned, with when and who scanned it",
     "Type ?price followed by an item name (or a shift-clicked item) in gang chat and Chillan posts the price for the whole gang, e.g. \"Price check: Long Elegant Feather 1g 20s (3h ago, Adrian)\"",

@@ -676,6 +676,7 @@ local function nameOf(id)
   if n then return n end
   local got
   if C_Item and C_Item.GetItemNameByID then local ok, x = pcall(C_Item.GetItemNameByID, id) if ok then got = x end end
+  if not got and C_Item and C_Item.GetItemInfo then local ok, x = pcall(C_Item.GetItemInfo, id) if ok then got = x end end
   if not got and GetItemInfo then local ok, x = pcall(GetItemInfo, id) if ok then got = x end end
   if type(got) == "string" and got ~= "" and not ns.isSecret(got) then names()[id] = got return got end
   return nil
@@ -733,8 +734,9 @@ function M:Search(q, max)
   local total = #hits
   while #hits > (max or 8) do table.remove(hits) end
   if unnamed > 0 then warm() end
-  return hits, total
+  return hits, total, unnamed
 end
+function M.Warming() return warming, warmQ and #warmQ or 0 end
 
 local function byName(by)
   if not by or by == "" then return nil end
@@ -747,13 +749,20 @@ M.ByName = byName
 
 -- "?price <name>" in gang chat: the asker's Chillan posts the answer as a feed line for everyone
 local function clean(s) return (tostring(s or ""):gsub("[~;|^]", " ")) end
-function M:PostPrice(q, auto)
-  local hits, total = self:Search(q, 3)
+function M:PostPrice(q, auto, tries)
+  local hits, total, unnamed = self:Search(q, 3)
+  -- (1.4.25) prices from before 1.4.24 (or from friends) have no name stored yet: wait while the
+  -- names load (up to 3 minutes) before saying there's no price
+  if #hits == 0 and unnamed > 0 and (tries or 0) < 36 then
+    if (tries or 0) == 0 then ns.Print("Market: looking up item names for " .. ns.Num(unnamed) .. " prices first – the answer follows shortly.") end
+    C_Timer.After(5, function() M:PostPrice(q, auto, (tries or 0) + 1) end)
+    return
+  end
   local parts = {}
   for _, h in ipairs(hits) do
     -- fields joined with "^" ("~" separates the message's own fields)
     parts[#parts + 1] = h.id .. "^" .. h.v .. "^" .. math.max(0, math.floor((ns.Now() - (h.t or ns.Now())) / 60)) .. "^"
-      .. clean(byName(h.by) or ""):sub(1, 14) .. "^" .. clean(h.name):sub(1, 30)
+      .. clean((h.by == ns.pid and ns.ShortName(ns.Comm:MyFull())) or byName(h.by) or ""):sub(1, 14) .. "^" .. clean(h.name):sub(1, 30)
   end
   ns.Tracker:Event("PRICE", clean(q):sub(1, 40), total, auto and "1" or "", table.concat(parts, ";"))
   if #hits == 0 then
