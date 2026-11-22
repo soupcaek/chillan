@@ -361,7 +361,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
       "Level-ups, deaths and achievements are shown after you leave combat." },
     { "Summary at login", "briefing" },
     { "Level summary on level-up", "levelRecap" },
-    { "Recaps after sessions, dungeons and battlegrounds", "recaps", nil, "A small prompt offers a recap at login and logout (middle of the screen) and when a dungeon, raid or battleground ends (top of the screen)." },
+    { "Recaps after sessions, dungeons and battlegrounds", "recaps", nil, "A small prompt offers a recap of your last session at login, and when a dungeon, raid or battleground ends." },
     { "Alert on @mentions", "mentionSound", nil,
       "Triggers on your display name, character name and @all." },
     { "Sound on new chat messages", "chatSound", nil, "Plays a short sound for new gang chat messages. Muted in combat." },

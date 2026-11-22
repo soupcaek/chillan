@@ -4,8 +4,10 @@ LA, GA, nsA = A; LB, GB, nsB = B
 run(3)
 R = 'ADDON_NS.Recap'
 LA.execute('CANCELLED = 0; CancelLogout = function() error("ADDON_ACTION_BLOCKED") end; ADDON_NS.db.sessRec = { online = 7200 }')
-LA.execute('FIRE("PLAYER_CAMPING")'); run(2)
-print("logout pill:", LA.eval('ChillanRecapPill and ChillanRecapPill:IsShown() and ChillanRecapPill.text:GetText()'))
+LA.execute('ADDON_NS.Pulse.sess.start = ADDON_NS.Now() - 3600'); LA.execute('FIRE("PLAYER_CAMPING")'); run(2)
+print("no pill at logout:", LA.eval('not (ChillanRecapPill and ChillanRecapPill:IsShown())'), "| saved:", LA.eval('ADDON_NS.db.lastRecap ~= nil'))
+LA.execute('ADDON_NS.Recap:Login(nil)'); run(2)
+print("login pill:", LA.eval('ChillanRecapPill and ChillanRecapPill:IsShown() and ChillanRecapPill.text:GetText()'))
 LA.execute(R + ':OpenFromPill()'); run(3)
 print("card:", LA.eval('ChillanRecapCard:IsShown()'), LA.eval('ChillanRecapCard.title:GetText()'), "| cancelled logout:", LA.eval('CANCELLED'))
 print("cells:", LA.eval('(function() local o = {} for _, c in ipairs(ChillanRecapCard.cells) do o[#o+1] = c.v:GetText() .. " " .. c.k:GetText() end return table.concat(o, " | ") end)()'))

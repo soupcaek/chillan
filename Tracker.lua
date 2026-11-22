@@ -907,8 +907,12 @@ end
 ns:On("PLAYER_CAMPING", function()
   Tracker:SaveSession()
   local sum = Tracker:SessionSummary()
-  -- (1.4.28) a pill offers the session recap instead of the big card
-  if not (ns.Recap and ns.db.settings.recaps ~= false and ns.Recap:Logout(sum)) then ns:Fire("SHOW_SUMMARY", sum, false) end
+  -- (1.4.33) with recaps on, nothing pops up at logout: the recap is saved and offered at the next login
+  if ns.Recap and ns.db.settings.recaps ~= false then
+    if ns.Recap.SaveForLogin then pcall(ns.Recap.SaveForLogin) end
+    return
+  end
+  ns:Fire("SHOW_SUMMARY", sum, false)
 end)
 
 ns:On("PLAYER_LOGOUT", function()

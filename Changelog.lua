@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.33", date = "22.11", items = { "No recap prompt at logout any more: the session is saved and offered as \"Show last session recap\" when you log in. Dungeon, raid and battleground recaps are unchanged" } },
   { v = "1.4.32", date = "22.11", items = { "?price posts one line: Chillan first asks the gang for those items and waits a few seconds, so the answer already has the newest price anyone has. A \"Price update\" only appears if a fresher price turns up afterwards, and only once" } },
   { v = "1.4.31", date = "22.11", items = {
     "Market catch-up works both ways: if a friend logs in with a newer scan than yours, your Chillan now asks them for it (before, only the person logging in was caught up)",
