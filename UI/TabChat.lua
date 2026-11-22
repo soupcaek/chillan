@@ -66,7 +66,15 @@ function ns.SceneLine(it, who)
     end
     local bits = {}
     for _, r in ipairs(res) do
-      local name = ns.ItemLink(r.id) or ns.Colorize("[" .. (r.name ~= "" and r.name or ("item " .. r.id)) .. "]", C.text)
+      -- (1.4.30) an item the game hasn't loaded yet still gets a real (clickable) link; the line is
+      -- redrawn in the item's quality colour as soon as the game has it
+      local name = ns.ItemLink(r.id)
+      if not name then
+        name = "|cffffffff|Hitem:" .. r.id .. "::::::::::::::|h[" .. (r.name ~= "" and r.name or ("item " .. r.id)) .. "]|h|r"
+        ns.pendingItemLines = ns.pendingItemLines or {}
+        ns.pendingItemLines[r.id] = true
+        if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, r.id) end
+      end
       bits[#bits + 1] = name .. " " .. ns.Colorize(coins(r.v), C.text)
         .. ns.Colorize(" (" .. ns.Ago((it.t or ns.Now()) - r.ago) .. ((r.by and r.by ~= "") and (", " .. r.by) or "") .. ")", C.dim)
     end

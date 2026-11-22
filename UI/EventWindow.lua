@@ -160,6 +160,26 @@ function E:Add(kind, text, t, item)
   end
 end
 
+-- (1.4.30) price lines written before the game knew an item are redrawn once it does
+ns:On("GET_ITEM_INFO_RECEIVED", function(id, ok)
+  local pend = ns.pendingItemLines
+  if not (pend and id and pend[id]) or ok == false then return end
+  pend[id] = nil
+  if E.redrawPending then return end
+  E.redrawPending = true
+  C_Timer.After(0.3, function()
+    E.redrawPending = nil
+    local changed = false
+    for _, e in ipairs(E.entries or {}) do
+      if e.item and e.item.kind == "PRICE" and ns.FeedShort then
+        local ok2, line = pcall(ns.FeedShort, e.item)
+        if ok2 and line and line ~= e.base then e.base = line e.text = render(e) changed = true end
+      end
+    end
+    if changed then E:Redraw() end
+  end)
+end)
+
 function E:Redraw()
   if not self.msg then return end
   local off = self.msg.GetScrollOffset and self.msg:GetScrollOffset() or 0

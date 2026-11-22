@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.30", date = "22.11", items = {
+    "Price check: items the game hadn't loaded yet showed as white, unclickable text. They are now real item links straight away, and turn to the item's colour as soon as the game has the item",
+    "Session recap rebuilt: the time is the real session (a /reload no longer restarts it), and it shows only what you actually did – reputation, gold, honor, gathering, bosses, mobs or quests, whichever you did most – plus gold per hour against your week's average",
+    "The logout recap is saved and offered at the next login. The session prompt now sits a third of the way down the screen" } },
   { v = "1.4.29", date = "22.11", items = {
     "Recap prompt now has the same size and look as the other popups: icon tile, title, a short teaser line (e.g. \"16/19 bosses · 58m · 3 deaths\") and Show/Close",
     "Fixed an error when pressing Show at logout: the game does not let addons stop the logout countdown, so the recap card now simply opens while it runs (and is offered again at the next login)" } },

@@ -43,8 +43,9 @@ local pill, card
 
 local function place(f, where)
   f:ClearAllPoints()
+  -- (1.4.30) both sit in the upper part of the screen: the session one at a third of the way down
   if where == "top" then f:SetPoint("TOP", UIParent, "TOP", 0, -90)
-  else f:SetPoint("CENTER", UIParent, "CENTER", 0, 120) end
+  else f:SetPoint("TOP", UIParent, "TOP", 0, -math.floor((UIParent:GetHeight() or 768) / 3) + PILL_H / 2) end
 end
 
 -- (1.4.29) the pill looks like the other popups (login, deaths…): 380 × 72, icon tile, small
@@ -351,46 +352,87 @@ local function secs(n)
 end
 local function pct(a, b) if not b or b <= 0 then return 0 end return math.max(0, math.min(1, a / b)) end
 
--- a play session (Tracker summary + Pulse session)
+-- a play session. (1.4.30) Built from the Pulse session (it survives a /reload, so the time is the
+-- real session), and only what you actually did: the three most interesting non-zero numbers next to
+-- the time played, the moments behind them, and gold per hour against your week's average.
 function R.Session(sum, previous)
-  if not sum then return nil end
+  sum = sum or {}
   local P = ns.Pulse
-  local s = P and P.sess or {}
+  local s = (not previous and P and P.sess) or {}
+  local online = (s.start and (ns.Now() - s.start)) or sum.online or 0
   local at60 = (ns.S(UnitLevel, "player") or 0) >= 60
-  local nums = { { ns.Duration(sum.online or 0), "played" } }
-  if at60 and not previous then
-    local hk, honor = P and P.SessionHonor and P:SessionHonor()
-    nums[2] = { tostring(hk or sum.kills or 0), "honorable kills" }
-    nums[3] = { tostring(s.bosses or 0), "bosses" }
-  else
-    nums[2] = { tostring(sum.quests or 0), "quests" }
-    nums[3] = { ((sum.levels or 0) > 0 and "+" or "") .. (sum.levels or 0), (sum.levels == 1) and "level" or "levels" }
+  local earned = s.earned or sum.gold or 0
+  local repTotal, topFac, topN = 0, nil, 0
+  for fac, n in pairs(s.rep or {}) do
+    repTotal = repTotal + n
+    if n > topN then topFac, topN = fac, n end
   end
-  nums[4] = { "+" .. money(sum.gold), "gold earned" }
+  local hk, honor = 0, 0
+  if P and P.SessionHonor then
+    local a, b = P:SessionHonor()
+    hk, honor = a or 0, b or 0
+  end
+  local g = s.gather or {}
+  local xp = 0
+  if ns.Tracker and ns.Tracker.S3Data then
+    local ok, d = pcall(ns.Tracker.S3Data, ns.Tracker)
+    if ok and d then xp = math.floor(d.sessXP or 0) end
+  end
+  -- candidates in order of what's most fun for this character; zeros are skipped
+  local cands = at60 and {
+    { repTotal, function() return "+" .. ns.Num(repTotal), "reputation" end },
+    { earned, function() return "+" .. money(earned), "gold earned" end },
+    { honor, function() return ns.Num(honor), "honor" end },
+    { hk, function() return tostring(hk), "honorable kills" end },
+    { s.bosses or 0, function() return tostring(s.bosses), "bosses" end },
+    { g.n or 0, function() return tostring(g.n), "gathered" end },
+    { s.mobs or 0, function() return ns.Num(s.mobs), "mobs killed" end },
+    { s.quests or 0, function() return tostring(s.quests), "quests" end },
+  } or {
+    { xp, function() return ns.Num(xp), "XP" end },
+    { sum.levels or 0, function() return "+" .. sum.levels, sum.levels == 1 and "level" or "levels" end },
+    { s.quests or sum.quests or 0, function() return tostring(s.quests or sum.quests), "quests" end },
+    { earned, function() return "+" .. money(earned), "gold earned" end },
+    { s.mobs or 0, function() return ns.Num(s.mobs), "mobs killed" end },
+    { g.n or 0, function() return tostring(g.n), "gathered" end },
+    { repTotal, function() return "+" .. ns.Num(repTotal), "reputation" end },
+    { hk, function() return tostring(hk), "honorable kills" end },
+  }
+  local nums = { { ns.Duration(online), "played" } }
+  for _, c in ipairs(cands) do
+    if #nums >= 4 then break end
+    if (c[1] or 0) > 0 then local v, k = c[2]() nums[#nums + 1] = { v, k } end
+  end
   local moments = {}
   local best = sum.best or (not previous and s.best)
   if best and best.link then moments[#moments + 1] = { "Diamond", "Best drop: " .. best.link } end
-  if (sum.kills or 0) > 0 then moments[#moments + 1] = { "Target", ns.Plural(sum.kills, "Alliance kill") } end
-  if (sum.deaths or 0) > 0 then moments[#moments + 1] = { "Skull", ns.Plural(sum.deaths, "death") .. (sum.killer and (" · last to " .. sum.killer) or ""), C.red } end
-  if not previous and P and P.TopRep then
-    local fac, n = P:TopRep()
-    if fac then moments[#moments + 1] = { "Up", "+" .. ns.Num(n) .. " reputation with " .. fac, C.green } end
+  if topFac then
+    local hours = online / 3600
+    moments[#moments + 1] = { "Up", "+" .. ns.Num(topN) .. " " .. topFac .. (hours >= 0.1 and (" (" .. ns.Num(math.floor(topN / hours)) .. "/h)") or ""), C.green }
   end
-  -- against your own longest session
-  ns.db.sessRec = ns.db.sessRec or {}
-  local rec = ns.db.sessRec.online or 0
-  local cmp = rec > 0 and {
-    label = "This session vs your longest (" .. ns.Duration(rec) .. ")",
-    pct = pct(sum.online or 0, rec),
-    text = (sum.online or 0) >= rec and "Your longest session yet" or (math.floor(pct(sum.online or 0, rec) * 100) .. " % of your record"),
-  } or nil
-  local share = "Session recap: " .. ns.Duration(sum.online or 0) .. " · " .. (nums[2][1] .. " " .. nums[2][2]) .. " · " .. (nums[3][1] .. " " .. nums[3][2])
-    .. " · +" .. money(sum.gold) .. ((best and best.link) and (" · best drop " .. best.link) or "")
-  local teaser = ns.Duration(sum.online or 0) .. " · " .. nums[2][1] .. " " .. nums[2][2] .. " · +" .. money(sum.gold)
+  if (g.n or 0) > 0 then moments[#moments + 1] = { "Star", "Gathered " .. ns.Plural(g.n, "item") .. ((g.value or 0) > 0 and (", worth about " .. money(g.value)) or "") } end
+  if hk > 0 then moments[#moments + 1] = { "Target", ns.Plural(hk, "honorable kill") .. ((honor > 0) and (" · " .. ns.Num(honor) .. " honor") or "") } end
+  if (sum.deaths or 0) > 0 then moments[#moments + 1] = { "Skull", ns.Plural(sum.deaths, "death"), C.red } end
+  while #moments > 4 do table.remove(moments) end
+  -- gold per hour against your average this week
+  local cmp
+  local me = ns.Tracker and ns.Tracker.Me and ns.Tracker:Me()
+  local st = me and me.stats or {}
+  local hours = online / 3600
+  if hours >= 0.25 and (st.wOnline or 0) > 3600 and (st.wGold or 0) > 0 then
+    local mine, week = math.floor(earned / hours), math.floor(st.wGold / st.wOnline * 3600)
+    cmp = { label = "Gold per hour vs your week (" .. money(week) .. "/h)", pct = pct(mine, math.max(mine, week)),
+      text = mine >= week and (money(mine) .. "/h – better than your week") or (money(mine) .. "/h – " .. math.floor(pct(mine, week) * 100) .. " % of your week") }
+  end
+  local bits = {}
+  for i = 2, #nums do bits[#bits + 1] = nums[i][1] .. " " .. nums[i][2] end
+  local share = "Session recap: " .. ns.Duration(online) .. (#bits > 0 and (" · " .. table.concat(bits, " · ")) or "")
+    .. ((best and best.link) and (" · best drop " .. best.link) or "")
+  local teaser = ns.Duration(online) .. (#bits > 0 and (" · " .. table.concat(bits, " · ", 1, math.min(2, #bits))) or "")
   return { kind = "session", where = "center", kicker = previous and "Welcome back" or "Session", teaser = teaser,
     prompt = previous and "Show last session recap" or "Show session recap",
     title = previous and "Last session" or "Session recap",
-    sub = ns.ShortName(sum.char or "") .. (previous and sum.at and (" · " .. date("%d.%m %H:%M", sum.at)) or ""),
+    sub = ns.ShortName(sum.char or (ns.Comm and ns.Comm:MyFull()) or "") .. (previous and sum.at and (" · " .. date("%d.%m %H:%M", sum.at)) or ""),
     nums = nums, moments = moments, compare = cmp, share = share }
 end
 
@@ -476,14 +518,27 @@ function R:Logout(sum)
   local r = R.Session(sum, false)
   if not r then return false end
   r.kicker = "Logging out"
-  ns.db.sessRec = ns.db.sessRec or {}
-  if (sum.online or 0) > (ns.db.sessRec.online or 0) then ns.db.sessRec.online = sum.online end
   R:Prompt(r)
   return true
 end
+-- the recap as it stood when you left, offered at the next login
+function R.SaveForLogin()
+  local ok, r = pcall(R.Session, ns.Tracker and ns.Tracker:SessionSummary() or {}, false)
+  if ok and r then
+    r.at = ns.Now()
+    r.title, r.prompt, r.kicker = "Last session", "Show last session recap", "Welcome back"
+    r.sub = (r.sub or "") .. " · " .. date("%d.%m %H:%M")
+    r.id, r.onClose, r.onShow = nil, nil, nil
+    ns.db.lastRecap = r
+  end
+end
+ns:On("PLAYER_LOGOUT", function() if ns.db and ns.Pulse and ns.Pulse.sess and ns.Pulse.sess.start and ns.Now() - ns.Pulse.sess.start >= 300 then R.SaveForLogin() end end)
 
 function R:Login(last)
-  local r = R.Session(last, true)
+  local r = ns.db.lastRecap
+  ns.db.lastRecap = nil
+  if r and r.at and ns.Now() - r.at < 7 * 86400 then R:Prompt(r) return true end
+  r = R.Session(last, true)
   if r then R:Prompt(r) return true end
   return false
 end
