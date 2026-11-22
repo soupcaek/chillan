@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.27", date = "22.11", items = {
+    "Auction house scan is smoother: listings are read in slices instead of all at once, so the game no longer freezes while a big auction house is read",
+    "Between full scans (the game allows one per 15 minutes) the button now does a quick page-by-page scan of the lowest price of every item, instead of saying \"Scan in 12 min\"",
+    "A full scan started by another addon (such as Naowh's Scan Prices) is captured and shared too, and prices of items you browse yourself are kept" } },
   { v = "1.4.26", date = "22.11", items = {
     "Market sharing is much faster: after a scan, all prices go to the gang (not only the ones that changed), packed tighter and on their own message lane – about 40 prices a second instead of 14, without slowing chat",
     "Catching up fixed: friends logging in (or using /chill market sync) now get every price from the newest full scan. Before, one recently hovered item could make Chillan think they were up to date",

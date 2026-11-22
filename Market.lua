@@ -96,11 +96,11 @@ local function itemIdOf(link)
   return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
 end
 
--- turn raw rows ({ id, buyout, count }) into prices, a few hundred rows per frame so the game never stalls
+-- turn raw rows ({ id, buyout, count }) into per-item listing lists (the classic full scan)
 local function digest(rows, done)
   local byId, i = {}, 0
   local function step()
-    local stop = math.min(#rows, i + 400)
+    local stop = math.min(#rows, i + 2000)
     for k = i + 1, stop do
       local r = rows[k]
       if r.id and r.buyout and r.buyout > 0 and (r.count or 0) > 0 then
@@ -109,12 +109,21 @@ local function digest(rows, done)
       end
     end
     i = stop
-    M.status = "Working out prices … " .. math.floor(i / math.max(1, #rows) * 100) .. " %"
-    ns:Fire("MARKET")
     if i < #rows then C_Timer.After(0, step) return end
-    local t, changed, n, all = ns.Now(), {}, 0, {}
-    for id, list in pairs(byId) do
-      local v = M.Value(list)
+    M.storeScan(byId, done)
+  end
+  step()
+end
+-- per-item listing lists → stored prices, a slice of items per frame
+function M.storeScan(byId, done, value)
+  local ids = {}
+  for id in pairs(byId) do ids[#ids + 1] = id end
+  local t, changed, n, all, i = ns.Now(), {}, 0, {}, 0
+  local function step()
+    local stop = math.min(#ids, i + 1500)
+    for k = i + 1, stop do
+      local id = ids[k]
+      local v = value and value(byId[id]) or M.Value(byId[id])
       local ok, old = M:Set(id, v, t, ns.pid)
       if ok then
         n = n + 1
@@ -122,6 +131,8 @@ local function digest(rows, done)
         if not old or math.abs(v - old.v) > old.v * 0.05 then changed[#changed + 1] = id end
       end
     end
+    i = stop
+    if i < #ids then C_Timer.After(0, step) return end
     M.lastAll = all
     M.status = "Scan done: " .. ns.Num(n) .. " prices"
     ns:Fire("MARKET")
@@ -134,12 +145,14 @@ end
 function M:FullScan()
   if not on() then return end
   local can, left = self:CanFull()
+  if self.scanning then return end
   if not can then
+    -- (1.4.27) between full scans: read the auction house page by page instead (lowest price per item)
+    if modern() and C_AuctionHouse.SendBrowseQuery then return self:BrowseScan(left) end
     M.status = "Next full scan in " .. ns.Duration(left)
     ns:Fire("MARKET")
     return
   end
-  if self.scanning then return end
   self.scanning = true
   ns.db.marketFullAt = ns.Now()
   M.status = "Scanning the auction house …"
@@ -149,7 +162,12 @@ function M:FullScan()
     pcall(C_AuctionHouse.ReplicateItems)
     -- the list arrives with REPLICATE_ITEM_LIST_UPDATE (see below); give up after 60 s
     C_Timer.After(60, function()
-      if M.waitReplicate then M.waitReplicate = nil M.scanning = nil M.status = "The auction house didn't answer – try again later" ns:Fire("MARKET") end
+      if M.waitReplicate then
+        M.waitReplicate = nil M.scanning = nil
+        -- no answer to the full scan: read page by page instead
+        if C_AuctionHouse.SendBrowseQuery and M.ahOpen then M:BrowseScan(0) return end
+        M.status = "The auction house didn't answer – try again later" ns:Fire("MARKET")
+      end
     end)
   elseif classic() then
     local okQ, canQ, canAll = pcall(CanSendAuctionQuery)
@@ -179,19 +197,60 @@ local function afterScan(n, changed)
   Comm:Broadcast(Comm:Build("MS", n, #all), 2)
   ns.Cnt("marketScans")
   if #all > 0 then M:Share(all) end
-  ns.Print("Market: " .. ns.Num(n) .. " prices updated – sharing them with the gang (about " .. ns.Duration(math.ceil(#all / 18 * SEND_EVERY) + 5) .. ").")
+  ns.Print("Market: " .. ns.Num(n) .. " prices updated – sharing them with the gang (about " .. ns.Duration(math.max(60, math.ceil(#all / 18 * SEND_EVERY) + 5)) .. ").")
 end
 
-ns:On("REPLICATE_ITEM_LIST_UPDATE", function()
-  if not M.waitReplicate then return end
-  M.waitReplicate = nil
-  local rows = {}
-  local okN, n = pcall(C_AuctionHouse.GetNumReplicateItems)
-  for i = 0, (okN and n or 0) - 1 do
-    local ok, name, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(C_AuctionHouse.GetReplicateItemInfo, i)
-    if ok and id then rows[#rows + 1] = { id = id, buyout = buyout, count = count } M.NoteName(id, name) end
+-- (1.4.27) the replicate list is read in slices of 2000 listings per frame straight into per-item
+-- lists (no copy of every row first), so a 60 000-listing house no longer freezes the game. A full
+-- scan started by another addon (Naowh's Scan Prices, Auctionator…) is captured too, since it
+-- uses the same once-per-15-minutes list
+local READ_SLICE = 2000
+local function readReplicate()
+  local okN, total = pcall(C_AuctionHouse.GetNumReplicateItems)
+  total = okN and total or 0
+  if total == 0 then
+    M.scanning = nil
+    M.status = "The auction house returned no listings – try again in a moment"
+    ns:Fire("MARKET")
+    return
   end
-  digest(rows, afterScan)
+  local byId, i, lastPct = {}, 0, -1
+  local rowsN = 0
+  local function step()
+    local stop = math.min(total, i + READ_SLICE) - 1
+    for k = i, stop do
+      local ok, name, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, id = pcall(C_AuctionHouse.GetReplicateItemInfo, k)
+      if ok and id and buyout and buyout > 0 and count and count > 0 then
+        local list = byId[id]
+        if not list then list = {} byId[id] = list M.NoteName(id, name) end
+        list[#list + 1] = { unit = buyout / count, n = count }
+        rowsN = rowsN + 1
+      end
+    end
+    i = stop + 1
+    local pct = math.floor(i / total * 100)
+    if pct >= lastPct + 10 then
+      lastPct = pct
+      M.status = "Reading listings … " .. pct .. " %"
+      ns:Fire("MARKET")
+    end
+    if i < total then C_Timer.After(0, step) return end
+    M.storeScan(byId, afterScan)
+  end
+  step()
+end
+ns:On("REPLICATE_ITEM_LIST_UPDATE", function()
+  if M.waitReplicate then
+    M.waitReplicate = nil
+    readReplicate()
+  elseif M.ahOpen and on() and not M.scanning then
+    -- someone else's full scan: same data, same 15-minute cooldown
+    M.scanning = true
+    ns.db.marketFullAt = ns.Now()
+    M.status = "Capturing a full scan from another addon …"
+    ns:Fire("MARKET")
+    readReplicate()
+  end
 end)
 
 -- classic list results: a full scan, or one of our quick bag checks
@@ -677,6 +736,111 @@ function M:HookTooltips()
 end
 
 ---------------------------------------------------------------------------
+-- (1.4.27) page-by-page scan, for the 15 minutes between full scans: one browse of every item,
+-- asking for more until the game says it has sent everything. Each item's lowest price is kept.
+---------------------------------------------------------------------------
+local BROWSE_EVENTS = { "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED", "AUCTION_HOUSE_BROWSE_RESULTS_ADDED",
+  "AUCTION_HOUSE_BROWSE_FAILURE", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }
+local browse = nil   -- { sent, gen }
+local browseGen = 0
+local function browseQuery()
+  local F = Enum and Enum.AuctionHouseFilter
+  local O = Enum and Enum.AuctionHouseSortOrder
+  if not (F and O) then return nil end
+  return { searchString = "",
+    sorts = { { sortOrder = O.Price, reverseSort = false }, { sortOrder = O.Name, reverseSort = false } },
+    filters = { F.PoorQuality, F.CommonQuality, F.UncommonQuality, F.RareQuality, F.EpicQuality, F.LegendaryQuality } }
+end
+local function browseStop(msg)
+  browse = nil
+  browseGen = browseGen + 1
+  M.scanning = nil
+  if msg then M.status = msg end
+  ns:Fire("MARKET")
+end
+local function browseAsk()
+  if not browse then return end
+  local gen = browseGen
+  C_Timer.After(30, function() if browse and gen == browseGen then browseStop("Scan stopped: no answer from the auction house") end end)
+  local okR, ready = pcall(C_AuctionHouse.IsThrottledMessageSystemReady)
+  if okR and ready == false then browse.waiting = true return end
+  browse.waiting = nil
+  if browse.sent then pcall(C_AuctionHouse.RequestMoreBrowseResults) return end
+  local q = browseQuery()
+  if not q then browseStop("This auction house can't be scanned page by page") return end
+  browse.sent, browse.sending = true, true
+  pcall(C_AuctionHouse.SendBrowseQuery, q)
+  browse.sending = nil
+end
+local function browseRows(rows)
+  local byId = {}
+  for _, r in ipairs(rows or {}) do
+    local key = r.itemKey
+    local id, price = key and key.itemID, r.minPrice
+    if id and price and price > 0 and (key.itemSuffix or 0) == 0 then byId[id] = { { unit = price, n = 1 } } end
+  end
+  return byId
+end
+function M:BrowseScan(left)
+  if self.scanning then return end
+  self.scanning = true
+  browse = { at = ns.Now() }
+  M.status = "Scanning page by page" .. ((left or 0) > 0 and (" (full scan free in " .. math.ceil(left / 60) .. " min)") or "") .. " …"
+  ns:Fire("MARKET")
+  browseAsk()
+end
+for _, ev in ipairs(BROWSE_EVENTS) do
+  ns:On(ev, function(added)
+    if ev == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
+      if browse and browse.waiting then browseAsk() end
+      return
+    end
+    if ev == "AUCTION_HOUSE_BROWSE_FAILURE" then
+      if browse then browseStop("Scan stopped: the auction house refused the search") end
+      return
+    end
+    if browse and not browse.sending and browse.sent then
+      local okF, full = pcall(C_AuctionHouse.HasFullBrowseResults)
+      if okF and full then
+        local okR, rows = pcall(C_AuctionHouse.GetBrowseResults)
+        browse = nil
+        browseGen = browseGen + 1
+        M.status = "Working out prices …"
+        ns:Fire("MARKET")
+        M.storeScan(browseRows(okR and rows or {}), afterScan, function(list) return math.floor(list[1].unit) end)
+        return
+      end
+      local okR, rows = pcall(C_AuctionHouse.GetBrowseResults)
+      M.status = "Scanning page by page … " .. ns.Num(okR and rows and #rows or 0) .. " items"
+      ns:Fire("MARKET")
+      browseAsk()
+      return
+    end
+    -- passive: the lowest prices of whatever you browse yourself are kept too (a newer price wins)
+    if not browse and M.ahOpen and on() and ev ~= "AUCTION_HOUSE_BROWSE_FAILURE" then
+      local okR, rows = pcall(C_AuctionHouse.GetBrowseResults)
+      if okR and rows and #rows > 0 and #rows <= 500 then
+        local t, n = ns.Now(), 0
+        for id, list in pairs(browseRows(rows)) do
+          local e = db()[id]
+          -- only a fresher look than a scan from the last 10 minutes
+          if not e or ns.Now() - (e.t or 0) > 600 then
+            if M:Set(id, math.floor(list[1].unit), t, ns.pid) then n = n + 1 end
+          end
+        end
+        if n > 0 then ns:Fire("MARKET") end
+      end
+    end
+  end)
+end
+-- another addon's search replaces our page-by-page scan
+if C_AuctionHouse and hooksecurefunc then
+  pcall(hooksecurefunc, C_AuctionHouse, "SendBrowseQuery", function()
+    if browse and not browse.sending then browseStop("Scan stopped: another search took its place") end
+  end)
+end
+
+---------------------------------------------------------------------------
 -- the button on the auction house
 ---------------------------------------------------------------------------
 function M:AttachButton()
@@ -686,7 +850,7 @@ function M:AttachButton()
   if not self.button then
     local b = UI.Button(UIParent, 120, 24, "Chillan? scan", "secondary", function() M:FullScan() end)
     b:SetFrameStrata("HIGH")
-    b.tooltip = "Scan the whole auction house (the game allows this once every 15 minutes). Prices go to your tooltips and to the gang."
+    b.tooltip = "Scans the whole auction house. The game allows a full scan once every 15 minutes; in between, a quick scan reads the lowest price of every item page by page. Prices are added to tooltips and shared with the gang."
     b.status = UI.Text(b, 11, nil, C.muted)
     b.status:SetPoint("RIGHT", b, "LEFT", -8, 0)
     b.status:SetJustifyH("RIGHT")
@@ -710,7 +874,7 @@ function M:PaintButton()
   local b = self.button
   if not b then return end
   local can, left = self:CanFull()
-  b:SetLabel(self.scanning and "Scanning …" or (can and "Chillan? scan" or ("Scan in " .. math.ceil(left / 60) .. " min")))
+  b:SetLabel(self.scanning and "Scanning …" or (can and "Chillan? scan" or "Quick scan"))
   local s = M.status ~= "" and M.status or (ns.Num(self:Count()) .. " prices" .. (M.heardFrom and (" · last from " .. M.heardFrom) or ""))
   b.status:SetText(s)
 end
@@ -726,8 +890,10 @@ local function opened()
   C_Timer.After(0.3, function() M:AttachButton() end)
   if classic() and not modern() then C_Timer.After(1.5, function() M:BagCheck() end) end
 end
-ns:On("AUCTION_HOUSE_SHOW", opened)
+ns:On("AUCTION_HOUSE_SHOW", function() M.ahOpen = true opened() end)
 ns:On("AUCTION_HOUSE_CLOSED", function()
+  M.ahOpen = nil
+  if browse then browseStop("Scan stopped: the auction house closed") end
   M.bagChecking = nil
   bagQueue = {}
   if M.button then M.button:Hide() end
