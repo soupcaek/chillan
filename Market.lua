@@ -604,8 +604,15 @@ end)
 
 -- (1.4.31) a friend's ?price answer from an older price than ours: send them (and the gang) our
 -- fresher prices for those items, and post the newer answer
+local priceSeen = {}   -- (1.4.32) one look per answer line, and one correction per question
 ns:Listen("FEEDEVENT", function(_, item)
-  if not (item and item.kind == "PRICE" and on()) or item.pid == ns.pid then return end
+  if not (item and item.kind == "PRICE" and on()) then return end
+  local key = tostring(item.a or ""):lower()
+  if item.c == "1" then priceSeen["upd:" .. key] = ns.Now() end   -- someone already posted an update
+  if item.pid == ns.pid then return end
+  local id = (item.pid or "") .. ":" .. tostring(item.t or "") .. ":" .. key
+  if priceSeen[id] then return end
+  priceSeen[id] = true
   local res = M.ParsePrice(item.d)
   local fresher, ids = false, {}
   for _, r in ipairs(res) do
@@ -615,7 +622,12 @@ ns:Listen("FEEDEVENT", function(_, item)
   if not fresher then return end
   C_Timer.After(1 + math.random() * 2, function()
     queueIds(ids, nil, true)
-    if item.a and item.a ~= "" then M:PostPrice(item.a, true) end
+    -- post an update only if nobody else has in the last minute
+    local u = priceSeen["upd:" .. key]
+    if item.a and item.a ~= "" and not (u and ns.Now() - u < 60) and #M:Search(item.a, 1) > 0 then
+      priceSeen["upd:" .. key] = ns.Now()
+      M:PostPrice(item.a, true)
+    end
   end)
 end)
 
@@ -1052,8 +1064,17 @@ M.ByName = byName
 
 -- "?price <name>" in gang chat: the asker's Chillan posts the answer as a feed line for everyone
 local function clean(s) return (tostring(s or ""):gsub("[~;|^]", " ")) end
-function M:PostPrice(q, auto, tries)
+function M:PostPrice(q, auto, tries, checked)
   local hits, total, unnamed = self:Search(q, 3)
+  -- (1.4.32) before answering, ask the gang for those items and wait a moment, so the one line we
+  -- post already has the newest price anyone has (instead of a second "Price update" line later)
+  if not auto and not checked and #hits > 0 then
+    local ids = {}
+    for _, h in ipairs(hits) do ids[#ids + 1] = b36(h.id) end
+    Comm:Broadcast(Comm:Build("MI", table.concat(ids, ",")), 1)
+    C_Timer.After(4, function() M:PostPrice(q, auto, tries, true) end)
+    return
+  end
   -- (1.4.25) prices from before 1.4.24 (or from friends) have no name stored yet: wait while the
   -- names load (up to 3 minutes) before saying there's no price
   if #hits == 0 and unnamed > 0 and (tries or 0) < 36 then
