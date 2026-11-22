@@ -9,7 +9,7 @@ local UI, C = ns.UI, ns.C
 local R = {}
 ns.Recap = R
 
-local PILL_W, PILL_H = 380, 44
+local PILL_W, PILL_H = 380, 72
 local CARD_W = 420
 local IGNORE_SECS = 20
 local hex = ns.hex
@@ -47,6 +47,8 @@ local function place(f, where)
   else f:SetPoint("CENTER", UIParent, "CENTER", 0, 120) end
 end
 
+-- (1.4.29) the pill looks like the other popups (login, deaths…): 380 × 72, icon tile, small
+-- kicker, title and a line of text, with Show and Close on the right
 local function makePill()
   local f = CreateFrame("Frame", "ChillanRecapPill", UIParent)
   f:SetSize(PILL_W, PILL_H)
@@ -56,20 +58,31 @@ local function makePill()
   f.panel = UI.OverlayPanel(f, C.window, C.activeLine, false)
   f.panel:SetAllPoints()
   f.panel:SetFrameLevel(f:GetFrameLevel())
-  f.ring = UI.Panel(f, C.card, C.gold, true)
-  f.ring:SetSize(26, 26)
-  f.ring:SetPoint("LEFT", 12, 0)
-  f.icon = UI.Icon(f.ring, "Star", 14, C.gold)
+  f.tile = UI.Panel(f, C.active, nil, false)
+  f.tile:SetSize(44, 44)
+  f.tile:SetPoint("LEFT", 14, 0)
+  f.icon = UI.Icon(f.tile, "Star", 22, C.gold)
   f.icon:SetPoint("CENTER")
-  f.text = UI.Text(f, 13, "semi", C.text)
-  f.text:SetPoint("LEFT", f.ring, "RIGHT", 10, 0)
-  f.close = UI.Button(f, 64, 28, "Close", "secondary", function() R:ClosePill(true) end)
-  f.close:SetPoint("RIGHT", -8, 0)
-  f.show = UI.Button(f, 64, 28, "Show", "primary", function() R:OpenFromPill() end)
+  f.edge = f:CreateTexture(nil, "OVERLAY")
+  f.edge:SetWidth(3)
+  f.edge:SetPoint("TOPLEFT", 0, 0)
+  f.edge:SetPoint("BOTTOMLEFT", 0, 0)
+  UI.Track(f.edge):SetColorTexture(hex(C.gold))
+  f.kind = UI.Text(f, 10, "semi", C.dim)
+  f.kind:SetPoint("TOPLEFT", f.tile, "TOPRIGHT", 14, -1)
+  f.text = UI.Text(f, 15, "semi", C.text)
+  f.text:SetPoint("LEFT", f.tile, "RIGHT", 14, 1)
+  f.sub = UI.Text(f, 12, nil, C.muted)
+  f.sub:SetPoint("BOTTOMLEFT", f.tile, "BOTTOMRIGHT", 14, 1)
+  f.close = UI.Button(f, 58, 28, "Close", "secondary", function() R:ClosePill(true) end)
+  f.close:SetPoint("RIGHT", -12, 0)
+  f.show = UI.Button(f, 58, 28, "Show", "primary", function() R:OpenFromPill() end)
   f.show:SetPoint("RIGHT", f.close, "LEFT", -6, 0)
-  f.text:SetPoint("RIGHT", f.show, "LEFT", -8, 0)
-  f.text:SetJustifyH("LEFT")
-  f.text:SetWordWrap(false)
+  for _, fs in ipairs({ f.kind, f.text, f.sub }) do
+    fs:SetPoint("RIGHT", f.show, "LEFT", -8, 0)
+    fs:SetJustifyH("LEFT")
+    fs:SetWordWrap(false)
+  end
   return f
 end
 
@@ -88,7 +101,9 @@ end
 function R:ShowPill(recap)
   pill = pill or makePill()
   pill.recap = recap
+  pill.kind:SetText((recap.kicker or "RECAP"):upper())
   pill.text:SetText(recap.prompt)
+  pill.sub:SetText(recap.teaser or recap.title or "")
   place(pill, recap.where)
   pill:SetAlpha(0)
   pill:SetScale(0.3)
@@ -371,7 +386,8 @@ function R.Session(sum, previous)
   } or nil
   local share = "Session recap: " .. ns.Duration(sum.online or 0) .. " · " .. (nums[2][1] .. " " .. nums[2][2]) .. " · " .. (nums[3][1] .. " " .. nums[3][2])
     .. " · +" .. money(sum.gold) .. ((best and best.link) and (" · best drop " .. best.link) or "")
-  return { kind = "session", where = "center",
+  local teaser = ns.Duration(sum.online or 0) .. " · " .. nums[2][1] .. " " .. nums[2][2] .. " · +" .. money(sum.gold)
+  return { kind = "session", where = "center", kicker = previous and "Welcome back" or "Session", teaser = teaser,
     prompt = previous and "Show last session recap" or "Show session recap",
     title = previous and "Last session" or "Session recap",
     sub = ns.ShortName(sum.char or "") .. (previous and sum.at and (" · " .. date("%d.%m %H:%M", sum.at)) or ""),
@@ -404,7 +420,8 @@ function R.Run(x)
   local name = x.name or "Dungeon"
   local share = (x.raid and "Raid" or "Dungeon") .. " recap: " .. name .. " · " .. nums[2][1] .. " bosses · " .. ns.Duration(x.dur or 0)
     .. " · " .. ns.Plural(x.deaths or 0, "death") .. ((x.drop) and (" · best drop " .. x.drop) or "")
-  return { kind = "run", where = "top", prompt = "Show " .. (x.raid and "raid" or "dungeon") .. " recap",
+  local teaser = nums[2][1] .. " bosses · " .. nums[1][1] .. " · " .. ns.Plural(x.deaths or 0, "death")
+  return { kind = "run", where = "top", kicker = (x.raid and "Raid" or "Dungeon") .. " complete", teaser = (x.name or "") .. " · " .. teaser, prompt = "Show " .. (x.raid and "raid" or "dungeon") .. " recap",
     title = name, sub = (x.raid and "Raid" or "Dungeon") .. ((x.total and x.bosses and x.bosses >= x.total) and " · full clear" or ""),
     nums = nums, moments = moments, compare = cmp, share = share }
 end
@@ -440,7 +457,7 @@ function R.BG(x)
   local result = (x.won == true and "Won" or x.won == false and "Lost" or "Ended") .. score
   local share = "Battleground recap: " .. result .. " " .. (x.name or "") .. " · " .. ns.Plural(me.hk or 0, "HK") .. " · " .. ns.Plural(me.deaths or 0, "death")
     .. " · +" .. ns.Num(x.honor or 0) .. " honor"
-  return { kind = "bg", where = "top", prompt = "Show battleground recap",
+  return { kind = "bg", where = "top", kicker = "Battleground", teaser = (x.name or "") .. " · " .. result .. " · " .. ns.Plural(me.hk or 0, "HK"), prompt = "Show battleground recap",
     title = (x.name or "Battleground") .. " · " .. result, sub = x.dur and ns.Duration(x.dur) or "",
     nums = nums, moments = moments, compare = cmp, share = share }
 end
@@ -453,13 +470,12 @@ function R:Init()
   ns:Listen("BG_CARD", function(x) local r = R.BG(x) if r then C_Timer.After(1, function() R:Prompt(r) end) end end)
 end
 
--- logout: the countdown is short, so Show pauses it (the card offers "Log out" to carry on)
+-- logout: the game doesn't let an addon stop the logout countdown (CancelLogout is protected), so
+-- the card simply opens while the countdown runs; the same recap is offered again at the next login
 function R:Logout(sum)
   local r = R.Session(sum, false)
   if not r then return false end
-  r.onShow = function() if CancelLogout then pcall(CancelLogout) end end
-  r.extra = { label = "Log out", fn = function() R:CloseCard() if Logout then pcall(Logout) end end }
-  -- remember the longest session after the comparison is built
+  r.kicker = "Logging out"
   ns.db.sessRec = ns.db.sessRec or {}
   if (sum.online or 0) > (ns.db.sessRec.online or 0) then ns.db.sessRec.online = sum.online end
   R:Prompt(r)

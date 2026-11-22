@@ -3,7 +3,7 @@ exec(open("sim_v09.py").read().split("# reaksjon-linje")[0])
 LA, GA, nsA = A; LB, GB, nsB = B
 run(3)
 R = 'ADDON_NS.Recap'
-LA.execute('CANCELLED = 0; CancelLogout = function() CANCELLED = CANCELLED + 1 end; ADDON_NS.db.sessRec = { online = 7200 }')
+LA.execute('CANCELLED = 0; CancelLogout = function() error("ADDON_ACTION_BLOCKED") end; ADDON_NS.db.sessRec = { online = 7200 }')
 LA.execute('FIRE("PLAYER_CAMPING")'); run(2)
 print("logout pill:", LA.eval('ChillanRecapPill and ChillanRecapPill:IsShown() and ChillanRecapPill.text:GetText()'))
 LA.execute(R + ':OpenFromPill()'); run(3)

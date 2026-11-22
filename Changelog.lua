@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.29", date = "22.11", items = {
+    "Recap prompt now has the same size and look as the other popups: icon tile, title, a short teaser line (e.g. \"16/19 bosses · 58m · 3 deaths\") and Show/Close",
+    "Fixed an error when pressing Show at logout: the game does not let addons stop the logout countdown, so the recap card now simply opens while it runs (and is offered again at the next login)" } },
   { v = "1.4.28", date = "22.11", items = {
     "Recaps: a small prompt grows out of the screen with \"Show recap\" and \"Close\". Show grows it into a card with four headline numbers that count up, the best moments, a bar against the gang's (or your own) best, and Share to gang",
     "At logout and login the prompt appears in the middle of the screen, replacing the big summary card. At logout, Show pauses the countdown and the card has a Log out button",
