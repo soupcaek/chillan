@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.31", date = "22.11", items = {
+    "Market catch-up works both ways: if a friend logs in with a newer scan than yours, your Chillan now asks them for it (before, only the person logging in was caught up)",
+    "Every 20 minutes Chillan quietly checks whether anyone online has a newer scan, so friends who were online all along also get each other's prices",
+    "A ?price answer from an old price is corrected: whoever has a fresher price sends it and posts a \"Price update\" line" } },
   { v = "1.4.30", date = "22.11", items = {
     "Price check: items the game hadn't loaded yet showed as white, unclickable text. They are now real item links straight away, and turn to the item's colour as soon as the game has the item",
     "Session recap rebuilt: the time is the real session (a /reload no longer restarts it), and it shows only what you actually did – reputation, gold, honor, gathering, bosses, mobs or quests, whichever you did most – plus gold per hour against your week's average",

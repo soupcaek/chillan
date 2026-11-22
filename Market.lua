@@ -509,7 +509,19 @@ Comm:Handle("MQ", function(f, sender)
   if not on() or ns.db.settings.marketShare == false then return end
   local theirs = tonumber(f[1]) or 0
   local mine = M:FullT()
-  if mine <= theirs + 300 or Comm:IsMe(sender) then return end
+  if Comm:IsMe(sender) then return end
+  -- (1.4.31) their scan is newer than ours: ask them back (catch-up used to happen only at our login,
+  -- so a friend who came online after us never sent their scan)
+  if theirs > mine + 300 then
+    M.askedBack = M.askedBack or {}
+    local k = ns.ShortName(sender or "")
+    if not M.askedBack[k] or ns.Now() - M.askedBack[k] > 600 then
+      M.askedBack[k] = ns.Now()
+      C_Timer.After(1 + math.random() * 2, function() Comm:SendTo(sender, Comm:Build("MQ", M:FullT()), 2) end)
+    end
+    return
+  end
+  if mine <= theirs + 300 then return end
   local req = ns.ShortName(sender or "")
   M.answering = M.answering or {}
   -- (1.3.11) the newer your prices, the sooner you answer; someone with older prices never stops you
@@ -582,6 +594,28 @@ ns:On("PLAYER_LOGIN", function()
     if not on() or not ns.db then return end
     M:Prune()
     Comm:Broadcast(Comm:Build("MQ", M:FullT()), 3)
+  end)
+  -- (1.4.31) and every 20 minutes: one tiny message, so friends who were online all along still
+  -- catch up on each other's scans
+  C_Timer.NewTicker(1200, function()
+    if on() and ns.db and not M.scanning then Comm:Broadcast(Comm:Build("MQ", M:FullT()), 3) end
+  end)
+end)
+
+-- (1.4.31) a friend's ?price answer from an older price than ours: send them (and the gang) our
+-- fresher prices for those items, and post the newer answer
+ns:Listen("FEEDEVENT", function(_, item)
+  if not (item and item.kind == "PRICE" and on()) or item.pid == ns.pid then return end
+  local res = M.ParsePrice(item.d)
+  local fresher, ids = false, {}
+  for _, r in ipairs(res) do
+    local e = db()[r.id]
+    if e and (e.t or 0) > ns.Now() - (r.ago or 0) + 1800 then fresher = true ids[#ids + 1] = r.id end
+  end
+  if not fresher then return end
+  C_Timer.After(1 + math.random() * 2, function()
+    queueIds(ids, nil, true)
+    if item.a and item.a ~= "" then M:PostPrice(item.a, true) end
   end)
 end)
 
