@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.28", date = "22.11", items = {
+    "Recaps: a small prompt grows out of the screen with \"Show recap\" and \"Close\". Show grows it into a card with four headline numbers that count up, the best moments, a bar against the gang's (or your own) best, and Share to gang",
+    "At logout and login the prompt appears in the middle of the screen, replacing the big summary card. At logout, Show pauses the countdown and the card has a Log out button",
+    "When a dungeon, raid or battleground ends, the prompt appears at the top of the screen: time inside, bosses, deaths, loot value, fastest boss, best drop, gang record, or HKs, killing blows, honor, flags and streaks",
+    "Ignored for 20 seconds, the prompt slides away and a \"recap ready · [Show]\" line stays in the feed. Can be turned off in Settings › Quiet" } },
   { v = "1.4.27", date = "22.11", items = {
     "Auction house scan is smoother: listings are read in slices instead of all at once, so the game no longer freezes while a big auction house is read",
     "Between full scans (the game allows one per 15 minutes) the button now does a quick page-by-page scan of the lowest price of every item, instead of saying \"Scan in 12 min\"",

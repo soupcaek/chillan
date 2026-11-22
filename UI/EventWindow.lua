@@ -385,6 +385,10 @@ function E:Create()
       ns.ItemLinkClick(link, text, button)
       return
     end
+    if type(link) == "string" and link:find("^chillanrecap:") then
+      if ns.Recap then ns.Recap:Open(tonumber(link:match("^chillanrecap:(%d+)"))) end
+      return
+    end
     if type(link) == "string" and link:find("^chillanreact:") then
       local item = ns.Data.FindFeed and ns.Data:FindFeed(link:match("^chillanreact:(.+)$"))
       if not item then return end

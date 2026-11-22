@@ -682,6 +682,9 @@ local function noteDrop(link)
   if not b or q > b.q or (q == b.q and v > (b.v or 0)) then
     ns.db.bestDrop = { wk = ns.WeekKey(), id = id, q = q, v = v, link = link }
   end
+  -- (1.4.28) and the best of this session, for the session recap
+  local sb = P.sess and P.sess.best
+  if P.sess and (not sb or q > (sb.q or 0) or (q == sb.q and v > (sb.v or 0))) then P.sess.best = { q = q, v = v, link = link } end
 end
 ns:On("CHAT_MSG_LOOT", function(msg)
   if type(msg) ~= "string" or ns.isSecret(msg) then return end

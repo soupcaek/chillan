@@ -541,6 +541,7 @@ function Tracker:SessionSummary()
     char = ns.Comm:MyFull(), at = ns.Now(), online = played,
     levels = math.max(0, (ns.S(UnitLevel, "player") or session.startLevel or 1) - (session.startLevel or 1)),
     quests = session.quests, gold = session.gold, deaths = session.deaths, kills = session.kills,
+    best = ns.Pulse and ns.Pulse.sess and ns.Pulse.sess.best or nil,
   }
 end
 
@@ -905,7 +906,9 @@ end
 
 ns:On("PLAYER_CAMPING", function()
   Tracker:SaveSession()
-  ns:Fire("SHOW_SUMMARY", Tracker:SessionSummary(), false)
+  local sum = Tracker:SessionSummary()
+  -- (1.4.28) a pill offers the session recap instead of the big card
+  if not (ns.Recap and ns.db.settings.recaps ~= false and ns.Recap:Logout(sum)) then ns:Fire("SHOW_SUMMARY", sum, false) end
 end)
 
 ns:On("PLAYER_LOGOUT", function()

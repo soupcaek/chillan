@@ -17,6 +17,7 @@ ns:On("PLAYER_LOGIN", function()
   ns.Overlays:Init()
   ns.PersonCard:Init()
   ns.EventWindow:Init()
+  ns.Recap:Init()
   ns.Tiles:Init()
   ns.Overlays:UpdateMinibar()
   ns.MapPins:Init()
@@ -63,7 +64,8 @@ ns:On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
       local last = ns.db.lastSession
       if last and not ns.db.lastSessionShown and (last.online or 0) >= 300 then
         ns.db.lastSessionShown = true
-        ns:Fire("SHOW_SUMMARY", last, true)
+        -- (1.4.28) a pill offers the recap instead of the big card
+        if not (ns.Recap and ns.db.settings.recaps ~= false and ns.Recap:Login(last)) then ns:Fire("SHOW_SUMMARY", last, true) end
       end
     end)
     C_Timer.After(12, function()
