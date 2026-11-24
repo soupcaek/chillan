@@ -528,7 +528,9 @@ function P:ReadBoard()
     if not ok and GetBattlefieldScore then ok, name, kb, hk, deaths, honor = pcall(GetBattlefieldScore, i) end
     if ok and type(name) == "string" and not ns.isSecret(name) then
       local short = ns.ShortName(name)
-      local row = { name = short, kb = tonumber(kb) or 0, hk = tonumber(hk) or 0, deaths = tonumber(deaths) or 0, honor = tonumber(honor) or 0 }
+      -- (1.4.47) the scoreboard's numbers can be secret values in WoW Forever: those count as unknown (0)
+      local function num(v) if type(v) == "number" and not ns.isSecret(v) then return v end return 0 end
+      local row = { name = short, kb = num(kb), hk = num(hk), deaths = num(deaths), honor = num(honor) }
       if short == me then b.me = row end
       local pid = byName[short]
       if pid then row.pid = pid gang[#gang + 1] = row end
@@ -1075,6 +1077,59 @@ function P.SharePvP()
     end
   end
   if #parts > 0 then ns.Comm:Broadcast(ns.Comm:Build("PV", ns.pid, table.concat(parts, ";")), 3) end
+  -- (1.4.47) the full page for today, the week and all time, so the gang can open yours on their PvP tab.
+  -- key:played:won:cur:best:honorH:honorPer:hk10:bestHK:avgDur:totalDur:reaction:winsLeft:repPct
+  for _, range in ipairs({ "all", "week", "today" }) do
+    local stR = P.PvPStats(range)
+    local full = {}
+    for _, d in ipairs(P.BG_KEYS) do
+      local x = stR[d.key]
+      local rep = P.RepForKey(d.key) or {}
+      if (x and x.played > 0) or rep.reaction then
+        x = x or { played = 0, won = 0, cur = 0, best = 0, honorPer = 0, hkPer = 0, bestHK = 0, avgDur = 0, totalDur = 0 }
+        full[#full + 1] = table.concat({ d.key, x.played, x.won, x.cur, x.best, x.honorH or 0, x.honorPer, math.floor(x.hkPer * 10),
+          x.bestHK, x.avgDur, x.totalDur, rep.reaction or 0, rep.winsLeft or "", rep.pct and math.floor(rep.pct * 100) or 0 }, ":")
+      end
+    end
+    -- one message per battleground (a message holds about 250 characters)
+    for _, part in ipairs(full) do ns.Comm:Broadcast(ns.Comm:Build("PW", ns.pid, range, date("%Y-%m-%d"), part), 3) end
+  end
+end
+-- what a friend sent: p.pvpFull = { at, day, today = {…}, week = {…}, all = {…} }
+ns.Comm:Handle("PW", function(f, sender)
+  if ns.Comm:IsMe(sender) or not f[1] or f[1] == ns.pid then return end
+  local p = ns:GetPerson(f[1], true)
+  p.pvpFull = p.pvpFull or {}
+  local range = f[2] or "all"
+  -- a new day: yesterday's "today" is gone
+  if range == "today" and p.pvpFull.day ~= f[3] then p.pvpFull.today = {} end
+  local t = p.pvpFull[range] or {}
+  for part in tostring(f[4] or ""):gmatch("[^;]+") do
+    local v = {}
+    for x in (part .. ":"):gmatch("([^:]*):") do v[#v + 1] = x end
+    local n = function(i) return tonumber(v[i]) end
+    if v[1] and v[1] ~= "" then
+      t[v[1]] = { played = n(2) or 0, won = n(3) or 0, cur = n(4) or 0, best = n(5) or 0, honorH = (n(6) or 0) > 0 and n(6) or nil,
+        honorPer = n(7) or 0, hkPer = (n(8) or 0) / 10, bestHK = n(9) or 0, avgDur = n(10) or 0, totalDur = n(11) or 0,
+        reaction = n(12), winsLeft = n(13), repPct = (n(14) or 0) / 100 }
+      local x = t[v[1]]
+      x.rate = x.played > 0 and x.won / x.played or 0
+    end
+  end
+  p.pvpFull[range] = t
+  p.pvpFull.at = now()
+  if f[2] == "today" then p.pvpFull.day = f[3] end
+  ns:Fire("PVP")
+end)
+-- someone opened the page and wants fresh numbers: answer at most once a minute
+local lastPVQ = 0
+ns.Comm:Handle("PVQ", function(f, sender)
+  if ns.Comm:IsMe(sender) or now() - lastPVQ < 60 then return end
+  lastPVQ = now()
+  C_Timer.After(1 + math.random() * 3, P.SharePvP)
+end)
+function P.AskPvP()
+  if ns.Comm then ns.Comm:Broadcast(ns.Comm:Build("PVQ"), 3) end
 end
 ns.Comm:Handle("PV", function(f, sender)
   if ns.Comm:IsMe(sender) or not f[1] or f[1] == ns.pid then return end

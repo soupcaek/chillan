@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.47", date = "24.11", items = {
+    "PvP tab: pick anyone in the gang from the button next to the title to see their whole PvP page – record, streaks, honor, HKs, time and reputation per battleground, for today, the week or all time. Each friend's page is sent when they finish a battleground and when they log in, and kept on your PC, so you can open it while they're offline (it says how old it is). Opening the list asks whoever is online for fresh numbers",
+    "Fixed errors in battlegrounds (\"invalid value (secret)\"): the scoreboard's numbers can be hidden by the game and are now treated as unknown" } },
   { v = "1.4.46", date = "24.11", items = {
     "Battleground wins: your team is read from the battleground itself (not only your faction), and the result is checked against the battleground's own \"The Horde wins!\" message and corrected if they disagree",
     "In a battleground the Today line shows this battleground's record first, then all battlegrounds, from the recorded games (e.g. \"2 / 3 here · 5 / 7 all BGs\"). Earlier versions could count a game twice after a /reload, so today's old totals were too high" } },

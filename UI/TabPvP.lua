@@ -10,9 +10,27 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   local h = UI.Text(tab, 15, "semi", C.text)
   h:SetPoint("TOPLEFT", 16, -16)
   h:SetText(ns.Logo() .. " PvP")
+  -- (1.4.47) whose page: you or anyone in the gang who has shared theirs
+  local viewPid = ns.pid
+  local who = UI.Button(tab, 150, 24, "You  ▾", "secondary")
+  who:SetPoint("LEFT", h, "RIGHT", 14, 0)
   local sub = UI.Text(tab, 11, nil, C.dim)
-  sub:SetPoint("LEFT", h, "RIGHT", 12, -1)
+  sub:SetPoint("LEFT", who, "RIGHT", 10, 0)
   sub:SetText("Your battlegrounds, recorded from 1.4.38 on")
+  who:SetScript("OnClick", function(self)
+    local items = { { text = "You", color = C.gold, func = function() viewPid = ns.pid tab:Refresh() end } }
+    local list = {}
+    for pid, p in pairs(ns.db.people or {}) do
+      if pid ~= ns.pid and p.pvpFull and p.pvpFull.all then list[#list + 1] = { pid = pid, p = p } end
+    end
+    table.sort(list, function(a, b) return (ns:PersonFirst(a.p) or "") < (ns:PersonFirst(b.p) or "") end)
+    for _, x in ipairs(list) do
+      items[#items + 1] = { text = ns:PersonFirst(x.p) .. ns.Colorize("  · " .. ns.Ago(x.p.pvpFull.at), C.dim), func = function() viewPid = x.pid tab:Refresh() end }
+    end
+    if #list == 0 then items[#items + 1] = { text = "No friends' pages yet – asked the gang", color = C.dim, func = function() end } end
+    UI.Menu(self, items, true)
+    P.AskPvP()
+  end)
 
   -- today / week / all time
   local RANGES = { { "today", "Today" }, { "week", "Week" }, { "all", "All time" } }
@@ -90,12 +108,33 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     cards[i] = c
   end
 
+  local STANDING_N = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" }
   local STANDING = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" }
   local function pct(x) return math.floor((x or 0) * 100 + 0.5) .. " %" end
 
   function tab:Refresh()
     for _, b in ipairs(rbtns) do b:SetStyle(b.key == range and "primary" or "secondary") end
-    local st = P.PvPStats(range)
+    local me = viewPid == ns.pid
+    local vp = not me and ns:GetPerson(viewPid)
+    local st, repOf
+    if me then
+      st, repOf = P.PvPStats(range), P.RepForKey
+      who:SetLabel("You  ▾")
+      sub:SetText("Your battlegrounds, recorded from 1.4.38 on")
+    else
+      local full = vp and vp.pvpFull or {}
+      st = full[range] or {}
+      if range == "today" and full.day ~= date("%Y-%m-%d") then st = {} end
+      repOf = function(key)
+        local x = (full.all or {})[key]
+        if not x or not x.reaction or x.reaction == 0 then return nil end
+        local names = { AV = "Frostwolf", WSG = "Warsong Outriders", AB = "Defilers", DI = "Darkspear Raiders" }
+        return { name = names[key] or key, standing = STANDING_N[x.reaction] or "", reaction = x.reaction, exalted = x.reaction >= 8,
+          pct = x.repPct or 0, winsLeft = x.winsLeft, left = 0 }
+      end
+      who:SetLabel(ns:PersonFirst(vp) .. "  ▾")
+      sub:SetText(ns:PersonFirst(vp) .. "'s battlegrounds · updated " .. ns.Ago(full.at))
+    end
     for _, c in ipairs(cards) do
       local s = st[c.def.key]
       local v = c.cells
@@ -114,7 +153,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
         for k = 1, 8 do v[k]:SetText("–") end
       end
       -- reputation (whatever the range: it's where you stand now)
-      local rep = P.RepForKey(c.def.key)
+      local rep = repOf(c.def.key)
       if rep then
         local short = (rep.name or ""):gsub(" Clan$", ""):gsub(" Guard$", ""):gsub(" Expeditionary Force$", ""):gsub("^The ", "")
         local line = short .. " · " .. rep.standing
@@ -130,8 +169,11 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
       end
       -- gang: you and everyone who has shared, by win rate
       local rows = {}
-      if s and s.played > 0 then
-        rows[#rows + 1] = { name = ns.Colorize("You", C.gold), rate = s.rate, played = s.played, hk = s.hkPer, reaction = rep and rep.reaction }
+      -- your own row is always yours, whoever's page is open
+      local mine = me and s or P.PvPStats(range)[c.def.key]
+      local myRep = me and rep or P.RepForKey(c.def.key)
+      if mine and mine.played > 0 then
+        rows[#rows + 1] = { name = ns.Colorize("You", C.gold), rate = mine.rate, played = mine.played, hk = mine.hkPer, reaction = myRep and myRep.reaction }
       end
       for pid, p in pairs(ns.db.people or {}) do
         local g = pid ~= ns.pid and p.pvp and p.pvp[c.def.key]

@@ -31,3 +31,8 @@ P:StartBG(); P.bg.start = ADDON_NS.Now() - 900; P.bg.won = true; DIV = 4300; P:E
 print("DI:", LA.eval('(function() local s = ADDON_NS.Pulse.PvPStats("all").DI local r = ADDON_NS.Pulse.RepForKey("DI") return (s and (s.won .. "/" .. s.played) or "nil") .. " | " .. (r and (r.name .. " " .. r.standing .. " wins " .. tostring(r.winsLeft)) or "nil") .. " | learned " .. tostring(ADDON_NS.db.bgInstIds and ADDON_NS.db.bgInstIds[9999]) end)()'))
 LA.execute('ADDON_NS.Window:Select("pvp")'); run(1)
 print("FEIL2:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:5])
+# 1.4.47: a friend's full PvP page
+LA.execute('ADDON_NS.Pulse.SharePvP()'); run(90)
+print("B has A's page:", LB.eval('(function() local p = ADDON_NS:GetPerson("' + LA.eval('ADDON_NS.pid') + '") local f = p and p.pvpFull return f and f.all and f.all.AV and (f.all.AV.won .. "/" .. f.all.AV.played .. " best " .. f.all.AV.best .. " hpg " .. f.all.AV.honorPer) or "nil" end)()'))
+LB.execute('ADDON_NS.Window:Select("pvp")'); run(1)
+print("FEIL3:", [e for e in list(GB.ERRORS.values()) if 'HookScript' not in str(e)][:5])
