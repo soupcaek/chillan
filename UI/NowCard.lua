@@ -489,8 +489,14 @@ function N:Update()
       end
     end
     local t = P.Today()
-    rows[#rows + 1] = dim("Today  ") .. t.won .. " / " .. t.played .. " won · " .. ns.Num(t.honor) .. " honor"
-      .. (((t.streak or 0) > 1) and ns.Colorize("   win streak " .. t.streak, C.green) or "")
+    -- (1.4.46) today for this battleground, then all of them – from the recorded games
+    local st = P.PvPStats("today")
+    local key = P.BGKey(b and b.name or ns.S(GetInstanceInfo))
+    local here, won, played, honor = st[key], 0, 0, 0
+    for _, x in pairs(st) do won, played, honor = won + x.won, played + x.played, honor + (x.honor or 0) end
+    rows[#rows + 1] = dim("Today  ") .. (here and (ns.Colorize(here.won .. " / " .. here.played, C.text) .. dim(" here · ")) or "")
+      .. won .. " / " .. played .. dim(" all BGs · ") .. ns.Num(honor) .. dim(" honor")
+      .. ((here and here.cur > 1) and ns.Colorize("   win streak " .. here.cur, C.green) or "")
     local wk, rank, prog = P:Week()
     if wk or rank then
       rows[#rows + 1] = dim("This week  ") .. (wk and (ns.Num(wk) .. " honor") or "")

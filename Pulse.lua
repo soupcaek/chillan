@@ -397,14 +397,48 @@ C_Timer.NewTicker(3, function()
   lastHK = hk
 end)
 
+-- (1.4.46) your team in this battleground (0 = Horde, 1 = Alliance): the game's own battleground team
+-- first – a battleground can put players on the other side – then your faction
+function P.MyTeam()
+  if GetBattlefieldArenaFaction then
+    local ok, v = pcall(GetBattlefieldArenaFaction)
+    if ok and (v == 0 or v == 1) and not ns.isSecret(v) then return v end
+  end
+  return ns.S(UnitFactionGroup, "player") == "Horde" and 0 or 1
+end
+-- "The Horde wins!" / "The Alliance wins!": the result in words, used to check (and correct) the number
+local function onWinText(text)
+  local b = P.bg
+  if not b or type(text) ~= "string" or ns.isSecret(text) then return end
+  local side = text:match("The (%a+) wins") or text:match("^(%a+) wins")
+  local idx = side == "Horde" and 0 or side == "Alliance" and 1 or nil
+  if idx == nil then return end
+  b.winSide = idx
+  if b.done and b.won ~= nil then
+    local won = idx == P.MyTeam()
+    if won ~= b.won then
+      local d = today()
+      if won then d.won = d.won + 1 d.streak = (d.streak or 0) + 1 else d.won = math.max(0, d.won - 1) d.streak = 0 end
+      b.won = won
+      ns:Fire("PULSE")
+    end
+  end
+end
+ns:On("CHAT_MSG_BG_SYSTEM_NEUTRAL", onWinText)
+ns:On("CHAT_MSG_BG_SYSTEM_HORDE", onWinText)
+ns:On("CHAT_MSG_BG_SYSTEM_ALLIANCE", onWinText)
+ns:On("CHAT_MSG_RAID_BOSS_EMOTE", onWinText)
+
 ns:On("UPDATE_BATTLEFIELD_STATUS", function()
   local b = P.bg
   if not b or b.done or not GetBattlefieldWinner then return end
   local ok, w = pcall(GetBattlefieldWinner)
   if not ok or type(w) ~= "number" or ns.isSecret(w) then return end
   b.done = true
-  local mine = ns.S(UnitFactionGroup, "player") == "Horde" and 0 or 1
+  local mine = P.MyTeam()
   local won = w == mine
+  -- (1.4.46) "The Horde wins!" in the battleground's own messages wins over the number if they disagree
+  if b.winSide ~= nil then won = b.winSide == mine end
   b.won = won
   local d = today()
   d.played = d.played + 1
