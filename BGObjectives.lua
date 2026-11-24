@@ -49,6 +49,11 @@ function O.Short(name)
   if type(name) ~= "string" then return "?" end
   return SHORT[name] or name:match("^(%S+)") or name
 end
+-- map points that aren't bases: the centre flag ("Darkspear …" in Darkspear Islands), flags
+function O.NotABase(name)
+  if type(name) ~= "string" then return true end
+  return name:find("^Darkspear") ~= nil or name:find("Flag") ~= nil
+end
 -- Alterac Valley's towers: the bunkers are the Alliance's, the towers the Horde's
 local function avTowerSide(name)
   if type(name) ~= "string" then return nil end
@@ -112,7 +117,9 @@ local function readPOIs()
     if okI and type(info) == "table" and type(info.name) == "string" and not ns.isSecret(info.name) then
       local icon = info.textureIndex
       if ns.isSecret(icon) then icon = nil end
-      out[#out + 1] = { name = info.name, icon = icon, atlas = (not ns.isSecret(info.atlasName)) and info.atlasName or nil, id = id }
+      local desc = info.description
+      if ns.isSecret(desc) or type(desc) ~= "string" then desc = nil end
+      out[#out + 1] = { name = info.name, icon = icon, atlas = (not ns.isSecret(info.atlasName)) and info.atlasName or nil, id = id, desc = desc }
     end
   end
   return out
@@ -128,22 +135,28 @@ function O:ScanNodes(fresh)
     seen[p.name] = true
     local n = self.nodes[p.name]
     if not n then
+      self:LogIcon(p.name, "first", p.icon, p.atlas, p.desc)
       n = { name = p.name }
       self.nodes[p.name] = n
       self.order[#self.order + 1] = p.name
     end
     local atk = p.icon and ASSAULT[p.icon]
+    local dl = p.desc and p.desc:lower()
+    if dl then
+      if dl:find("horde") and dl:find("control") then atk = nil p.held = "h"
+      elseif dl:find("alliance") and dl:find("control") then atk = nil p.held = "a" end
+    end
     -- (1.4.52) an attack counts only when we SEE the icon change to an assault icon, as Capping does.
     -- An icon that was already there when we joined or reloaded says nothing for sure (live 24 Nov:
     -- every Alliance bunker read "burning" two minutes into a game). Attacks we did see survive a
     -- /reload (O:Restore).
     local changed = n.icon ~= nil and n.icon ~= false and p.icon ~= n.icon
-    if changed then self:LogIcon(p.name, n.icon, p.icon) end
+    if changed then self:LogIcon(p.name, n.icon, p.icon, p.atlas, p.desc) end
     if atk then
       if changed and n.atk ~= atk then n.atk, n.since = atk, t end
     else
       n.atk, n.since = nil, nil
-      local held = heldBy(p.icon)
+      local held = p.held or heldBy(p.icon)
       if held then n.side = held elseif self.key == "AV" then n.side = avTowerSide(p.name) or n.side end
     end
     n.icon = p.icon or false
@@ -154,11 +167,11 @@ function O:ScanNodes(fresh)
 end
 
 -- what we saw change, for checking the icon numbers afterwards (SavedVariables, last 200)
-function O:LogIcon(name, from, to)
+function O:LogIcon(name, from, to, atlas, desc)
   if not ns.db then return end
   local log = ns.db.bgIconLog or {}
   ns.db.bgIconLog = log
-  log[#log + 1] = string.format("%s %s %s: %s -> %s", date("%d.%m %H:%M:%S"), self.key or "?", name, tostring(from), tostring(to))
+  log[#log + 1] = string.format("%s %s %s: %s -> %s  atlas=%s  desc=%s", date("%d.%m %H:%M:%S"), self.key or "?", name, tostring(from), tostring(to), tostring(atlas), tostring(desc))
   while #log > 200 do table.remove(log, 1) end
 end
 
@@ -194,7 +207,7 @@ function O:Chips()
     if n and not n.gone then
       if self.key == "AV" then
         if n.atk then out[#out + 1] = n end
-      elseif n.atk or n.side or n.icon then
+      elseif (n.atk or n.side or n.icon) and not O.NotABase(n.name) then
         out[#out + 1] = n
       end
     end
@@ -346,7 +359,7 @@ function O.Debug()
   ns.Print("Battleground: " .. tostring(O.Key()))
   local list = readPOIs()
   if not list then ns.Print("No map points readable here.") else
-    for _, p in ipairs(list) do print(string.format("  %s  icon=%s  atlas=%s", p.name, tostring(p.icon), tostring(p.atlas))) end
+    for _, p in ipairs(list) do print(string.format("  %s  icon=%s  atlas=%s  desc=%s", p.name, tostring(p.icon), tostring(p.atlas), tostring(p.desc))) end
   end
   local sc = O:Score()
   if sc then print(string.format("  score A %s/%s (%s bases)  H %s/%s (%s bases)", sc.a.score, sc.a.max, tostring(sc.a.bases), sc.h.score, sc.h.max, tostring(sc.h.bases))) end

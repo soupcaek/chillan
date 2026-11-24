@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.53", date = "25.11", items = {
+    "Battleground panel: base boxes follow the width of the window, and the centre flag point in Darkspear Islands no longer shows as a base",
+    "New colours: a base being captured is bright red (Horde) or bright blue (Alliance) with a white timer; once captured it turns deeper red or deeper blue. No more yellow",
+    "Chillan now records what the map shows for every base (icon, label, changes) so the next update can read Forever's bases exactly – type /reload once after a battleground to save it" } },
   { v = "1.4.52", date = "24.11", items = {
     "Fixed: a Lua error (blocked action) from the battleground panel during fights",
     "Alterac Valley: towers and graveyards only count as under attack when Chillan sees them change. Joining a game in progress or reloading no longer shows bunkers as burning when they aren't. Attacks Chillan did see survive a /reload, with the right time",

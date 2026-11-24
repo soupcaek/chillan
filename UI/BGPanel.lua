@@ -371,7 +371,10 @@ function B:Draw()
   local O = ns.BGObj
   local key = O.key
   local f = self.frame
+  -- (1.4.53) as wide as the window itself, never wider
+  local ew = ns.EventWindow.frame and ns.EventWindow.frame:GetWidth()
   local w = f:GetWidth()
+  if ew and ew > 60 then w = math.min(w and w > 50 and w or ew, ew - 20) end
   if not w or w < 50 then w = 300 end
   local y = 0
   for _, c in ipairs(self.chips) do c:Hide() end
@@ -417,12 +420,14 @@ function B:Draw()
         local label = ns.BGObj.Short(node.name)
         if node.atk then
           local left = O:Left(node)
-          c:SetColors("3A3220", AMBER)
-          c.text:SetText(label .. " " .. ns.Colorize(left and mmss(left) or "", sideColor(node.atk)))
+          -- being taken: the taker's colour, bright; the timer in white
+          c:SetColors(node.atk == "h" and "8A3438" or "2F5C93", node.atk == "h" and HORDE or ALLI)
+          c.text:SetText(ns.Colorize(label, "FFFFFF") .. (left and ("  " .. ns.Colorize(mmss(left), "FFFFFF")) or ""))
         else
+          -- held: the owner's colour, deep
           local s = node.side
-          c:SetColors(s == "h" and "3A1F22" or s == "a" and "1C2A3D" or C.active)
-          c.text:SetText(ns.Colorize(label, s and s ~= "n" and sideColor(s) or C.muted))
+          c:SetColors(s == "h" and "4A1C20" or s == "a" and "182C47" or C.active)
+          c.text:SetText(ns.Colorize(label, s == "h" and "F3B5B7" or s == "a" and "B9D3F5" or C.muted))
         end
         c:Show()
       end
