@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.41", date = "24.11", items = {
+    "Layer hop: an invite from someone on your own layer is now recognised by the game's own flag and declined automatically, and the search goes on for a host on another layer",
+    "Layer hop: a refusal from the game no longer locks Swap layer for 15 minutes when fewer than 10 moves are known – you can simply try again" } },
   { v = "1.4.40", date = "24.11", items = { "PvP tab: the reputation line no longer overlaps the battleground name and win rate (shorter faction names, and cut with … if it doesn't fit)" } },
   { v = "1.4.39", date = "24.11", items = {
     "Darkspear Islands (WoW Forever's new 15v15 battleground) on the PvP tab, with Darkspear Raiders / Theramore Expeditionary Force reputation, and in the battleground boxes, rep bar and recap like the other battlegrounds",

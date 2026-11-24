@@ -197,11 +197,12 @@ function L.CapWait()
   if left <= 0 then return (c.start + L.CAP_FOR) - now, 0 end
   return nil, left
 end
+-- (1.4.41) a refusal while fewer than 10 moves are known holds nothing (LayerSwap stopped holding too,
+-- after players were held 15 minutes without having moved): the next click may simply try again
 function L.NoteRefusal()
   local c = capData()
-  local now = time()
-  if c.lastRefusal and now - c.lastRefusal < 600 then c.holdUntil = now + L.CAP_UNSURE end
-  c.lastRefusal = now
+  c.lastRefusal = time()
+  c.holdUntil = nil
 end
 local function mmss(sec) return string.format("%d:%02d", math.floor(sec / 60), sec % 60) end
 
@@ -930,11 +931,21 @@ end)
 ---------------------------------------------------------------------------
 -- joining, checking it worked, leaving
 ---------------------------------------------------------------------------
-ns:On("PARTY_INVITE_REQUEST", function(inviter)
+ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
   local m = L.mine
   if not m or m.joinedAt or ns.Now() - m.t > REQUEST_TTL then return end
   if secret(inviter) or type(inviter) ~= "string" then return end
   if not (isGangChar(inviter) or m.whispered[norm(inviter)]) then return end
+  -- (1.4.41) since build 71037 the invite's 6th field says whether the inviter is on another shard
+  -- (false = the same one, measured right in 12 of 12 cases): such an invite can't move us, so it is
+  -- declined and the search goes on
+  if sameField == false and not secret(sameField) then
+    L.AvoidHost(inviter, m.from)
+    if DeclineGroup then pcall(DeclineGroup) end
+    if StaticPopup_Hide then pcall(StaticPopup_Hide, "PARTY_INVITE") end
+    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " is on your layer, so that invite was declined. Still looking for another host.")
+    return
+  end
   -- its own reply said it stands on our layer: joining would move nobody, so don't accept it
   local said
   for nm, r in pairs(m.replies or {}) do if norm(nm) == norm(inviter) and r.same then said = true end end
