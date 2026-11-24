@@ -229,6 +229,7 @@ function W:Create()
     online:SetTextColor(hex(C.text))
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine("Friends")
+    if ns.PausedLabel and ns.PausedLabel() then GameTooltip:AddLine(ns.PAUSED_TIP, 1, 1, 1, true) end
     GameTooltip:Show()
   end)
   onlineBtn:SetScript("OnLeave", function() online:SetTextColor(hex(C.muted)) GameTooltip:Hide() end)
@@ -419,7 +420,7 @@ function W:Refresh()
   self.chip.text:SetText(hasCode and ("Gang: " .. ns.db.code) or "No gang yet")
   self.chip:SetWidth(self.chip.text:GetStringWidth() + 20)
   local n = self:OnlineCount()
-  self.onlineText:SetText(n .. " online")
+  self.onlineText:SetText((ns.PausedLabel and ns.PausedLabel()) or (n .. " online"))
   if not hasCode and self.current ~= "settings" then
     self.setup:Show()
     for _, tab in pairs(self.tabs) do tab:Hide() end

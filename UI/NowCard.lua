@@ -459,19 +459,12 @@ function N:Update()
     local kills = P:BGNumbers()
     local me = b and b.me
     local hk = me and me.hk or kills
-    f.big:SetText(hk and tostring(hk) or "–")
-    f.bigSub:SetText("kills  ·  " .. ns.Plural((me and me.deaths) or (b and b.deaths) or 0, "death")
-      .. ((b and b.streak > 0) and ("  ·  streak " .. b.streak) or ""))
-    f.right:SetText((b and b.streak > 0) and ns.Colorize("streak " .. b.streak, C.green) or "")
-    -- the gang in this battleground, from the scoreboard
-    local gang = b and b.gang or {}
-    if #gang > 0 then
-      local parts = {}
-      for i, g in ipairs(gang) do
-        if i <= 4 then parts[#parts + 1] = g.name .. dim(" " .. g.hk .. "/" .. g.deaths) end
-      end
-      rows[#rows + 1] = dim("Gang here  ") .. table.concat(parts, "  ")
-    end
+    f.big:SetText(tostring(hk or 0))
+    -- (1.4.48) one line: HKs, deaths only when there are any, the kill streak only when it runs
+    local deaths = (me and me.deaths) or (b and b.deaths) or 0
+    f.bigSub:SetText("HKs" .. (deaths > 0 and ("  ·  " .. ns.Plural(deaths, "death")) or "")
+      .. ((b and b.streak > 1) and ("  ·  streak " .. b.streak) or ""))
+    f.right:SetText("")
     -- (1.4.34) the bar shows the battleground's reputation instead of XP
     local rep = P:BGRep()
     if rep then
@@ -482,25 +475,17 @@ function N:Update()
         local span = math.max(1, (rep.max or 0) - (rep.min or 0))
         f.meter.pct = math.max(0, math.min(1, ((rep.value or 0) - (rep.min or 0)) / span))
         f.right:SetText(rep.short .. " · " .. rep.standing .. " " .. math.floor(f.meter.pct * 100) .. " %")
-        -- (1.4.37) the wins are already in the box above: this line has the details
-        rows[#rows + 1] = ns.Colorize(rep.short, C.text) .. dim(" · " .. ns.Num(rep.left) .. " rep left")
-          .. dim(rep.wN > 0 and (" · avg +" .. ns.Num(rep.avgW) .. " over " .. ns.Plural(rep.wN, "win")) or " · estimate until your first win")
-          .. ((rep.game and rep.game > 0) and ns.Colorize("   this game +" .. ns.Num(rep.game), C.green) or "")
+        -- (1.4.48) rep left and the average per win are in the tooltip (hover the card)
       end
     end
     local t = P.Today()
-    -- (1.4.46) today for this battleground, then all of them – from the recorded games
+    -- (1.4.48) today in this battleground only, from the recorded games
     local st = P.PvPStats("today")
-    local key = P.BGKey(b and b.name or ns.S(GetInstanceInfo))
-    local here, won, played, honor = st[key], 0, 0, 0
-    for _, x in pairs(st) do won, played, honor = won + x.won, played + x.played, honor + (x.honor or 0) end
-    rows[#rows + 1] = dim("Today  ") .. (here and (ns.Colorize(here.won .. " / " .. here.played, C.text) .. dim(" here · ")) or "")
-      .. won .. " / " .. played .. dim(" all BGs · ") .. ns.Num(honor) .. dim(" honor")
-      .. ((here and here.cur > 1) and ns.Colorize("   win streak " .. here.cur, C.green) or "")
-    local wk, rank, prog = P:Week()
-    if wk or rank then
-      rows[#rows + 1] = dim("This week  ") .. (wk and (ns.Num(wk) .. " honor") or "")
-        .. (rank and (dim(" · ") .. rank .. (prog and dim(" " .. prog .. " %") or "")) or "")
+    local here = st[P.BGKey(b and b.name or ns.S(GetInstanceInfo))]
+    if here then
+      rows[#rows + 1] = dim("Today  ") .. here.won .. " / " .. here.played .. " won"
+        .. ((here.honor or 0) > 0 and (dim(" · ") .. ns.Num(here.honor) .. dim(" honor")) or "")
+        .. ((here.cur or 0) > 1 and ns.Colorize(" · win streak " .. here.cur, C.green) or "")
     end
     if dg then rows[#rows + 1] = ns.Colorize("Revenge: " .. dg.name .. " is here", C.green) .. dim("  killed the gang " .. dg.n .. "×") end
   end
@@ -541,6 +526,17 @@ function N:Tooltip(owner)
   elseif mode == "world" then
     local d = ns.Tracker:S3Data() or {}
     GameTooltip:AddLine("Session " .. ns.Duration(d.sessSec or 0), 0.6, 0.63, 0.66)
+  elseif mode == "bg" then
+    -- (1.4.48) the details that left the card
+    local rep = P:BGRep()
+    if rep and not rep.exalted then
+      GameTooltip:AddDoubleLine(rep.short, ns.Num(rep.left or 0) .. " rep left", 1, 1, 1, 1, 1, 1)
+      if (rep.wN or 0) > 0 then GameTooltip:AddDoubleLine("Average per win", "+" .. ns.Num(rep.avgW) .. " (" .. ns.Plural(rep.wN, "win") .. ")", 0.6, 0.63, 0.66, 1, 1, 1) end
+      if (rep.game or 0) > 0 then GameTooltip:AddDoubleLine("This game", "+" .. ns.Num(rep.game), 0.6, 0.63, 0.66, 0.4, 0.85, 0.5) end
+    end
+    local wk, rank, prog = P:Week()
+    if wk then GameTooltip:AddDoubleLine("This week", ns.Num(wk) .. " honor", 0.6, 0.63, 0.66, 1, 1, 1) end
+    if rank then GameTooltip:AddDoubleLine("Rank", rank .. (prog and (" " .. prog .. " %") or ""), 0.6, 0.63, 0.66, 1, 1, 1) end
   end
   GameTooltip:AddLine(N.moment and "Click: close" or "Click: the Stats page", 0.52, 0.55, 0.57)
   GameTooltip:Show()

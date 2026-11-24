@@ -1296,3 +1296,27 @@ function UI.ApplyThemeLive()
   if ns.Tiles and ns.Tiles.Layout then pcall(ns.Tiles.Layout, ns.Tiles) end
   ns:Fire("DATA")
 end
+
+-- (1.4.48) a small "i" after a heading: the explanation lives in its tooltip, not under the heading
+function UI.InfoTip(parent, anchor, title, text)
+  local b = CreateFrame("Frame", nil, parent)
+  b:SetSize(15, 15)
+  -- right after the text, also when the font string is stretched wider than its text
+  if anchor.GetStringWidth then b:SetPoint("LEFT", anchor, "LEFT", math.ceil(anchor:GetStringWidth()) + 6, 0)
+  else b:SetPoint("LEFT", anchor, "RIGHT", 6, 0) end
+  local bg = UI.Panel(b, C.active, nil, true)
+  bg:SetAllPoints()
+  local i = UI.Text(b, 10, "semi", C.muted)
+  i:SetPoint("CENTER", 0, 0)
+  i:SetText("i")
+  b:EnableMouse(true)
+  b:SetScript("OnEnter", function(self)
+    i:SetTextColor(hex(C.text))
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(title, 1, 1, 1)
+    GameTooltip:AddLine(text, 0.75, 0.77, 0.8, true)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() i:SetTextColor(hex(C.muted)) GameTooltip:Hide() end)
+  return b
+end

@@ -133,7 +133,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   graphEmpty:SetWordWrap(true)
   graphEmpty:SetWidth(320)
   graphEmpty:SetJustifyH("CENTER")
-  graphEmpty:SetText("The graph fills in as you level. Level history is recorded from version 0.2.")
+  graphEmpty:SetText("Fills in as you level")
   for i = 1, 8 do
     local lg = UI.Text(graphPage, 11, "semi", C.text)
     legend[i] = lg

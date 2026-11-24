@@ -52,3 +52,46 @@ P.bg.post = function() POSTED = P:BGSummary(true, P.bg).honor end
 FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 396 honor points.")
 P:EndBG()''')
 print("posted honor incl. bonus:", LA.eval('tostring(POSTED)'))
+# 1.4.48: friends heard before entering stay online inside the instance
+LA.execute('''local pid = "' + LA.eval('ADDON_NS.pid') + '"''') if False else None
+LA.execute('''local p = nil for id, x in pairs(ADDON_NS.db.people) do if id ~= ADDON_NS.pid then p = x end end
+TESTP = p
+p.heard = ADDON_NS.Now() - 30; p.byeAt = nil
+ADDON_NS.commBlindSince = ADDON_NS.Now() - 10; ADDON_NS.commBlindUntil = nil
+p.heard = ADDON_NS.Now() - 600''')
+print("heard 10 min before entering -> offline:", not LA.eval('ADDON_NS:IsOnline(TESTP)'))
+LA.execute('TESTP.heard = ADDON_NS.Now() - 650; ADDON_NS.commBlindSince = ADDON_NS.Now() - 600')
+print("heard 50 s before entering, 10 min inside -> online:", LA.eval('ADDON_NS:IsOnline(TESTP)'))
+LA.execute('ADDON_NS.commBlindSince = nil')
+# 1.4.48: the recap card takes the bonus honor that arrives after the result
+LA.execute('''local P = ADDON_NS.Pulse
+P.bg = nil; ADDON_NS.db.bgNow = nil
+P:StartBG(); local b = P.bg
+FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "Grunk dies, honorable kill Rank: Knight (Estimated Honor Points: 10)")
+b.won = true
+local sum = P:BGSummary(true)
+sum.again = function() return P:BGSummary(true, b) end
+RC = ADDON_NS.Recap and ADDON_NS.Recap.BG(sum)
+BEFORE = RC and RC.nums[4][1]
+FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 105 honor points.")
+P:EndBG()
+if RC and RC.refresh then RC.refresh(RC) end
+AFTER = RC and RC.nums[4][1]''')
+print("recap honor before/after bonus:", LA.eval('tostring(BEFORE)'), "->", LA.eval('tostring(AFTER)'))
+assert LA.eval('AFTER') == "+115", "recap honor not refreshed"
+# 1.4.48: header says paused instead of "0 online" inside an instance
+LA.execute('ADDON_NS.commBlindSince = ADDON_NS.Now(); ADDON_NS.commBlindUntil = nil')
+lab = LA.eval('tostring(ADDON_NS.PausedLabel())')
+print("paused label:", lab)
+assert lab.startswith("Paused in")
+LA.execute('ADDON_NS.commBlindSince = nil')
+assert LA.eval('ADDON_NS.PausedLabel()') is None
+# 1.4.48: BG tiles: no HK tile (the card's big line has it), honor this game instead of honor/h
+print("bg tiles:", LA.eval('table.concat(ADDON_NS.Tiles.MODE_TILES.bg, ",")'))
+# 1.4.48: the card in a BG after a recorded game today: one Today line, nothing else
+LA.execute('''local P = ADDON_NS.Pulse
+P.bg = nil; ADDON_NS.db.bgNow = nil
+P:StartBG(); P.bg.name = "Alterac Valley"
+P.mode = "bg"; ADDON_NS.NowCard:Update()''')
+print("card big:", LA.eval('ADDON_NS.NowCard.frame.big:GetText() .. " " .. ADDON_NS.NowCard.frame.bigSub:GetText()'))
+print("card rows:", LA.eval('(function() local o = {} for _, l in ipairs(ADDON_NS.NowCard.frame.lines) do if l:IsShown() then o[#o+1] = (l:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") end end return table.concat(o, " // ") end)()'))

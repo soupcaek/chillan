@@ -184,6 +184,14 @@ for _, d in ipairs({
     local h = P():HonorPerHour()
     return h and ns.Num(h) or "–", "honor/h"
   end },
+  -- (1.4.48) honor this game: the session count, the honor messages and the scoreboard, the most of them
+  { key = "bghonor", name = "Honor this battleground", get = function()
+    local b = P().bg
+    if not b then return "–", "honor" end
+    local _, h = P():BGNumbers()
+    h = math.max(h or 0, b.honorChat or 0, (b.me and b.me.honor) or 0)
+    return ns.Num(h), "honor"
+  end },
   { key = "bghk", name = "Kills this battleground", get = function()
     local k = P():BGNumbers()
     return k and tostring(k) or "–", "HKs this BG"
@@ -194,7 +202,7 @@ for _, d in ipairs({
   -- (1.4.34) battleground reputation: wins left to Exalted (time in the BG when there is none)
   { key = "bgrep", name = "Wins to Exalted (battleground reputation)", get = function()
     local r = P():BGRep()
-    if not r then return dur(P().bg and (ns.Now() - P().bg.start)), "in this BG" end
+    if not r then return "–", "rep" end
     if r.exalted then return "Exalted", r.short end
     local sub = "to Exalted" .. ((r.game and r.game > 0) and (" · +" .. ns.Num(r.game)) or "")
     if not r.winsLeft then return r.standing, r.short .. ((r.game and r.game > 0) and (" · +" .. ns.Num(r.game)) or "") end
@@ -341,7 +349,8 @@ T.MODE_TILES = {
   world = { "act_layer", "xph", "goldh", "eta" },
   dungeon = { "bossesx", "runtime", "runxp", "lootval" },
   raid = { "bossesx", "runtime", "wipes", "repair" },
-  bg = { "bgscore", "honorh", "bghk", "bgrep" },
+  -- (1.4.48) HKs and deaths are on the card's big line, so not here too
+  bg = { "bgscore", "bghonor", "bgrep", "bgtime" },
   -- (1.4.17) open world at level 60: no XP to chase, so honor, rep, gold and bosses instead
   world60 = { "act_layer", "honor60", "reph", "goldday" },
 }

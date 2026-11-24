@@ -206,7 +206,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   psize:SetPoint("TOPLEFT", opacity, "BOTTOMLEFT", 0, -44)
   local phint = UI.Text(content, 10, nil, C.dim)
   phint:SetPoint("TOPLEFT", psize, "BOTTOMLEFT", 0, -6)
-  phint:SetText("Applies to the main window and notifications. 80 % is recommended at 1080p.")
+  phint:SetText("")
+  UI.InfoTip(content, psize.label, "Interface scale", "Applies to the main window and notifications. 80 % is recommended at 1080p.")
   local ptest = UI.Button(content, 160, 26, "Show a test popup", "secondary", function()
     -- a pretend ding of your own (not sent to anyone) and a toast
     if ns.Overlays and ns.Overlays.ShowDing and ns.Tracker then

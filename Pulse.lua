@@ -445,6 +445,8 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
   if won then d.won = d.won + 1 d.streak = (d.streak or 0) + 1 else d.streak = 0 end
   P:ReadBoard()
   local sum = P:BGSummary(won)
+  -- (1.4.48) the recap card asks again when opened, for the bonus honor that comes after the result
+  if sum then sum.again = function() if P.bg == b then P:ReadBoard() end return P:BGSummary(won, b) end end
   ns:Fire("PULSE")
   if sum then
     C_Timer.After(1, function() ns:Fire("BG_CARD", sum) end)

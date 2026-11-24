@@ -245,6 +245,8 @@ end
 function R:Open(id)
   local recap = id and self.saved[id]
   if not recap then return end
+  -- (1.4.48) numbers that arrive after the card was made (the end-of-match bonus honor)
+  if recap.refresh then pcall(recap.refresh, recap) end
   card = card or makeCard()
   local f = card
   f.recap = recap
@@ -507,9 +509,22 @@ function R.BG(x)
   local result = (x.won == true and "Won" or x.won == false and "Lost" or "Ended") .. score
   local share = "Battleground recap: " .. result .. " " .. (x.name or "") .. " · " .. ns.Plural(me.hk or 0, "HK") .. " · " .. ns.Plural(me.deaths or 0, "death")
     .. " · +" .. ns.Num(x.honor or 0) .. " honor"
-  return { kind = "bg", where = "top", kicker = "Battleground", teaser = (x.name or "") .. " · " .. result .. " · " .. ns.Plural(me.hk or 0, "HK"), prompt = "Show battleground recap",
+  local r = { kind = "bg", where = "top", kicker = "Battleground", teaser = (x.name or "") .. " · " .. result .. " · " .. ns.Plural(me.hk or 0, "HK"), prompt = "Show battleground recap",
     title = (x.name or "Battleground") .. " · " .. result, sub = x.dur and ns.Duration(x.dur) or "",
     nums = nums, moments = moments, compare = cmp, share = share }
+  -- (1.4.48) the bonus honor comes a few seconds after the result: take the latest count when opened
+  if x.again then
+    r.refresh = function(rc)
+      local ok, x2 = pcall(x.again)
+      local h = ok and x2 and x2.honor
+      if h and h > (x.honor or 0) then
+        rc.nums[4][1] = "+" .. ns.Num(h)
+        rc.share = rc.share:gsub("%+[%d%s,%.]+ honor$", "+" .. ns.Num(h) .. " honor")
+        x.honor = h
+      end
+    end
+  end
+  return r
 end
 
 ---------------------------------------------------------------------------

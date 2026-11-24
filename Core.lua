@@ -828,6 +828,11 @@ function ns:IsOnline(p)
   if p == ns:GetPerson(ns.pid) then return true end
   local t = ns.Now()
   if p.heard and (t - p.heard) < 120 then return true end
+  -- (1.4.48) in a battleground or dungeon the game blocks most addon messages, so we hear nobody:
+  -- whoever was online when we went in counts as online until 2 minutes after we come out
+  local blind = ns.commBlindSince
+  if blind and p.heard and p.heard >= blind - 120 and not (p.byeAt and p.byeAt >= p.heard)
+    and (not ns.commBlindUntil or t < ns.commBlindUntil) then return true end
   -- nettopp logget ut: ikke la «noen andre hører ham» holde ham online
   if p.byeAt and (t - p.byeAt) < 90 then return false end
   -- noen andre i gjengen hører ham (f.eks. han er på en annen layer/server enn oss)
@@ -1070,3 +1075,28 @@ function ns.Article(line, word)
     return a .. (word:match("^[AEIOUaeiou]") and "n" or "") .. " " .. word
   end))
 end
+
+-- (1.4.48) when we can't hear the gang (inside an instance), and the grace after coming out
+local function blindCheck()
+  local ok, inInst = pcall(IsInInstance)
+  local inside = ok and inInst == true
+  if inside then
+    if not ns.commBlindSince then ns.commBlindSince = ns.Now() end
+    ns.commBlindUntil = nil
+  elseif ns.commBlindSince and not ns.commBlindUntil then
+    ns.commBlindUntil = ns.Now() + 120
+  elseif ns.commBlindUntil and ns.Now() >= ns.commBlindUntil then
+    ns.commBlindSince, ns.commBlindUntil = nil, nil
+  end
+end
+ns.CommBlind = function() return ns.commBlindSince ~= nil and ns.commBlindUntil == nil end
+ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(2, blindCheck) end)
+C_Timer.NewTicker(30, blindCheck)
+
+-- (1.4.48) "Paused in BG": inside an instance the game blocks addon messages, so instead of
+-- "0 online" the headers say the gang sync is paused (nil when it isn't)
+function ns.PausedLabel()
+  if not ns.CommBlind() then return nil end
+  return ns.InBattleground() and "Paused in BG" or "Paused in dungeon"
+end
+ns.PAUSED_TIP = "Addon messages are blocked inside instances. The gang syncs again when you leave."

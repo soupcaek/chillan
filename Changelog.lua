@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.48", date = "24.11", items = {
+    "Inside battlegrounds and dungeons the game blocks addon messages, so the header says \"Paused in BG\" (or dungeon) instead of \"0 online\". Hover it for why. Friends keep the status they had when you went in, and the gang syncs again when you leave",
+    "Battleground card trimmed to the essentials: HKs on the big line (deaths only when you have any), the reputation bar, and one Today line for this battleground. Tiles: score, honor this game, wins to Exalted and time in the BG. Rep left, average per win, this week's honor and your rank are in the card's tooltip",
+    "Battleground recap: honor now includes the end-of-match bonus (it said +10 instead of +115 because the card was made before the bonus arrived)",
+    "Less text everywhere: explanations under headings moved into a small \"i\" you hover (Died to, The Cunt List, Who can make what?, Market, interface scale), and a few lines that said nothing new are gone" } },
   { v = "1.4.47", date = "24.11", items = {
     "PvP tab: pick anyone in the gang from the button next to the title to see their whole PvP page – record, streaks, honor, HKs, time and reputation per battleground, for today, the week or all time. Each friend's page is sent when they finish a battleground and when they log in, and kept on your PC, so you can open it while they're offline (it says how old it is). Opening the list asks whoever is online for fresh numbers",
     "Fixed errors in battlegrounds (\"invalid value (secret)\"): the scoreboard's numbers can be hidden by the game and are now treated as unknown" } },

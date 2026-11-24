@@ -16,7 +16,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   who:SetPoint("LEFT", h, "RIGHT", 14, 0)
   local sub = UI.Text(tab, 11, nil, C.dim)
   sub:SetPoint("LEFT", who, "RIGHT", 10, 0)
-  sub:SetText("Your battlegrounds, recorded from 1.4.38 on")
+  sub:SetText("")
   who:SetScript("OnClick", function(self)
     local items = { { text = "You", color = C.gold, func = function() viewPid = ns.pid tab:Refresh() end } }
     local list = {}
@@ -120,7 +120,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     if me then
       st, repOf = P.PvPStats(range), P.RepForKey
       who:SetLabel("You  ▾")
-      sub:SetText("Your battlegrounds, recorded from 1.4.38 on")
+      sub:SetText("")
     else
       local full = vp and vp.pvpFull or {}
       st = full[range] or {}

@@ -83,7 +83,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
   sub:SetPoint("LEFT", head, "RIGHT", 12, -1)
   sub:SetPoint("RIGHT", content, "RIGHT", -16, 0)
   sub:SetJustifyH("LEFT")
-  sub:SetText("Hover over an option for details.")
+  sub:SetText("")
 
   local mid = CreateFrame("Frame", nil, content)
   mid:SetSize(1, 1)

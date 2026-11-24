@@ -311,6 +311,17 @@ function E:Create()
   self.title = title
   self.count = UI.Text(head, 11, nil, C.muted)
   self.count:SetPoint("LEFT", title, "RIGHT", 6, 0)
+  -- (1.4.48) hover the count while paused for why
+  local countHit = CreateFrame("Frame", nil, head)
+  countHit:SetAllPoints(self.count)
+  countHit:SetScript("OnEnter", function(hit)
+    if not (ns.PausedLabel and ns.PausedLabel()) then return end
+    GameTooltip:SetOwner(hit, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(ns.PausedLabel())
+    GameTooltip:AddLine(ns.PAUSED_TIP, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  countHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   local close = UI.IconButton(head, 20, "Close", "Hide – right-click the Chillan? bar or minimap button (or /chill events) to bring it back", function()
     ns.db.settings.eventFeed = false
@@ -609,7 +620,8 @@ end
 function E:UpdateCount()
   if not self.count then return end
   local n = ns.Window and ns.Window.OnlineCount and ns.Window:OnlineCount() or 0
-  local txt = ns.Colorize("· ", C.dim) .. ns.Colorize(n .. " online", n > 0 and C.green or C.muted)
+  local paused = ns.PausedLabel and ns.PausedLabel()
+  local txt = ns.Colorize("· ", C.dim) .. (paused and ns.Colorize(paused, C.muted) or ns.Colorize(n .. " online", n > 0 and C.green or C.muted))
   if ns.db.settings.evMin and (self.missed or 0) > 0 then
     txt = txt .. ns.Colorize("  · ", C.dim) .. ns.Colorize(self.missed .. " new", C.accent)
   end

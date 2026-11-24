@@ -119,7 +119,7 @@ function O:UpdateMinibar()
   end
   m.count:ClearAllPoints()
   m.count:SetPoint("LEFT", x, 0)
-  m.count:SetText(#online .. " online")
+  m.count:SetText((ns.PausedLabel and ns.PausedLabel()) or (#online .. " online"))
   local w = x + m.count:GetStringWidth() + 14
   -- your status as a small clickable pill right after the online count
   if not m.status then
