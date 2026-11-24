@@ -243,6 +243,11 @@ function Tracker:S3Data()
     local b = P.BestDrop()
     d.best = b and b.id or nil
     d.goldh = P:GoldPerHour()
+    -- (1.4.34) battleground reputation, only while in a battleground or just after one
+    if P.BGRep then
+      local okR, r = pcall(P.BGRep, P)
+      if okR and r and not r.exalted then d.bgRepS, d.bgWins, d.bgGame = r.short, r.winsLeft, r.game end
+    end
   end
   return d
 end
@@ -254,7 +259,8 @@ function Tracker:BuildS3()
     ns.Clean(d.zone or "", 30), d.dura or "",
     -- (1.4.17) appended; older clients ignore them
     d.rank or "", d.rankProg and math.floor(d.rankProg * 100) or "", d.hkT or "", d.honorT or "",
-    d.runsT or "", d.bossT or "", d.best or "", d.goldh or "")
+    d.runsT or "", d.bossT or "", d.best or "", d.goldh or "",
+    ns.Clean(d.bgRepS or "", 20), d.bgWins or "", d.bgGame or "")
 end
 
 local s3Pending = false

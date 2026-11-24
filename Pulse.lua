@@ -311,11 +311,18 @@ function P:StartBG()
   self.bg = { start = now(), hk0 = hk, honor0 = honor, deaths = 0, streak = 0, best = 0, done = false,
     name = ns.S(GetInstanceInfo), flags = {}, revs = {} }
   today().played = today().played + 1
+  -- (1.4.34) the battleground's reputation: where we start, to count this game's gain
+  local fid = P.BGFaction()
+  if fid then
+    local r = P.RepOf(fid)
+    if r then self.bg.repFid, self.bg.rep0 = fid, r.value end
+  end
 end
 
 function P:EndBG()
   local b = self.bg
   if not b then return end
+  P.NoteBGRep(b)
   local _, honor = self:BGNumbers()
   if honor then today().honor = today().honor + honor end
   self.bg = nil
@@ -365,6 +372,7 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
   b.done = true
   local mine = ns.S(UnitFactionGroup, "player") == "Horde" and 0 or 1
   local won = w == mine
+  b.won = won
   local d = today()
   if won then d.won = d.won + 1 d.streak = (d.streak or 0) + 1 else d.streak = 0 end
   P:ReadBoard()
@@ -705,4 +713,92 @@ function P:SessionHonor()
   local dh = hk and math.max(0, hk - (s.hk0 or hk)) or nil
   local dn = honor and math.max(0, honor - (s.honor0 or honor)) or nil
   return dh, dn
+end
+
+---------------------------------------------------------------------------
+-- (1.4.34) battleground reputation: wins to Exalted (Frostwolf/Stormpike in Alterac Valley,
+-- Warsong Outriders/Silverwing in Warsong Gulch, Defilers/League of Arathor in Arathi Basin).
+-- Each game's gain is measured from entering to leaving (the win bonus comes at the end) and
+-- averaged separately for wins and losses.
+---------------------------------------------------------------------------
+local EXALTED = 42000
+-- by instance ID (language-independent), with the English name as a fallback
+local BG_REP = {
+  [30] = { Horde = 729, Alliance = 730, def = 450, short = "AV" },
+  [489] = { Horde = 889, Alliance = 890, def = 160, short = "WSG" },
+  [529] = { Horde = 510, Alliance = 509, def = 260, short = "AB" },
+}
+local BG_NAMES = { ["Alterac Valley"] = 30, ["Warsong Gulch"] = 489, ["Arathi Basin"] = 529 }
+local function bgInfo(instId, name)
+  return BG_REP[instId or 0] or (name and BG_REP[BG_NAMES[name] or 0])
+end
+function P.BGFaction(instId, name)
+  if not instId then
+    local ok, n, _, _, _, _, _, _, id = pcall(GetInstanceInfo)
+    if ok then instId, name = id, n end
+  end
+  local info = bgInfo(instId, name)
+  if not info then return nil end
+  local side = ns.S(UnitFactionGroup, "player")
+  return info[side == "Alliance" and "Alliance" or "Horde"], info
+end
+
+-- standing for a faction: absolute value (0 = start of Neutral, 42 000 = Exalted), and the current tier
+function P.RepOf(fid)
+  if C_Reputation and C_Reputation.GetFactionDataByID then
+    local ok, d = pcall(C_Reputation.GetFactionDataByID, fid)
+    if ok and type(d) == "table" and d.currentStanding and not ns.isSecret(d.currentStanding) then
+      return { name = d.name, value = d.currentStanding, reaction = d.reaction,
+        min = d.currentReactionThreshold or 0, max = d.nextReactionThreshold or EXALTED }
+    end
+  end
+  if GetFactionInfoByID then
+    local ok, name, _, standing, bmin, bmax, val = pcall(GetFactionInfoByID, fid)
+    if ok and val and not ns.isSecret(val) then
+      return { name = name, value = val, reaction = standing, min = bmin or 0, max = bmax or EXALTED }
+    end
+  end
+  return nil
+end
+local STANDING = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" }
+function P.StandingName(reaction) return STANDING[reaction or 0] or "" end
+
+function P.NoteBGRep(b)
+  if not (b and b.repFid and b.rep0) then return end
+  local r = P.RepOf(b.repFid)
+  if not r then return end
+  local gained = r.value - b.rep0
+  if gained < 0 or gained > 6000 then return end
+  ns.db.bgRep = ns.db.bgRep or {}
+  local t = ns.db.bgRep[b.repFid] or { wN = 0, wSum = 0, lN = 0, lSum = 0 }
+  if b.won == true then t.wN, t.wSum = t.wN + 1, t.wSum + gained
+  elseif b.won == false then t.lN, t.lSum = t.lN + 1, t.lSum + gained
+  else return end
+  ns.db.bgRep[b.repFid] = t
+  ns.db.bgRepLast = { fid = b.repFid, at = ns.Now(), game = gained, won = b.won }
+end
+
+-- the battleground reputation picture: in a battleground (or the last one, within 30 minutes)
+function P:BGRep(anyTime)
+  local fid, info
+  local b = self.bg
+  if b and b.repFid then fid = b.repFid
+  else
+    local last = ns.db.bgRepLast
+    if last and (anyTime or ns.Now() - (last.at or 0) < 1800) then fid = last.fid end
+  end
+  if not fid then return nil end
+  for _, i in pairs(BG_REP) do if i.Horde == fid or i.Alliance == fid then info = i end end
+  local r = P.RepOf(fid)
+  if not r then return nil end
+  local t = (ns.db.bgRep or {})[fid] or { wN = 0, wSum = 0, lN = 0, lSum = 0 }
+  local avgW = t.wN > 0 and math.floor(t.wSum / t.wN) or (info and info.def or 300)
+  local avgL = t.lN > 0 and math.floor(t.lSum / t.lN) or nil
+  local left = math.max(0, EXALTED - r.value)
+  local game = (b and b.repFid == fid and b.rep0) and math.max(0, r.value - b.rep0) or nil
+  local fname = (r.name or ""):gsub(" Clan$", ""):gsub(" Guard$", "")
+  return { fid = fid, name = r.name, short = fname, value = r.value, left = left, exalted = left == 0,
+    reaction = r.reaction, standing = P.StandingName(r.reaction), min = r.min, max = r.max,
+    avgW = avgW, wN = t.wN, avgL = avgL, lN = t.lN, estimated = t.wN == 0,
+    winsLeft = avgW > 0 and math.ceil(left / avgW) or nil, game = game, inBG = b ~= nil, bg = info and info.short }
 end

@@ -237,6 +237,10 @@ local function facts(p)
   if rate and (c.level or 0) < 60 then out[#out + 1] = ns.Num(math.floor(rate)) .. " XP/h" end
   local pct = ns.Pct(s3.xp, s3.xpMax)
   if pct and (c.level or 0) < 60 then out[#out + 1] = pct .. " % of level " .. tostring(c.level or "?") end
+  -- (1.4.34) in (or just out of) a battleground: wins to Exalted with its reputation
+  if s3.bgRepS and s3.bgWins and s3.at and ns.Now() - s3.at < 1800 then
+    out[#out + 1] = s3.bgRepS .. ": " .. ns.Plural(s3.bgWins, "win") .. " to Exalted" .. ((s3.bgGame or 0) > 0 and (" · +" .. ns.Num(s3.bgGame) .. " this game") or "")
+  end
   local eta = (c.level or 0) < 60 and ns.St and ns.St:ETA(p)
   if eta then out[#out + 1] = ns.Duration(eta) .. " to " .. ((c.level or 0) + 1) end
   -- (1.4.17) at 60: rank, honor, runs, gold/h and the best drop of the week

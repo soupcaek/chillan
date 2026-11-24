@@ -187,6 +187,7 @@ Comm:Handle("S3", function(f)
     dura = num(f[14]), wk = ns.WeekKey(),
     rank = num(f[15]), rankProg = num(f[16]) and num(f[16]) / 100 or nil, hkT = num(f[17]), honorT = num(f[18]),
     runsT = num(f[19]), bossT = num(f[20]), best = num(f[21]), goldh = num(f[22]),
+    bgRepS = (f[23] and f[23] ~= "") and f[23] or nil, bgWins = num(f[24]), bgGame = num(f[25]),
   }
   ns:MarkDirty()
 end)

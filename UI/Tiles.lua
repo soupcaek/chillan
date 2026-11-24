@@ -191,6 +191,14 @@ for _, d in ipairs({
   { key = "bgtime", name = "Time in this battleground", get = function()
     return dur(P().bg and (ns.Now() - P().bg.start)), "in this BG"
   end },
+  -- (1.4.34) battleground reputation: wins left to Exalted (time in the BG when there is none)
+  { key = "bgrep", name = "Wins to Exalted (battleground reputation)", get = function()
+    local r = P():BGRep()
+    if not r then return dur(P().bg and (ns.Now() - P().bg.start)), "in this BG" end
+    if r.exalted then return "Exalted", r.short end
+    local sub = "to Exalted" .. ((r.game and r.game > 0) and (" · +" .. ns.Num(r.game)) or "")
+    return (r.estimated and "~" or "") .. r.winsLeft .. (r.winsLeft == 1 and " win" or " wins"), sub
+  end },
   { key = "bgwon", name = "Battlegrounds won today", get = function()
     local d = P().Today()
     return d.won .. " / " .. d.played, "won today"
@@ -332,7 +340,7 @@ T.MODE_TILES = {
   world = { "act_layer", "xph", "goldh", "eta" },
   dungeon = { "bossesx", "runtime", "runxp", "lootval" },
   raid = { "bossesx", "runtime", "wipes", "repair" },
-  bg = { "bgscore", "honorh", "bghk", "bgtime" },
+  bg = { "bgscore", "honorh", "bghk", "bgrep" },
   -- (1.4.17) open world at level 60: no XP to chase, so honor, rep, gold and bosses instead
   world60 = { "act_layer", "honor60", "reph", "goldday" },
 }

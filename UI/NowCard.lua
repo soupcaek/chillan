@@ -453,7 +453,8 @@ function N:Update()
     local me = b and b.me
     local hk = me and me.hk or kills
     f.big:SetText(hk and tostring(hk) or "–")
-    f.bigSub:SetText("kills  ·  " .. ns.Plural((me and me.deaths) or (b and b.deaths) or 0, "death"))
+    f.bigSub:SetText("kills  ·  " .. ns.Plural((me and me.deaths) or (b and b.deaths) or 0, "death")
+      .. ((b and b.streak > 0) and ("  ·  streak " .. b.streak) or ""))
     f.right:SetText((b and b.streak > 0) and ns.Colorize("streak " .. b.streak, C.green) or "")
     -- the gang in this battleground, from the scoreboard
     local gang = b and b.gang or {}
@@ -463,6 +464,22 @@ function N:Update()
         if i <= 4 then parts[#parts + 1] = g.name .. dim(" " .. g.hk .. "/" .. g.deaths) end
       end
       rows[#rows + 1] = dim("Gang here  ") .. table.concat(parts, "  ")
+    end
+    -- (1.4.34) the bar shows the battleground's reputation instead of XP
+    local rep = P:BGRep()
+    if rep then
+      if rep.exalted then
+        f.meter.pct = 1
+        f.right:SetText(rep.short .. " · Exalted")
+      else
+        local span = math.max(1, (rep.max or 0) - (rep.min or 0))
+        f.meter.pct = math.max(0, math.min(1, ((rep.value or 0) - (rep.min or 0)) / span))
+        f.right:SetText(rep.short .. " · " .. rep.standing .. " " .. math.floor(f.meter.pct * 100) .. " %")
+        rows[#rows + 1] = ns.Colorize(rep.short .. ": ", C.text) .. (rep.estimated and "about " or "") .. ns.Plural(rep.winsLeft or 0, "win") .. " to Exalted"
+          .. dim(" · " .. ns.Num(rep.left) .. " rep left")
+          .. dim(rep.wN > 0 and (" · avg +" .. ns.Num(rep.avgW) .. " over " .. ns.Plural(rep.wN, "win")) or " · estimate until your first win")
+          .. ((rep.game and rep.game > 0) and ns.Colorize("   this game +" .. ns.Num(rep.game), C.green) or "")
+      end
     end
     local t = P.Today()
     rows[#rows + 1] = dim("Today  ") .. t.won .. " / " .. t.played .. " won · " .. ns.Num(t.honor) .. " honor"

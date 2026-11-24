@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.34", date = "24.11", items = {
+    "Battleground reputation: in Alterac Valley (and Warsong Gulch and Arathi Basin) one Pulse box shows how many wins you need to Exalted, with this game's reputation live (\"27 wins · to Exalted · +412\")",
+    "In a battleground the Now card's bar shows your reputation toward the next standing instead of XP, with a line like \"Frostwolf: 27 wins to Exalted · 14 993 rep left · avg +562 over 16 wins\"",
+    "The average is your own: each game's reputation is measured from entering to leaving, wins and losses separately. Until your first win it uses an estimate",
+    "Watching a friend in (or just out of) a battleground shows their wins to Exalted in the rotating line, and the battleground recap includes it" } },
   { v = "1.4.33", date = "22.11", items = { "No recap prompt at logout any more: the session is saved and offered as \"Show last session recap\" when you log in. Dungeon, raid and battleground recaps are unchanged" } },
   { v = "1.4.32", date = "22.11", items = { "?price posts one line: Chillan first asks the gang for those items and waits a few seconds, so the answer already has the newest price anyone has. A \"Price update\" only appears if a fresher price turns up afterwards, and only once" } },
   { v = "1.4.31", date = "22.11", items = {
