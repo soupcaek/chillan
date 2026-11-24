@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.38", date = "24.11", items = {
+    "New PvP tab: a card for Alterac Valley, Warsong Gulch and Arathi Basin with record and win rate, win streak, honor per hour and per game, HKs per game, best game, average and total time, and your reputation toward Exalted",
+    "Switch between today, this week and all time. Next to each card, the gang: win rate, HKs per game and standing for everyone who has played it",
+    "Games are recorded from this version on (each one when you leave the battleground)",
+    "Your own achievement and death popups no longer have empty space where the reaction buttons would be" } },
   { v = "1.4.37", date = "24.11", items = {
     "Level 60: the Now card's bar follows the faction you pick with \"Show as Experience Bar\" in the reputation window (standing, progress and rep per hour). Without one it shows your PvP rank as before",
     "Battleground: the reputation line no longer repeats the wins to Exalted (they're in the box), so the details fit",

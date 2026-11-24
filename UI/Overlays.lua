@@ -799,6 +799,8 @@ function O:ShowDing(item)
     for _, b in ipairs(d.buttons) do b:Hide() end
     d.sent:Hide()   -- (1.1.5) no "the gang can react now" line on your own ding
     d.life = 6
+    -- (1.4.38) no buttons, so no empty space for them: the card fits its text
+    d:SetHeight(math.max(96, 20 + 15 + 5 + th + 5 + xh + 22))
   end
   d:SetAlpha(1)
   d:Show()

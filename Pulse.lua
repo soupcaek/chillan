@@ -328,6 +328,7 @@ function P:EndBG()
   if (not honor or honor == 0) and (b.honorChat or 0) > 0 then honor = b.honorChat end
   if (not honor or honor == 0) and b.me and (b.me.honor or 0) > 0 then honor = b.me.honor end
   if honor then today().honor = today().honor + honor end
+  P.RecordGame(b, honor)
   self.bg = nil
 end
 
@@ -864,3 +865,120 @@ function P.WatchedRep()
     into = math.max(0, val - bmin), span = span, pct = exalted and 1 or math.max(0, math.min(1, (val - bmin) / span)),
     perHour = (gained and hours >= 5 / 60) and math.floor(gained / hours) or nil }
 end
+
+---------------------------------------------------------------------------
+-- (1.4.38) PvP page: every battleground game is kept ({ t, k, won, dur, hk, deaths, kb, honor, rep }),
+-- and stats per battleground for today, this week or all time. All-time numbers go to the gang.
+---------------------------------------------------------------------------
+P.BG_KEYS = { { key = "AV", name = "Alterac Valley", id = 30 }, { key = "WSG", name = "Warsong Gulch", id = 489 },
+  { key = "AB", name = "Arathi Basin", id = 529 } }
+local KEY_BY_NAME = { ["Alterac Valley"] = "AV", ["Warsong Gulch"] = "WSG", ["Arathi Basin"] = "AB" }
+function P.BGKey(name) return KEY_BY_NAME[name or ""] or name end
+
+function P.RecordGame(b, honor)
+  if not b or b.won == nil then return end   -- left before the end: not a game
+  local kills = select(1, P:BGNumbers())
+  local me = b.me or {}
+  local rep
+  if b.repFid and b.rep0 then
+    local r = P.RepOf(b.repFid)
+    if r then rep = math.max(0, r.value - b.rep0) end
+  end
+  ns.db.bgGames = ns.db.bgGames or {}
+  local list = ns.db.bgGames
+  list[#list + 1] = { t = now(), k = P.BGKey(b.name), won = b.won, dur = math.max(0, now() - (b.start or now())),
+    hk = math.max(me.hk or 0, kills or 0), deaths = math.max(me.deaths or 0, b.deaths or 0), kb = me.kb,
+    honor = honor or 0, rep = rep }
+  while #list > 3000 do table.remove(list, 1) end
+  if P.SharePvP then C_Timer.After(5, P.SharePvP) end
+end
+
+local function rangeStart(range)
+  if range == "today" then
+    local d = date("*t")
+    return time({ year = d.year, month = d.month, day = d.day, hour = 0 })
+  elseif range == "week" then
+    return now() - 7 * 86400
+  end
+  return 0
+end
+-- per battleground: { played, won, rate, cur, best, honor, honorH, honorPer, hkPer, bestHK, avgDur, totalDur, repPerWin }
+function P.PvPStats(range)
+  local from = rangeStart(range)
+  local out = {}
+  for _, g in ipairs(ns.db.bgGames or {}) do
+    if (g.t or 0) >= from then
+      local s = out[g.k] or { played = 0, won = 0, honor = 0, hk = 0, totalDur = 0, bestHK = 0, cur = 0, best = 0, run = 0,
+        repW = 0, repWN = 0 }
+      out[g.k] = s
+      s.played = s.played + 1
+      if g.won then
+        s.won = s.won + 1
+        s.run = s.run + 1
+        s.best = math.max(s.best, s.run)
+        if g.rep then s.repW, s.repWN = s.repW + g.rep, s.repWN + 1 end
+      else s.run = 0 end
+      s.honor = s.honor + (g.honor or 0)
+      s.hk = s.hk + (g.hk or 0)
+      s.totalDur = s.totalDur + (g.dur or 0)
+      s.bestHK = math.max(s.bestHK, g.hk or 0)
+    end
+  end
+  for _, s in pairs(out) do
+    s.cur = s.run
+    s.rate = s.played > 0 and s.won / s.played or 0
+    s.honorPer = s.played > 0 and math.floor(s.honor / s.played) or 0
+    s.hkPer = s.played > 0 and (s.hk / s.played) or 0
+    s.avgDur = s.played > 0 and math.floor(s.totalDur / s.played) or 0
+    s.honorH = s.totalDur >= 300 and math.floor(s.honor / s.totalDur * 3600) or nil
+    s.repPerWin = s.repWN > 0 and math.floor(s.repW / s.repWN) or nil
+  end
+  return out
+end
+
+-- reputation for a battleground by key (standing, wins to Exalted) – not only the one you're in
+function P.RepForKey(key)
+  local def
+  for _, d in ipairs(P.BG_KEYS) do if d.key == key then def = d end end
+  if not def then return nil end
+  local fid = P.BGFaction(def.id, def.name)
+  local r = fid and P.RepOf(fid)
+  if not r then return nil end
+  local t = (ns.db.bgRep or {})[fid] or { wN = 0, wSum = 0 }
+  local avg = t.wN > 0 and math.floor(t.wSum / t.wN) or nil
+  local left = math.max(0, 42000 - r.value)
+  local span = math.max(1, (r.max or 42000) - (r.min or 0))
+  return { name = r.name, standing = P.StandingName(r.reaction), reaction = r.reaction, exalted = left == 0,
+    pct = math.max(0, math.min(1, (r.value - (r.min or 0)) / span)), left = left, avg = avg,
+    winsLeft = avg and avg > 0 and math.ceil(left / avg) or nil }
+end
+
+-- the gang: all-time numbers per battleground, "AV:played:won:hk10:honorH:reaction:winsLeft;…"
+function P.SharePvP()
+  if not (ns.Comm and ns.db) then return end
+  local st = P.PvPStats("all")
+  local parts = {}
+  for _, d in ipairs(P.BG_KEYS) do
+    local s = st[d.key]
+    if s and s.played > 0 then
+      local rep = P.RepForKey(d.key) or {}
+      parts[#parts + 1] = d.key .. ":" .. s.played .. ":" .. s.won .. ":" .. math.floor(s.hkPer * 10) .. ":" .. (s.honorH or 0)
+        .. ":" .. (rep.reaction or 0) .. ":" .. (rep.winsLeft or "")
+    end
+  end
+  if #parts > 0 then ns.Comm:Broadcast(ns.Comm:Build("PV", ns.pid, table.concat(parts, ";")), 3) end
+end
+ns.Comm:Handle("PV", function(f, sender)
+  if ns.Comm:IsMe(sender) or not f[1] or f[1] == ns.pid then return end
+  local p = ns:GetPerson(f[1], true)
+  p.pvp = { at = now() }
+  for part in tostring(f[2] or ""):gmatch("[^;]+") do
+    local k, pl, w, hk10, hh, re, wl = part:match("^(%w+):(%d+):(%d+):(%d+):(%d+):(%d+):?(%d*)$")
+    if k then
+      p.pvp[k] = { played = tonumber(pl), won = tonumber(w), hkPer = tonumber(hk10) / 10, honorH = tonumber(hh),
+        reaction = tonumber(re), winsLeft = tonumber(wl) }
+    end
+  end
+  ns:Fire("PVP")
+end)
+ns:On("PLAYER_LOGIN", function() C_Timer.After(30, P.SharePvP) end)

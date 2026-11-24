@@ -49,6 +49,7 @@ UI\PersonQuick.lua
 UI\MainWindow.lua
 UI\TabHome.lua
 UI\TabMarket.lua
+UI\TabPvP.lua
 UI\TabFriends.lua
 UI\TabChat.lua
 UI\TabStats.lua
