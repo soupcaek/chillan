@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.42", date = "24.11", items = {
+    "Layer hop: requests to LayerSwap hosts carry LayerSwap's rules marker (r3), so hosts on LayerSwap 1.14.52 invite you again. Chillan keeps every rule it stands for: at most 10 moves an hour, no request in combat, and none while dead or a ghost",
+    "An invite from a LayerSwap host is now yours to accept (click Accept), as in LayerSwap itself. Hops through the gang still join by themselves" } },
   { v = "1.4.41", date = "24.11", items = {
     "Layer hop: an invite from someone on your own layer is now recognised by the game's own flag and declined automatically, and the search goes on for a host on another layer",
     "Layer hop: a refusal from the game no longer locks Swap layer for 15 minutes when fewer than 10 moves are known – you can simply try again" } },

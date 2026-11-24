@@ -229,6 +229,8 @@ function L:Request()
   end
   if inInstance() then ns.Print("You can't change layer inside a dungeon.") return end
   if inCombat() then ns.Print("Not in combat.") return end
+  -- (1.4.42) part of LayerSwap's rules (r3): no ask while dead or a ghost
+  if ns.S(UnitIsDeadOrGhost, "player") then ns.Print("Not while you're dead.") return end
   if pending then
     if m.mode == "gang" then self:AskLayerSwap(m) else ns.Print("Already asking for a layer hop…") end
     return
@@ -347,10 +349,15 @@ end
 ---------------------------------------------------------------------------
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, LS_PREFIX) end
 
+L.LS_RULES = 3
 local function lsLine(m)
   local parts = { "<LS" }
   if m.map then parts[#parts + 1] = tostring(m.map) end
   if m.from then parts[#parts + 1] = "not " .. m.from .. "-0" end
+  -- (1.4.42) LayerSwap's rules marker: from LayerSwap 1.14.52 its hosts invite only asks that carry it.
+  -- r3 = at most 10 moves an hour, no ask in combat, no ask while dead or a ghost (L:Blocked) – and the
+  -- invite from a LayerSwap host is left to the player to accept (see PARTY_INVITE_REQUEST)
+  parts[#parts + 1] = "r" .. L.LS_RULES
   local x, y = mapPos(m.map)
   if m.map and x then parts[#parts + 1] = string.format("%.1f,%.1f", x * 100, y * 100) end
   return "inv layer " .. table.concat(parts, " ") .. ">"
@@ -598,6 +605,8 @@ end
 
 -- ask LayerSwap users: known hosts first, then the players this click's search found
 function L:AskLayerSwap(m)
+  -- (1.4.42) LayerSwap's rules: never ask in combat or while dead (the gang search may have run out later)
+  if inCombat() or ns.S(UnitIsDeadOrGhost, "player") then return end
   m.mode = "ls"
   m.t = ns.Now()
   seedFromLayerSwap()
@@ -796,7 +805,7 @@ function L:Anyway(m)
   for _, r in pairs(m.replies or {}) do if r.host and r.layer and not r.same then other = other + 1 end end
   if other > 0 and since < 10 then C_Timer.After(10 - since + 0.1, function() L:Anyway(m) end) return end
   local x, y = mapPos(m.map)
-  local line = "inv layer <LS" .. (m.map and (" " .. m.map) or "")
+  local line = "inv layer <LS" .. (m.map and (" " .. m.map) or "") .. " r" .. L.LS_RULES
     .. ((m.map and x) and string.format(" %.1f,%.1f", x * 100, y * 100) or "") .. ">"
   for name, r in pairs(m.replies or {}) do
     if r.host and not r.layer and not r.anyway and (not m.map or tostring(r.zone) == tostring(m.map))
@@ -958,17 +967,33 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
       .. "), so that invite wouldn't move you – decline it and wait for another.")
     return
   end
+  -- (1.4.42) a gang host's invite is accepted for you; a LayerSwap host's is yours to accept (LayerSwap's
+  -- own rule: the invite is the player's) – Chillan carries on once you have joined
+  if not isGangChar(inviter) then
+    m.pendingHost = inviter
+    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " (LayerSwap) invited you – click Accept to move.")
+    ns:Fire("LAYERHOP")
+    return
+  end
   if AcceptGroup then AcceptGroup() end
   if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
+  L.Joined(m, inviter, true)
+end)
+
+-- after joining a host's group: watch for the move, leave after LEAVE_AFTER s
+function L.Joined(m, inviter, confirm)
   m.host = inviter
   m.joinedAt = GetTime()
+  m.pendingHost = nil
   ns:Fire("LAYERHOP")
   local myM = m
-  -- Forever may ask to confirm the move ("shard transfer"): confirm it, we asked for this
-  C_Timer.After(0.5, function()
-    local prompt = _G.ShardTransferImminentFrame
-    if L.mine == myM and prompt and prompt:IsShown() then pcall(prompt.Click, prompt, "LeftButton", true) end
-  end)
+  -- Forever may ask to confirm the move ("shard transfer"): confirmed for gang hops, which we asked for
+  if confirm then
+    C_Timer.After(0.5, function()
+      local prompt = _G.ShardTransferImminentFrame
+      if L.mine == myM and prompt and prompt:IsShown() then pcall(prompt.Click, prompt, "LeftButton", true) end
+    end)
+  end
   C_Timer.After(3, function() L:Verify(myM) end)
   -- (1.4.13) the group is left 4 s after the join, moved or not (LayerSwap 1.14.40): a move comes
   -- 0.6-1.1 s after the join
@@ -980,6 +1005,12 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
       notMoved(myM)
     end
   end)
+end
+
+-- you accepted a LayerSwap host's invite yourself
+ns:On("GROUP_JOINED", function()
+  local m = L.mine
+  if m and m.pendingHost and not m.joinedAt and ns.Now() - m.t <= REQUEST_TTL + 60 then L.Joined(m, m.pendingHost, false) end
 end)
 
 done = function(m, newKey)
