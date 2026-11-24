@@ -22,3 +22,15 @@ print("after BG box:", LA.eval('(function() local r = ADDON_NS.Pulse:BGRep() ret
 LA.execute('ADDON_NS.Comm:Broadcast(ADDON_NS.Tracker:BuildS3(), 3)'); run(70)
 print("B sees:", LB.eval('(function() local p = ADDON_NS:GetPerson("' + LA.eval('ADDON_NS.pid') + '") local s = p and p.s3 or {} return tostring(s.bgRepS) .. " " .. tostring(s.bgWins) end)()'))
 print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:5], [e for e in list(GB.ERRORS.values()) if 'HookScript' not in str(e)][:5])
+# 1.4.36: summary falls back to own counts; honor from chat; won game counts in the average
+LA.execute('''C_PvP = C_PvP or {}; C_PvP.GetScoreInfo = nil
+ADDON_NS.db.bgRep = nil
+REPV = 3000
+ADDON_NS.Pulse:StartBG()
+ADDON_NS.Pulse.bg.deaths = 2; ADDON_NS.Pulse.bg.best = 21
+FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "Grunk dies, honorable kill Rank: Knight (Estimated Honor Points: 14)")
+FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 82 honor points.")
+REPV = REPV + 697
+ADDON_NS.Pulse.bg.won = true''')
+print("summary:", LA.eval('(function() local x = ADDON_NS.Pulse:BGSummary(true) return "hk " .. x.me.hk .. " deaths " .. x.me.deaths .. " honor " .. tostring(x.honor) end)()'))
+print("wins left with this game:", LA.eval('(function() local r = ADDON_NS.Pulse:BGRep() return r.winsLeft .. " (avg " .. r.avgW .. ", est " .. tostring(r.estimated) .. ")" end)()'))

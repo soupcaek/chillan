@@ -436,13 +436,21 @@ local function gangByName()
 end
 function P:ReadBoard()
   local b = self.bg
-  if not b or not GetNumBattlefieldScores or not GetBattlefieldScore then return end
+  if not b or not GetNumBattlefieldScores then return end
   local okN, n = pcall(GetNumBattlefieldScores)
   if not okN or type(n) ~= "number" or ns.isSecret(n) then return end
   local byName, me = gangByName(), ns.S(UnitName, "player")
   local gang = {}
   for i = 1, n do
-    local ok, name, kb, hk, deaths, honor = pcall(GetBattlefieldScore, i)
+    local ok, name, kb, hk, deaths, honor
+    -- (1.4.36) the modern client (WoW Forever) has C_PvP.GetScoreInfo instead of GetBattlefieldScore
+    if C_PvP and C_PvP.GetScoreInfo then
+      local okI, info = pcall(C_PvP.GetScoreInfo, i)
+      if okI and type(info) == "table" then
+        ok, name, kb, hk, deaths, honor = true, info.name, info.killingBlows, info.honorableKills, info.deaths, info.honorGained
+      end
+    end
+    if not ok and GetBattlefieldScore then ok, name, kb, hk, deaths, honor = pcall(GetBattlefieldScore, i) end
     if ok and type(name) == "string" and not ns.isSecret(name) then
       local short = ns.ShortName(name)
       local row = { name = short, kb = tonumber(kb) or 0, hk = tonumber(hk) or 0, deaths = tonumber(deaths) or 0, honor = tonumber(honor) or 0 }
@@ -476,6 +484,21 @@ end
 ns:On("CHAT_MSG_BG_SYSTEM_HORDE", onBGSystem)
 ns:On("CHAT_MSG_BG_SYSTEM_ALLIANCE", onBGSystem)
 ns:On("CHAT_MSG_BG_SYSTEM_NEUTRAL", onBGSystem)
+
+-- (1.4.36) honor from the chat lines, for when the game's session count stays at 0
+-- ("… (Estimated Honor Points: 12)" for kills, "You have been awarded 41 honor points." for objectives)
+ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
+  local b = P.bg
+  if not b or type(text) ~= "string" or ns.isSecret(text) then return end
+  local n = tonumber(text:match("(%d+)%)?%.?$") or text:match("awarded (%d+)") or "")
+  if n and n > 0 and n < 5000 then b.honorChat = (b.honorChat or 0) + n end
+end)
+ns:On("CHAT_MSG_SYSTEM", function(text)
+  local b = P.bg
+  if not b or type(text) ~= "string" or ns.isSecret(text) then return end
+  local n = tonumber(text:match("awarded (%d+) honor") or "")
+  if n and n > 0 and n < 5000 then b.honorChat = (b.honorChat or 0) + n end
+end)
 
 -- revenge in a battleground: you killed someone who killed you or the gang ("Died to" list)
 ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
@@ -518,7 +541,12 @@ end
 function P:BGSummary(won)
   local b = self.bg
   if not b then return nil end
-  local _, honor = self:BGNumbers()
+  local kills, honor = self:BGNumbers()
+  if (not honor or honor == 0) and (b.honorChat or 0) > 0 then honor = b.honorChat end
+  if (not honor or honor == 0) and b.me and (b.me.honor or 0) > 0 then honor = b.me.honor end
+  -- (1.4.36) the scoreboard may be unreadable: fall back to what we counted ourselves
+  local me = b.me or {}
+  me = { hk = math.max(me.hk or 0, kills or 0), deaths = math.max(me.deaths or 0, b.deaths or 0), kb = me.kb, honor = me.honor, board = b.me ~= nil }
   local gang = b.gang or {}
   local mvp
   for _, g in ipairs(gang) do if not mvp or g.hk > mvp.hk or (g.hk == mvp.hk and g.deaths < mvp.deaths) then mvp = g end end
@@ -531,9 +559,9 @@ function P:BGSummary(won)
   local revNames = {}
   for n in pairs(b.revs) do revNames[#revNames + 1] = n end
   local d = today()
-  return { name = b.name, won = won, score = self:BGScore(), dur = now() - b.start, honor = honor or (b.me and b.me.honor),
+  return { name = b.name, won = won, score = self:BGScore(), dur = now() - b.start, honor = honor,
     gang = gang, mvp = mvp, hero = hero, heroFlags = hero and b.flags[hero], revs = revNames,
-    wonToday = d.won, played = d.played, streak = d.streak or 0, best = b.best, me = b.me }
+    wonToday = d.won, played = d.played, streak = d.streak or 0, best = b.best, me = me }
 end
 
 ---------------------------------------------------------------------------
@@ -792,13 +820,19 @@ function P:BGRep(anyTime)
   local r = P.RepOf(fid)
   if not r then return nil end
   local t = (ns.db.bgRep or {})[fid] or { wN = 0, wSum = 0, lN = 0, lSum = 0 }
-  local avgW = t.wN > 0 and math.floor(t.wSum / t.wN) or (info and info.def or 300)
+  local wN, wSum = t.wN, t.wSum
+  -- (1.4.36) a game just won but not yet recorded (the recap opens before you leave) counts already
+  if b and b.repFid == fid and b.won == true and b.rep0 then
+    local g = r.value - b.rep0
+    if g > 0 and g < 6000 then wN, wSum = wN + 1, wSum + g end
+  end
+  local avgW = wN > 0 and math.floor(wSum / wN) or (info and info.def or 300)
   local avgL = t.lN > 0 and math.floor(t.lSum / t.lN) or nil
   local left = math.max(0, EXALTED - r.value)
   local game = (b and b.repFid == fid and b.rep0) and math.max(0, r.value - b.rep0) or nil
   local fname = (r.name or ""):gsub(" Clan$", ""):gsub(" Guard$", "")
   return { fid = fid, name = r.name, short = fname, value = r.value, left = left, exalted = left == 0,
     reaction = r.reaction, standing = P.StandingName(r.reaction), min = r.min, max = r.max,
-    avgW = avgW, wN = t.wN, avgL = avgL, lN = t.lN, estimated = t.wN == 0,
+    avgW = avgW, wN = wN, avgL = avgL, lN = t.lN, estimated = wN == 0,
     winsLeft = avgW > 0 and math.ceil(left / avgW) or nil, game = game, inBG = b ~= nil, bg = info and info.short }
 end

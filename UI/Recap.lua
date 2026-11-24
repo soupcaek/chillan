@@ -475,11 +475,12 @@ function R.BG(x)
   local nums = {
     { tostring(me.hk or 0), "HKs" },
     { tostring(me.deaths or 0), (me.deaths == 1) and "death" or "deaths", (me.deaths or 0) > 0 and C.red or nil },
-    { tostring(me.kb or 0), "killing blows" },
+    -- (1.4.36) killing blows only come from the scoreboard; without it, the best kill streak
+    me.kb and { tostring(me.kb), "killing blows" } or { tostring(x.best or 0), "best streak" },
     { "+" .. ns.Num(x.honor or 0), "honor" },
   }
   local moments = {}
-  if (x.best or 0) >= 3 then moments[#moments + 1] = { "Target", "Best killing streak: " .. x.best } end
+  if (x.best or 0) >= 3 and me.kb then moments[#moments + 1] = { "Target", "Best killing streak: " .. x.best } end
   if x.hero and x.heroFlags then
     moments[#moments + 1] = { "Crown", x.hero .. ": " .. ns.Plural(x.heroFlags.cap or 0, "flag capture") .. ((x.heroFlags.ret or 0) > 0 and (", " .. ns.Plural(x.heroFlags.ret, "return")) or ""), C.gold }
   end

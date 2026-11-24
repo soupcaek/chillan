@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.36", date = "24.11", items = {
+    "Battleground recap showed 0 HKs, 0 deaths and 0 honor: the scoreboard is now read with the WoW Forever API, and when it can't be read Chillan uses its own counts (HKs, deaths, and honor from the honor messages)",
+    "Without a scoreboard the killing blows box shows your best kill streak instead",
+    "Wins to Exalted right after a win now includes that game in your average, instead of the starting estimate" } },
   { v = "1.4.35", date = "24.11", items = { "Disenchant next: a button under your bags and on the Market tab (for characters with Enchanting) disenchants, one click per item, the item in your bags that gains most from disenchanting instead of selling. Hover it for the list. Can be turned off in Market › Disenchant button" } },
   { v = "1.4.34", date = "24.11", items = {
     "Battleground reputation: in Alterac Valley (and Warsong Gulch and Arathi Basin) one Pulse box shows how many wins you need to Exalted, with this game's reputation live (\"27 wins · to Exalted · +412\")",
