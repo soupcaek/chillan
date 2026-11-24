@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.49", date = "24.11", items = {
+    "No more \"We haven't heard from anyone in the gang yet\" in battlegrounds and dungeons – the check waits until you've been out for a couple of minutes",
+    "Minibar tooltip in a battleground says \"Paused in BG\" instead of \"Nobody else online\"",
+    "Wins to Exalted tile: this game's rep gain moved to the card's tooltip (\"This game +420\"), so the tile only says how many wins are left" } },
   { v = "1.4.48", date = "24.11", items = {
     "Inside battlegrounds and dungeons the game blocks addon messages, so the header says \"Paused in BG\" (or dungeon) instead of \"0 online\". Hover it for why. Friends keep the status they had when you went in, and the gang syncs again when you leave",
     "Battleground card trimmed to the essentials: HKs on the big line (deaths only when you have any), the reputation bar, and one Today line for this battleground. Tiles: score, honor this game, wins to Exalted and time in the BG. Rep left, average per win, this week's honor and your rank are in the card's tooltip",

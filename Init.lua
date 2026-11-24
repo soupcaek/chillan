@@ -23,8 +23,11 @@ ns:On("PLAYER_LOGIN", function()
   ns.MapPins:Init()
   ns:Listen("CODE_CHANGED", function() ns.Overlays:UpdateMinibar() end)
   -- Automatisk feilsøk etter et par minutter hvis vi ikke hører noen
-  C_Timer.After(90, function()
+  -- (1.4.49) not inside an instance: there the game blocks addon messages, so silence is expected.
+  -- The check waits until you've been out for 90 s.
+  local function check()
     if not ns.db.code then return end
+    if ns.commBlindSince then C_Timer.After(30, check) return end
     local st = ns.Comm.stats
     local trial = (IsTrialAccount and IsTrialAccount()) or (IsVeteranTrialAccount and IsVeteranTrialAccount())
     if trial then
@@ -34,7 +37,8 @@ ns:On("PLAYER_LOGIN", function()
     elseif st.recv == 0 then
       ns.Print("We haven't heard from anyone in the gang yet. Type /chill debug and send a screenshot to the gang, or ask a friend to type /chill add " .. (ns.Comm:MyFull() or "your name") .. ".")
     end
-  end)
+  end
+  C_Timer.After(90, check)
 end)
 
 local started = false

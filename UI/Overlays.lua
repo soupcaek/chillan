@@ -70,7 +70,12 @@ function O:CreateMinibar()
         any = true
       end
     end
-    if not any then GameTooltip:AddLine("Nobody else online", 0.6, 0.63, 0.66) end
+    -- (1.4.49) inside an instance we can't hear anyone: say so instead of "Nobody else online"
+    local paused = ns.PausedLabel and ns.PausedLabel()
+    if paused then
+      GameTooltip:AddLine(paused, 0.6, 0.63, 0.66)
+      GameTooltip:AddLine(ns.PAUSED_TIP, 0.6, 0.63, 0.66, true)
+    elseif not any then GameTooltip:AddLine("Nobody else online", 0.6, 0.63, 0.66) end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine("Left-click: open Chillan?  ·  Drag: move", 0.52, 0.55, 0.57)
     GameTooltip:Show()
