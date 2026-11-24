@@ -675,7 +675,8 @@ function L:Whisper(m, names)
     ns:Fire("LAYERHOP")
     if names[i] and (m.sent or 0) < ASK_MAX and (m.throttled or 0) < 30 then C_Timer.After(1, burst) return end
     m.doneAt = GetTime()
-    C_Timer.After(3.1, function() L:Anyway(m) end)
+    -- (1.4.51) LayerSwap 1.14.54 hosts hold their reply up to ~4 s: give them 5 before the re-ask
+    C_Timer.After(5.1, function() L:Anyway(m) end)
     local w = who
     ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. (m.sent or sent)
       .. " player" .. ((m.sent or sent) == 1 and "" or "s")
@@ -789,7 +790,7 @@ local function onHeardReply(sender, layer, zone, host)
   ns.db.lsAsked[sender] = nil        -- answered: not "asked without an answer"
   r.zone = zone
   -- a host that didn't say its layer may get one more ask without the "not my layer" part (L:Anyway)
-  if host and not key then C_Timer.After(3, function() L:Anyway(m) end) end
+  if host and not key then C_Timer.After(5, function() L:Anyway(m) end) end
   ns:Fire("LAYERHOP")
 end
 
@@ -800,7 +801,7 @@ end
 function L:Anyway(m)
   if L.mine ~= m or m.joinedAt or m.by or not m.doneAt then return end
   local since = GetTime() - m.doneAt
-  if since < 3 then C_Timer.After(3 - since + 0.1, function() L:Anyway(m) end) return end
+  if since < 5 then C_Timer.After(5 - since + 0.1, function() L:Anyway(m) end) return end
   local other = 0
   for _, r in pairs(m.replies or {}) do if r.host and r.layer and not r.same then other = other + 1 end end
   if other > 0 and since < 10 then C_Timer.After(10 - since + 0.1, function() L:Anyway(m) end) return end
@@ -926,7 +927,8 @@ ns:On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
     -- a LayerSwap user heard an ask: "heard <asker>|<layer>|<zone>|<h or ->"
     local target, layer, zone, host = text:match("^heard (.-)|([^|]*)|([^|]*)|([^|]*)$")
     if layer then
-      learn(sender, layer:match("^(%d+)"), zone ~= "-" and zone or nil, host == "h")
+      -- (1.4.51) "s" (LayerSwap 1.14.54): a host that skips this ask – kept as a host for the next hop
+      learn(sender, layer:match("^(%d+)"), zone ~= "-" and zone or nil, host == "h" or host == "s")
       local me = ns.S(UnitName, "player")
       if channel == "WHISPER" and type(me) == "string" and norm(target) == norm(me) then
         onHeardReply(sender, layer ~= "" and layer or nil, zone, host == "h")

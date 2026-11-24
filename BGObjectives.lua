@@ -167,6 +167,22 @@ function O:TowersStanding()
   return h, a
 end
 
+-- (1.4.51) per side: towers standing (burning ones included) and burning (assaulted by the other side)
+function O:TowerStates()
+  local st = { h = { standing = 0, burning = 0 }, a = { standing = 0, burning = 0 } }
+  local any = false
+  for _, n in pairs(self.nodes) do
+    local side = avTowerSide(n.name)
+    if side and not n.gone and type(n.icon) == "number" and n.icon >= 8 and n.icon <= 11 then
+      any = true
+      st[side].standing = st[side].standing + 1
+      if n.atk and n.atk ~= side then st[side].burning = st[side].burning + 1 end
+    end
+  end
+  if not any then return nil end
+  return st
+end
+
 ---------------------------------------------------------------------------
 -- the score display at the top of the screen
 ---------------------------------------------------------------------------

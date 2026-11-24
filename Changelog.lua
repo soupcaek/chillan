@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.51", date = "24.11", items = {
+    "Alterac Valley panel redone: \"Next to fall\" with a big countdown and bar, then everything else under attack with its own timer bar in the colour of the side taking it, and the towers each side has left (filled = standing, amber = burning, dark = gone). An attack that started before you joined says so instead of \"…\"",
+    "First battleground tile is now reputation this game (AV had an empty score). Arathi Basin, Warsong Gulch and Darkspear Islands show the score at the top of the panel instead, with bases per side",
+    "Layer hop: fits LayerSwap 1.14.54 – waits 5 s for hosts that hold their reply before asking again, and remembers hosts that skip one ask as hosts for the next hop" } },
   { v = "1.4.50", date = "24.11", items = {
     "New: battleground objectives. In a battleground the gang chat is paused anyway, so the event window shows the battleground instead – back to the feed when you leave",
     "Arathi Basin and Darkspear Islands: every base by owner (red Horde, blue Alliance); an assaulted base turns amber and counts down to capture. Bases held per side and a win estimate (\"Horde wins in ~6 min\")",

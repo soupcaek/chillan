@@ -37,10 +37,19 @@ LA.execute('ADDON_NS.EventWindow.frame:Show(); ADDON_NS.BGPanel:Apply()')
 print("panel on:", LA.eval('ADDON_NS.BGPanel.on'), "| feed hidden:", not LA.eval('ADDON_NS.EventWindow.msg:IsShown()'))
 print("panel line:", LA.eval('(ADDON_NS.BGPanel.info:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") .. " || " .. (ADDON_NS.BGPanel.right:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
 print("chip 3:", LA.eval('(ADDON_NS.BGPanel.chips[3].text:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
+print("score line:", LA.eval('(ADDON_NS.BGPanel.score:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'), "|", LA.eval('(ADDON_NS.BGPanel.scoreR:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
 # Alterac Valley: only what's under attack, towers standing
 LA.execute('''GetInstanceInfo = function() return "Alterac Valley", "pvp", 0, "", 40, 0, false, 30 end
 POIS = { {"Stonehearth Bunker", 11}, {"Iceblood Tower", 9}, {"Tower Point", 9}, {"Dun Baldar North Bunker", 10}, {"Snowfall Graveyard", 3}, {"Frostwolf Graveyard", 12} }
 ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Draw()''')
+LA.execute('POIS[1][2] = 8; POIS[2][2] = 11; ADDON_NS.BGObj:Update(); GT = GT + 60; POIS[5][2] = 13; ADDON_NS.BGObj:Update(); GT = GT + 12; ADDON_NS.BGPanel:Draw()')
+strip = '(%s or ""):gsub("|c%%x%%x%%x%%x%%x%%x%%x%%x", ""):gsub("|r", "")'
+v = 'ADDON_NS.BGPanel.av'
+print("AV next:", LA.eval(strip % (v + '.name:GetText()')), "|", LA.eval(strip % (v + '.sub:GetText()')), "|", LA.eval(v + '.big:GetText()'))
+print("AV row1:", LA.eval(strip % (v + '.rows[1].label:GetText()')), "|", LA.eval(strip % (v + '.rows[1].time:GetText()')))
+print("AV pips:", LA.eval('(function() local s = ADDON_NS.BGObj:TowerStates() return "H " .. s.h.standing .. "/" .. s.h.burning .. "  A " .. s.a.standing .. "/" .. s.a.burning end)()'))
+assert LA.eval(v + '.big:GetText()') != ""
+print("tile 1:", LA.eval('(function() local a, b = ADDON_NS.Tiles.byKey.bgrepgame.get() return tostring(a) .. " / " .. tostring(b) end)()'))
 print("AV chips:", LA.eval('(function() local o = {} for _, n in ipairs(ADDON_NS.BGObj:Chips()) do o[#o+1] = n.name end return table.concat(o, ", ") end)()'))
 print("AV towers:", LA.eval('(function() local h, a = ADDON_NS.BGObj:TowersStanding() return tostring(h) .. " vs " .. tostring(a) end)()'))
 # Warsong Gulch: carrier slots, flag respawn after a capture

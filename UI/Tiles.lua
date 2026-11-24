@@ -236,6 +236,12 @@ for _, d in ipairs({
     local low = ns.Durability and ns.Durability()
     return low and (math.floor(low) .. " %") or "–", "durability", (low and low < 30) and C.red or nil
   end },
+  -- (1.4.51) the first battleground tile: reputation gained this game (the score is in the BG panel)
+  { key = "bgrepgame", name = "Reputation this battleground", get = function()
+    local r = P():BGRep()
+    if not r then return "–", "rep this game" end
+    return "+" .. ns.Num(r.game or 0), "rep this game"
+  end },
   { key = "bgscore", name = "Battleground score", get = function()
     return P():BGScore() or "–", "score"
   end },
@@ -351,7 +357,7 @@ T.MODE_TILES = {
   dungeon = { "bossesx", "runtime", "runxp", "lootval" },
   raid = { "bossesx", "runtime", "wipes", "repair" },
   -- (1.4.48) HKs and deaths are on the card's big line, so not here too
-  bg = { "bgscore", "bghonor", "bgrep", "bgtime" },
+  bg = { "bgrepgame", "bghonor", "bgrep", "bgtime" },
   -- (1.4.17) open world at level 60: no XP to chase, so honor, rep, gold and bosses instead
   world60 = { "act_layer", "honor60", "reph", "goldday" },
 }
