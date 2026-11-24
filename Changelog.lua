@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.35", date = "24.11", items = { "Disenchant next: a button under your bags and on the Market tab (for characters with Enchanting) disenchants, one click per item, the item in your bags that gains most from disenchanting instead of selling. Hover it for the list. Can be turned off in Market › Disenchant button" } },
   { v = "1.4.34", date = "24.11", items = {
     "Battleground reputation: in Alterac Valley (and Warsong Gulch and Arathi Basin) one Pulse box shows how many wins you need to Exalted, with this game's reputation live (\"27 wins · to Exalted · +412\")",
     "In a battleground the Now card's bar shows your reputation toward the next standing instead of XP, with a line like \"Frostwolf: 27 wins to Exalted · 14 993 rep left · avg +562 over 16 wins\"",

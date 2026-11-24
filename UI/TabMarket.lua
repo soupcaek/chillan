@@ -63,6 +63,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     { "Stack value", "mkStack", "The price of the whole stack you hover in your bags." },
     { "Best: auction, vendor or disenchant", "mkBest", "Which pays most, and by how much (auction after the 5 % cut)." },
     { "Disenchant value", "mkDE", "What disenchanting the item is worth: the expected value of the mats at the auction house." },
+    { "Disenchant button", "mkDEButton", "Adds a Disenchant next button under your bags and on this page. Each click disenchants the item in your bags that gains most from disenchanting." },
     { "What disenchanting gives", "mkDEList", "One line per mat under the disenchant value: how many, the chance, and the mat's price." },
     { "Price change since the last scan", "mkTrend", "Shown when the price moved 5 % or more." },
   })
@@ -214,41 +215,19 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   list:SetPoint("TOPLEFT", dsub, "BOTTOMLEFT", 0, -10)
   list:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT", 6, 0)
   list.emptyText = "No green, blue or purple gear in your bags right now."
+  -- (1.4.35) disenchant the best one per click (shown for characters who know Disenchant)
+  local deBtn = ns.Disenchant:MakeButton(right, 170, 24, false)
+  deBtn:SetPoint("TOP", dh, "TOP", 0, 5)
+  deBtn:SetPoint("RIGHT", right, "RIGHT", 0, 0)
 
-  local function bagItems()
-    local out, seen = {}, {}
-    for bag = 0, 4 do
-      local n = (C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(bag)) or 0
-      for slot = 1, n do
-        local ok, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
-        if ok and type(info) == "table" and info.hyperlink then
-          local id = info.itemID or tonumber(info.hyperlink:match("item:(%d+)"))
-          if id and not seen[id] then
-            local res = ns.Disenchant:Results(id)
-            if res then
-              seen[id] = true
-              local de = ns.Disenchant:Value(id)
-              if not de then ns.Disenchant:AskMats(id) end
-              local e = (not info.isBound) and ns.Market:Get(id)
-              local net = e and math.floor(e.v * 0.95) or 0
-              local vend = ns.Market.VendorPrice(id) or 0
-              local sell, how = vend, "vendor"
-              if net > vend then sell, how = net, "auction" end
-              out[#out + 1] = { link = info.hyperlink, res = res, de = de, sell = sell, sellHow = how, gain = (de or 0) - sell }
-            end
-          end
-        end
-      end
-    end
-    table.sort(out, function(a, b) return a.gain > b.gain end)
-    return out
-  end
+  local function bagItems() return ns.Disenchant:BagItems() end
 
   function tab:Refresh()
     for _, cb in ipairs(checks) do cb:Refresh() end
     local M = ns.Market
     status:SetText(M and (M:StatusText() .. (M.gangScanBy and (" · " .. M.gangScanBy .. " scanned " .. ns.Ago(M.gangScanAt)) or "")) or "")
     list:SetData(bagItems())
+    if ns.Disenchant.RefreshButtons then ns.Disenchant.RefreshButtons() end
   end
   ns:Listen("MARKET", function() if tab:IsVisible() then tab:Refresh() if box:GetText() ~= "" then runSearch() end end end)
   ns:On("BAG_UPDATE_DELAYED", function() if tab:IsVisible() then tab:Refresh() end end)
