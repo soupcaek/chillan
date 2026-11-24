@@ -66,3 +66,22 @@ print("WSG respawn:", LA.eval('tostring(ADDON_NS.BGObj:RespawnLeft())'), "| slot
 # leaving: back to the feed
 LA.execute('IsInInstance = function() return false end; ADDON_NS.InBattleground = function() return false end; ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Apply()')
 print("after leaving, feed shown:", LA.eval('ADDON_NS.EventWindow.msg:IsShown()'), "| panel on:", LA.eval('ADDON_NS.BGPanel.on'))
+# 1.4.52: joining (or reloading) mid-game: an assault icon already there is not counted as an attack
+LA.execute('''IsInInstance = function() return true, "pvp" end; ADDON_NS.InBattleground = function() return true end
+GetInstanceInfo = function() return "Alterac Valley", "pvp", 0, "", 40, 0, false, 30 end
+ADDON_NS.db.bgObjSave = nil
+POIS = { {"Dun Baldar North Bunker", 11}, {"Frostwolf Graveyard", 13}, {"Iceblood Tower", 10} }
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()''')
+n = LA.eval('#ADDON_NS.BGObj:Chips()')
+print("attacks right after joining:", n)
+assert n == 0
+# seen changing: counted; and it survives a /reload
+LA.execute('POIS[3][2] = 8; ADDON_NS.BGObj:Update(); GT = GT + 30; ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()')
+left = LA.eval('ADDON_NS.BGObj:Left(ADDON_NS.BGObj.nodes["Iceblood Tower"])')
+print("after reload, Iceblood Tower burns in:", left)
+assert left and 265 <= left <= 271
+print("hover H:", LA.eval('(function() local o = {} for _, t in ipairs(ADDON_NS.BGObj:TowerList("h")) do o[#o+1] = t.name .. "=" .. t.state end return table.concat(o, ", ") end)()'))
+print("icon log:", LA.eval('ADDON_NS.db.bgIconLog[#ADDON_NS.db.bgIconLog]'))
+# in a fight the carrier slots are left alone (a secure button may hold on to them)
+LA.execute('IN_COMBAT = true; ADDON_NS.BGPanel:Draw(); IN_COMBAT = false')
+print("drew in combat without touching slots: ok")

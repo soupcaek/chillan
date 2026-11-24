@@ -60,6 +60,24 @@ O.avTowerSide = avTowerSide
 
 local function now() return GetTime and GetTime() or ns.Now() end
 
+O.AV_TOWERS = {
+  h = { "Iceblood Tower", "Tower Point", "East Frostwolf Tower", "West Frostwolf Tower" },
+  a = { "Stonehearth Bunker", "Icewing Bunker", "Dun Baldar South Bunker", "Dun Baldar North Bunker" },
+}
+-- (1.4.52) one side's towers for the hover: name and "standing", "burning" (seconds left or nil) or "gone"
+function O:TowerList(side)
+  local out = {}
+  for _, name in ipairs(O.AV_TOWERS[side] or {}) do
+    local n = self.nodes[name]
+    local state
+    if not n or n.gone or type(n.icon) ~= "number" or n.icon < 8 or n.icon > 11 then state = n and "gone" or "unknown"
+    elseif n.atk and n.atk ~= side then state = "burning"
+    else state = "standing" end
+    out[#out + 1] = { name = name, state = state, left = (state == "burning") and self:Left(n) or nil }
+  end
+  return out
+end
+
 -- which battleground we're in ("AV", "AB", "WSG", "DI"), or nil
 function O.Key()
   if not (ns.InBattleground and ns.InBattleground()) then return nil end
@@ -101,7 +119,7 @@ local function readPOIs()
 end
 O.readPOIs = readPOIs
 
-function O:ScanNodes()
+function O:ScanNodes(fresh)
   local list = readPOIs()
   if not list then return end
   local t = now()
@@ -115,11 +133,14 @@ function O:ScanNodes()
       self.order[#self.order + 1] = p.name
     end
     local atk = p.icon and ASSAULT[p.icon]
+    -- (1.4.52) an attack counts only when we SEE the icon change to an assault icon, as Capping does.
+    -- An icon that was already there when we joined or reloaded says nothing for sure (live 24 Nov:
+    -- every Alliance bunker read "burning" two minutes into a game). Attacks we did see survive a
+    -- /reload (O:Restore).
+    local changed = n.icon ~= nil and n.icon ~= false and p.icon ~= n.icon
+    if changed then self:LogIcon(p.name, n.icon, p.icon) end
     if atk then
-      -- a new assault (or the other side took it back mid-way): the clock starts now. Seen for the
-      -- first time already assaulted (after a /reload), we don't know when it started.
-      if n.atk ~= atk then n.since = (n.icon ~= nil) and t or nil end
-      n.atk = atk
+      if changed and n.atk ~= atk then n.atk, n.since = atk, t end
     else
       n.atk, n.since = nil, nil
       local held = heldBy(p.icon)
@@ -128,6 +149,33 @@ function O:ScanNodes()
     n.icon = p.icon or false
   end
   for name, n in pairs(self.nodes) do if not seen[name] then n.gone = true end end
+  if fresh then self:Restore() end
+  self:Save()
+end
+
+-- what we saw change, for checking the icon numbers afterwards (SavedVariables, last 200)
+function O:LogIcon(name, from, to)
+  if not ns.db then return end
+  local log = ns.db.bgIconLog or {}
+  ns.db.bgIconLog = log
+  log[#log + 1] = string.format("%s %s %s: %s -> %s", date("%d.%m %H:%M:%S"), self.key or "?", name, tostring(from), tostring(to))
+  while #log > 200 do table.remove(log, 1) end
+end
+
+-- the attacks we saw, kept over a /reload (GetTime keeps running across one)
+function O:Save()
+  if not ns.db or not self.key then return end
+  local atk = {}
+  for name, n in pairs(self.nodes) do if n.atk and n.since then atk[name] = { n.atk, n.since } end end
+  ns.db.bgObjSave = { key = self.key, at = now(), atk = atk }
+end
+function O:Restore()
+  local sv = ns.db and ns.db.bgObjSave
+  if not sv or sv.key ~= self.key or not sv.at or now() - sv.at > 120 or now() < sv.at then return end
+  for name, a in pairs(sv.atk or {}) do
+    local n = self.nodes[name]
+    if n and not n.atk and type(n.icon) == "number" and ASSAULT[n.icon] == a[1] then n.atk, n.since = a[1], a[2] end
+  end
 end
 
 -- seconds until an assaulted node falls (nil when we don't know when it started)
@@ -279,9 +327,12 @@ end
 
 function O:Update()
   local key = O.Key()
-  if key ~= self.key then self:Reset(key) end
+  local fresh = key ~= self.key
+  if fresh then self:Reset(key) end
   if not key then return end
-  if key ~= "WSG" then self:ScanNodes() end
+  if key ~= "WSG" then
+    self:ScanNodes(fresh)
+  end
   if key == "AB" or key == "DI" then self:Sample(self:Score()) end
   if key == "WSG" then self:NoteFlags() end
 end

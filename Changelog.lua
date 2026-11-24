@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.52", date = "24.11", items = {
+    "Fixed: a Lua error (blocked action) from the battleground panel during fights",
+    "Alterac Valley: towers and graveyards only count as under attack when Chillan sees them change. Joining a game in progress or reloading no longer shows bunkers as burning when they aren't. Attacks Chillan did see survive a /reload, with the right time",
+    "Hover the tower squares to see each tower: standing, burning (with time left) or destroyed" } },
   { v = "1.4.51", date = "24.11", items = {
     "Alterac Valley panel redone: \"Next to fall\" with a big countdown and bar, then everything else under attack with its own timer bar in the colour of the side taking it, and the towers each side has left (filled = standing, amber = burning, dark = gone). An attack that started before you joined says so instead of \"…\"",
     "First battleground tile is now reputation this game (AV had an empty score). Arathi Basin, Warsong Gulch and Darkspear Islands show the score at the top of the panel instead, with bases per side",

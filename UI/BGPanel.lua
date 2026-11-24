@@ -65,7 +65,7 @@ local function makeSecure(slot)
   b:SetFrameStrata("HIGH")
   b:RegisterForClicks("AnyUp", "AnyDown")
   b:SetAttribute("type", "target")
-  b:SetAllPoints(slot)
+  b.slot = slot
   b:Hide()
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -98,6 +98,13 @@ function B:Create()
   self.scoreR = UI.Text(f, 13, "semi", C.text)
   self.scoreR:SetJustifyH("RIGHT")
   self.slots = { makeSlot(f, "Enemy carrier"), makeSlot(f, "Our carrier") }
+  -- (1.4.52) fixed at the bottom and never moved: a frame a secure button is anchored to can't be
+  -- moved or hidden in combat
+  self.slots[2]:SetPoint("BOTTOMLEFT", 0, 0)
+  self.slots[2]:SetPoint("BOTTOMRIGHT", 0, 0)
+  self.slots[1]:SetPoint("BOTTOMLEFT", self.slots[2], "TOPLEFT", 0, 4)
+  self.slots[1]:SetPoint("BOTTOMRIGHT", self.slots[2], "TOPRIGHT", 0, 4)
+  self.slots[1]:Hide() self.slots[2]:Hide()
   self.secure = { makeSecure(self.slots[1]), makeSecure(self.slots[2]) }
   self.secure[1]:SetAttribute("unit", "arena1")
 end
@@ -211,6 +218,28 @@ function B:CreateAV()
       v.pips[side][i] = t
     end
   end
+  -- (1.4.52) hover the squares: which towers stand, burn or are gone
+  v.hit = {}
+  for _, side in ipairs({ "h", "a" }) do
+    local hit = CreateFrame("Frame", nil, f)
+    hit:EnableMouse(true)
+    hit:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:AddLine(sideName(side) .. " towers", hex(sideColor(side)))
+      for _, t in ipairs(ns.BGObj:TowerList(side)) do
+        local r, g, b = 0.6, 0.63, 0.66
+        local txt = t.state
+        if t.state == "standing" then r, g, b = hex(sideColor(side))
+        elseif t.state == "burning" then r, g, b = hex(AMBER) txt = "burning" .. (t.left and (" · " .. mmss(t.left)) or "")
+        elseif t.state == "gone" then txt = "destroyed"
+        else txt = "not seen yet" end
+        GameTooltip:AddDoubleLine(t.name, txt, 1, 1, 1, r, g, b)
+      end
+      GameTooltip:Show()
+    end)
+    hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    v.hit[side] = hit
+  end
   self.av = v
 end
 
@@ -219,6 +248,7 @@ local function avHide(v)
   for _, x in ipairs({ v.kicker, v.name, v.sub, v.big, v.bar, v.also, v.line, v.hLabel, v.aLabel }) do x:Hide() end
   for _, r in ipairs(v.rows) do r.label:Hide() r.time:Hide() r.bar:Hide() end
   for _, side in pairs(v.pips) do for _, t in ipairs(side) do t:Hide() end end
+  for _, h in pairs(v.hit) do h:Hide() end
 end
 
 -- what a node is and who's taking it, in words
@@ -321,6 +351,13 @@ function B:DrawAV(y, w)
         t:Show()
       end
     end
+    v.hit.h:ClearAllPoints()
+    v.hit.h:SetPoint("TOPLEFT", v.hLabel, "TOPLEFT", -2, 3)
+    v.hit.h:SetPoint("BOTTOMRIGHT", v.pips.h[4], "BOTTOMRIGHT", 2, -3)
+    v.hit.a:ClearAllPoints()
+    v.hit.a:SetPoint("TOPLEFT", v.aLabel, "TOPLEFT", -2, 3)
+    v.hit.a:SetPoint("BOTTOMRIGHT", v.pips.a[4], "BOTTOMRIGHT", 2, -3)
+    v.hit.h:Show() v.hit.a:Show()
     y = y - 20
   end
   return y
@@ -411,14 +448,8 @@ function B:Draw()
   end
 
   -- the carriers
-  for i, s in ipairs(self.slots) do
-    s:SetShown(carriers)
-    if carriers then
-      s:ClearAllPoints()
-      s:SetPoint("TOPLEFT", 0, y)
-      s:SetPoint("TOPRIGHT", 0, y)
-      y = y - 36
-    end
+  if not InCombatLockdown() then
+    for _, s in ipairs(self.slots) do if s:IsShown() ~= carriers then s:SetShown(carriers) end end
   end
   if carriers then
     fillSlot(self.slots[1], "arena1", "flag at base")
@@ -436,7 +467,16 @@ end
 function B:SyncSecure(on)
   if InCombatLockdown() then self.pendingSecure = on return end
   self.pendingSecure = nil
-  for _, b in ipairs(self.secure or {}) do b:SetShown(on and true or false) end
+  for _, b in ipairs(self.secure or {}) do
+    if on then
+      b:ClearAllPoints()
+      b:SetAllPoints(b.slot)
+      b:Show()
+    else
+      b:Hide()
+      b:ClearAllPoints()   -- free the slot again, so it can be hidden in a fight
+    end
+  end
 end
 
 ---------------------------------------------------------------------------
