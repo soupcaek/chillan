@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.45", date = "24.11", items = { "Layer hop: a host whose invite came from your own layer is left out for 5 minutes (was 20 s), and the declined invite's window can no longer pop up a moment later" } },
   { v = "1.4.44", date = "24.11", items = { "Battleground result line: honor now includes the end-of-match bonus. The line is posted when you leave the battleground (or 45 s after the end) instead of 3 s after it, and honor is the highest of the game's count, the honor messages and the scoreboard" } },
   { v = "1.4.43", date = "24.11", items = {
     "Battlegrounds today counted too many games: every time you entered – also after a /reload inside, or when the game briefly reported you outside – counted as a new game. A game now counts only when it ends with a result, and a /reload inside carries on the same game (its time, kills and deaths)",

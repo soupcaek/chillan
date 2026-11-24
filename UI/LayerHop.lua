@@ -734,13 +734,13 @@ L.NotPlaying = notPlaying
 -- a host that invited from our own layer (or whose group didn't move us) is skipped for 20 s while we
 -- still stand on that layer (LayerSwap 1.14.25)
 L.avoid = {}
-function L.AvoidHost(name, layer)
-  if type(name) == "string" and layer then L.avoid[norm(name)] = { at = GetTime(), layer = layer } end
+function L.AvoidHost(name, layer, secs)
+  if type(name) == "string" and layer then L.avoid[norm(name)] = { at = GetTime(), layer = layer, secs = secs } end
 end
 function L.Avoided(name)
   local e = L.avoid[norm(name)]
   if not e then return false end
-  if GetTime() - e.at > 20 then L.avoid[norm(name)] = nil return false end
+  if GetTime() - e.at > (e.secs or 20) then L.avoid[norm(name)] = nil return false end
   local cur = ns.Layer and ns.Layer:Current()
   return cur ~= nil and cur == e.layer
 end
@@ -941,6 +941,7 @@ end)
 -- joining, checking it worked, leaving
 ---------------------------------------------------------------------------
 ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
+  L.declineToken = nil
   local m = L.mine
   if not m or m.joinedAt or ns.Now() - m.t > REQUEST_TTL then return end
   if secret(inviter) or type(inviter) ~= "string" then return end
@@ -949,9 +950,17 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
   -- (false = the same one, measured right in 12 of 12 cases): such an invite can't move us, so it is
   -- declined and the search goes on
   if sameField == false and not secret(sameField) then
-    L.AvoidHost(inviter, m.from)
+    -- (1.4.45) left out for 5 minutes, not 20 s: asked again, it could only invite from our layer again
+    L.AvoidHost(inviter, m.from, 300)
     if DeclineGroup then pcall(DeclineGroup) end
-    if StaticPopup_Hide then pcall(StaticPopup_Hide, "PARTY_INVITE") end
+    if StaticPopup_Hide then
+      pcall(StaticPopup_Hide, "PARTY_INVITE")
+      -- the game's own invite window may open just after us: closed once more next frame, unless a
+      -- newer invite came in meanwhile (that one is yours to see)
+      local token = {}
+      L.declineToken = token
+      C_Timer.After(0, function() if L.declineToken == token then pcall(StaticPopup_Hide, "PARTY_INVITE") end end)
+    end
     ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " is on your layer, so that invite was declined. Still looking for another host.")
     return
   end
