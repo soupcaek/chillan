@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.37", date = "24.11", items = {
+    "Level 60: the Now card's bar follows the faction you pick with \"Show as Experience Bar\" in the reputation window (standing, progress and rep per hour). Without one it shows your PvP rank as before",
+    "Battleground: the reputation line no longer repeats the wins to Exalted (they're in the box), so the details fit",
+    "Honor per hour and honor today in battlegrounds use the honor messages when the game's own count stays at 0" } },
   { v = "1.4.36", date = "24.11", items = {
     "Battleground recap showed 0 HKs, 0 deaths and 0 honor: the scoreboard is now read with the WoW Forever API, and when it can't be read Chillan uses its own counts (HKs, deaths, and honor from the honor messages)",
     "Without a scoreboard the killing blows box shows your best kill streak instead",

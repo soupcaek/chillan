@@ -332,7 +332,14 @@ function N:Update()
     if P.AtMax and P.AtMax() then
       -- (1.4.17) level 60: PvP rank progress up top, and a session line about honor, rep and bosses
       local rank, rname, prog = P:Rank()
-      if rank or prog then
+      -- (1.4.37) the faction you picked with "Show as Experience Bar" in the reputation window
+      local wf = P.WatchedRep and P.WatchedRep()
+      if wf then
+        f.big:SetText(wf.standing)
+        f.bigSub:SetText(wf.name)
+        f.meter.pct = wf.pct
+        f.right:SetText(wf.exalted and "Exalted" or (ns.Num(wf.into) .. " / " .. ns.Num(wf.span) .. (wf.perHour and (" · " .. ns.Num(wf.perHour) .. "/h") or "")))
+      elseif rank or prog then
         f.big:SetText(rank and ("Rank " .. rank) or (math.floor((prog or 0) * 100) .. " %"))
         f.bigSub:SetText(rname or "PvP rank")
         if prog then
@@ -475,8 +482,8 @@ function N:Update()
         local span = math.max(1, (rep.max or 0) - (rep.min or 0))
         f.meter.pct = math.max(0, math.min(1, ((rep.value or 0) - (rep.min or 0)) / span))
         f.right:SetText(rep.short .. " · " .. rep.standing .. " " .. math.floor(f.meter.pct * 100) .. " %")
-        rows[#rows + 1] = ns.Colorize(rep.short .. ": ", C.text) .. (rep.estimated and "about " or "") .. ns.Plural(rep.winsLeft or 0, "win") .. " to Exalted"
-          .. dim(" · " .. ns.Num(rep.left) .. " rep left")
+        -- (1.4.37) the wins are already in the box above: this line has the details
+        rows[#rows + 1] = ns.Colorize(rep.short, C.text) .. dim(" · " .. ns.Num(rep.left) .. " rep left")
           .. dim(rep.wN > 0 and (" · avg +" .. ns.Num(rep.avgW) .. " over " .. ns.Plural(rep.wN, "win")) or " · estimate until your first win")
           .. ((rep.game and rep.game > 0) and ns.Colorize("   this game +" .. ns.Num(rep.game), C.green) or "")
       end

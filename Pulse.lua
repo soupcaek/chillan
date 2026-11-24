@@ -324,6 +324,9 @@ function P:EndBG()
   if not b then return end
   P.NoteBGRep(b)
   local _, honor = self:BGNumbers()
+  -- (1.4.37) the session count can stay at 0: use the honor messages, or the scoreboard
+  if (not honor or honor == 0) and (b.honorChat or 0) > 0 then honor = b.honorChat end
+  if (not honor or honor == 0) and b.me and (b.me.honor or 0) > 0 then honor = b.me.honor end
   if honor then today().honor = today().honor + honor end
   self.bg = nil
 end
@@ -335,6 +338,7 @@ function P:BGNumbers()
   local hk, honor = pvpSession()
   local kills = (hk and b.hk0) and math.max(0, hk - b.hk0) or nil
   local hon = (honor and b.honor0) and math.max(0, honor - b.honor0) or nil
+  if (not hon or hon == 0) and (b.honorChat or 0) > 0 then hon = b.honorChat end
   return kills, hon
 end
 
@@ -835,4 +839,28 @@ function P:BGRep(anyTime)
     reaction = r.reaction, standing = P.StandingName(r.reaction), min = r.min, max = r.max,
     avgW = avgW, wN = wN, avgL = avgL, lN = t.lN, estimated = wN == 0,
     winsLeft = avgW > 0 and math.ceil(left / avgW) or nil, game = game, inBG = b ~= nil, bg = info and info.short }
+end
+
+-- (1.4.37) the watched faction ("Show as Experience Bar" in the reputation window), for the level 60 bar
+function P.WatchedRep()
+  local name, reaction, bmin, bmax, val, fid
+  if C_Reputation and C_Reputation.GetWatchedFactionData then
+    local ok, d = pcall(C_Reputation.GetWatchedFactionData)
+    if ok and type(d) == "table" and d.name and not ns.isSecret(d.name) then
+      name, reaction, bmin, bmax, val, fid = d.name, d.reaction, d.currentReactionThreshold, d.nextReactionThreshold, d.currentStanding, d.factionID
+    end
+  end
+  if not name and GetWatchedFactionInfo then
+    local ok, n, r, a, b, v, id = pcall(GetWatchedFactionInfo)
+    if ok and type(n) == "string" and not ns.isSecret(n) then name, reaction, bmin, bmax, val, fid = n, r, a, b, v, id end
+  end
+  if not name or not val or ns.isSecret(val) then return nil end
+  bmin, bmax = bmin or 0, bmax or 42000
+  local span = math.max(1, bmax - bmin)
+  local exalted = (reaction or 0) >= 8
+  local gained = P.sess and P.sess.rep and P.sess.rep[name]
+  local hours = P.sess and P.sess.start and (now() - P.sess.start) / 3600 or 0
+  return { name = name, fid = fid, standing = P.StandingName(reaction), exalted = exalted,
+    into = math.max(0, val - bmin), span = span, pct = exalted and 1 or math.max(0, math.min(1, (val - bmin) / span)),
+    perHour = (gained and hours >= 5 / 60) and math.floor(gained / hours) or nil }
 end
