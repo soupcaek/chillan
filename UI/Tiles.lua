@@ -197,6 +197,7 @@ for _, d in ipairs({
     if not r then return dur(P().bg and (ns.Now() - P().bg.start)), "in this BG" end
     if r.exalted then return "Exalted", r.short end
     local sub = "to Exalted" .. ((r.game and r.game > 0) and (" · +" .. ns.Num(r.game)) or "")
+    if not r.winsLeft then return r.standing, r.short .. ((r.game and r.game > 0) and (" · +" .. ns.Num(r.game)) or "") end
     return (r.estimated and "~" or "") .. r.winsLeft .. (r.winsLeft == 1 and " win" or " wins"), sub
   end },
   { key = "bgwon", name = "Battlegrounds won today", get = function()

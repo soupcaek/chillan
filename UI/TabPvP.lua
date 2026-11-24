@@ -27,9 +27,9 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
 
   -- one card per battleground
   local cards = {}
-  local CARD_H = 124
+  local CARD_H = 100
   local function cell(parent, x, y, label)
-    local v = UI.Text(parent, 15, "semi", C.text)
+    local v = UI.Text(parent, 13, "semi", C.text)
     v:SetPoint("TOPLEFT", x, y)
     local k = UI.Text(parent, 10, nil, C.dim)
     k:SetPoint("TOPLEFT", v, "BOTTOMLEFT", 0, -2)
@@ -38,12 +38,12 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   end
   for i, def in ipairs(P.BG_KEYS) do
     local c = UI.Panel(tab, C.card, C.line, true)
-    c:SetPoint("TOPLEFT", 16, -46 - (i - 1) * (CARD_H + 8))
+    c:SetPoint("TOPLEFT", 16, -44 - (i - 1) * (CARD_H + 6))
     c:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
     c:SetHeight(CARD_H)
     c.def = def
     c.title = UI.Text(c, 14, "semi", C.text)
-    c.title:SetPoint("TOPLEFT", 14, -12)
+    c.title:SetPoint("TOPLEFT", 14, -10)
     c.title:SetText(def.name)
     c.rate = UI.Text(c, 12, "semi", C.green)
     c.rate:SetPoint("LEFT", c.title, "RIGHT", 10, 0)
@@ -54,17 +54,17 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
       "HKs per game", "best HKs", "average game", "time played" }
     for k = 1, 8 do
       local col, row = (k - 1) % 4, math.floor((k - 1) / 4)
-      local v = cell(c, 14 + col * cw, -44 - row * 38, labels[k])
+      local v = cell(c, 14 + col * cw, -38 - row * 30, labels[k])
       c.cells[k] = v
     end
     -- reputation
     -- reputation: a line next to the title and a thin bar under it
     c.repName = UI.Text(c, 11, nil, C.text2)
-    c.repName:SetPoint("TOPRIGHT", c, "TOPLEFT", 14 + 4 * cw - 4, -14)
+    c.repName:SetPoint("TOPRIGHT", c, "TOPLEFT", 14 + 4 * cw - 4, -12)
     c.repName:SetJustifyH("RIGHT")
     c.repBg = c:CreateTexture(nil, "ARTWORK")
     c.repBg:SetHeight(4)
-    c.repBg:SetPoint("TOPLEFT", 14, -32)
+    c.repBg:SetPoint("TOPLEFT", 14, -29)
     c.repBg:SetWidth(4 * cw - 14)
     UI.Track(c.repBg):SetColorTexture(hex(C.line))
     c.repBar = c:CreateTexture(nil, "OVERLAY")
@@ -73,12 +73,12 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     UI.Track(c.repBar):SetColorTexture(hex(C.gold))
     -- gang leaderboard on the right
     c.gangHead = UI.Text(c, 10, "semi", C.dim)
-    c.gangHead:SetPoint("TOPLEFT", 14 + 4 * cw + 16, -12)
+    c.gangHead:SetPoint("TOPLEFT", 14 + 4 * cw + 16, -10)
     c.gangHead:SetText("GANG · WIN % · HKS/GAME · STANDING")
     c.gang = {}
-    for r = 1, 5 do
+    for r = 1, 4 do
       local line = UI.Text(c, 11, nil, C.text2)
-      line:SetPoint("TOPLEFT", c.gangHead, "BOTTOMLEFT", 0, -6 - (r - 1) * 16)
+      line:SetPoint("TOPLEFT", c.gangHead, "BOTTOMLEFT", 0, -5 - (r - 1) * 15)
       line:SetPoint("RIGHT", c, "RIGHT", -14, 0)
       line:SetJustifyH("LEFT")
       line:SetWordWrap(false)

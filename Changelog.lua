@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.39", date = "24.11", items = {
+    "Darkspear Islands (WoW Forever's new 15v15 battleground) on the PvP tab, with Darkspear Raiders / Theramore Expeditionary Force reputation, and in the battleground boxes, rep bar and recap like the other battlegrounds",
+    "PvP cards are a bit more compact so all four fit" } },
   { v = "1.4.38", date = "24.11", items = {
     "New PvP tab: a card for Alterac Valley, Warsong Gulch and Arathi Basin with record and win rate, win streak, honor per hour and per game, HKs per game, best game, average and total time, and your reputation toward Exalted",
     "Switch between today, this week and all time. Next to each card, the gang: win rate, HKs per game and standing for everyone who has played it",

@@ -19,3 +19,15 @@ run(70)
 print("B got:", LB.eval('(function() local p = ADDON_NS:GetPerson("' + LA.eval('ADDON_NS.pid') + '") local g = p and p.pvp and p.pvp.AV return g and (g.won .. "/" .. g.played .. " hk " .. g.hkPer .. " re " .. tostring(g.reaction) .. " wl " .. tostring(g.winsLeft)) or "nil" end)()'))
 LB.execute('ADDON_NS.Window:Create(); ADDON_NS.Window.frame:Show(); ADDON_NS.Window:Select("pvp")'); run(1)
 print("FEIL:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:5], [e for e in list(GB.ERRORS.values()) if 'HookScript' not in str(e)][:5])
+# 1.4.39 Darkspear Islands: faction found by name, instance learned
+LA.execute('''C_Reputation.GetNumFactions = function() return 2 end
+C_Reputation.GetFactionDataByIndex = function(i) if i == 2 then return { name = "Darkspear Raiders", factionID = 2601 } end return { name = "Orgrimmar", factionID = 76 } end
+local old = C_Reputation.GetFactionDataByID
+C_Reputation.GetFactionDataByID = function(id) if id == 2601 then return { name = "Darkspear Raiders", currentStanding = DIV or 4000, reaction = 5, currentReactionThreshold = 3000, nextReactionThreshold = 9000 } end return old(id) end
+GetInstanceInfo = function() return "Darkspear Islands", "pvp", 0, "", 15, 0, false, 9999 end
+DIV = 4000
+local P = ADDON_NS.Pulse
+P:StartBG(); P.bg.start = ADDON_NS.Now() - 900; P.bg.won = true; DIV = 4300; P:EndBG()''')
+print("DI:", LA.eval('(function() local s = ADDON_NS.Pulse.PvPStats("all").DI local r = ADDON_NS.Pulse.RepForKey("DI") return (s and (s.won .. "/" .. s.played) or "nil") .. " | " .. (r and (r.name .. " " .. r.standing .. " wins " .. tostring(r.winsLeft)) or "nil") .. " | learned " .. tostring(ADDON_NS.db.bgInstIds and ADDON_NS.db.bgInstIds[9999]) end)()'))
+LA.execute('ADDON_NS.Window:Select("pvp")'); run(1)
+print("FEIL2:", [e for e in list(GA.ERRORS.values()) if 'HookScript' not in str(e)][:5])

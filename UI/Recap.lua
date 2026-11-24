@@ -489,7 +489,7 @@ function R.BG(x)
   if (x.streak or 0) >= 2 and x.won then moments[#moments + 1] = { "Up", x.streak .. " wins in a row today", C.green } end
   -- (1.4.34) battleground reputation
   local rep = ns.Pulse and ns.Pulse.BGRep and ns.Pulse:BGRep()
-  if rep and not rep.exalted then
+  if rep and not rep.exalted and rep.winsLeft then
     table.insert(moments, 1, { "Up", ((rep.game or 0) > 0 and ("+" .. ns.Num(rep.game) .. " " .. rep.short .. " · ") or (rep.short .. ": "))
       .. (rep.estimated and "about " or "") .. ns.Plural(rep.winsLeft or 0, "win") .. " to Exalted", C.green })
   end

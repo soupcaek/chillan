@@ -760,20 +760,53 @@ local BG_REP = {
   [30] = { Horde = 729, Alliance = 730, def = 450, short = "AV" },
   [489] = { Horde = 889, Alliance = 890, def = 160, short = "WSG" },
   [529] = { Horde = 510, Alliance = 509, def = 260, short = "AB" },
+  -- (1.4.39) WoW Forever's new battleground. Its instance and faction IDs are learned in the game:
+  -- the instance from GetInstanceInfo the first time you're there, the factions by name from the
+  -- reputation list
+  DI = { HordeName = "Darkspear Raiders", AllianceName = "Theramore Expeditionary Force", def = 250, short = "DI" },
 }
-local BG_NAMES = { ["Alterac Valley"] = 30, ["Warsong Gulch"] = 489, ["Arathi Basin"] = 529 }
+local BG_NAMES = { ["Alterac Valley"] = 30, ["Warsong Gulch"] = 489, ["Arathi Basin"] = 529, ["Darkspear Islands"] = "DI" }
 local function bgInfo(instId, name)
-  return BG_REP[instId or 0] or (name and BG_REP[BG_NAMES[name] or 0])
+  local learned = ns.db and ns.db.bgInstIds and instId and ns.db.bgInstIds[instId]
+  return BG_REP[instId or 0] or (learned and BG_REP[learned]) or (name and BG_REP[BG_NAMES[name] or 0])
+end
+-- a faction's ID by its name, from the reputation list (remembered once found)
+local function factionByName(name)
+  if not name then return nil end
+  ns.db.factionIds = ns.db.factionIds or {}
+  if ns.db.factionIds[name] then return ns.db.factionIds[name] end
+  local n = 0
+  if C_Reputation and C_Reputation.GetNumFactions then local ok, x = pcall(C_Reputation.GetNumFactions) if ok then n = x or 0 end
+  elseif GetNumFactions then local ok, x = pcall(GetNumFactions) if ok then n = x or 0 end end
+  for i = 1, n do
+    local fname, fid
+    if C_Reputation and C_Reputation.GetFactionDataByIndex then
+      local ok, d = pcall(C_Reputation.GetFactionDataByIndex, i)
+      if ok and type(d) == "table" then fname, fid = d.name, d.factionID end
+    elseif GetFactionInfo then
+      local ok, a, _, _, _, _, _, _, _, _, _, _, _, _, id = pcall(GetFactionInfo, i)
+      if ok then fname, fid = a, id end
+    end
+    if fname == name and fid then ns.db.factionIds[name] = fid return fid end
+  end
+  return nil
 end
 function P.BGFaction(instId, name)
+  local learnHere = false
   if not instId then
     local ok, n, _, _, _, _, _, _, id = pcall(GetInstanceInfo)
-    if ok then instId, name = id, n end
+    if ok then instId, name, learnHere = id, n, true end
   end
   local info = bgInfo(instId, name)
   if not info then return nil end
-  local side = ns.S(UnitFactionGroup, "player")
-  return info[side == "Alliance" and "Alliance" or "Horde"], info
+  -- learn the instance ID of a battleground known by name (only from where you actually are)
+  if learnHere and instId and instId > 0 and not BG_REP[instId] and name and BG_NAMES[name] and ns.db then
+    ns.db.bgInstIds = ns.db.bgInstIds or {}
+    ns.db.bgInstIds[instId] = BG_NAMES[name]
+  end
+  local side = ns.S(UnitFactionGroup, "player") == "Alliance" and "Alliance" or "Horde"
+  local fid = info[side] or factionByName(info[side .. "Name"])
+  return fid, info
 end
 
 -- standing for a faction: absolute value (0 = start of Neutral, 42 000 = Exalted), and the current tier
@@ -821,7 +854,9 @@ function P:BGRep(anyTime)
     if last and (anyTime or ns.Now() - (last.at or 0) < 1800) then fid = last.fid end
   end
   if not fid then return nil end
-  for _, i in pairs(BG_REP) do if i.Horde == fid or i.Alliance == fid then info = i end end
+  for _, i in pairs(BG_REP) do
+    if i.Horde == fid or i.Alliance == fid or (ns.db.factionIds and (ns.db.factionIds[i.HordeName or "-"] == fid or ns.db.factionIds[i.AllianceName or "-"] == fid)) then info = i end
+  end
   local r = P.RepOf(fid)
   if not r then return nil end
   local t = (ns.db.bgRep or {})[fid] or { wN = 0, wSum = 0, lN = 0, lSum = 0 }
@@ -871,8 +906,8 @@ end
 -- and stats per battleground for today, this week or all time. All-time numbers go to the gang.
 ---------------------------------------------------------------------------
 P.BG_KEYS = { { key = "AV", name = "Alterac Valley", id = 30 }, { key = "WSG", name = "Warsong Gulch", id = 489 },
-  { key = "AB", name = "Arathi Basin", id = 529 } }
-local KEY_BY_NAME = { ["Alterac Valley"] = "AV", ["Warsong Gulch"] = "WSG", ["Arathi Basin"] = "AB" }
+  { key = "AB", name = "Arathi Basin", id = 529 }, { key = "DI", name = "Darkspear Islands" } }
+local KEY_BY_NAME = { ["Alterac Valley"] = "AV", ["Warsong Gulch"] = "WSG", ["Arathi Basin"] = "AB", ["Darkspear Islands"] = "DI" }
 function P.BGKey(name) return KEY_BY_NAME[name or ""] or name end
 
 function P.RecordGame(b, honor)
@@ -941,7 +976,7 @@ function P.RepForKey(key)
   local def
   for _, d in ipairs(P.BG_KEYS) do if d.key == key then def = d end end
   if not def then return nil end
-  local fid = P.BGFaction(def.id, def.name)
+  local fid = P.BGFaction(def.id or -1, def.name)
   local r = fid and P.RepOf(fid)
   if not r then return nil end
   local t = (ns.db.bgRep or {})[fid] or { wN = 0, wSum = 0 }
