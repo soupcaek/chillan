@@ -43,3 +43,12 @@ P:EndBG()          -- flicker / reload without result
 P:StartBG()        -- back
 SAME = (P.bg == first) and P.bg.deaths == 3''')
 print("resumed same game:", LA.eval('SAME'), "| played before result:", LA.eval('ADDON_NS.Pulse.Today().played'))
+# 1.4.44: the result line waits for the end-of-match bonus honor
+LA.execute('''local P = ADDON_NS.Pulse
+P.bg = nil; ADDON_NS.db.bgNow = nil
+P:StartBG(); P.bg.honorChat = 18
+P.bg.won = true
+P.bg.post = function() POSTED = P:BGSummary(true, P.bg).honor end
+FIRE("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 396 honor points.")
+P:EndBG()''')
+print("posted honor incl. bonus:", LA.eval('tostring(POSTED)'))

@@ -350,11 +350,11 @@ function P:EndBG()
     return
   end
   ns.db.bgNow = nil
+  if b.post then pcall(b.post) end
   P.NoteBGRep(b)
   local _, honor = self:BGNumbers()
-  -- (1.4.37) the session count can stay at 0: use the honor messages, or the scoreboard
-  if (not honor or honor == 0) and (b.honorChat or 0) > 0 then honor = b.honorChat end
-  if (not honor or honor == 0) and b.me and (b.me.honor or 0) > 0 then honor = b.me.honor end
+  -- (1.4.44) the most of the session count, the honor messages and the scoreboard
+  honor = math.max(honor or 0, b.honorChat or 0, (b.me and b.me.honor) or 0)
   if honor then today().honor = today().honor + honor end
   P.RecordGame(b, honor)
   self.bg = nil
@@ -367,7 +367,7 @@ function P:BGNumbers()
   local hk, honor = pvpSession()
   local kills = (hk and b.hk0) and math.max(0, hk - b.hk0) or nil
   local hon = (honor and b.honor0) and math.max(0, honor - b.honor0) or nil
-  if (not hon or hon == 0) and (b.honorChat or 0) > 0 then hon = b.honorChat end
+  if (b.honorChat or 0) > (hon or 0) then hon = b.honorChat end
   return kills, hon
 end
 
@@ -418,11 +418,18 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
     local poster = true
     for _, g in ipairs(sum.gang) do if g.pid < ns.pid then poster = false end end
     if poster then
-      C_Timer.After(3, function()
-        ns.Tracker:Event("BGEND", sum.name or "", won and 1 or 0, sum.score or "",
-          (sum.mvp and sum.mvp.name or "") .. ":" .. (sum.mvp and sum.mvp.hk or 0) .. ":" .. (sum.honor or 0) .. ":" .. #sum.gang
+      -- (1.4.44) the result line waits for the end-of-match bonus honor: it's posted when you leave the
+      -- battleground (or after 45 s), with the numbers as they stand then
+      b.post = function()
+        if b.posted then return end
+        b.posted = true
+        if P.bg == b then P:ReadBoard() end
+        local s2 = P:BGSummary(won, b) or sum
+        ns.Tracker:Event("BGEND", s2.name or "", won and 1 or 0, s2.score or sum.score or "",
+          (s2.mvp and s2.mvp.name or "") .. ":" .. (s2.mvp and s2.mvp.hk or 0) .. ":" .. (s2.honor or 0) .. ":" .. #(s2.gang or {})
           .. ":" .. math.floor(sum.dur or 0))
-      end)
+      end
+      C_Timer.After(45, function() if b.post then b.post() end end)
     end
     if won and d.streak == 5 then ns.Tracker:Event("BGEND", "streak", 5, "", "") end
   end
@@ -525,7 +532,7 @@ ns:On("CHAT_MSG_BG_SYSTEM_NEUTRAL", onBGSystem)
 ns:On("CHAT_MSG_COMBAT_HONOR_GAIN", function(text)
   local b = P.bg
   if not b or type(text) ~= "string" or ns.isSecret(text) then return end
-  local n = tonumber(text:match("(%d+)%)?%.?$") or text:match("awarded (%d+)") or "")
+  local n = tonumber(text:match("awarded (%d+)") or text:match("(%d+) bonus [Hh]onor") or text:match("(%d+)%)?%.?$") or "")
   if n and n > 0 and n < 5000 then b.honorChat = (b.honorChat or 0) + n end
 end)
 ns:On("CHAT_MSG_SYSTEM", function(text)
@@ -573,12 +580,14 @@ function P:Week()
   return honor, rankName, prog
 end
 
-function P:BGSummary(won)
-  local b = self.bg
+function P:BGSummary(won, bArg)
+  local b = bArg or self.bg
   if not b then return nil end
-  local kills, honor = self:BGNumbers()
-  if (not honor or honor == 0) and (b.honorChat or 0) > 0 then honor = b.honorChat end
-  if (not honor or honor == 0) and b.me and (b.me.honor or 0) > 0 then honor = b.me.honor end
+  local kills, honor
+  if b == self.bg then kills, honor = self:BGNumbers() end
+  -- (1.4.44) the most of the sources: the game's session count, the honor messages (kills and the
+  -- end-of-match bonus) and the scoreboard's honor column
+  honor = math.max(honor or 0, b.honorChat or 0, (b.me and b.me.honor) or 0)
   -- (1.4.36) the scoreboard may be unreadable: fall back to what we counted ourselves
   local me = b.me or {}
   me = { hk = math.max(me.hk or 0, kills or 0), deaths = math.max(me.deaths or 0, b.deaths or 0), kb = me.kb, honor = me.honor, board = b.me ~= nil }
