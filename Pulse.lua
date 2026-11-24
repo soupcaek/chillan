@@ -305,12 +305,33 @@ local function today()
   return d
 end
 P.Today = today
+-- (1.4.43) repair: entering (and re-entering after a /reload) was counted as a game. Today's played
+-- becomes the games recorded today with a result, never fewer than the wins
+ns:On("PLAYER_LOGIN", function()
+  if ns.db.bgDayFixed143 then return end
+  ns.db.bgDayFixed143 = true
+  local d = today()
+  local from = time({ year = tonumber(date("%Y")), month = tonumber(date("%m")), day = tonumber(date("%d")), hour = 0 })
+  local n = 0
+  for _, g in ipairs(ns.db.bgGames or {}) do if (g.t or 0) >= from then n = n + 1 end end
+  d.played = math.max(d.won or 0, n)
+end)
 
 function P:StartBG()
+  local name = ns.S(GetInstanceInfo)
+  -- (1.4.43) a /reload inside the battleground, or the game briefly saying we left it, carries on the
+  -- same game instead of starting (and counting) a new one
+  local saved = ns.db.bgNow
+  if saved and saved.name == name and now() - (saved.seen or 0) < 300 then
+    self.bg = saved
+    saved.seen = now()
+    return
+  end
   local hk, honor = pvpSession()
   self.bg = { start = now(), hk0 = hk, honor0 = honor, deaths = 0, streak = 0, best = 0, done = false,
-    name = ns.S(GetInstanceInfo), flags = {}, revs = {} }
-  today().played = today().played + 1
+    name = name, flags = {}, revs = {}, seen = now() }
+  ns.db.bgNow = self.bg
+  -- (1.4.43) a game is counted as played when it ends with a result (see the winner), not on entering
   -- (1.4.34) the battleground's reputation: where we start, to count this game's gain
   local fid = P.BGFaction()
   if fid then
@@ -322,6 +343,13 @@ end
 function P:EndBG()
   local b = self.bg
   if not b then return end
+  -- (1.4.43) no result yet: we may be back in a moment (a /reload, a flicker) – keep it for 5 minutes
+  if b.won == nil then
+    b.seen = now()
+    self.bg = nil
+    return
+  end
+  ns.db.bgNow = nil
   P.NoteBGRep(b)
   local _, honor = self:BGNumbers()
   -- (1.4.37) the session count can stay at 0: use the honor messages, or the scoreboard
@@ -379,6 +407,7 @@ ns:On("UPDATE_BATTLEFIELD_STATUS", function()
   local won = w == mine
   b.won = won
   local d = today()
+  d.played = d.played + 1
   if won then d.won = d.won + 1 d.streak = (d.streak or 0) + 1 else d.streak = 0 end
   P:ReadBoard()
   local sum = P:BGSummary(won)
@@ -470,6 +499,7 @@ function P:ReadBoard()
 end
 ns:On("UPDATE_BATTLEFIELD_SCORE", function() if P.bg then P:ReadBoard() ns:Fire("PULSE") end end)
 C_Timer.NewTicker(10, function()
+  if P.bg then P.bg.seen = now() end
   if P.bg and not P.bg.done and RequestBattlefieldScoreData then pcall(RequestBattlefieldScoreData) end
 end)
 

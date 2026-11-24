@@ -34,3 +34,12 @@ REPV = REPV + 697
 ADDON_NS.Pulse.bg.won = true''')
 print("summary:", LA.eval('(function() local x = ADDON_NS.Pulse:BGSummary(true) return "hk " .. x.me.hk .. " deaths " .. x.me.deaths .. " honor " .. tostring(x.honor) end)()'))
 print("wins left with this game:", LA.eval('(function() local r = ADDON_NS.Pulse:BGRep() return r.winsLeft .. " (avg " .. r.avgW .. ", est " .. tostring(r.estimated) .. ")" end)()'))
+# 1.4.43: a /reload (mode flicker) inside a battleground is the same game; played counts at the result only
+LA.execute('''ADDON_NS.db.bgDay = nil; ADDON_NS.db.bgNow = nil
+local P = ADDON_NS.Pulse
+P.bg = nil
+P:StartBG(); local first = P.bg; P.bg.deaths = 3
+P:EndBG()          -- flicker / reload without result
+P:StartBG()        -- back
+SAME = (P.bg == first) and P.bg.deaths == 3''')
+print("resumed same game:", LA.eval('SAME'), "| played before result:", LA.eval('ADDON_NS.Pulse.Today().played'))

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.43", date = "24.11", items = {
+    "Battlegrounds today counted too many games: every time you entered – also after a /reload inside, or when the game briefly reported you outside – counted as a new game. A game now counts only when it ends with a result, and a /reload inside carries on the same game (its time, kills and deaths)",
+    "Today's count is repaired once from the games recorded today" } },
   { v = "1.4.42", date = "24.11", items = {
     "Layer hop: requests to LayerSwap hosts carry LayerSwap's rules marker (r3), so hosts on LayerSwap 1.14.52 invite you again. Chillan keeps every rule it stands for: at most 10 moves an hour, no request in combat, and none while dead or a ghost",
     "An invite from a LayerSwap host is now yours to accept (click Accept), as in LayerSwap itself. Hops through the gang still join by themselves" } },
