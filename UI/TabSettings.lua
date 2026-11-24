@@ -239,6 +239,8 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Gang chat in the event window", "feedChat", function() ns.EventWindow:Redraw() end },
     { "Attach the event window to the Chillan? bar", "evDocked", function(v) ns.EventWindow:SetDocked(v) end },
     { "Fade the event window when quiet", "evFade" },
+    { "Battleground objectives in the event window", "bgPanel", function() if ns.BGPanel then ns.BGPanel:Apply() end end,
+      "In a battleground the gang chat is paused, so the event window shows bases, timers, the win estimate and the flag carriers instead." },
     { "Lock positions", "locked", function(v) ns:Fire("LOCK_CHANGED", v) end,
       "Stops the minibar, event window and popups from being dragged by accident. Also /chill lock." },
   })

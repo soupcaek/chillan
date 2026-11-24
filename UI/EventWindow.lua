@@ -541,6 +541,8 @@ function E:SetMinimized(on, silent)
     self:Redraw()
   end
   self:UpdateCount()
+  -- (1.4.50) in a battleground the feed area shows the objectives instead
+  if ns.BGPanel then ns.BGPanel:Apply() end
 end
 
 function E:SetHeaderShown(on)

@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.50", date = "24.11", items = {
+    "New: battleground objectives. In a battleground the gang chat is paused anyway, so the event window shows the battleground instead – back to the feed when you leave",
+    "Arathi Basin and Darkspear Islands: every base by owner (red Horde, blue Alliance); an assaulted base turns amber and counts down to capture. Bases held per side and a win estimate (\"Horde wins in ~6 min\")",
+    "Alterac Valley: only towers and graveyards under attack, with the time until they fall, and the towers still standing per side",
+    "Warsong Gulch and Darkspear Islands: two carrier slots, enemy and ours, with health. Click a slot to target the carrier, also in combat. Warsong Gulch also shows when the flags are back after a capture",
+    "Turn it off under Settings › Windows and layout. /chill bgdebug prints what the game shows Chillan in a battleground (handy if something looks wrong)" } },
   { v = "1.4.49", date = "24.11", items = {
     "No more \"We haven't heard from anyone in the gang yet\" in battlegrounds and dungeons – the check waits until you've been out for a couple of minutes",
     "Minibar tooltip in a battleground says \"Paused in BG\" instead of \"Nobody else online\"",

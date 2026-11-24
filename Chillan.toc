@@ -31,6 +31,7 @@ BossData.lua
 Bosses.lua
 Extras.lua
 Pulse.lua
+BGObjectives.lua
 Ideas.lua
 Badges.lua
 Gear.lua
@@ -75,6 +76,7 @@ UI\Tiles.lua
 UI\NowCard.lua
 UI\Watch.lua
 UI\EventWindow.lua
+UI\BGPanel.lua
 UI\Mirror.lua
 UI\MapPins.lua
 Init.lua

@@ -17,6 +17,7 @@ ns:On("PLAYER_LOGIN", function()
   ns.Overlays:Init()
   ns.PersonCard:Init()
   ns.EventWindow:Init()
+  if ns.BGPanel then ns.BGPanel:Init() end
   ns.Recap:Init()
   ns.Tiles:Init()
   ns.Overlays:UpdateMinibar()
@@ -217,6 +218,8 @@ SlashCmdList.CHILLAN = function(msg)
     ns.db.settings.window = nil
     ns.db.settings.minibarPos = nil
     ReloadUI()
+  elseif cmd == "bgdebug" then
+    if ns.BGObj then ns.BGObj.Debug() end
   elseif cmd == "debug" then
     ns.debug = not ns.debug
     ns.Print("Debug " .. (ns.debug and "on" or "off"))
