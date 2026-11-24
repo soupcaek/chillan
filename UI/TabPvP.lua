@@ -48,7 +48,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     c.rate = UI.Text(c, 12, "semi", C.green)
     c.rate:SetPoint("LEFT", c.title, "RIGHT", 10, 0)
     -- stats grid: 4 columns × 2 rows
-    local cw = 104
+    local cw = 118
     c.cells = {}
     local labels = { "record", "win streak (best)", "honor per hour", "honor per game",
       "HKs per game", "best HKs", "average game", "time played" }
@@ -59,9 +59,12 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     end
     -- reputation
     -- reputation: a line next to the title and a thin bar under it
+    -- (1.4.40) after the title and win rate, never on top of them: cut with "…" if it doesn't fit
     c.repName = UI.Text(c, 11, nil, C.text2)
-    c.repName:SetPoint("TOPRIGHT", c, "TOPLEFT", 14 + 4 * cw - 4, -12)
+    c.repName:SetPoint("LEFT", c.rate, "RIGHT", 14, 0)
+    c.repName:SetPoint("RIGHT", c, "LEFT", 14 + 4 * cw - 4, 0)
     c.repName:SetJustifyH("RIGHT")
+    c.repName:SetWordWrap(false)
     c.repBg = c:CreateTexture(nil, "ARTWORK")
     c.repBg:SetHeight(4)
     c.repBg:SetPoint("TOPLEFT", 14, -29)
@@ -113,7 +116,8 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
       -- reputation (whatever the range: it's where you stand now)
       local rep = P.RepForKey(c.def.key)
       if rep then
-        local line = rep.name .. " · " .. rep.standing
+        local short = (rep.name or ""):gsub(" Clan$", ""):gsub(" Guard$", ""):gsub(" Expeditionary Force$", ""):gsub("^The ", "")
+        local line = short .. " · " .. rep.standing
         if not rep.exalted then
           line = line .. " · " .. (rep.winsLeft and (ns.Plural(rep.winsLeft, "win") .. " to Exalted") or (ns.Num(rep.left) .. " to Exalted"))
         end

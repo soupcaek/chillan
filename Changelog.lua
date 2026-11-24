@@ -2,6 +2,7 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.40", date = "24.11", items = { "PvP tab: the reputation line no longer overlaps the battleground name and win rate (shorter faction names, and cut with … if it doesn't fit)" } },
   { v = "1.4.39", date = "24.11", items = {
     "Darkspear Islands (WoW Forever's new 15v15 battleground) on the PvP tab, with Darkspear Raiders / Theramore Expeditionary Force reputation, and in the battleground boxes, rep bar and recap like the other battlegrounds",
     "PvP cards are a bit more compact so all four fit" } },
