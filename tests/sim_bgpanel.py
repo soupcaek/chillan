@@ -144,7 +144,7 @@ LA.execute('''for i = 1, 6 do GT = GT + 12; SC.h = SC.h + 30; SC.a = SC.a + 10; 
 print("DI estimate:", LA.eval('(function() local s, t, o = ADDON_NS.BGObj:Estimate() return tostring(s) .. " " .. math.floor(t) .. "s final other " .. tostring(o) end)()'))
 # the centre flag from chat, and the reset after a capture
 LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The flag was picked up by Brannoc!"); ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
-print("DI slot:", LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[1].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[1].name:GetText()'))
+print("DI slot:", LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[3].name:GetText()'))
 LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The Alliance has captured the flag!")''')
 print("DI reset:", LA.eval('tostring(ADDON_NS.BGObj:ResetLeft())'))
 assert LA.eval('ADDON_NS.BGObj:ResetLeft()') == 21
@@ -166,3 +166,28 @@ print("auto height:", LA.eval('math.floor(ADDON_NS.EventWindow.frame:GetHeight()
 # a hidden announcement is skipped
 LA.execute('ISSECRET_NEXT = true')
 assert LA.eval('math.floor(ADDON_NS.EventWindow.frame:GetHeight())') == 218, "auto height"
+# ---- 1.4.56 ----
+# a fresh Darkspear Islands before the gates: icons that read "held" count for nothing while it's 0-0
+LA.execute('''GetInstanceInfo = function() return "Darkspear Islands", "pvp", 0, "", 15, 0, false, 9999 end
+GetNumBattlefieldFlagPositions = function() return 0 end
+UnitExists = function() return false end
+C_UIWidgetManager.GetIconAndTextWidgetVisualizationInfo = function() return nil end
+C_UIWidgetManager.GetDoubleStatusBarWidgetVisualizationInfo = function(id) if id == 7467 then return { leftBarValue = SC.a, leftBarMax = 2000, rightBarValue = SC.h, rightBarMax = 2000 } end end
+POIS = { {"Camp", 0}, {"Ruins", 0}, {"Abandoned Tower", 10}, {"Shipwreck Cove", 10}, {"Darkspear Flag", 0} }
+C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] return { name = p[1], textureIndex = p[2] } end
+SC = { a = 0, h = 0 }
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()''')
+pre = LA.eval('tostring(ADDON_NS.BGObj.nodes["Abandoned Tower"].side)')
+print("DI before the gates, tower side:", pre, "| bases:", LA.eval('tostring(ADDON_NS.BGObj:CountBases())'))
+assert pre == "nil"
+LA.execute('''SC = { a = 0, h = 5 }; ADDON_NS.BGObj:Update()''')
+assert LA.eval('ADDON_NS.BGObj.nodes["Abandoned Tower"].side') == "h"
+# the centre flag row is the bottom slot, alone; the Enemy FC slot (which sits higher) stays hidden
+LA.execute('''ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
+print("DI slots shown:", LA.eval('ADDON_NS.BGPanel.slots[1]:IsShown()'), LA.eval('ADDON_NS.BGPanel.slots[2]:IsShown()'), LA.eval('ADDON_NS.BGPanel.slots[3]:IsShown()'),
+      "|", LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[3].name:GetText()'))
+assert not LA.eval('ADDON_NS.BGPanel.slots[1]:IsShown()') and LA.eval('ADDON_NS.BGPanel.slots[3]:IsShown()')
+LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_HORDE", "The Horde has captured the flag!"); ADDON_NS.BGPanel:Draw()''')
+row = LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].name:GetText()')[0]
+print("DI after a capture:", row, "| separate line:", repr(LA.eval('ADDON_NS.BGPanel.info2:GetText()')))
+assert row.startswith("back in") and LA.eval('ADDON_NS.BGPanel.info2:GetText()') == ""

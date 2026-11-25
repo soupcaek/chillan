@@ -139,11 +139,22 @@ local function readPOIs()
 end
 O.readPOIs = readPOIs
 
+-- (1.4.56) before the gates open (both scores 0) nobody holds a base yet: an icon that was already
+-- on the map then is not believed (live 25 Nov: a fresh Darkspear Islands showed Tower and Cove as
+-- Horde's while we waited). Seen changing, or announced, still counts.
+function O:ScoreZero()
+  if self.key ~= "AB" and self.key ~= "DI" then return false end
+  local ok, sc = pcall(self.Score, self)
+  if not ok or not sc then return false end
+  return (sc.h.score or 0) == 0 and (sc.a.score or 0) == 0
+end
+
 function O:ScanNodes(fresh)
   local list = readPOIs()
   if not list then return end
   self.changedNow = {}
   local t = now()
+  local zero = self:ScoreZero()
   local seen = {}
   for _, p in ipairs(list) do
     seen[p.name] = true
@@ -183,6 +194,9 @@ function O:ScanNodes(fresh)
       if changed and n.atk ~= atk then n.atk, n.since = atk, t end
     elseif held and n.chatAt and t - n.chatAt < 5 then
       -- the announcement came a moment before the map caught up: the announcement stands
+    elseif held and zero and not changed and not n.chatSide then
+      -- waiting for the gates: not held by anyone yet
+      if not n.atk then n.side = nil end
     elseif held then
       n.atk, n.since = nil, nil
       n.side = held
@@ -212,6 +226,8 @@ function O:Learned()
   if not ns.db then return {} end
   ns.db.bgLearn = ns.db.bgLearn or {}
   local k = self.key or "?"
+  -- (1.4.56) what was learned in Darkspear Islands came from our own counts: start over once
+  if not ns.db.bgLearnDIReset then ns.db.bgLearn.DI = nil ns.db.bgLearnDIReset = true end
   ns.db.bgLearn[k] = ns.db.bgLearn[k] or {}
   return ns.db.bgLearn[k]
 end
@@ -225,7 +241,9 @@ function O:Learn(icon, k, side)
 end
 -- the score display counts bases per side: an icon that changes as a count changes says what it is
 function O:LearnFromCounts(sc)
-  if not sc or not sc.h.bases or not sc.a.bases then self.prevBases = nil return end
+  -- (1.4.56) not from base counts we worked out ourselves (Darkspear Islands): that would learn our
+  -- own guesses back as facts
+  if not sc or sc.own or not sc.h.bases or not sc.a.bases then self.prevBases = nil return end
   local prev = self.prevBases
   self.prevBases = { h = sc.h.bases, a = sc.a.bases }
   local ch = self.changedNow or {}
@@ -387,7 +405,7 @@ function O:Score()
       and type(d.rightBarValue) == "number" and not ns.isSecret(d.rightBarValue) then
       local m = (type(d.leftBarMax) == "number" and not ns.isSecret(d.leftBarMax) and d.leftBarMax > 0) and d.leftBarMax or 2000
       local cb = self:CountBases()
-      return { a = { score = d.leftBarValue, max = m, bases = cb and cb.a }, h = { score = d.rightBarValue, max = m, bases = cb and cb.h } }
+      return { own = true, a = { score = d.leftBarValue, max = m, bases = cb and cb.a }, h = { score = d.rightBarValue, max = m, bases = cb and cb.h } }
     end
   end
   if not W.GetTopCenterWidgetSetID or not W.GetAllWidgetsBySetID then return nil end
@@ -589,7 +607,7 @@ function O:Announce(event, text)
         if ph[2] == "assaulted" then
           n.atk, n.since, n.left, n.leftAt, n.chatAt = side, t, nil, nil, t
         else
-          n.atk, n.since, n.left, n.leftAt, n.side = nil, nil, nil, nil, side
+          n.atk, n.since, n.left, n.leftAt, n.side, n.chatSide = nil, nil, nil, nil, side, side
         end
         self:LogIcon(name, "chat", ph[2] .. " " .. side)
         return true

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.56", date = "25.11", items = {
+    "Darkspear Islands: the centre flag row sits at the bottom of the panel again instead of on top of the base boxes, and says it all in one line: who carries it, \"dropped · back in 0:07\", \"back in 0:18\" or \"in the middle\"",
+    "Darkspear Islands and Arathi Basin: before the gates open no base shows as held (a fresh game showed two Horde bases while we waited)" } },
   { v = "1.4.55", date = "25.11", items = {
     "Battlegrounds read right: Chillan now uses Forever's own map icons (the same numbers DBM-PvP and Capping use) and the battleground's own lines (\"The Alliance has assaulted the Ruins!\") in Arathi Basin and Darkspear Islands. Owners and capture timers are right for both sides, and the game's own time left is used where it gives one",
     "PvP mode: the top says \"PvP mode · social paused\", without friends' faces (their status can't be heard in a battleground). The window's height follows what the panel shows; your own size comes back when you leave",

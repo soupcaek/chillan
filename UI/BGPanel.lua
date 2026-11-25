@@ -120,16 +120,21 @@ function B:Create()
   self.score:SetJustifyH("LEFT")
   self.scoreR = UI.Text(f, 13, "semi", C.text)
   self.scoreR:SetJustifyH("RIGHT")
-  self.slots = { makeSlot(f, "Enemy FC"), makeSlot(f, "Our FC") }
+  -- (1.4.56) Darkspear Islands has its own slot at the very bottom: it used to borrow the Enemy FC
+  -- slot, which sits above the (hidden) Our FC one and so landed on top of the base chips
+  self.slots = { makeSlot(f, "Enemy FC"), makeSlot(f, "Our FC"), makeSlot(f, "Centre flag") }
   -- (1.4.52) fixed at the bottom and never moved: a frame a secure button is anchored to can't be
   -- moved or hidden in combat
   self.slots[2]:SetPoint("BOTTOMLEFT", 0, 0)
   self.slots[2]:SetPoint("BOTTOMRIGHT", 0, 0)
   self.slots[1]:SetPoint("BOTTOMLEFT", self.slots[2], "TOPLEFT", 0, 4)
   self.slots[1]:SetPoint("BOTTOMRIGHT", self.slots[2], "TOPRIGHT", 0, 4)
-  self.slots[1]:Hide() self.slots[2]:Hide()
-  self.secure = { makeSecure(self.slots[1]), makeSecure(self.slots[2]) }
+  self.slots[3]:SetPoint("BOTTOMLEFT", 0, 0)
+  self.slots[3]:SetPoint("BOTTOMRIGHT", 0, 0)
+  self.slots[1]:Hide() self.slots[2]:Hide() self.slots[3]:Hide()
+  self.secure = { makeSecure(self.slots[1]), makeSecure(self.slots[2]), makeSecure(self.slots[3]) }
   self.secure[1]:SetAttribute("unit", "arena1")
+  self.secure[3]:SetAttribute("unit", "arena1")
 end
 
 ---------------------------------------------------------------------------
@@ -429,22 +434,46 @@ function B:DrawCarriers(key)
     fillSlot(self.slots[1], "Enemy FC", enemyUnit, fo and fo.state == "carried" and fo.by or nil, w1 and dim(w1), BRIGHT[them])
     fillSlot(self.slots[2], "Our FC", ourUnit, ft and ft.state == "carried" and ft.by or nil, w2 and dim(w2), C.green)
   else
-    -- Darkspear Islands: one flag in the middle, carried by either side
+    -- Darkspear Islands: one flag in the middle, carried by either side. One row says it all:
+    -- who carries it and where, or "dropped · back in 0:07", "back in 0:18", "in the middle".
+    local s = self.slots[3]
     local sp = spots[1]
     local fi = O:FlagInfo("n")
-    local carried = sp or (fi and fi.state == "carried")
-    local ourSide = fi and fi.bySide == me
-    local label = (ourUnit or ourSide) and "Our FC" or "Enemy FC"
+    local carried = fi and fi.state == "carried"
+    local ourSide = (fi and fi.bySide == me) or ourUnit ~= nil
+    local theirSide = fi and fi.bySide == them
     local unit = ourUnit or enemyUnit
-    local where = carried and dim("Has the centre flag" .. (near(sp) and (" · " .. near(sp)) or "")) or nil
-    if not fillSlot(self.slots[1], label, unit, fi and fi.state == "carried" and fi.by or nil, where, ourUnit and C.green or BRIGHT[them]) then
-      self.slots[1].label:SetText("Centre flag")
-      self.slots[1].name:SetText(dim("in the middle"))
+    local dl, rl = O:DroppedLeft(), O:ResetLeft()
+    if unit or carried then
+      local label = ourSide and "Our FC" or (theirSide or enemyUnit) and "Enemy FC" or "Centre flag"
+      fillSlot(s, label, unit, carried and fi.by or nil, dim("Has the centre flag" .. (near(sp) and (" · " .. near(sp)) or "")),
+        ourSide and C.green or BRIGHT[them])
+      if label == "Centre flag" and not unit and not (fi and fi.by) then s.name:SetText(dim("carried")) end
+    else
+      fillSlot(s, "Centre flag", nil, nil, nil)
+      if dl then
+        s.name:SetText(dim("dropped · back in ") .. mmss(dl))
+      elseif rl then
+        s.name:SetText(dim("back in ") .. mmss(rl))
+      elseif sp then
+        -- the map shows it away from the middle but nobody said who has it
+        s.name:SetText(dim("carried"))
+        s.where:SetText(near(sp) and dim("near " .. near(sp)) or "")
+      else
+        s.name:SetText(dim("in the middle"))
+      end
+      s:SetAlpha(1)
     end
   end
   if ourUnit and ourUnit ~= self.ourUnit and not InCombatLockdown() then
     self.ourUnit = ourUnit
     self.secure[2]:SetAttribute("unit", ourUnit)
+  end
+  -- Darkspear Islands' one button: our carrier when we have it, else the game's carrier unit
+  local want3 = ourUnit or "arena1"
+  if key == "DI" and want3 ~= self.diUnit and not InCombatLockdown() then
+    self.diUnit = want3
+    self.secure[3]:SetAttribute("unit", want3)
   end
 end
 
@@ -481,6 +510,7 @@ function B:Draw()
   avHide(self.av)
   local carriers = key == "WSG" or key == "DI"
   local nSlots = key == "WSG" and 2 or key == "DI" and 1 or 0
+  local showSlot = { key == "WSG", key == "WSG", key == "DI" }
 
   if key == "AV" then
     y = self:DrawAV(y, w)
@@ -551,14 +581,14 @@ function B:Draw()
   -- flag countdowns: a dropped flag going home, the flags back after a capture
   local t2l, t2r
   local dl = O:DroppedLeft()
-  if dl then t2l, t2r = dim("Dropped flag respawns in"), mmss(dl)
+  if dl and key ~= "DI" then t2l, t2r = dim("Dropped flag respawns in"), mmss(dl)
   elseif key == "WSG" and O:RespawnLeft() then t2l, t2r = dim("Flags back in"), mmss(O:RespawnLeft())
-  elseif key == "DI" and O:ResetLeft() then t2l, t2r = dim("Centre flag back in"), mmss(O:ResetLeft()) end
+  end
 
   -- the carriers: fixed slots at the bottom (they can't move in a fight)
   if not InCombatLockdown() then
     for i, s in ipairs(self.slots) do
-      local want = i <= nSlots
+      local want = showSlot[i] and true or false
       if s:IsShown() ~= want then s:SetShown(want) end
     end
   end
