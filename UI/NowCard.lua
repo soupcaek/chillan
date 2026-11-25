@@ -336,7 +336,7 @@ function N:Update()
       local wf = P.WatchedRep and P.WatchedRep()
       if wf then
         f.big:SetText(wf.standing)
-        f.bigSub:SetText(wf.name)
+        f.bigSub:SetText(ns.ShortFaction(wf.name))
         f.meter.pct = wf.pct
         f.right:SetText(wf.exalted and "Exalted" or (ns.Num(wf.into) .. " / " .. ns.Num(wf.span) .. (wf.perHour and (" · " .. ns.Num(wf.perHour) .. "/h") or "")))
       elseif rank or prog then
@@ -354,7 +354,8 @@ function N:Update()
       local fac, repN = P:TopRep()
       local bits = {}
       if (hk or 0) > 0 or (honor or 0) > 0 then bits[#bits + 1] = ns.Num(hk or 0) .. " HKs · " .. ns.Num(honor or 0) .. " honor" end
-      if fac then bits[#bits + 1] = "+" .. ns.Num(repN) .. " " .. fac:gsub("^The ", "") end
+      -- (1.4.58) not when it's the card's own faction (its rate is up top, its total in the rep box)
+      if fac and not (wf and wf.name == fac) then bits[#bits + 1] = "+" .. ns.Num(repN) .. " " .. ns.ShortFaction(fac) end
       if (s.bosses or 0) > 0 then bits[#bits + 1] = ns.Plural(s.bosses, "boss", "bosses") end
       if gold and gold ~= 0 then bits[#bits + 1] = ns.Colorize(goldText(gold), gold > 0 and C.text2 or C.red) end
       if #bits == 0 then bits[1] = s.quests .. " quests · " .. s.mobs .. " mobs" end

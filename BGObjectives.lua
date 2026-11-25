@@ -38,6 +38,13 @@ local HELD = {
   [138] = "a", [140] = "h", [143] = "a", [145] = "h", [148] = "a", [150] = "h", [153] = "a", [155] = "h",
   [205] = "a", [206] = "h", [210] = "a", [211] = "h", [215] = "a", [216] = "h",
 }
+-- (1.4.58) Darkspear Islands' own numbers, read live 25 Nov (they clash with the table above:
+-- 145 and 150 are its neutral Cove and Tower, which the table reads as Horde held)
+--   Camp 31 neutral, 32/34 being taken (A/H), 33/35 held;  Ruins 217 neutral, 218/219 taken, 215/216 held
+--   Tower 150 neutral, 152/154 taken, 151/153 held;          Cove 145 neutral, 147/149 taken, 146/148 held
+local DI_ASSAULT = { [32] = "a", [34] = "h", [218] = "a", [219] = "h", [152] = "a", [154] = "h", [147] = "a", [149] = "h" }
+local DI_HELD = { [33] = "a", [35] = "h", [215] = "a", [216] = "h", [151] = "a", [153] = "h", [146] = "a", [148] = "h" }
+O.DI_ASSAULT, O.DI_HELD = DI_ASSAULT, DI_HELD
 local function heldBy(icon)
   if type(icon) ~= "number" then return nil end
   return HELD[icon]
@@ -171,14 +178,22 @@ function O:ScanNodes(fresh)
     local atk, held
     if L then
       if L.k == "atk" then atk = L.s else held = L.s end
+    elseif self.key == "DI" then
+      atk = p.icon and DI_ASSAULT[p.icon]
+      held = p.icon and DI_HELD[p.icon]
     else
       atk = p.icon and ASSAULT[p.icon]
       held = heldBy(p.icon)
     end
+    -- (1.4.58) the map's own label comes first: "Horde Controlled", "Alliance Controlled", "Neutral",
+    -- "Contested" (live in Darkspear Islands)
+    local neutral, contested
     local dl = p.desc and p.desc:lower()
     if dl then
       if dl:find("horde") and dl:find("control") then atk, held = nil, "h"
-      elseif dl:find("alliance") and dl:find("control") then atk, held = nil, "a" end
+      elseif dl:find("alliance") and dl:find("control") then atk, held = nil, "a"
+      elseif dl:find("neutral") or dl:find("uncontrolled") then atk, held, neutral = nil, nil, true
+      elseif dl:find("contest") then held, contested = nil, true end
     end
     -- (1.4.52) an attack counts only when we SEE the icon change to an assault icon, as Capping does.
     -- An icon that was already there when we joined or reloaded says nothing for sure (live 24 Nov:
@@ -190,7 +205,9 @@ function O:ScanNodes(fresh)
       n.prevIcon = n.icon
       self.changedNow[#self.changedNow + 1] = n
     end
-    if atk then
+    if neutral and not (n.chatAt and t - n.chatAt < 5) then
+      n.atk, n.since, n.side = nil, nil, nil
+    elseif atk then
       if changed and n.atk ~= atk then n.atk, n.since = atk, t end
     elseif held and n.chatAt and t - n.chatAt < 5 then
       -- the announcement came a moment before the map caught up: the announcement stands
@@ -202,6 +219,8 @@ function O:ScanNodes(fresh)
       n.side = held
     elseif changed and self.key ~= "AV" then
       -- an icon we don't know yet, seen changing: something is being taken, by whom we'll learn
+      n.atk, n.since = "?", t
+    elseif contested and not n.atk and changed then
       n.atk, n.since = "?", t
     elseif n.atk == "?" and n.since and t - n.since > (O.CAP[self.key or ""] or 60) + 5 then
       n.atk, n.since = nil, nil
@@ -216,7 +235,16 @@ function O:ScanNodes(fresh)
     end
     n.icon = p.icon or false
   end
-  for name, n in pairs(self.nodes) do if not seen[name] then n.gone = true end end
+  for name, n in pairs(self.nodes) do
+    if not seen[name] then n.gone = true
+    elseif n.gone then n.gone = nil n.back = t end
+  end
+  -- (1.4.58) Darkspear Islands: the "Darkspear Flag" point is on the map only while the flag sits in
+  -- the middle. Seen again: nobody has it
+  local home = self:CentreFlagHome()
+  if self.key == "DI" and home and self.flag and self.flag.n and self.flag.n.state ~= "home" then
+    self.flag.n = { state = "home" }
+  end
   if fresh then self:Restore() end
   self:Save()
 end
@@ -328,6 +356,14 @@ function O:Left(n)
   if not n.since then return nil end
   local cap = O.CAP[self.key or ""] or 60
   return math.max(0, math.floor(cap - (now() - n.since)))
+end
+
+-- Darkspear Islands: true while the flag's own map point shows (in the middle), nil if never seen
+function O:CentreFlagHome()
+  for name, n in pairs(self.nodes or {}) do
+    if O.NotABase(name) and name:lower():find("flag") then return not n.gone end
+  end
+  return nil
 end
 
 -- the nodes to show: Arathi Basin and Darkspear Islands every base, Alterac Valley only the
@@ -589,10 +625,29 @@ function O:NodeNamed(name)
 end
 
 function O:Announce(event, text)
-  if not self.key or type(text) ~= "string" or ns.isSecret(text) then
-    if self.key and ns.isSecret(text) then self.chatHidden = true end
+  if not self.key then return end
+  -- (1.4.58) a line with a player's name in it ("Nunte Aor has taken the flag!") reaches addons
+  -- hidden, but which side's channel it came on is known, and the hidden line can still be drawn
+  if ns.isSecret(text) then
+    self.chatHidden = true
+    local side = CHAT_SIDE[event]
+    if side and (self.key == "DI" or self.key == "WSG") then
+      local t = now()
+      self.lines = self.lines or {}
+      self.lines[side] = { text = text, at = t }
+      if self.key == "DI" then
+        self.flag = self.flag or {}
+        local f = self.flag.n or {}
+        self.flag.n = f
+        if f.state ~= "carried" or f.bySide ~= side then f.state, f.bySide, f.at, f.by, f.droppedAt = "carried", side, t, nil, nil end
+        f.line = text
+      end
+      self:LogIcon("flag", "chat", "hidden line " .. side)
+      return true
+    end
     return
   end
+  if type(text) ~= "string" then return end
   self.chatReadable = true
   local side = CHAT_SIDE[event]
   local low = text:lower()
@@ -620,12 +675,13 @@ function O:Announce(event, text)
     return true
   end
   if not low:find("flag") then return end
+  self:LogIcon("flag", "chat", (side or "n") .. " " .. low:sub(1, 70))
   local team = low:find("horde flag") and "h" or low:find("alliance flag") and "a" or "n"
   self.flag = self.flag or {}
   local f = self.flag[team] or {}
   self.flag[team] = f
   if low:find("picked up") or low:find("has taken the") then
-    f.state, f.by, f.bySide, f.at = "carried", text:match("picked up by ([^!%.]+)") or text:match("^([^ ]+) has taken the"), side, t
+    f.state, f.by, f.bySide, f.at = "carried", text:match("picked up by ([^!%.]+)") or text:match("^(.-) has taken the"), side, t
     f.droppedAt = nil
   elseif low:find("was dropped") or low:find("been dropped") then
     f.state, f.droppedAt, f.by = "dropped", t, nil
@@ -641,6 +697,8 @@ end
 
 -- what the announcements said about a flag ("h", "a" or "n" for Darkspear Islands' own)
 function O:FlagInfo(team) return self.flag and self.flag[team] end
+-- the latest hidden line on a side's channel: { text (drawable, not readable), at }
+function O:Line(side) return self.lines and self.lines[side] end
 -- seconds until a dropped flag goes home, or nil
 function O:DroppedLeft()
   local best
@@ -669,7 +727,7 @@ end
 function O:Reset(key)
   self.key = key
   self.prevBases, self.changedNow, self.seenW = nil, {}, nil
-  self.flag, self.resetAt, self.clockEnds, self.chatReadable, self.chatHidden = {}, nil, nil, nil, nil
+  self.flag, self.resetAt, self.clockEnds, self.chatReadable, self.chatHidden, self.lines = {}, nil, nil, nil, nil, {}
   self.nodes, self.order, self.samples = {}, {}, {}
   self.lastFlags, self.respawnAt = nil, nil
 end

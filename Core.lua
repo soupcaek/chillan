@@ -1095,6 +1095,22 @@ C_Timer.NewTicker(30, blindCheck)
 
 -- (1.4.48) "Paused in BG": inside an instance the game blocks addon messages, so instead of
 -- "0 online" the headers say the gang sync is paused (nil when it isn't)
+-- (1.4.58) short faction names for boxes and lines (the full name stays in tooltips)
+local SHORT_FACTION = {
+  ["Frostwolf Clan"] = "Frostwolf", ["Stormpike Guard"] = "Stormpike", ["Darkspear Raiders"] = "Darkspear",
+  ["Theramore Expeditionary Force"] = "Theramore", ["The Defilers"] = "Defilers", ["The League of Arathor"] = "League",
+  ["Warsong Outriders"] = "Warsong", ["Silverwing Sentinels"] = "Silverwing", ["Thorium Brotherhood"] = "Thorium",
+  ["Timbermaw Hold"] = "Timbermaw", ["Cenarion Circle"] = "Cenarion", ["Zandalar Tribe"] = "Zandalar",
+  ["Brood of Nozdormu"] = "Nozdormu", ["Hydraxian Waterlords"] = "Hydraxian", ["Argent Dawn"] = "Argent Dawn",
+  ["Thunder Bluff"] = "Thunder Bluff", ["Darkspear Trolls"] = "Darkspear Trolls",
+}
+function ns.ShortFaction(name)
+  if type(name) ~= "string" then return name end
+  if SHORT_FACTION[name] then return SHORT_FACTION[name] end
+  local s = name:gsub("^The ", ""):gsub(" Clan$", ""):gsub(" Guard$", "")
+  return s
+end
+
 function ns.PausedLabel()
   if not ns.CommBlind() then return nil end
   return ns.InBattleground() and "PvP mode · social paused" or "Paused in dungeon"

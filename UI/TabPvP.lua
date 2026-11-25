@@ -128,7 +128,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
       repOf = function(key)
         local x = (full.all or {})[key]
         if not x or not x.reaction or x.reaction == 0 then return nil end
-        local names = { AV = "Frostwolf", WSG = "Warsong Outriders", AB = "Defilers", DI = "Darkspear Raiders" }
+        local names = { AV = "Frostwolf", WSG = "Warsong", AB = "Defilers", DI = "Darkspear" }
         return { name = names[key] or key, standing = STANDING_N[x.reaction] or "", reaction = x.reaction, exalted = x.reaction >= 8,
           pct = x.repPct or 0, winsLeft = x.winsLeft, left = 0 }
       end

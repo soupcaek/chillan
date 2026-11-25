@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.58", date = "25.11", items = {
+    "Flag rows (Darkspear Islands and Warsong Gulch): the side in its colour as the headline – \"Alliance has the flag\", \"Alliance has our flag\" – then the carrier's name, or the game's own line (\"Nunte Aor has taken the flag!\") when the game keeps the name from addons, then where and how long: \"near Cove · held 0:42\". No more \"near near\"",
+    "Darkspear Islands: bases read from the map's own labels (Neutral, Contested, Horde/Alliance Controlled) and Forever's own icon numbers, so a neutral Tower or Cove no longer shows as Horde's. The centre flag is \"in the middle\" whenever its map point is back",
+    "\"Alliance wins in ~2 min\" is in the winner's colour, like the score",
+    "Honor today counts your battleground honor (it showed 0 right after a game)",
+    "The rep box shows \"+200 rep this session\" when the big card already shows that faction and its rate, and the session line stops repeating it. Short faction names everywhere: Frostwolf, Darkspear, Defilers, Warsong" } },
   { v = "1.4.57", date = "25.11", items = {
     "Chillan? Market window: opens beside the auction house with five tabs. Turn Naowh's Market off so the two don't fight over the same searches",
     "Sell: your bags as a queue, most valuable first. The price starts 1c under the cheapest listing that isn't yours, uses the gang price when nothing is listed, and never goes under what a vendor pays. A big green \"You get after the 5 % cut\", the deposit, Skip and Post. Under it the listings right now, Up Next (worth more on the auction than at a vendor) and For a vendor",

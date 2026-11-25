@@ -68,6 +68,13 @@ local function makeSlot(parent, label)
   s.bar.bg = s.bar:CreateTexture(nil, "BACKGROUND")
   s.bar.bg:SetAllPoints()
   UI.Track(s.bar.bg):SetColorTexture(hex(C.active))
+  -- (1.4.58) the game's own line ("Nunte Aor has taken the flag!"), drawn as it came when the game
+  -- keeps the name from us; sits where the health bar goes when there's no bar
+  s.line = UI.Text(s, 11, nil, C.text2)
+  s.line:SetPoint("TOPLEFT", 8, -19)
+  s.line:SetPoint("TOPRIGHT", -8, -19)
+  s.line:SetJustifyH("LEFT")
+  s.line:SetWordWrap(false)
   s.where = UI.Text(s, 11, nil, C.dim)
   s.where:SetPoint("BOTTOMLEFT", 8, 6)
   s.where:SetPoint("BOTTOMRIGHT", -8, 6)
@@ -170,6 +177,7 @@ end
 -- member; chatName: who the announcement said picked it up. Returns true when someone carries it.
 local function fillSlot(s, label, unit, chatName, where, barColor)
   s.label:SetText(label)
+  s.line:SetText("")
   local has = unit and unitOK(unit)
   if has then
     local okN, name = pcall(UnitName, unit)
@@ -421,49 +429,73 @@ function B:DrawCarriers(key)
   local them = me == "h" and "a" or "h"
   local enemyUnit = unitOK("arena1") and "arena1" or nil
   local ourUnit = findOurCarrier()
-  local function near(sp) return sp and sp.near and ("near " .. sp.near) or nil end
+  local t = GetTime()
+  -- "near Cove · held 0:42"
+  local function whereText(sp, since)
+    local bits = {}
+    if sp and sp.near then bits[#bits + 1] = "near " .. sp.near end
+    if since and t - since >= 1 then bits[#bits + 1] = "held " .. mmss(math.floor(t - since)) end
+    return #bits > 0 and dim(table.concat(bits, " · ")) or nil
+  end
+  -- (1.4.58) one carrier row: the side in its colour as the headline ("Alliance has the flag"), then
+  -- the carrier's name when the game gives it, else the game's own line drawn as it came
+  local function carrierRow(s, headline, side, unit, readable, line, sp, since)
+    fillSlot(s, ns.Colorize(headline, BRIGHT[side] or C.text), unit, readable, whereText(sp, since),
+      side == me and C.green or BRIGHT[side])
+    local hasName = (unit and unitOK(unit)) or readable
+    if not hasName then
+      s.name:SetText("")
+      if line and line.text then pcall(s.line.SetText, s.line, line.text) end
+    end
+    s:SetAlpha(1)
+  end
   if key == "WSG" then
     local ours, theirs
     for _, sp in ipairs(spots) do
       if sp.owner == me then ours = sp elseif sp.owner then theirs = sp end
     end
-    -- our flag is carried by them (Enemy FC); theirs by us (Our FC)
+    -- our flag carried by them (Enemy FC); theirs carried by us (Our FC)
     local fo, ft = O:FlagInfo(me), O:FlagInfo(them)
-    local w1 = (ours or (fo and fo.state == "carried")) and ("Has our flag" .. (near(ours) and (dim(" · ") .. near(ours)) or "")) or nil
-    local w2 = (theirs or (ft and ft.state == "carried")) and ("Has their flag" .. (near(theirs) and (dim(" · ") .. near(theirs)) or "")) or nil
-    fillSlot(self.slots[1], "Enemy FC", enemyUnit, fo and fo.state == "carried" and fo.by or nil, w1 and dim(w1), BRIGHT[them])
-    fillSlot(self.slots[2], "Our FC", ourUnit, ft and ft.state == "carried" and ft.by or nil, w2 and dim(w2), C.green)
+    local s1, s2 = self.slots[1], self.slots[2]
+    if ours or (fo and fo.state == "carried") or enemyUnit then
+      local ln = O:Line(them)
+      carrierRow(s1, sideName(them) .. " has our flag", them, enemyUnit, fo and fo.state == "carried" and fo.by or nil, ln, ours,
+        (fo and fo.state == "carried" and fo.at) or (ln and ln.at))
+    else
+      fillSlot(s1, "Our flag", nil, nil, nil)
+      s1.name:SetText(dim(fo and fo.state == "dropped" and "dropped" or "at base"))
+    end
+    if theirs or (ft and ft.state == "carried") or ourUnit then
+      local ln = O:Line(me)
+      carrierRow(s2, sideName(me) .. " has their flag", me, ourUnit, ft and ft.state == "carried" and ft.by or nil, ln, theirs,
+        (ft and ft.state == "carried" and ft.at) or (ln and ln.at))
+    else
+      fillSlot(s2, "Their flag", nil, nil, nil)
+      s2.name:SetText(dim(ft and ft.state == "dropped" and "dropped" or "at base"))
+    end
   else
-    -- Darkspear Islands: one flag in the middle, carried by either side. One row says it all:
-    -- who carries it and where, or "dropped · back in 0:07", "back in 0:18", "in the middle".
+    -- Darkspear Islands: one flag in the middle, carried by either side
     local s = self.slots[3]
     local sp = spots[1]
     local fi = O:FlagInfo("n")
-    local carried = fi and fi.state == "carried"
-    local ourSide = (fi and fi.bySide == me) or ourUnit ~= nil
-    local theirSide = fi and fi.bySide == them
-    local unit = ourUnit or enemyUnit
+    local home = O:CentreFlagHome()
     local dl, rl = O:DroppedLeft(), O:ResetLeft()
-    if unit or carried then
-      local label = ourSide and "Our FC" or (theirSide or enemyUnit) and "Enemy FC" or "Centre flag"
-      fillSlot(s, label, unit, carried and fi.by or nil, dim("Has the centre flag" .. (near(sp) and (" · " .. near(sp)) or "")),
-        ourSide and C.green or BRIGHT[them])
-      if label == "Centre flag" and not unit and not (fi and fi.by) then s.name:SetText(dim("carried")) end
+    local carried = (fi and fi.state == "carried") or ourUnit ~= nil or enemyUnit ~= nil or (sp ~= nil and home == false)
+    local side = (ourUnit and me) or (fi and fi.state == "carried" and fi.bySide) or (sp and sp.owner) or (enemyUnit and them) or nil
+    if rl then
+      fillSlot(s, "Centre flag", nil, nil, nil)
+      s.name:SetText(dim("back in ") .. mmss(rl))
+    elseif dl then
+      fillSlot(s, "Centre flag", nil, nil, whereText(sp))
+      s.name:SetText(dim("dropped · back in ") .. mmss(dl))
+    elseif carried then
+      carrierRow(s, side and (sideName(side) .. " has the flag") or "Centre flag carried", side, ourUnit or enemyUnit,
+        fi and fi.state == "carried" and fi.by or nil, fi and fi.line and { text = fi.line } or nil, sp, fi and fi.at)
     else
       fillSlot(s, "Centre flag", nil, nil, nil)
-      if dl then
-        s.name:SetText(dim("dropped · back in ") .. mmss(dl))
-      elseif rl then
-        s.name:SetText(dim("back in ") .. mmss(rl))
-      elseif sp then
-        -- the map shows it away from the middle but nobody said who has it
-        s.name:SetText(dim("carried"))
-        s.where:SetText(near(sp) and dim("near " .. near(sp)) or "")
-      else
-        s.name:SetText(dim("in the middle"))
-      end
-      s:SetAlpha(1)
+      s.name:SetText(dim("in the middle"))
     end
+    s:SetAlpha(1)
   end
   if ourUnit and ourUnit ~= self.ourUnit and not InCombatLockdown() then
     self.ourUnit = ourUnit
@@ -533,7 +565,8 @@ function B:Draw()
       local side, secs, other = O:Estimate(sc)
       if side and secs < 3600 then
         local max = sc and sc.a.max or 2000
-        line(self, y, ns.Colorize(sideName(side) .. " wins in ~" .. math.max(1, math.ceil(secs / 60)) .. " min", side == "h" and C.green or HORDE),
+        -- (1.4.58) in the winner's colour, like the score
+        line(self, y, ns.Colorize(sideName(side) .. " wins in ~" .. math.max(1, math.ceil(secs / 60)) .. " min", side == "h" and HORDE or ALLI),
           other and (dim("final score estimate ") .. ns.Num(max) .. " – " .. ns.Num(other)) or "")
         y = y - 18
       end

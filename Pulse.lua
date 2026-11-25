@@ -729,7 +729,9 @@ end)
 -- honor and kills today (the game's own count, which resets daily), with our BG tally as a fallback
 function P:HonorToday()
   local hk, honor = pvpSession()
-  if not honor then honor = today().honor end
+  -- (1.4.58) Forever's session count says 0 honor after a battleground (live 25 Nov: 0 with 284 just
+  -- earned): the most of it and the battlegrounds we counted ourselves
+  honor = math.max(honor or 0, today().honor or 0)
   return hk, honor
 end
 
@@ -947,7 +949,7 @@ function P:BGRep(anyTime)
   local avgL = t.lN > 0 and math.floor(t.lSum / t.lN) or nil
   local left = math.max(0, EXALTED - r.value)
   local game = (b and b.repFid == fid and b.rep0) and math.max(0, r.value - b.rep0) or nil
-  local fname = (r.name or ""):gsub(" Clan$", ""):gsub(" Guard$", "")
+  local fname = ns.ShortFaction(r.name or "")
   return { fid = fid, name = r.name, short = fname, value = r.value, left = left, exalted = left == 0,
     reaction = r.reaction, standing = P.StandingName(r.reaction), min = r.min, max = r.max,
     avgW = avgW, wN = wN, avgL = avgL, lN = t.lN, estimated = wN == 0,

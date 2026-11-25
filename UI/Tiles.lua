@@ -152,7 +152,10 @@ for _, d in ipairs({
   { key = "reph", name = "Reputation per hour", get = function()
     local fac, n, rate = P():TopRep()
     if not fac then return "–", "rep/h" end
-    local short = fac:gsub("^The ", "")
+    -- (1.4.58) the big card already shows this faction and its rate: the box gives the total instead
+    local wf = P().WatchedRep and P().WatchedRep()
+    if wf and wf.name == fac then return "+" .. ns.Num(n), "rep this session" end
+    local short = ns.ShortFaction(fac)
     if #short > 11 then short = short:sub(1, 10) .. "…" end
     return rate and ns.Num(rate) or ("+" .. ns.Num(n)), short .. (rate and " /h" or "")
   end },

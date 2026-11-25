@@ -131,6 +131,7 @@ SC = { a = 760, h = 820 }
 C_UIWidgetManager.GetDoubleStatusBarWidgetVisualizationInfo = function(id) if id == 7467 then return { leftBarValue = SC.a, leftBarMax = 2000, rightBarValue = SC.h, rightBarMax = 2000 } end end
 ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()
 FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The Alliance has assaulted the Ruins!")
+POIS[2][3] = "Contested"
 GT = GT + 15
 ADDON_NS.BGObj:Update()''')
 print("DI Ruins:", LA.eval('ADDON_NS.BGObj.nodes["Ruins"].atk'), LA.eval('ADDON_NS.BGObj:Left(ADDON_NS.BGObj.nodes["Ruins"])'),
@@ -173,7 +174,7 @@ GetNumBattlefieldFlagPositions = function() return 0 end
 UnitExists = function() return false end
 C_UIWidgetManager.GetIconAndTextWidgetVisualizationInfo = function() return nil end
 C_UIWidgetManager.GetDoubleStatusBarWidgetVisualizationInfo = function(id) if id == 7467 then return { leftBarValue = SC.a, leftBarMax = 2000, rightBarValue = SC.h, rightBarMax = 2000 } end end
-POIS = { {"Camp", 0}, {"Ruins", 0}, {"Abandoned Tower", 10}, {"Shipwreck Cove", 10}, {"Darkspear Flag", 0} }
+POIS = { {"Camp", 0}, {"Ruins", 0}, {"Abandoned Tower", 153}, {"Shipwreck Cove", 148}, {"Darkspear Flag", 45} }
 C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] return { name = p[1], textureIndex = p[2] } end
 SC = { a = 0, h = 0 }
 ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()''')
@@ -191,3 +192,41 @@ LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_HORDE", "The Horde has captured the flag!
 row = LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].name:GetText()')[0]
 print("DI after a capture:", row, "| separate line:", repr(LA.eval('ADDON_NS.BGPanel.info2:GetText()')))
 assert row.startswith("back in") and LA.eval('ADDON_NS.BGPanel.info2:GetText()') == ""
+
+# ---- 1.4.58 ----
+# Forever's own Darkspear Islands numbers and labels: a neutral Tower (150) is nobody's, mid-game too
+LA.execute('''POIS = { {"Camp", 35, "Horde Controlled"}, {"Ruins", 217, "Neutral"}, {"Abandoned Tower", 150, "Neutral"}, {"Shipwreck Cove", 146, "Alliance Controlled"}, {"Darkspear Flag", 45, ""} }
+C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] return { name = p[1], textureIndex = p[2], description = p[3] } end
+SC = { a = 300, h = 420 }
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()''')
+sides = LA.eval('(function() local o = {} for _, k in ipairs({"Camp","Ruins","Abandoned Tower","Shipwreck Cove"}) do o[#o+1] = k .. "=" .. tostring(ADDON_NS.BGObj.nodes[k].side) end return table.concat(o, ", ") end)()')
+print("DI sides:", sides)
+assert sides == "Camp=h, Ruins=nil, Abandoned Tower=nil, Shipwreck Cove=a"
+# being taken: "Contested" + the Alliance's assault icon on the Tower
+LA.execute('''POIS[3][2], POIS[3][3] = 152, "Contested"; ADDON_NS.BGObj:Update()''')
+assert LA.eval('ADDON_NS.BGObj.nodes["Abandoned Tower"].atk') == "a"
+# a hidden line on the Alliance channel: the Alliance has the flag, and the line itself is drawn
+LA.execute('''issecretvalue = function(v) return type(v) == "string" and v:find("^SECRET") ~= nil end
+POIS[5] = nil; ADDON_NS.BGObj:Update()
+FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "SECRET Nunte Aor has taken the flag!")
+GT = GT + 42
+ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
+s3 = 'ADDON_NS.BGPanel.slots[3]'
+row = [LA.eval(strip2 % (s3 + '.label:GetText()'))[0], LA.eval(s3 + '.line:GetText()'), LA.eval(strip2 % (s3 + '.where:GetText()'))[0]]
+print("DI carried:", row)
+assert row[0] == "Alliance has the flag" and "Nunte" in row[1] and "held 0:42" in row[2]
+# no "near near"
+LA.execute('''GetNumBattlefieldFlagPositions = function() return 1 end
+GetBattlefieldFlagPosition = function() return 0.6, 0.4, "" end
+C_PvP = nil
+ADDON_NS.BGPanel:Draw()''')
+w = LA.eval(strip2 % (s3 + '.where:GetText()'))[0]
+print("DI where:", w)
+assert "near near" not in w
+# the flag's map point back: in the middle again
+LA.execute('''GetNumBattlefieldFlagPositions = function() return 0 end
+POIS[5] = {"Darkspear Flag", 45, ""}; ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Draw()''')
+print("DI back:", LA.eval(strip2 % (s3 + '.label:GetText() .. ": " .. ' + s3 + '.name:GetText()'))[0])
+assert LA.eval(strip2 % (s3 + '.name:GetText()'))[0] == "in the middle"
+# the win line is in the winner's colour
+LA.execute('''issecretvalue = nil''')
