@@ -246,3 +246,21 @@ LA.execute('''COMBAT = false; ADDON_NS.BGPanel:Draw()''')
 calm = LA.eval(s3 + '.hint:GetText()')
 print("hint in a fight:", repr(fight), "| after:", repr(calm), "| button unit:", LA.eval('ADDON_NS.BGPanel.diUnit'))
 assert fight == "" and calm == "click to target" and LA.eval('ADDON_NS.BGPanel.diUnit') == "raid1"
+# ---- 1.4.63: the flag's map point staying on the map doesn't wipe the carrier; the panel's height
+# doesn't change when the win estimate shows up
+LA.execute('''UnitExists = function() return false end; C_UnitAuras = nil
+issecretvalue = function(v) return type(v) == "string" and v:find("^SECRET") ~= nil end
+GetNumBattlefieldFlagPositions = function() return 0 end
+POIS = { {"Camp", 33, "Alliance Controlled"}, {"Ruins", 216, "Horde Controlled"}, {"Abandoned Tower", 150, "Neutral"}, {"Shipwreck Cove", 146, "Alliance Controlled"}, {"Darkspear Flag", 45, ""} }
+SC = { a = 0, h = 0 }
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()
+H0 = ADDON_NS.BGPanel.contentH
+FIRE("CHAT_MSG_BG_SYSTEM_HORDE", "SECRET Tribulation has taken the flag!")
+for i = 1, 5 do GT = GT + 12; SC.h = SC.h + 40; SC.a = SC.a + 10; ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Draw() end''')
+row = LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].label:GetText()')[0]
+print("flag point still on the map, carrier kept:", row, "| height before/after the estimate:", LA.eval('H0'), LA.eval('ADDON_NS.BGPanel.contentH'))
+assert row == "Horde has the flag" and LA.eval('H0') == LA.eval('ADDON_NS.BGPanel.contentH')
+# the point gone and back: in the middle again
+LA.execute('''local f = POIS[5]; POIS[5] = nil; GT = GT + 2; ADDON_NS.BGObj:Update(); POIS[5] = f; GT = GT + 2; ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Draw()''')
+back = LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[3].name:GetText()')[0]
+print("point back:", back); assert back == "in the middle"

@@ -2,6 +2,9 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.63", date = "25.11", items = {
+    "Darkspear Islands: the flag row follows the flag again (it got stuck on \"in the middle\" when the other side carried it). The flag counts as back in the middle only when its map point comes back after being gone",
+    "Battlegrounds: the panel keeps room for the win estimate (and Warsong Gulch's clock and flag timers) from the start, so the base boxes no longer slide onto the flag row when the line appears mid-fight" } },
   { v = "1.4.62", date = "25.11", items = {
     "Dungeon recap in Pulse comes much sooner: the run ends as soon as you're outside and leave the group (or it breaks up), the group is mostly new people, the dungeon is reset, or you queue for another. Otherwise after 5 minutes outside (was 10); time spent dead doesn't count, so a corpse run never splits a run in two. A full clear still posts right after the last boss" } },
   { v = "1.4.61", date = "25.11", items = {

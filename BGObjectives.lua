@@ -236,13 +236,20 @@ function O:ScanNodes(fresh)
     n.icon = p.icon or false
   end
   for name, n in pairs(self.nodes) do
-    if not seen[name] then n.gone = true
-    elseif n.gone then n.gone = nil n.back = t end
+    if not seen[name] then
+      if not n.gone and O.NotABase(name) then self:LogIcon(name, "map", "gone") end
+      n.gone = true
+    elseif n.gone then
+      n.gone = nil n.back = t
+      if O.NotABase(name) then self:LogIcon(name, "map", "back") end
+    end
   end
-  -- (1.4.58) Darkspear Islands: the "Darkspear Flag" point is on the map only while the flag sits in
-  -- the middle. Seen again: nobody has it
-  local home = self:CentreFlagHome()
-  if self.key == "DI" and home and self.flag and self.flag.n and self.flag.n.state ~= "home" then
+  -- (1.4.63) Darkspear Islands: the flag's map point coming BACK after being gone means it's in the
+  -- middle again. (1.4.58 reset it whenever the point showed, and the point may stay on the map while
+  -- the flag is carried: every carrier was wiped each second)
+  local fn = self:CentreFlagNode()
+  local f = self.flag and self.flag.n
+  if self.key == "DI" and fn and fn.back and f and f.state ~= "home" and fn.back > (f.at or 0) then
     self.flag.n = { state = "home" }
   end
   if fresh then self:Restore() end
@@ -359,11 +366,15 @@ function O:Left(n)
 end
 
 -- Darkspear Islands: true while the flag's own map point shows (in the middle), nil if never seen
-function O:CentreFlagHome()
+function O:CentreFlagNode()
   for name, n in pairs(self.nodes or {}) do
-    if O.NotABase(name) and name:lower():find("flag") then return not n.gone end
+    if O.NotABase(name) and name:lower():find("flag") then return n end
   end
-  return nil
+end
+function O:CentreFlagHome()
+  local n = self:CentreFlagNode()
+  if not n then return nil end
+  return not n.gone
 end
 
 -- the nodes to show: Arathi Basin and Darkspear Islands every base, Alterac Valley only the

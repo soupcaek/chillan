@@ -585,8 +585,10 @@ function B:Draw()
         -- (1.4.58) in the winner's colour, like the score
         line(self, y, ns.Colorize(sideName(side) .. " wins in ~" .. math.max(1, math.ceil(secs / 60)) .. " min", side == "h" and HORDE or ALLI),
           other and (dim("final score estimate ") .. ns.Num(max) .. " – " .. ns.Num(other)) or "")
-        y = y - 18
       end
+      -- (1.4.63) the line's room is kept from the start: the window can't grow in a fight (the
+      -- target button sits on it), so a line showing up mid-fight pushed the boxes onto the flag row
+      y = y - 18
       -- every base: deep when held, bright with a white countdown bar while being taken
       local list = O:Chips()
       if #list > 0 then
@@ -624,7 +626,8 @@ function B:Draw()
     -- Warsong Gulch: the game clock
     if key == "WSG" then
       local clock = O:GameClock()
-      if clock then line(self, y, dim("Game ends in"), mmss(clock)) y = y - 18 end
+      if clock then line(self, y, dim("Game ends in"), mmss(clock)) end
+      y = y - 18   -- (1.4.63) room kept, as above
     end
   end
 
@@ -647,8 +650,8 @@ function B:Draw()
   if t2l then
     self.info2:ClearAllPoints() self.right2:ClearAllPoints()
     line2(self, y, t2l, t2r)
-    y = y - 18
   end
+  if key == "WSG" then y = y - 18 end   -- (1.4.63) Warsong Gulch's flag countdowns: room kept
   self.contentH = -y + slotsH + (slotsH > 0 and 4 or 0)
   self:SyncSecure(carriers and f:IsVisible())
   self:Fit()
