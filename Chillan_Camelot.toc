@@ -22,6 +22,7 @@ CuntList.lua
 DiedTo.lua
 PlayerHistory.lua
 Market.lua
+MarketAH.lua
 Disenchant.lua
 Data.lua
 Sync.lua
@@ -50,6 +51,7 @@ UI\PersonQuick.lua
 UI\MainWindow.lua
 UI\TabHome.lua
 UI\TabMarket.lua
+UI\MarketWindow.lua
 UI\TabPvP.lua
 UI\TabFriends.lua
 UI\TabChat.lua

@@ -67,6 +67,10 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     { "What disenchanting gives", "mkDEList", "One line per mat under the disenchant value: how many, the chance, and the mat's price." },
     { "Price change since the last scan", "mkTrend", "Shown when the price moved 5 % or more." },
   })
+  local wh = section(lastT, "Auction house")
+  lastT = checkList(wh, {
+    { "Market window beside the auction house", "mkWindow", "Opens with the auction house: Sell (your bags as a queue, priced 1c under the cheapest), Buy, My auctions, Shopping and Gang. Close it with × for one visit; the Chillan? Market tab on the auction house brings it back." },
+  })
   local sh = section(lastT, "Sharing")
   checkList(sh, {
     { "Share prices with the gang", "marketShare", "After you scan, the prices that changed go to the gang quietly; friends logging in get the newest ones, and an item you hover with no price is asked for." },

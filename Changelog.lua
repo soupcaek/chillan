@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.57", date = "25.11", items = {
+    "Chillan? Market window: opens beside the auction house with five tabs. Turn Naowh's Market off so the two don't fight over the same searches",
+    "Sell: your bags as a queue, most valuable first. The price starts 1c under the cheapest listing that isn't yours, uses the gang price when nothing is listed, and never goes under what a vendor pays. A big green \"You get after the 5 % cut\", the deposit, Skip and Post. Under it the listings right now, Up Next (worth more on the auction than at a vendor) and For a vendor",
+    "Buy: search by name, saved and recent searches, results compared with the gang price, then Buy (and Confirm for stackable goods). My auctions: listed, undercut and sold last 7 days, each auction checked against the cheapest that isn't yours, Cancel undercut one click at a time",
+    "Shopping: your own list with how many you want and the most you'll pay; Check prices, then Buy exactly what's missing. Gang: who made the most gold (after the cut), sold the most, posted the most and whose auctions sell, plus the week's biggest sales",
+    "Tooltip: Best: auction vs vendor uses the same after-cut sum as Up Next, also for older prices, so the two always agree" } },
   { v = "1.4.56", date = "25.11", items = {
     "Darkspear Islands: the centre flag row sits at the bottom of the panel again instead of on top of the base boxes, and says it all in one line: who carries it, \"dropped · back in 0:07\", \"back in 0:18\" or \"in the middle\"",
     "Darkspear Islands and Arathi Basin: before the gates open no base shows as held (a fresh game showed two Horde bases while we waited)" } },

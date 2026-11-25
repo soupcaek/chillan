@@ -730,7 +730,9 @@ local function addLine(tt, id, count)
   -- what pays most
   if opt("mkBest") then
     local options = {}
-    if e and not old then options[#options + 1] = { "Auction", math.floor(e.v * (1 - AH_CUT)) * n } end
+    -- (1.4.57) the same sum as the Market window's Up Next (Naowh's rule): price each x 0.95 rounded
+    -- down, times the stack; an old price still counts, so the two always agree
+    if e then options[#options + 1] = { "Auction", math.floor(e.v * (1 - AH_CUT)) * n } end
     local sell = vendorPrice(id)
     if sell and sell > 0 then options[#options + 1] = { "Vendor", sell * n } end
     if deVal then options[#options + 1] = { "Disenchant", deVal * n } end
