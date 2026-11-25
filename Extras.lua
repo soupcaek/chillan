@@ -213,19 +213,79 @@ local function onWorld()
       ns.db.curRun = run
     end
   elseif run then
-    -- left the dungeon: often just a death + corpse run or a hearth to repair.
-    -- The run only ends if you stay out for 10 minutes (or enter another dungeon).
-    if not run.leftAt then run.leftAt = ns.Now() end
+    -- left the dungeon: often just a death + corpse run or a hearth to repair. (1.4.62) The run
+    -- ends at once when you leave the group, the group is mostly new people, the dungeon is reset
+    -- or you queue for another; otherwise after 5 minutes outside (not counting time dead).
+    if not run.leftAt then
+      run.leftAt = ns.Now()
+      run.outGroup, run.outN = X.GroupNames()
+    end
   end
-  if run and inInst and (kind == "party" or kind == "raid") then run.leftAt = nil end
+  if run and inInst and (kind == "party" or kind == "raid") then run.leftAt, run.outGroup, run.outN, run.deadFor = nil, nil, nil, nil end
+  X.CheckRunEnd()
 end
 
-C_Timer.NewTicker(30, function()
-  if run and run.leftAt and not (UnitIsDeadOrGhost and UnitIsDeadOrGhost("player")) and ns.Now() - run.leftAt > 600 then
-    -- the run ended when you walked out, not 10 min later
-    run.endAt = run.leftAt
-    finishRun()
+-- the names in your group right now (outside a dungeon they can be read)
+function X.GroupNames()
+  local out, n = {}, 0
+  local num = ns.S(GetNumGroupMembers) or 0
+  local raid = ns.S(IsInRaid)
+  for i = 1, math.min(40, num) do
+    local u = raid and ("raid" .. i) or (i == 1 and "player" or ("party" .. (i - 1)))
+    local nm = ns.S(UnitName, u)
+    if type(nm) == "string" and nm ~= "" then out[nm] = true n = n + 1 end
   end
+  return out, n
+end
+
+X.RUN_FALLBACK = 300
+local function endRun(why)
+  if not run then return end
+  run.endAt = run.leftAt or ns.Now()
+  run.endWhy = why
+  finishRun()
+end
+-- (1.4.62) has the run you walked out of ended? Only while you're outside it
+function X.CheckRunEnd()
+  if not run or not run.leftAt then return end
+  -- left the group (or it broke up); a solo run waits for the fallback (corpse runs)
+  if (run.outN or 0) > 1 and not ns.S(IsInGroup) then return endRun("left the group") end
+  -- the group is mostly new people
+  local was = run.outGroup
+  if was then
+    local now, n = X.GroupNames()
+    local new = 0
+    for nm in pairs(now) do if not was[nm] then new = new + 1 end end
+    if n > 1 and new * 2 > n then return endRun("new group") end
+  end
+  -- queued for another dungeon
+  if GetLFGMode and LE_LFG_CATEGORY_LFD then
+    local ok, mode = pcall(GetLFGMode, LE_LFG_CATEGORY_LFD)
+    if ok and (mode == "queued" or mode == "proposal") then return endRun("queued") end
+  end
+end
+
+C_Timer.NewTicker(5, function()
+  if not run or not run.leftAt then return end
+  X.CheckRunEnd()
+  if not run or not run.leftAt then return end
+  -- time spent dead outside doesn't count (a corpse run)
+  if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then
+    run.deadFor = (run.deadFor or 0) + 5
+    return
+  end
+  if ns.Now() - run.leftAt - (run.deadFor or 0) > X.RUN_FALLBACK then endRun("5 minutes outside") end
+end)
+ns:On("GROUP_ROSTER_UPDATE", function() C_Timer.After(1, X.CheckRunEnd) end)
+ns:On("GROUP_LEFT", function() C_Timer.After(1, X.CheckRunEnd) end)
+ns:On("LFG_UPDATE", function() C_Timer.After(1, X.CheckRunEnd) end)
+-- "Wailing Caverns has been reset."
+ns:On("CHAT_MSG_SYSTEM", function(msg)
+  if not run or type(msg) ~= "string" or ns.isSecret(msg) then return end
+  local fmt = INSTANCE_RESET_SUCCESS or "%s has been reset."
+  local pat = "^" .. fmt:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%%%s", "(.+)") .. "$"
+  local name = msg:match(pat)
+  if name and name == run.name then endRun("reset") end
 end)
 
 ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(2, onWorld) end)

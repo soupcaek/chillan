@@ -2,6 +2,8 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.62", date = "25.11", items = {
+    "Dungeon recap in Pulse comes much sooner: the run ends as soon as you're outside and leave the group (or it breaks up), the group is mostly new people, the dungeon is reset, or you queue for another. Otherwise after 5 minutes outside (was 10); time spent dead doesn't count, so a corpse run never splits a run in two. A full clear still posts right after the last boss" } },
   { v = "1.4.61", date = "25.11", items = {
     "Market: the scan button is in the window's title bar (Full scan, or Quick scan · 12 min in between), with its progress in the footer",
     "Wishlist is now Item Tracker: cheapest now, the 14-day average, the change over 7 days, how many are up, and a Buy button for the cheapest one. Set a price alert (when adding, or right-click a row): when a scan, a search or the gang finds it under, you get a chat line and a sound, and the row turns green",
