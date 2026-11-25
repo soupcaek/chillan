@@ -205,6 +205,8 @@ local function finish(state, rows)
   local a = active
   active = nil
   cache[a.key] = { rows = rows or {}, at = now(), state = state, commodity = a.commodity, itemID = a.itemID, itemKey = a.itemKey }
+  local other = AH.Cheapest(a.key)
+  if other then AH.CheckAlert(a.itemID, other) end
   changed("listing")
   for _, cb in ipairs(a.cbs or {}) do pcall(cb, a.key, cache[a.key]) end
   C_Timer.After(0.1, pump)
@@ -706,17 +708,44 @@ function AH.ResultReq(r)
 end
 
 ---------------------------------------------------------------------------
--- shopping list (yours only)
+-- Item Tracker (yours only; was the shopping list): items you follow, each with an optional price
+-- alert ("tell me when it's under 190g")
 ---------------------------------------------------------------------------
-function AH.ShopList() return db().shop end
-function AH.ShopAdd(id, want, max)
+function AH.ShopList()
+  local l = db().shop
+  -- (1.4.61) the old "most you'll pay" becomes the alert
+  for _, s in ipairs(l) do if s.max and not s.alert and not s.migrated then s.alert, s.migrated = s.max, true end end
+  return l
+end
+function AH.ShopAdd(id, alert)
   if not id then return false end
   for _, s in ipairs(db().shop) do
-    if s.id == id then s.want, s.max = want or s.want, max or s.max return true end
+    if s.id == id then if alert then s.alert = alert end return true end
   end
-  table.insert(db().shop, { id = id, want = want or 1, max = max })
+  table.insert(db().shop, { id = id, want = 1, alert = alert })
   changed("shop")
   return true
+end
+function AH.SetAlert(id, alert)
+  for _, s in ipairs(db().shop) do if s.id == id then s.alert, s.alertAt, s.alertPrice = alert, nil, nil end end
+  changed("shop")
+end
+-- a price seen for a tracked item: under its alert, say so (once per half hour, or when cheaper still)
+function AH.CheckAlert(id, price)
+  if not (id and price and ns.db and ns.db.mkAH) then return end
+  for _, s in ipairs(ns.db.mkAH.shop or {}) do
+    if s.id == id and s.alert and price <= s.alert then
+      local t = ns.Now()
+      if s.alertAt and t - s.alertAt < 1800 and price >= (s.alertPrice or math.huge) then return end
+      s.alertAt, s.alertPrice = t, price
+      local okI, name, link = pcall(C_Item.GetItemInfo, id)
+      local m = ns.Market and ns.Market.Coins or tostring
+      ns.Print("Item Tracker: " .. ((okI and (link or name)) or ("item " .. id)) .. " is " .. m(price) .. ", under your alert of " .. m(s.alert) .. ".")
+      if ns.Sound then ns.Sound("notify") end
+      changed("alert")
+      return
+    end
+  end
 end
 function AH.ShopRemove(id)
   local l = db().shop

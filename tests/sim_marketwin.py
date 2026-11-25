@@ -74,6 +74,7 @@ end
 ''')
 LA.execute('FIRE("AUCTION_HOUSE_SHOW")'); run(2)
 errors(A, "A-open")
+print("scan button:", LA.eval('ADDON_NS.MarketWin.scanBtn.label:GetText()'), "| old AH button:", LA.eval('ADDON_NS.Market.button and ADDON_NS.Market.button:IsShown()'))
 print("window open:", LA.eval('ADDON_NS.MarketWin.frame and ADDON_NS.MarketWin.frame:IsShown()'), "| owned asked:", LA.eval('OWNED_ASKED'))
 q = LA.eval('(function() local o = {} for _, e in ipairs(ADDON_NS.MarketWin.sellQueue) do o[#o+1] = e.name .. "=" .. tostring(e.each) end return table.concat(o, ", ") end)()')
 v = LA.eval('(function() local o = {} for _, e in ipairs(ADDON_NS.MarketWin.vendQueue) do o[#o+1] = e.name end return table.concat(o, ", ") end)()')
@@ -138,16 +139,19 @@ LA.execute('ADDON_NS.MarketWin.aucP.cancel:Click()')
 print("cancelled:", LA.eval('CANCELS[1]'))
 assert LA.eval('CANCELS[1]') == 101
 
-# ---- Shopping: add by link, check, buy what's missing under the max
+# ---- Item Tracker: add by link with an alert, check, the alert fires, buy the cheapest
 LA.execute('''ADDON_NS.MarketWin:Show(4)
 local s = ADDON_NS.MarketWin.shopP
-s.add:SetText("|cffffffff|Hitem:1251|h[Linen Bandage]|h|r"); s.want:SetText("30"); s.max:SetText("1.1s")
+s.add:SetText("|cffffffff|Hitem:1251|h[Linen Bandage]|h|r"); s.max:SetText("1.1s")
 ADDON_NS.MarketWin:DoShopAdd()''')
 LA.execute('ANSWER()'); run(2)
-print("shopping:", LA.eval('#ADDON_NS.AH.ShopList()'), "| max:", LA.eval('ADDON_NS.AH.ShopList()[1].max'), "| can buy:", LA.eval('select(1, ADDON_NS.MarketWin:ShopCan(ADDON_NS.AH.ShopList()[1], 20))'))
-assert LA.eval('ADDON_NS.AH.ShopList()[1].max') == 110 and LA.eval('(ADDON_NS.MarketWin:ShopCan(ADDON_NS.AH.ShopList()[1], 20))') == 20
-print("summary:", LA.eval('ADDON_NS.MarketWin.shopP.sum:GetText():gsub("|T.-|t", "¤"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
-
+print("tracked:", LA.eval('#ADDON_NS.AH.ShopList()'), "| alert:", LA.eval('ADDON_NS.AH.ShopList()[1].alert'), "| alerted at:", LA.eval('ADDON_NS.AH.ShopList()[1].alertPrice'))
+assert LA.eval('ADDON_NS.AH.ShopList()[1].alert') == 110 and LA.eval('ADDON_NS.AH.ShopList()[1].alertPrice') == 102
+print("summary:", LA.eval('ADDON_NS.MarketWin.shopP.sum:GetText():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
+LA.execute('ADDON_NS.MarketWin:ShopBuy(ADDON_NS.AH.ShopList()[1])')
+print("tracker buy quote:", LA.eval('QUOTE[1] .. " x" .. QUOTE[2]'))
+assert LA.eval('QUOTE[2]') == 1
+LA.execute('ADDON_NS.AH.Drop()')
 # ---- Gang: A shares, B sees A on the boards
 LA.execute('ADDON_NS.AH.Share()'); run(10)
 print("B got A's market stats:", LB.eval('(function() for pid, p in pairs(ADDON_NS.db.people) do if p.mk then return p.mk.w.g .. "c, " .. p.mk.w.p .. " posts, top " .. tostring(p.mk.tops[1] and p.mk.tops[1].id) end end end)()'))
@@ -179,6 +183,6 @@ SlashCmdList.CHILLAN("price |cffffffff|Hitem:9999|h[Thing]|h|r")''')
 print("price tab:", LA.eval('ADDON_NS.MarketWin.tab'), "| item:", LA.eval('ADDON_NS.MarketWin.buyP.sel and ADDON_NS.MarketWin.buyP.sel.itemID'), "| delta:", LA.eval('ADDON_NS.MarketWin.buyP.chart.delta:GetText()'))
 assert LA.eval('ADDON_NS.MarketWin.buyP.sel.itemID') == 9999 and LA.eval('ADDON_NS.MarketWin.tab') == 2
 # the wishlist graph
-LA.execute('ADDON_NS.AH.ShopAdd(9999, 1); ADDON_NS.MarketWin.shopP.selId = 9999; ADDON_NS.MarketWin:Show(4)')
+LA.execute('ADDON_NS.AH.ShopAdd(9999); ADDON_NS.MarketWin.shopP.selId = 9999; ADDON_NS.MarketWin:Show(4)')
 print("wishlist graph:", LA.eval('ADDON_NS.MarketWin.shopP.graphP.title:GetText()'), "|", LA.eval('ADDON_NS.MarketWin.shopP.side[3]:GetText()'))
 errors(A, "A-end")

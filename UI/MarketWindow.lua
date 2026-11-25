@@ -14,7 +14,7 @@ ns.MarketWin = W
 local WIDTH, MIN_H = 900, 660
 local PAD = 12
 local ROW_H, GAP = 22, 0
-local TABS = { "Sell", "Buy", "My auctions", "Wishlist", "Gang" }
+local TABS = { "Sell", "Buy", "My auctions", "Item Tracker", "Gang" }
 local PANEL, PHEAD, PLINE, ROWALT = "1C1F24", "23272D", "3A4048", "191C20"
 local WIN = "14161A"
 local GOLD, BLUE = "E0B04F", "6FA8F2"
@@ -346,6 +346,11 @@ function W:Create()
   title:SetText("Chillan" .. ns.Colorize("?", C.amber) .. " " .. ns.Colorize("Market", C.muted))
   local close = UI.IconButton(f, 22, "Close", nil, function() W.closedThisVisit = true f:Hide() W:PaintReopen() end)
   close:SetPoint("TOPRIGHT", -6, -5)
+  -- (1.4.61) the scan button, moved here from the auction house: a full scan once per 15 minutes
+  -- (the game's rule), a quick page-by-page scan in between
+  self.scanBtn = button(f, 130, 22, "Full scan", "mkSec", function() if ns.Market then ns.Market:FullScan() end W:PaintScan() end)
+  self.scanBtn:SetPoint("RIGHT", close, "LEFT", -8, 0)
+  self.scanBtn.tooltip = "Full scan: reads the whole auction house (the game allows one every 15 minutes). In between, a quick scan reads the lowest price of every item page by page. Prices go to tooltips, the price graphs and the gang."
 
   self.tabBtns = {}
   local x = 4
@@ -390,13 +395,25 @@ function W:Create()
   self:BuildGang(self.pages[5])
 
   ns:Listen("MKAH", function(what) W:OnChange(what) end)
-  ns:Listen("MARKET", function() if f:IsShown() then W:PaintFooter() end end)
+  ns:Listen("MARKET", function() if f:IsShown() then W:PaintFooter() W:PaintScan() end end)
   f:SetScript("OnShow", function() W:Refresh() end)
+end
+
+function W:PaintScan()
+  local M = ns.Market
+  if not (M and self.scanBtn) then return end
+  local can, leftS = M:CanFull()
+  if M.scanning then self.scanBtn:SetLabel("Scanning …")
+  elseif can then self.scanBtn:SetLabel("Full scan")
+  else self.scanBtn:SetLabel("Quick scan · " .. math.max(1, math.ceil((leftS or 0) / 60)) .. " min") end
+  self.scanBtn:SetEnabled(AH.open and not M.scanning)
 end
 
 function W:PaintFooter()
   local M = ns.Market
-  if M then
+  if M and M.status and M.status ~= "" and M.scanning then
+    self.status:SetText(M.status)
+  elseif M then
     local n, newest = M:Count(), M:Latest()
     self.status:SetText(ns.Num(n) .. " gang prices" .. (newest and newest > 0 and (" · newest " .. ns.Ago(newest)) or ""))
   end
@@ -418,6 +435,7 @@ end
 function W:Refresh()
   if not self.frame or not self.frame:IsShown() then return end
   self:PaintFooter()
+  self:PaintScan()
   local t = self.tab or 1
   if t == 1 then self:DrawSell() elseif t == 2 then self:DrawBuy() elseif t == 3 then self:DrawAuctions()
   elseif t == 4 then self:DrawShop() else self:DrawGang() end
@@ -810,13 +828,14 @@ function W:BuildBuy(p)
   b.itemP:SetPoint("TOPLEFT", BUY_LEFT + 12, 0)
   b.itemP:SetPoint("TOPRIGHT", 0, 0)
   b.itemP:SetHeight(214)
-  b.wish = button(b.itemP, 84, 18, "+ Wishlist", "mkGhost", function()
+  b.wish = button(b.itemP, 70, 18, "+ Track", "mkGhost", function()
     if b.sel then
-      AH.ShopAdd(b.sel.itemID, math.max(1, tonumber(b.qty:GetText()) or 1))
-      b.wish:SetLabel("Added ✓")
-      C_Timer.After(1.5, function() b.wish:SetLabel("+ Wishlist") end)
+      AH.ShopAdd(b.sel.itemID)
+      b.wish:SetLabel("Tracked ✓")
+      C_Timer.After(1.5, function() b.wish:SetLabel("+ Track") end)
     end
   end)
+  b.wish.tooltip = "Follow this item in the Item Tracker: its price graph, and an alert when it drops under a price you set."
   b.wish:SetPoint("RIGHT", b.itemP.strip, "RIGHT", -6, 0)
   b.stats = UI.Text(b.itemP.body, 12, nil, C.text)
   b.stats:SetPoint("TOPLEFT", 0, 0)
@@ -1120,7 +1139,8 @@ function W:DrawAuctions()
 end
 
 ---------------------------------------------------------------------------
--- Wishlist (yours only), with the price graph of the row you pick
+-- Item Tracker (yours only; was Wishlist): what it costs now, what it usually costs, how it moved,
+-- how many are up, Buy; an optional alert; the price graph of the row you pick
 ---------------------------------------------------------------------------
 local function resolveItem(text)
   text = tostring(text or "")
@@ -1140,68 +1160,90 @@ local function resolveItem(text)
 end
 W.ResolveItem = resolveItem
 
+local function change(pts)
+  if #pts < 2 or pts[1].v <= 0 then return nil end
+  return math.floor((pts[#pts].v - pts[1].v) / pts[1].v * 100 + 0.5)
+end
+local function pctText(p)
+  if not p then return dim("—") end
+  return ns.Colorize((p > 0 and "+" or p < 0 and "−" or "") .. math.abs(p) .. " %", p < 0 and C.green or p > 0 and C.red or C.muted)
+end
+
 function W:BuildShop(p)
   local s = {}
   self.shopP = s
-  s.add = edit(p, 340, "Add an item, or shift-click one", function() W:DoShopAdd() end)
+  s.add = edit(p, 360, "Track an item: type its name, or shift-click it", function() W:DoShopAdd() end)
   s.add:SetPoint("TOPLEFT", 0, 0)
-  s.want = edit(p, 56, "how many", function() W:DoShopAdd() end)
-  s.want:SetPoint("LEFT", s.add, "RIGHT", 8, 0)
-  s.want.edit:SetNumeric(true)
-  s.want:SetText("1")
-  local ml = UI.Text(p, 11, nil, C.dim)
-  ml:SetPoint("LEFT", s.want, "RIGHT", 8, 0)
-  ml:SetText("max")
-  s.max = edit(p, 96, "any", function() W:DoShopAdd() end)
-  s.max:SetPoint("LEFT", ml, "RIGHT", 8, 0)
-  s.addBtn = button(p, 60, 26, "Add", "mkSec", function() W:DoShopAdd() end)
+  local al = UI.Text(p, 11, nil, C.dim)
+  al:SetPoint("LEFT", s.add, "RIGHT", 10, 0)
+  al:SetText("alert under")
+  s.max = edit(p, 96, "no alert", function() W:DoShopAdd() end)
+  s.max:SetPoint("LEFT", al, "RIGHT", 8, 0)
+  s.addBtn = button(p, 64, 26, "Track", "mkSec", function() W:DoShopAdd() end)
   s.addBtn:SetPoint("LEFT", s.max, "RIGHT", 8, 0)
   s.msg = UI.Text(p, 11, nil, C.dim)
   s.msg:SetPoint("LEFT", s.addBtn, "RIGHT", 10, 0)
 
-  s.listP = panel(p, "Wishlist")
+  s.listP = panel(p, "Item Tracker")
   s.listP:SetPoint("TOPLEFT", 0, -38)
   s.listP:SetPoint("TOPRIGHT", 0, -38)
   s.listP:SetHeight(270)
-  local cols = { 46, 90, 100 }
-  s.head = header(s.listP.body, cols, 84, "Item", "Have", "Max each", "Cheapest")
+  local cols = { 96, 90, 64, 64 }
+  s.head = header(s.listP.body, cols, 76, "Item", "Cheapest", "14-day avg", "7 days", "Available")
   s.head:SetPoint("TOPLEFT", -4, 0) s.head:SetPoint("TOPRIGHT", 4, 0)
-  s.list = list(s.listP.body, cols, 84, function(r, it)
+  s.list = list(s.listP.body, cols, 76, function(r, it)
     local name, q, icon = itemName(it.id)
-    local have = AH.Have(it.id)
-    local key = AH.ShopReq(it).key
-    local L = AH.Listing(key)
-    local cheapest = L and AH.Cheapest(key)
-    r:Set(icon, qhex(q) .. (name or ("item " .. it.id)) .. "|r" .. (it.want > 1 and dim("  ×" .. it.want) or ""), tostring(have),
-      it.max and coins(it.max) or dim("any"), cheapest and coins(cheapest) or (L and dim("none") or dim("not checked")))
+    local req = AH.ShopReq(it)
+    local L = AH.Listing(req.key)
+    local cheapest = L and AH.Cheapest(req.key)
+    local avail = 0
+    for _, row in ipairs(L and L.rows or {}) do avail = avail + math.max(0, row.qty - row.own) end
+    local h14 = ns.Market.History(it.id, 14)
+    local sum = 0
+    for _, pt in ipairs(h14) do sum = sum + pt.v end
+    local under = it.alert and cheapest and cheapest <= it.alert
+    r:Set(icon, qhex(q) .. (name or ("item " .. it.id)) .. "|r" .. (it.alert and dim("  alert " .. W.MoneyText(it.alert)) or ""),
+      cheapest and coins(cheapest) or (L and dim("none up") or dim("not checked")),
+      #h14 > 0 and coins(math.floor(sum / #h14)) or dim("—"),
+      pctText(change(ns.Market.History(it.id, 7))),
+      L and ns.Num(avail) or dim("—"))
     r:Mark(s.selId == it.id)
-    local need = it.want - have
+    r.alt:SetShown(not under and r.alt:IsShown())
+    if under then r.bg:SetColorTexture(0.37, 0.82, 0.55, 0.14) r.bg:Show()
+    else r.bg:SetColorTexture(0.88, 0.69, 0.31, 0.13) end
     r.btn:SetScript("OnClick", nil)
     r.btn:Hide() r.pill:Hide()
-    local function pillText(t, col) r.pill:Show() pill(r.pill, t, col) end
-    if need <= 0 then pillText("done ✓", C.green)
-    elseif not L then pillText("—", C.dim)
-    else
-      local n = W:ShopCan(it, need)
-      local state, _, bkey = AH.Buying()
-      local mine = bkey == key
-      if mine and state == "quoted" then
-        r.btn:Show() r.btn:SetLabel("Confirm") r.btn:SetStyle("mkPri") r.btn:SetEnabled(true)
-        r.btn:SetScript("OnClick", function() AH.Confirm() W:DrawShop() end)
-      elseif mine and state then pillText("buying …", C.muted)
-      elseif n > 0 then
-        r.btn:Show() r.btn:SetLabel("Buy " .. n) r.btn:SetStyle("mkPri") r.btn:SetEnabled(AH.open and not state)
-        r.btn:SetScript("OnClick", function() W:ShopBuy(it, n) end)
-      else pillText("too dear", C.dim) end
+    local state, _, bkey = AH.Buying()
+    local mine = bkey == req.key
+    if mine and state == "quoted" then
+      r.btn:Show() r.btn:SetLabel("Confirm") r.btn:SetStyle("mkPri") r.btn:SetEnabled(true)
+      r.btn:SetScript("OnClick", function() AH.Confirm() W:DrawShop() end)
+    elseif mine and state then r.pill:Show() pill(r.pill, "buying …", C.muted)
+    elseif cheapest and avail > 0 then
+      r.btn:Show() r.btn:SetLabel("Buy") r.btn:SetStyle(under and "mkPri" or "mkSec") r.btn:SetEnabled(AH.open and not state)
+      r.btn.tooltip = "Buy the cheapest one (" .. ns.Money(cheapest) .. ")."
+      r.btn:SetScript("OnClick", function() W:ShopBuy(it) end)
+    else r.pill:Show() pill(r.pill, "—", C.dim) end
+  end, function(it, button, row)
+    if button == "RightButton" then
+      local name = itemName(it.id) or ("item " .. it.id)
+      local items = {
+        { text = it.alert and "Change the alert" or "Set an alert", func = function()
+          UI.Prompt("Alert: " .. name, { { label = "Tell me when it's under", placeholder = "190g", value = it.alert and W.MoneyText(it.alert) or "" } },
+            function(v) AH.SetAlert(it.id, v and v ~= "" and parseMoney(v) or nil) W:DrawShop() end)
+        end },
+      }
+      if it.alert then items[#items + 1] = { text = "Remove the alert", func = function() AH.SetAlert(it.id, nil) W:DrawShop() end } end
+      items[#items + 1] = { text = "Stop tracking", func = function() AH.ShopRemove(it.id) if s.selId == it.id then s.selId = nil end W:DrawShop() end }
+      UI.Menu(row, items)
+      return
     end
-  end, function(it, button)
-    if button == "RightButton" then AH.ShopRemove(it.id) if s.selId == it.id then s.selId = nil end W:DrawShop() return end
     s.selId = it.id
     W:DrawShop()
   end)
   s.list:SetPoint("TOPLEFT", s.head, "BOTTOMLEFT", 0, -2)
   s.list:SetPoint("BOTTOMRIGHT", s.listP.body, "BOTTOMRIGHT", 4, 36)
-  s.list.emptyText = "Your wishlist is empty. Add what you want and the most you'll pay each."
+  s.list.emptyText = "Nothing tracked yet. Type an item's name above, or shift-click it, and set a price to be told about."
   local fl = solid(s.listP.body, PLINE, "ARTWORK")
   fl:SetHeight(1)
   fl:SetPoint("BOTTOMLEFT", -4, 32) fl:SetPoint("BOTTOMRIGHT", 4, 32)
@@ -1224,11 +1266,11 @@ function W:BuildShop(p)
   s.chart:SetPoint("TOPLEFT", 0, 0)
   s.chart:SetPoint("BOTTOMRIGHT", -200, 0)
   s.side = {}
-  for i, k in ipairs({ "Average", "Your max", "Trend" }) do
+  for i, k in ipairs({ "Average", "Alert under", "Trend" }) do
     local l = UI.Text(s.graphP.body, 12, nil, C.dim)
-    l:SetPoint("TOPRIGHT", -110, -(i - 1) * 22)
+    l:SetPoint("TOPRIGHT", -100, -(i - 1) * 22)
     l:SetJustifyH("LEFT")
-    l:SetWidth(80)
+    l:SetWidth(90)
     l:SetText(k)
     local v = UI.Text(s.graphP.body, 12, nil, C.text)
     v:SetPoint("TOPRIGHT", 0, -(i - 1) * 22)
@@ -1252,29 +1294,16 @@ function W:BuildShop(p)
   end
 end
 
-function W:ShopCan(it, need)
-  local L = AH.Listing(AH.ShopReq(it).key)
-  local n, cost = 0, 0
-  for _, r in ipairs(L and L.rows or {}) do
-    local avail = r.qty - r.own
-    if avail > 0 and (not it.max or r.price <= it.max) then
-      local take = math.min(avail, need - n)
-      n, cost = n + take, cost + take * r.price
-      if n >= need then break end
-    end
-  end
-  return n, cost
-end
-
-function W:ShopBuy(it, n)
+-- buy the cheapest one of a tracked item (stackables: quote, then Confirm)
+function W:ShopBuy(it)
   local req = AH.ShopReq(it)
   local function after() C_Timer.After(0.3, function() AH.Ask(req, function() W:DrawShop() end, true, true) end) end
   if req.commodity then
-    AH.Quote(req.key, it.id, n, nil, after)
+    AH.Quote(req.key, it.id, 1, nil, after)
   else
     local L = AH.Listing(req.key)
     for _, r in ipairs(L and L.rows or {}) do
-      if r.auctionID and r.qty > r.own and (not it.max or r.price <= it.max) then AH.BuyItem(req.key, r.auctionID, r.price, after) break end
+      if r.auctionID and r.qty > r.own then AH.BuyItem(req.key, r.auctionID, r.price, after) break end
     end
   end
   self:DrawShop()
@@ -1284,13 +1313,12 @@ function W:DoShopAdd()
   local s = self.shopP
   local id = resolveItem(s.add:GetText())
   if not id then s.msg:SetText(ns.Colorize("Couldn't find that item. Shift-click it, or type its exact name.", C.red)) return end
-  local want = math.max(1, tonumber(s.want:GetText()) or 1)
-  local max = s.max:GetText() ~= "" and parseMoney(s.max:GetText()) or nil
-  AH.ShopAdd(id, want, max)
+  local alert = s.max:GetText() ~= "" and parseMoney(s.max:GetText()) or nil
+  AH.ShopAdd(id, alert)
   s.selId = id
-  s.add:SetText("") s.max:SetText("") s.want:SetText("1")
-  s.add.edit:ClearFocus() s.want.edit:ClearFocus() s.max.edit:ClearFocus()
-  s.msg:SetText(dim("Added. Right-click a row to remove it."))
+  s.add:SetText("") s.max:SetText("")
+  s.add.edit:ClearFocus() s.max.edit:ClearFocus()
+  s.msg:SetText(dim("Tracking. Right-click a row for its alert or to stop."))
   if AH.open then AH.Ask(AH.ShopReq({ id = id }), function() W:DrawShop() end, true, true) end
   self:DrawShop()
 end
@@ -1299,16 +1327,14 @@ function W:DrawShop()
   local s = self.shopP
   if not s then return end
   local l = AH.ShopList()
-  local under, total = 0, 0
+  local under = 0
   for _, it in ipairs(l) do
-    local need = it.want - AH.Have(it.id)
-    if need > 0 then
-      local n, cost = self:ShopCan(it, need)
-      if n > 0 then under, total = under + 1, total + cost end
-    end
+    local key = AH.ShopReq(it).key
+    local cheapest = AH.Listing(key) and AH.Cheapest(key)
+    if it.alert and cheapest and cheapest <= it.alert then under = under + 1 end
   end
   s.listP.right:SetText(#l .. " " .. (#l == 1 and "item" or "items"))
-  s.sum:SetText(#l == 0 and "" or (under .. " under your max" .. (under > 0 and (" · " .. coins(total) .. dim(under == 1 and " for it" or " for all")) or "")))
+  s.sum:SetText(#l == 0 and "" or (under > 0 and ns.Colorize(under .. " under your alert", C.green) or dim("none under an alert right now")))
   s.check:SetLabel("Check prices" .. (#l > 0 and (" (" .. #l .. ")") or ""))
   s.check:SetEnabled(AH.open and #l > 0)
   if not s.selId and l[1] then s.selId = l[1].id end
@@ -1326,7 +1352,7 @@ function W:DrawShop()
     local sum = 0
     for _, pt in ipairs(pts) do sum = sum + pt.v end
     s.side[1]:SetText(#pts > 0 and coins(math.floor(sum / #pts)) or dim("—"))
-    s.side[2]:SetText(sel.max and coins(sel.max) or "any")
+    s.side[2]:SetText(sel.alert and coins(sel.alert) or dim("none"))
     local tr = AH.Trend(pts)
     s.side[3]:SetText(tr and ns.Colorize(tr, tr == "falling" and C.green or tr == "rising" and C.red or C.muted) or dim("—"))
   else

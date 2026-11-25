@@ -53,6 +53,7 @@ function M:Set(id, value, t, by)
   if old and (old.t or 0) >= t then return false end
   d[id] = { v = value, t = t, by = by, p = old and old.v or nil }
   M.NoteHistory(id, value, t)
+  if ns.AH and ns.AH.CheckAlert and ns.Now() - t < 3600 then pcall(ns.AH.CheckAlert, id, value) end
   return true, old
 end
 
@@ -945,6 +946,8 @@ end
 -- the button on the auction house
 ---------------------------------------------------------------------------
 function M:AttachButton()
+  -- (1.4.61) with the Market window on, the scan button lives in its title bar
+  if ns.AH and ns.AH.On and ns.AH.On() then if self.button then self.button:Hide() end return end
   local host = (AuctionHouseFrame and AuctionHouseFrame:IsShown() and AuctionHouseFrame) or (AuctionFrame and AuctionFrame:IsShown() and AuctionFrame)
   if not host then return end
   local UI, C = ns.UI, ns.C

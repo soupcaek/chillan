@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.61", date = "25.11", items = {
+    "Market: the scan button is in the window's title bar (Full scan, or Quick scan · 12 min in between), with its progress in the footer",
+    "Wishlist is now Item Tracker: cheapest now, the 14-day average, the change over 7 days, how many are up, and a Buy button for the cheapest one. Set a price alert (when adding, or right-click a row): when a scan, a search or the gang finds it under, you get a chat line and a sound, and the row turns green",
+    "Victory card: no \"best kill streak\" line; a win streak rides on the honor line (\"· 3 in a row\")" } },
   { v = "1.4.60", date = "25.11", items = {
     "Flag rows: \"click to target\" shows only when the click really targets the carrier on screen. The game only lets addons point the button at a new carrier outside a fight, so a flag taken mid-fight shows no hint until the fight ends; then it's armed again by itself" } },
   { v = "1.4.59", date = "25.11", items = {
