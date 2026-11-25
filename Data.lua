@@ -464,7 +464,6 @@ Comm:Handle("HI", function(f, sender, channel)
     end
   end
   Data:CheckVersion(f[4], pid)
-  if not wasOnline and ns.Discord and ns.Discord.ShareLinkTo then ns.Discord:ShareLinkTo(sender) end
   local r = ns.db.roster[sender]
   if r then r.pid = pid end
   if channel == "GUILD" or channel == "PARTY" or channel == "RAID" then channel = "WHISPER" end
@@ -669,7 +668,6 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
           if not have then
             it.w[#it.w + 1] = { pid, char }
             ns:MarkDirty()
-            if ns.Discord and ns.Discord.SendMerge then pcall(ns.Discord.SendMerge, ns.Discord, it, pid, char) end
           end
         end
         return

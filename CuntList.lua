@@ -83,7 +83,6 @@ function CL:Remove(k)
   list[k] = nil
   gone[k] = ns.Now()
   Comm:Broadcast(Comm:Build("CW", e.name, e.by, 0), 1, true)
-  if ns.Discord and ns.Discord.SendUncunt then pcall(ns.Discord.SendUncunt, ns.Discord, e.name) end
   ns:MarkDirty()
   ns:Fire("CUNTS")
   return true

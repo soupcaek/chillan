@@ -61,9 +61,6 @@ jobs:
           rsync -a --exclude '.git*' --exclude '.github' --exclude '.release' \
             --exclude 'README.md' --exclude 'VERSION' --exclude '.pkgmeta' --exclude 'ChillanDungeonJournal' --exclude 'discord' --exclude 'brand' --exclude '.previews' --exclude 'tests' --exclude 'LES MEG.txt' ./ .release/Chillan/
           sed -i "s/@project-version@/${TAG}/" .release/Chillan/*.toc
-          # the Discord companion rides along, so every gang member already has it
-          mkdir -p .release/Chillan/Companion
-          gh release download companion -p ChillanCompanion.exe -p version.txt -D .release/Chillan/Companion || echo "no companion release yet"
           cd .release
           # Same content under two names: "-forever" for WowUp builds that know Forever,
           # and without the suffix for WowUp builds that take the Forever folder for Retail.

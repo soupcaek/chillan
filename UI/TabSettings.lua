@@ -36,6 +36,9 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   local function group(key, label)
     local g = CreateFrame("Frame", nil, content)
     g:SetPoint("TOPLEFT") g:SetPoint("TOPRIGHT")
+    -- (1.4.66) a frame with no height has no place on screen, so nothing anchored to it was drawn
+    -- (the right side of Settings stayed empty)
+    g:SetHeight(1)
     g:Hide()
     g.key, g.label, g.h, g.panels = key, label, 0, {}
     groups[key] = g

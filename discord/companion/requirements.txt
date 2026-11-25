@@ -1,5 +1,0 @@
-numpy
-mss
-pystray
-pillow
-windows-capture; sys_platform == "win32"

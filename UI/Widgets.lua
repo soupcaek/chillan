@@ -346,7 +346,7 @@ end
 ---------------------------------------------------------------------------
 local EDIT_NAMES = {
   minibar = "Minibar + tiles", eventwin = "Event window", toasts = "Notifications", ding = "Big moments (ding, trophies)",
-  summary = "Session summary", ready = "Ready check", briefing = "Since you last played", companioncard = "Discord companion",
+  summary = "Session summary", ready = "Ready check", briefing = "Since you last played",
   flighttimer = "Flight timer", layerhop = "Layer hop", deathtest = "Death test",
 }
 local edit = { on = false, stands = {} }

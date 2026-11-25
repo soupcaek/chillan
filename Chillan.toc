@@ -39,7 +39,6 @@ Gear.lua
 Briefing.lua
 Legend.lua
 LevelRecap.lua
-Discord.lua
 Changelog.lua
 Stats.lua
 Achievements.lua
@@ -73,7 +72,6 @@ UI\LayerHop.lua
 UI\BriefingCard.lua
 UI\LevelRecapCard.lua
 UI\Recap.lua
-UI\CompanionCard.lua
 UI\PersonCard.lua
 UI\Tiles.lua
 UI\NowCard.lua

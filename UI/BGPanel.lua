@@ -150,7 +150,9 @@ end
 ---------------------------------------------------------------------------
 local function unitOK(u)
   local ok, ex = pcall(UnitExists, u)
-  return ok and ex == true
+  if not ok then return false end
+  if ns.isSecret(ex) then return true end   -- the game hides the answer only for a unit that's there
+  return ex == true
 end
 
 -- our carrier: a raid member with a flag buff (names and auras the game hides are skipped)
@@ -645,7 +647,7 @@ function B:Draw()
       if s:IsShown() ~= want then s:SetShown(want) end
     end
   end
-  if carriers then self:SyncSecure(f:IsVisible()) self:DrawCarriers(key) end
+  if carriers then pcall(self.SyncSecure, self, f:IsVisible()) self:DrawCarriers(key) end
   local slotsH = nSlots > 0 and (nSlots * (SLOT_H + 4)) or 0
   if t2l then
     self.info2:ClearAllPoints() self.right2:ClearAllPoints()
@@ -679,9 +681,16 @@ function B:SyncSecure(on)
   self.pendingSecure = nil
   self.secureOn = on and true or false
   for _, b in ipairs(self.secure or {}) do
-    if on and b.slot:IsShown() then
+    local sl = b.slot
+    local l, bt, w, h = sl:GetLeft(), sl:GetBottom(), sl:GetWidth(), sl:GetHeight()
+    if on and sl:IsShown() and l and bt then
+      -- (1.4.66) placed on the screen by numbers: the game refuses to anchor a secure button to our
+      -- own frames ("cannot anchor protected frames to regions"), and that error stopped the panel
+      -- from redrawing every second (timers stood still until the next event)
+      local k = sl:GetEffectiveScale() / UIParent:GetEffectiveScale()
       b:ClearAllPoints()
-      b:SetAllPoints(b.slot)
+      b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l * k, bt * k)
+      b:SetSize(w * k, h * k)
       b:Show()
     else
       b:Hide()

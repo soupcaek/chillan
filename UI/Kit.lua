@@ -35,7 +35,7 @@ function K:Build()
   -- input + seg
   label("Input and choice bar", 20, -118)
   local e = UI.EditBox(f, 260, 28, "Search settings") e:SetPoint("TOPLEFT", 20, -136)
-  local segV = "Normal"
+  local segV = 2
   local seg = UI.Seg(f, { "Calm", "Normal", "All" }, function() return segV end, function(v) segV = v end)
   seg:SetPoint("TOPLEFT", 300, -136)
   -- section with switch rows

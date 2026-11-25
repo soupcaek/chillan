@@ -2,6 +2,15 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.66", date = "25.11", items = {
+    "Crisp edges everywhere: every border is exactly one screen pixel and the rounded corners are drawn pixel by pixel, so buttons and panels no longer look cut off at the corners. Windows snap to whole pixels after a drag or resize",
+    "On/off switches as on the canvas: a round track with the knob on top (it was hidden, so they showed as plain blocks)",
+    "Panels, inputs, choice bars and the ⓘ use the Kit sizes from the canvas. /chill kit shows every building block side by side",
+    "Settings: the groups on the right show again (the right side was empty)",
+    "Main window: no empty band on pages without sub-pages, and pages are cut to the window, so nothing spills past the footer when it's smaller",
+    "Battlegrounds: the flag timers count down every second again, and click-to-target works. The game refused how the click buttons were placed, which also stopped the panel from redrawing between events",
+    "Progress keeps day-by-day numbers from now on, for the coming day chart",
+    "The Discord link and companion are gone" } },
   { v = "1.4.65", date = "25.11", items = {
     "Main window laid out as on the canvas: the title row with the gang code and version, Settings and What's new as buttons; the sections on a row of their own with an accent underline; the pages band; and a footer with who's online",
     "Friends: the list next to a side column – Your status as a choice bar (Auto, LFG, Help, DND), Group (Ready check, Layer hop) and This week's titles",

@@ -664,6 +664,9 @@ function ns:InitDB()
     if not ok and ns.debug then print("Chillan migration " .. v .. " failed:", err) end
     ChillanDB.schema = v
   end
+  -- (1.4.66) the Discord link is gone: drop its outbox and settings
+  ChillanDB.discord = nil
+  if ChillanDB.settings and ChillanDB.settings.pos then ChillanDB.settings.pos.companioncard = nil end
   ns:ApplyAccent()
 end
 
