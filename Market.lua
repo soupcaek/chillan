@@ -695,9 +695,9 @@ local function coins(copper)
   -- tooltip works out its width, so the text ran out over the right edge
   local g, sv, c = math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100
   local parts = {}
-  if g > 0 then parts[#parts + 1] = g .. "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t" end
-  if sv > 0 then parts[#parts + 1] = sv .. "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t" end
-  if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t" end
+  if g > 0 then parts[#parts + 1] = g .. "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12:1:0|t" end
+  if sv > 0 then parts[#parts + 1] = sv .. "|TInterface\\MoneyFrame\\UI-SilverIcon:12:12:1:0|t" end
+  if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "|TInterface\\MoneyFrame\\UI-CopperIcon:12:12:1:0|t" end
   return table.concat(parts, " ")
 end
 M.Coins = coins
@@ -809,6 +809,25 @@ local function addLine(tt, id, count)
     end
   end
   if shown and tt.Show then tt:Show() end
+  -- (1.4.70) the game sizes the tooltip before our coin icons are counted, so a long right side
+  -- ("56g 23s 79c · 4h ago") ran past the edge (worst on a linked item's tooltip, which also has a
+  -- close button). Measure every line ourselves and widen the tooltip when it's needed.
+  if shown and tt.GetName and tt.GetNumLines and tt.GetWidth then
+    local name = tt:GetName()
+    local need = 0
+    for i = 1, tt:GetNumLines() do
+      local l, r = name and _G[name .. "TextLeft" .. i], name and _G[name .. "TextRight" .. i]
+      local lw = (l and l:IsShown() and l:GetStringWidth()) or 0
+      local rw = (r and r:IsShown() and r:GetText() and r:GetText() ~= "" and r:GetStringWidth()) or 0
+      if rw > 0 then need = math.max(need, lw + rw + 40) end
+    end
+    if tt == ItemRefTooltip then need = need + 20 end   -- room for its close button
+    local okW, w = pcall(tt.GetWidth, tt)
+    if okW and type(w) == "number" and need > w + 1 and tt.SetMinimumWidth then
+      tt:SetMinimumWidth(math.ceil(need))
+      tt:Show()
+    end
+  end
 end
 M.AddTooltipLine = addLine
 
