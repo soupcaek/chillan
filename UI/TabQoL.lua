@@ -56,7 +56,7 @@ local CARDS = {
   } },
 }
 
-local PAD, ROW, SUB, HEAD = 14, 28, 24, 58
+local PAD, ROW, SUB, HEAD = 12, 28, 24, 58
 
 ns:RegisterTab("qol", "QoL", "Check", function(tab)
   local S = function() return ns.db.settings end
@@ -78,7 +78,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
 
   local head = UI.Text(content, 16, "semi", C.text)
   head:SetPoint("TOPLEFT", 16, -10)
-  head:SetText("Quality of life")
+  head:SetText("")   -- (1.4.66) Kit pages start with their panels
   local sub = UI.Text(content, 11, nil, C.dim)
   sub:SetPoint("LEFT", head, "RIGHT", 12, -1)
   sub:SetPoint("RIGHT", content, "RIGHT", -16, 0)
@@ -106,9 +106,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
       ns.QoL:Apply()
       tab:Refresh()
     end)
-    cb:SetHeight(22)
-    cb.box:SetSize(14, 14)
-    cb.mark:SetSize(11, 11)
+    cb:SetHeight(22)   -- (1.4.66) the sub-switches are full switches too (squeezed ones lost their track)
     local font, _, flags = cb.label:GetFont()
     if font then cb.label:SetFont(font, 12, flags) end
     cb.label:SetPoint("LEFT", cb.box, "RIGHT", 8, 0)
@@ -118,7 +116,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
     return cb
   end
 
-  local colY = { -40, -40 }
+  local colY = { -12, -12 }
   for _, card in ipairs(CARDS) do
     -- height: header + rows + sub-rows
     local h = HEAD + PAD
@@ -128,34 +126,24 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
     end
     local f = CreateFrame("Frame", nil, content)
     if card.col == 1 then
-      f:SetPoint("TOPLEFT", content, "TOPLEFT", 16, colY[1])
+      f:SetPoint("TOPLEFT", content, "TOPLEFT", 12, colY[1])
       f:SetPoint("RIGHT", mid, "LEFT", -6, 0)
     else
-      f:SetPoint("TOPRIGHT", content, "TOPRIGHT", -16, colY[2])
+      f:SetPoint("TOPRIGHT", content, "TOPRIGHT", -12, colY[2])
       f:SetPoint("LEFT", mid, "RIGHT", 6, 0)
     end
     f:SetHeight(h)
     colY[card.col] = colY[card.col] - h - 12
-    f.bg = UI.Panel(f, C.card, C.line, false)
+    -- (1.4.66) a Kit panel: the title in the strip, the one-line explanation under it
+    f.bg = UI.Section(f, card.title)
     f.bg:SetAllPoints()
     f.bg:SetFrameLevel(f:GetFrameLevel())
-
-    local ic = UI.Icon(f, card.icon, 15, C.accent)
-    ic:SetPoint("TOPLEFT", PAD, -PAD)
-    local t = UI.Text(f, 14, "semi", C.text)
-    t:SetPoint("LEFT", ic, "RIGHT", 8, 0)
-    t:SetText(card.title)
     local d = UI.Text(f, 11, nil, C.dim)
-    d:SetPoint("TOPLEFT", ic, "BOTTOMLEFT", 0, -6)
-    d:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
+    d:SetPoint("TOPLEFT", 12, -36)
+    d:SetPoint("RIGHT", f, "RIGHT", -12, 0)
     d:SetJustifyH("LEFT")
     d:SetWordWrap(false)
     d:SetText(card.desc)
-    local line = f:CreateTexture(nil, "ARTWORK")
-    UI.Track(line):SetColorTexture(hex(C.line))
-    line:SetHeight(1)
-    line:SetPoint("TOPLEFT", PAD, -(HEAD - 6))
-    line:SetPoint("TOPRIGHT", -PAD, -(HEAD - 6))
 
     local y = -HEAD
     for _, it in ipairs(card.items) do

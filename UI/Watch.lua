@@ -7,7 +7,7 @@ local W = {}
 ns.Watch = W
 
 local MAX = 4
-local ROW_H = 38
+local ROW_H = 34
 
 local function list()
   ns.db.watch = ns.db.watch or {}
@@ -173,18 +173,14 @@ function W:Create()
   f:SetSize(300, 30)
   f:EnableMouse(true)
   self.frame = f
-  -- (1.4.65) the light Market look: a small see-through title strip behind the heading
-  f.strip = UI.Track(f:CreateTexture(nil, "BACKGROUND", nil, 2))
-  f.strip:SetColorTexture(hex(C.strip or C.cardHover))
-  f.strip:SetAlpha(0.55)
-  f.strip:SetPoint("TOPLEFT", 1, 0) f.strip:SetPoint("TOPRIGHT", -1, 0)
-  f.strip:SetHeight(20)
-  f.head = UI.Text(f, 10, "semi", C.dim)
-  f.head:SetPoint("TOPLEFT", 10, -6)
-  f.head:SetText("WATCHING")
+  -- (1.4.66) the canvas Pulse card: a light panel with the WATCHING strip
+  f.card = UI.Backplate(f, "Watching")
+  f.strip = f.card.title   -- (kept for old callers: shown/hidden with the rows)
+  f.head = f.card.title
+  local midY = -(8 + 1 + f.card.stripH / 2 - 1)
   f.more = CreateFrame("Button", nil, f)
-  f.more:SetSize(60, 14)
-  f.more:SetPoint("TOPRIGHT", -8, -6)
+  f.more:SetSize(60, 16)
+  f.more:SetPoint("RIGHT", f, "TOPRIGHT", -20, midY)
   f.more.t = UI.Text(f.more, 10, "semi", C.dim)
   f.more.t:SetPoint("RIGHT")
   f.more.t:SetText("+ / –")
@@ -192,8 +188,8 @@ function W:Create()
   f.more:SetScript("OnEnter", function(b) b.t:SetTextColor(hex(C.text)) end)
   f.more:SetScript("OnLeave", function(b) b.t:SetTextColor(hex(C.dim)) end)
   f.add = CreateFrame("Button", nil, f)
-  f.add:SetPoint("TOPLEFT", 10, -4)
-  f.add:SetPoint("TOPRIGHT", -10, -4)
+  f.add:SetPoint("TOPLEFT", 20, f.card.top + 2)
+  f.add:SetPoint("TOPRIGHT", -20, f.card.top + 2)
   f.add:SetHeight(18)
   f.add.t = UI.Text(f.add, 11, nil, C.dim)
   f.add.t:SetPoint("LEFT")
@@ -295,20 +291,20 @@ function W:Update()
   local w = f:GetWidth()
   for _, r in ipairs(f.rows) do r:Hide() end
   if #people == 0 then
-    f.head:Hide() f.more:Hide() f.strip:Hide()
+    f.more:Hide()
     f.add:Show()
-    f:SetHeight(26)
+    f:SetHeight(-f.card.top + 26)
   else
     f.add:Hide()
-    f.head:Show() f.more:Show() f.strip:Show()
-    local y = -24
+    f.more:Show()
+    local y = f.card.top + 2
     for i, p in ipairs(people) do
       local r = f.rows[i] or makeRow(f, i)
       f.rows[i] = r
       r.pid = p.pid
       r:ClearAllPoints()
-      r:SetPoint("TOPLEFT", 10, y)
-      r:SetPoint("TOPRIGHT", -10, y)
+      r:SetPoint("TOPLEFT", 20, y)
+      r:SetPoint("TOPRIGHT", -20, y)
       local c = ns:PersonChar(p) or {}
       local online = ns:IsOnline(p)
       r:SetAlpha(online and 1 or 0.5)
@@ -325,11 +321,12 @@ function W:Update()
       if (c.level or 0) >= 60 then cr, cg, cb = 0.85, 0.3, 0.25 end   -- honor bar: Horde red
       r.fill:SetColorTexture(cr, cg, cb, 0.9)
       r.fill:SetWidth(math.max(1, (w - 20) * (pct or 0)))
-      r.fill:SetShown(pct ~= nil)
+      -- (1.4.66) no bar under the row (the canvas card is name, place and one fact)
+      r.fill:Hide() r.bar:Hide()
       r:Show()
       y = y - ROW_H
     end
-    f:SetHeight(-y + 4)
+    f:SetHeight(-y + 6)
   end
   if self.lastH ~= math.floor(f:GetHeight()) then
     self.lastH = math.floor(f:GetHeight())

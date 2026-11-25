@@ -26,13 +26,12 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   ---------------------------------------------------------------------------
   -- left: the gang, one card each
   ---------------------------------------------------------------------------
-  local left = CreateFrame("Frame", nil, tab)
-  left:SetPoint("TOPLEFT", 14, -12)
-  left:SetPoint("BOTTOMLEFT", 14, 12)
-  left:SetWidth(LEFT_W)
-  local lh = UI.Text(left, 11, "semi", C.dim)
-  lh:SetPoint("TOPLEFT", 2, 0)
-  lh:SetText("THE GANG")
+  -- (1.4.66) the Kit look: each column is a panel with a title strip
+  local lp = UI.Section(tab, "The gang")
+  lp:SetPoint("TOPLEFT", 12, -12)
+  lp:SetPoint("BOTTOMLEFT", 12, 12)
+  lp:SetWidth(LEFT_W)
+  local left = lp.body
 
   local quick   -- the person card (made below, once the list exists)
   local function createRow(list)
@@ -98,8 +97,8 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     end
   end
   local list = UI.List(left, 44, 6, createRow, updateRow)
-  list:SetPoint("TOPLEFT", lh, "BOTTOMLEFT", -2, -8)
-  list:SetPoint("BOTTOMRIGHT", 0, 0)
+  list:SetPoint("TOPLEFT", 0, 0)
+  list:SetPoint("BOTTOMRIGHT", 6, 0)
   list.emptyText = "Nobody in the gang yet."
   quick = UI.PersonQuick(tab, { side = "right", width = 360, bounds = tab })
   quick:SetFrameLevel(list:GetFrameLevel() + 40)
@@ -109,23 +108,23 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   ---------------------------------------------------------------------------
   -- right: quick actions and this week
   ---------------------------------------------------------------------------
-  local right = CreateFrame("Frame", nil, tab)
-  right:SetPoint("TOPRIGHT", -14, -12)
-  right:SetPoint("BOTTOMRIGHT", -14, 12)
-  right:SetWidth(RIGHT_W)
-  local rh = UI.Text(right, 11, "semi", C.dim)
-  rh:SetPoint("TOPLEFT", 2, 0)
-  rh:SetText("QUICK ACTIONS")
+  local qa = UI.Section(tab, "Quick actions")
+  qa:SetPoint("TOPRIGHT", -12, -12)
+  qa:SetWidth(RIGHT_W)
+  qa:FitBody(4 * 28 + 3 * 6)
+  local right = qa.body
+  local rh = CreateFrame("Frame", nil, right)
+  rh:SetPoint("TOPLEFT", 0, 6) rh:SetSize(1, 1)
 
   local function action(label, icon, tip, fn)
-    local b = UI.Button(right, RIGHT_W, 32, label, "secondary", fn)
+    local b = UI.Button(right, RIGHT_W - 24, 28, label, "secondary", fn)
     if icon then b:SetIcon(icon, 14) end
     b.tooltip = tip
     return b
   end
   local hop = action("Layer hop", "Radar", "Join someone on another layer – the gang first, then LayerSwap users nearby",
     function() ns.LayerHop:Request() end)
-  hop:SetPoint("TOPLEFT", rh, "BOTTOMLEFT", -2, -8)
+  hop:SetPoint("TOPLEFT", 0, 0)
   local plan = action("Plan something", "Calendar", "Put a plan up for the gang (a dungeon run, a BG night) – they can say if they're coming",
     function()
       UI.Prompt("Plan something", {
@@ -143,26 +142,33 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     function() ns.UI.EditMode(true) end)
   edit:SetPoint("TOPLEFT", tag, "BOTTOMLEFT", 0, -6)
 
-  local wh = UI.Text(right, 11, "semi", C.dim)
-  wh:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", 2, -16)
-  wh:SetText("THIS WEEK")
+  local wp = UI.Section(tab, "This week")
+  wp:SetPoint("TOPLEFT", qa, "BOTTOMLEFT", 0, -10)
+  wp:SetPoint("BOTTOMRIGHT", -12, 12)
+  if wp.body.SetClipsChildren then wp.body:SetClipsChildren(true) end
+  local wh = CreateFrame("Frame", nil, wp.body)
+  wh:SetPoint("TOPLEFT", 0, 0) wh:SetPoint("TOPRIGHT", 0, 0) wh:SetHeight(1)
+  -- one block per fact, a hairline between them
   local function card(anchor, gap)
-    local k = UI.Panel(right, C.card, C.line, false)
-    k:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", anchor == wh and -2 or 0, -(gap or 6))
-    k:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+    local k = CreateFrame("Frame", nil, wp.body)
+    k:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, anchor == wh and 0 or -8)
+    k:SetPoint("RIGHT", wp.body, "RIGHT", 0, 0)
+    k.line = UI.Track(k:CreateTexture(nil, "ARTWORK"))
+    k.line:SetColorTexture(hex(C.line))
+    k.line:SetPoint("BOTTOMLEFT", 0, -4) k.line:SetPoint("BOTTOMRIGHT", 0, -4) k.line:SetHeight(1)
     k.title = UI.Text(k, 12, "semi", C.text)
-    k.title:SetPoint("TOPLEFT", 10, -8)
-    k.title:SetPoint("RIGHT", -10, 0)
+    k.title:SetPoint("TOPLEFT", 0, 0)
+    k.title:SetPoint("RIGHT", 0, 0)
     k.body = UI.Text(k, 11, nil, C.text2)
     k.body:SetPoint("TOPLEFT", k.title, "BOTTOMLEFT", 0, -4)
-    k.body:SetPoint("RIGHT", -10, 0)
+    k.body:SetPoint("RIGHT", 0, 0)
     k.body:SetJustifyH("LEFT")
     k.body:SetWordWrap(true)
     k.body:SetSpacing(2)
-    function k:Fit() self:SetHeight(math.max(36, 8 + (self.title:GetStringHeight() or 14) + 4 + (self.body:GetStringHeight() or 0) + 9)) end
+    function k:Fit() self:SetHeight(math.max(20, (self.title:GetStringHeight() or 14) + 4 + (self.body:GetStringHeight() or 0))) end
     return k
   end
-  local week = card(wh, 8)
+  local week = card(wh)
   local mine = card(week)
   local enemy = card(mine)
   local nextEv = card(enemy)
@@ -170,18 +176,14 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   ---------------------------------------------------------------------------
   -- middle: the gang's latest moments (rows with icon boxes and reaction pills)
   ---------------------------------------------------------------------------
-  local mid = CreateFrame("Frame", nil, tab)
-  mid:SetPoint("TOPLEFT", left, "TOPRIGHT", 16, 0)
-  mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", -16, 0)
-  local mh = UI.Text(mid, 11, "semi", C.dim)
-  mh:SetPoint("TOPLEFT", 2, 0)
-  mh:SetText("THE GANG LATELY")
-  local box = UI.Panel(mid, C.card, C.line, false)
-  box:SetPoint("TOPLEFT", mh, "BOTTOMLEFT", -2, -8)
-  box:SetPoint("BOTTOMRIGHT", 0, 0)
+  local mp = UI.Section(tab, "The gang lately")
+  mp:SetPoint("TOPLEFT", lp, "TOPRIGHT", 12, 0)
+  mp:SetPoint("BOTTOMRIGHT", wp, "BOTTOMLEFT", -12, 0)
+  local box = mp.body
   local feed = UI.FeedRows(box)
-  feed:SetPoint("TOPLEFT", 10, -8)
-  feed:SetPoint("BOTTOMRIGHT", -10, 8)
+  feed:SetPoint("TOPLEFT", 0, 0)
+  feed:SetPoint("BOTTOMRIGHT", 0, 0)
+  if feed.SetClipsChildren then feed:SetClipsChildren(true) end
   feed.timeText = function(e) return shortAgo(e.t) end
   feed.onLinkClick = function(_, link, text, button)
     if type(link) == "string" and link:find("^item:") then ns.ItemLinkClick(link, text, button) return end

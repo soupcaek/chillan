@@ -158,8 +158,13 @@ function St:SnapDay()
   for pid, p in pairs(ns.db.people) do
     local s = p.stats
     if s and s.wk == wk then
-      local row = { wk = wk }
-      for _, k in ipairs(self.DAY_KEYS) do row[k] = s["w" .. k] or 0 end
+      local old = d[pid]
+      local row = { wk = wk, base = old and old.wk == wk and old.base or {} }
+      for _, k in ipairs(self.DAY_KEYS) do
+        row[k] = s["w" .. k] or 0
+        -- the first value noted today: the day's starting point when there's no earlier day
+        if row.base[k] == nil then row.base[k] = row[k] end
+      end
       d[pid] = row
     end
   end
@@ -186,9 +191,13 @@ function St:DaySeries(key, pid)
     if snap and t <= now then
       for id, row in pairs(snap) do
         if (not pid or id == pid) and row.wk == wk then
-          known = true
-          local before = prevTotals[id] or 0
-          v = v + math.max(0, (row[key] or 0) - before)
+          -- a person's first note this week is only a starting point, unless it's Monday's (the
+          -- week starts at 0 then); otherwise a whole week would land on the first day we noted
+          local before = prevTotals[id] or (i == 0 and 0) or (row.base and row.base[key])
+          if before then
+            known = true
+            v = v + math.max(0, (row[key] or 0) - before)
+          end
           prevTotals[id] = row[key] or 0
         end
       end

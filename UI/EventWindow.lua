@@ -582,6 +582,7 @@ function E:Reanchor(anchor)
       f.ofill, f.oline = C.window, C.line
       f:SetColors(C.window, C.line, UI.OverlayAlpha())
       if self.topLine then self.topLine:Hide() end
+      self:FeedCard(false)
       -- back to the detached window's own size and place, whatever size it had while attached
       local sz = ns.db.settings.evSize or { w = 380, h = 210 }
       f:SetSize(sz.w, ns.db.settings.evMin and 28 or sz.h)
@@ -606,7 +607,8 @@ function E:Reanchor(anchor)
     self.topLine:SetPoint("TOPRIGHT", -8, 0)
   end
   UI.Track(self.topLine):SetColorTexture(hex(C.line))
-  self.topLine:SetShown(anchor ~= m)
+  self.topLine:SetShown(false)   -- (1.4.66) the feed is its own card now
+  self:FeedCard(true)
   if self.count then self.count:Hide() end   -- the bar above already shows who's online
   if self.title then self.title:SetText("Gang feed") end   -- the bar above already says Chillan?
   -- Gang pulse (1.1.0): attached, the feed has no header – filters and buttons are in the bar's ⋯
@@ -622,6 +624,32 @@ function E:Reanchor(anchor)
     if self.grip then self.grip:SetShown(not UI.IsLocked() and not S.evMin) end
   end
   return true
+end
+
+-- (1.4.66) attached under the Pulse cards, the feed is a card too: "GANG FEED" in a light panel,
+-- the write box under it
+function E:FeedCard(on)
+  local f = self.frame
+  if not f or not self.msg then return end
+  if on and not self.feedCard then
+    local c = UI.Backplate(f, "Gang feed")
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -8)
+    c:SetPoint("BOTTOMRIGHT", self.input, "TOPRIGHT", 14, 6)
+    c.shouldShow = function() return f.noMove and not (ns.BGPanel and ns.BGPanel.on) and not ns.db.settings.evMin end
+    self.feedCard = c
+  end
+  local c = self.feedCard
+  self.msg:ClearAllPoints()
+  if self.msg.SetClipsChildren then self.msg:SetClipsChildren(true) end
+  if on then
+    self.msg:SetPoint("TOPLEFT", f, "TOPLEFT", 20, c.top)
+    self.msg:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -12, 8)
+  else
+    self.msg:SetPoint("TOPLEFT", self.sep, "BOTTOMLEFT", 2, -6)
+    self.msg:SetPoint("BOTTOMRIGHT", self.input, "TOPRIGHT", 12, 6)
+  end
+  if c then c:SetShown(on and f:IsShown() and not (ns.BGPanel and ns.BGPanel.on) and not ns.db.settings.evMin) end
 end
 
 function E:UpdateCount()

@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.67", date = "25.11", items = {
+    "Pulse as on the canvas: the rep (FROSTWOLF · FRIENDLY, 4 772 / 6 000, the rate per hour), Watching and the gang feed are each a card with a title strip; no faces in the header (hover it for who's online) and no session line (the boxes above already show it)",
+    "Progress › Overview as on the canvas: your week as tiles, the week day by day (online time, levels, gold or kills), the top five this week and this week's titles. The sortable table and the challenge cards moved to their own page, Table",
+    "Home, Chat, PvP, Market and the QoL helpers in the Kit panels: a title strip on every panel, switches instead of checkboxes, choice bars for Today / Week / All time",
+    "PvP: the \"You\" button no longer shows a box for its arrow, and the battleground cards scroll" } },
   { v = "1.4.66", date = "25.11", items = {
     "Crisp edges everywhere: every border is exactly one screen pixel and the rounded corners are drawn pixel by pixel, so buttons and panels no longer look cut off at the corners. Windows snap to whole pixels after a drag or resize",
     "On/off switches as on the canvas: a round track with the knob on top (it was hidden, so they showed as plain blocks)",

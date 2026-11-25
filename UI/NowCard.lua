@@ -11,7 +11,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local N = {}
 ns.NowCard = N
 
-local PAD = 10
+local PAD = 20          -- (1.4.66) 8 px to the card + 12 px inside it
 local MAX_LINES = 6
 local MOMENT_SECS = { ding = 20, run = 60, bg = 45 }
 
@@ -55,7 +55,9 @@ function N:Create()
   f:SetSize(330, 60)
   f:EnableMouse(true)
   self.frame = f
-  f.head = UI.Text(f, 10, "semi", C.accent)
+  f.head = UI.Text(f, 10, "bold", C.text2)
+  -- (1.4.66) the canvas Pulse card: a light panel with a title strip, behind the card's own text
+  f.card = UI.Backplate(f, "")
   -- (1.4.65) a small see-through title strip behind the card's heading (the light Market look)
   f.strip = UI.Track(f:CreateTexture(nil, "BACKGROUND", nil, 2))
   f.strip:SetColorTexture(hex(C.strip or C.cardHover))
@@ -152,19 +154,16 @@ end
 
 -- place the parts top-down and size the card
 local function place(f, rows, track)
-  local y = -8
   local width = f:GetWidth()
   f.head:ClearAllPoints() f.big:ClearAllPoints() f.bigSub:ClearAllPoints() f.right:ClearAllPoints() f.meter:ClearAllPoints()
   f.track:ClearAllPoints()
-  if f.head:GetText() and f.head:GetText() ~= "" then
-    f.head:SetPoint("TOPLEFT", PAD, y)
-    f.head:Show()
-    f.strip:Show()
-    y = y - 15
-  else
-    f.head:Hide()
-    f.strip:Hide()
-  end
+  -- the heading sits in the card's title strip
+  f.strip:Hide()
+  f.head:SetPoint("LEFT", f, "TOPLEFT", PAD, -(8 + 1 + f.card.stripH / 2 - 1))
+  f.head:SetPoint("RIGHT", f, "TOPRIGHT", -PAD, -(8 + 1 + f.card.stripH / 2 - 1))
+  f.head:SetWordWrap(false)
+  f.head:Show()
+  local y = f.card.top
   if f.big:GetText() and f.big:GetText() ~= "" then
     f.big:SetPoint("TOPLEFT", PAD, y)
     f.bigSub:SetPoint("BOTTOMLEFT", f.big, "BOTTOMRIGHT", 6, 2)
@@ -217,7 +216,7 @@ local function place(f, rows, track)
   else
     f.btn:Hide() f.btnNote:Hide()
   end
-  f:SetHeight(-y + 6)
+  f:SetHeight(-y + 8)
 end
 
 ---------------------------------------------------------------------------
@@ -314,7 +313,7 @@ function N:Update()
   local rows, track = {}, nil
   f.meter.pct, f.showBtn = nil, false
   f.head:SetText("") f.big:SetText("") f.bigSub:SetText("") f.right:SetText("")
-  f.head:SetTextColor(hex(C.accent))
+  f.head:SetTextColor(hex(C.text2))
   local dg = P:Danger()
 
   if self.moment and GetTime() > self.moment.untilT then self.moment = nil end
@@ -343,10 +342,12 @@ function N:Update()
       -- (1.4.37) the faction you picked with "Show as Experience Bar" in the reputation window
       local wf = P.WatchedRep and P.WatchedRep()
       if wf then
-        f.big:SetText(wf.standing)
-        f.bigSub:SetText(ns.ShortFaction(wf.name))
+        -- (1.4.66) as on the canvas: "FROSTWOLF · FRIENDLY", 4 772 / 6 000, the rate on the right
+        f.head:SetText((ns.ShortFaction(wf.name) .. " · " .. tostring(wf.standing)):upper())
+        f.big:SetText(wf.exalted and "Exalted" or ns.Num(wf.into))
+        f.bigSub:SetText(wf.exalted and "" or ("/ " .. ns.Num(wf.span)))
         f.meter.pct = wf.pct
-        f.right:SetText(wf.exalted and "Exalted" or (ns.Num(wf.into) .. " / " .. ns.Num(wf.span) .. (wf.perHour and (" · " .. ns.Num(wf.perHour) .. "/h") or "")))
+        f.right:SetText(wf.perHour and (ns.Num(wf.perHour) .. " /h") or "")
       elseif rank or prog then
         f.big:SetText(rank and ("Rank " .. rank) or (math.floor((prog or 0) * 100) .. " %"))
         f.bigSub:SetText(rname or "PvP rank")
@@ -366,8 +367,10 @@ function N:Update()
       if fac and not (wf and wf.name == fac) then bits[#bits + 1] = "+" .. ns.Num(repN) .. " " .. ns.ShortFaction(fac) end
       if (s.bosses or 0) > 0 then bits[#bits + 1] = ns.Plural(s.bosses, "boss", "bosses") end
       if gold and gold ~= 0 then bits[#bits + 1] = ns.Colorize(goldText(gold), gold > 0 and C.text2 or C.red) end
-      if #bits == 0 then bits[1] = s.quests .. " quests · " .. s.mobs .. " mobs" end
-      rows[#rows + 1] = dim("This session: ") .. table.concat(bits, " · ")
+      -- (1.4.66) the session's honor, rep and gold are in the boxes above; only what they don't show
+      local extra = {}
+      if (s.bosses or 0) > 0 then extra[#extra + 1] = ns.Plural(s.bosses, "boss", "bosses") .. " this session" end
+      if #extra > 0 then rows[#rows + 1] = dim(table.concat(extra, " · ")) end
     else
     local rested = ns.Pct(d.rested or 0, d.xpMax)
     rows[#rows + 1] = dim("This session: ") .. s.quests .. " quests · " .. s.mobs .. " mobs"
@@ -497,6 +500,18 @@ function N:Update()
       rows[#rows + 1] = dim("Today  ") .. here.won .. " / " .. here.played .. " won"
     end
     if dg then rows[#rows + 1] = ns.Colorize("Revenge: " .. dg.name .. " is here", C.green) .. dim("  killed the gang " .. dg.n .. "×") end
+  end
+  -- (1.4.66) every card has a title in its strip
+  if (f.head:GetText() or "") == "" then
+    local r = P.Run and select(1, P:Run())
+    local bgName = P.bg and P.bg.name
+    local lvl = ns.S(UnitLevel, "player")
+    local t
+    if mode == "bg" then t = bgName or "Battleground"
+    elseif (mode == "dungeon" or mode == "raid") and r then t = r.name
+    elseif type(lvl) == "number" and lvl < 60 then t = "Level " .. lvl
+    else t = "Now" end
+    f.head:SetText(tostring(t):upper())
   end
   place(f, rows, track)
   if self.lastH ~= math.floor(f:GetHeight()) then

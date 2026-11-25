@@ -37,7 +37,7 @@ W.SECTIONS = {
   { key = "home", label = "Home", pages = { "home" } },
   { key = "gang", label = "Gang", pages = { "friends", "cunts", "diedto", "more" }, hidden = { "player", "compare" } },
   { key = "chat", label = "Chat", pages = { "chat" } },
-  { key = "progress", label = "Progress", pages = { "stats", "graph", "titles", "ach", "history", "legend" } },
+  { key = "progress", label = "Progress", pages = { "stats", "table", "graph", "titles", "ach", "history", "legend" } },
   { key = "pvp", label = "PvP", pages = { "pvp" } },
   { key = "market", label = "Market", pages = { "market" } },
   { key = "tools", label = "Tools", pages = { "qol", "ideas" } },
@@ -45,11 +45,11 @@ W.SECTIONS = {
   { key = "changelog", label = "What's new", pages = { "changelog" }, header = true },
 }
 W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", diedto = "Died to", more = "Crafters", chat = "Gang chat",
-  stats = "Overview", graph = "Chart", titles = "Titles", history = "History", legend = "Legend book", ach = "Trophies", market = "Market", pvp = "PvP", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
+  stats = "Overview", table = "Table", graph = "Chart", titles = "Titles", history = "History", legend = "Legend book", ach = "Trophies", market = "Market", pvp = "PvP", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
   player = "Player", compare = "Compare" }
 W.lastPage = {}
 -- (1.1.7) Progress is one row of pages; Chart, Titles, History and Legend book live inside the Stats page
-W.VIRTUAL = { graph = { "stats", "graph" }, titles = { "stats", "titles" }, history = { "stats", "history" }, legend = { "stats", "legend" } }
+W.VIRTUAL = { table = { "stats", "table" }, graph = { "stats", "graph" }, titles = { "stats", "titles" }, history = { "stats", "history" }, legend = { "stats", "legend" } }
 local function realOf(key) local v = W.VIRTUAL[key] return v and v[1] or key end
 local function has(list, v) for _, x in ipairs(list or {}) do if x == v then return true end end return false end
 

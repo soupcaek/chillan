@@ -709,6 +709,7 @@ function B:Apply()
   local on = B.Active() and not ns.db.settings.evMin
   self.frame:SetShown(on)
   if E.msg then E.msg:SetShown(not on) end
+  if E.feedCard then E.feedCard:SetShown(not on and E.frame.noMove and true or false) end
   if E.input then E.input:SetShown(not on) end
   for _, b in pairs(E.filterBtns or {}) do b:SetShown(not on) end
   local was = self.on

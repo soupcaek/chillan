@@ -97,8 +97,8 @@ function O:UpdateMinibar()
   if ns.PausedLabel and ns.PausedLabel() then online = {} end
   table.sort(online, function(a, b) return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end)
   local x = m.logo:GetStringWidth() + 22
-  -- (1.2.4) bigger faces, at most 4; the rest as "+N"
-  local SHOWN = 4
+  -- (1.4.66) no faces in the header (the canvas): "N online" and your status; hover for who
+  local SHOWN = 0
   for i, a in ipairs(m.avatars) do
     local p = i <= SHOWN and online[i]
     if p then
@@ -113,9 +113,9 @@ function O:UpdateMinibar()
       a:Hide()
     end
   end
-  if #online > 0 then x = x + 10 end
+  if #online > 0 and SHOWN > 0 then x = x + 10 end
   if not m.moreFaces then m.moreFaces = UI.Text(m, 11, "semi", C.muted) end
-  if #online > SHOWN then
+  if SHOWN > 0 and #online > SHOWN then
     m.moreFaces:ClearAllPoints()
     m.moreFaces:SetPoint("LEFT", x - 2, 0)
     m.moreFaces:SetText("+" .. (#online - SHOWN))
@@ -275,6 +275,7 @@ function O:UpdateGroup()
         N.topLine:SetPoint("TOPRIGHT", -8, 0)
       end
       UI.Track(N.topLine):SetColorTexture(hex(C.line))
+      N.topLine:Hide()   -- (1.4.66) the cards have their own edges
       last = N
     end
   end
@@ -294,6 +295,7 @@ function O:UpdateGroup()
         Wf.topLine:SetPoint("TOPRIGHT", -8, 0)
       end
       Wf.topLine:SetColorTexture(hex(C.line))
+      Wf.topLine:Hide()
       last = Wf
     end
   end

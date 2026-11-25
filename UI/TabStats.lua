@@ -27,8 +27,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for k, f in pairs(pages) do f:SetShown(k == page) end
     -- (1.1.7) the side cards only on Overview; the other pages get the full width
     if tab.rightCol then
-      tab.rightCol:SetShown(page == "overview")
-      left:SetPoint("BOTTOMRIGHT", page == "overview" and (-RIGHT_W - 30) or -16, 14)
+      tab.rightCol:SetShown(page == "table")
+      left:SetPoint("BOTTOMRIGHT", page == "table" and (-RIGHT_W - 30) or -16, 14)
     end
   end
   local prev
@@ -364,7 +364,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   -------------------------------------------------------------------------
   -- 3) Tabell (sorterbar, uke/totalt)
   -------------------------------------------------------------------------
-  local tablePage = newPage("overview")
+  local tablePage = newPage("table")
   local COLS = {
     { key = "rank", label = "#", w = 24 },
     { key = "name", label = "Player", w = 0 },
@@ -376,7 +376,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     { key = "points", label = "Pts", w = 40, tip = "Achievement points from the Trophies tab:\nBronze 5 · Silver 10 · Gold 25 · Legendary 50\n(always all-time, not just this week)" },
   }
   -- (1.4.65) your own numbers as tiles with coloured tops (the canvas), above the table
-  local OV_TOP = 62
+  local OV_TOP = 0
+  local ovPage = newPage("overview")
   local ovTiles = {}
   local tileDefs = {
     { "Online", "played", C.accent, function(v) return ns.Duration(v) end },
@@ -385,16 +386,15 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     { "Deaths", "deaths", C.red, function(v) return tostring(v) end },
   }
   for i, d in ipairs(tileDefs) do
-    local t = UI.Panel(tablePage, C.panel or C.card, C.border or C.line, true)
-    t:SetHeight(52)
+    local t = UI.Panel(ovPage, C.panel or C.card, C.border or C.line)
+    t:SetHeight(58)
     t.acc = UI.Track(t:CreateTexture(nil, "ARTWORK"))
     t.acc:SetColorTexture(hex(d[3]))
-    t.acc:SetHeight(2)
-    t.acc:SetPoint("TOPLEFT", 1, -1) t.acc:SetPoint("TOPRIGHT", -1, -1)
-    t.v = UI.Text(t, 17, "semi", C.text)
-    t.v:SetPoint("TOPLEFT", 12, -10)
-    t.k = UI.Text(t, 11, nil, C.dim)
-    t.k:SetPoint("BOTTOMLEFT", 12, 8)
+    t.acc:SetPoint("TOPLEFT", 4, 0) t.acc:SetPoint("BOTTOMRIGHT", t, "TOPRIGHT", -4, -2)
+    t.v = UI.Text(t, 18, "bold", C.text)
+    t.v:SetPoint("TOPLEFT", 12, -11)
+    t.k = UI.Text(t, 11, nil, C.muted)
+    t.k:SetPoint("TOPLEFT", 12, -35)
     ovTiles[i] = t
   end
   local function placeTiles(w)
@@ -405,17 +405,157 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       t:SetWidth(tw)
     end
   end
-  tablePage:HookScript("OnSizeChanged", function(self, w) placeTiles(w) end)
+  ovPage:HookScript("OnSizeChanged", function(self, w) placeTiles(w) end)
   local function paintTiles()
-    placeTiles(tablePage:GetWidth())
+    placeTiles(ovPage:GetWidth())
     local me = ns.db.people[ns.pid]
     if not me then return end
     for i, d in ipairs(tileDefs) do
       local v = (mode == "week" and ns:WeekStat(me, d[1]) or ns:TotalStat(me, d[1])) or 0
       ovTiles[i].v:SetText(d[4](v))
-      ovTiles[i].k:SetText(d[2] .. (mode == "week" and " this week" or " in all"))
+      ovTiles[i].k:SetText(d[2] .. " this week")
     end
   end
+
+  -- (1.4.66) Overview as on the canvas: the tiles, the week by day, the top list, this week's titles
+  local METRICS = {
+    { "Online", "Online", "online time", function(v) return ns.Duration(v) end },
+    { "Levels", "Levels", "levels", function(v) return tostring(v) end },
+    { "Gold", "Gold", "gold earned", function(v) return ns.Money(math.floor(v / 10000) * 10000) end },
+    { "Kills", "Kills", "PvP kills", function(v) return tostring(v) end },
+  }
+  local metric = 1
+  local chartP = UI.Section(ovPage, "Online time · this week")
+  chartP:SetPoint("TOPLEFT", 0, -70)
+  chartP:SetPoint("BOTTOMRIGHT", ovPage, "BOTTOMRIGHT", -330, 64)
+  local topP = UI.Section(ovPage, "Top this week")
+  topP:SetPoint("TOPLEFT", chartP, "TOPRIGHT", 12, 0)
+  topP:SetPoint("BOTTOMRIGHT", ovPage, "BOTTOMRIGHT", 0, 64)
+  local titlesP = UI.Section(ovPage, "Titles this week")
+  titlesP:SetPoint("BOTTOMLEFT", 0, 0)
+  titlesP:SetPoint("BOTTOMRIGHT", 0, 0)
+  titlesP:FitBody(20)
+  local mseg = UI.Seg(chartP, { "Online", "Levels", "Gold", "Kills" }, function() return metric end, function(i) metric = i tab:Refresh() end, 22)
+  mseg:SetPoint("RIGHT", chartP, "TOPRIGHT", -8, -(1 + chartP.stripH / 2))
+  local bars = {}
+  for i = 1, 7 do
+    local b = {}
+    b.bar = UI.Panel(chartP.body, C.border, nil, 3)
+    b.day = UI.Text(chartP.body, 10, nil, C.dim)
+    b.day:SetJustifyH("CENTER")
+    b.val = UI.Text(chartP.body, 10, nil, C.muted)
+    b.val:SetJustifyH("CENTER")
+    bars[i] = b
+  end
+  local chartEmpty = UI.Text(chartP.body, 11, nil, C.dim)
+  chartEmpty:SetPoint("TOP", 0, -8)
+  local DAYS = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }
+  local function drawChart()
+    local m = METRICS[metric]
+    chartP:SetTitle(m[3] .. " · this week")
+    local series = ns.St and ns.St.DaySeries and ns.St:DaySeries(m[1]) or {}
+    local w, h = chartP.body:GetWidth(), chartP.body:GetHeight()
+    if not w or w < 50 then w = 400 end
+    if not h or h < 50 then h = 150 end
+    local maxV, known = 0, 0
+    for _, d in ipairs(series) do if d.known then known = known + 1 maxV = math.max(maxV, d.value) end end
+    local slot = w / 7
+    local bw = math.min(26, math.floor(slot * 0.5))
+    local plotH = h - 34
+    local today = (tonumber(date("%w")) + 6) % 7 + 1
+    for i, b in ipairs(bars) do
+      local d = series[i] or {}
+      local bh = (d.known and maxV > 0) and math.max(2, math.floor(plotH * d.value / maxV)) or 2
+      local x = math.floor((i - 0.5) * slot - bw / 2)
+      b.bar:ClearAllPoints()
+      b.bar:SetPoint("BOTTOMLEFT", x, 18)
+      b.bar:SetSize(bw, bh)
+      b.bar:SetColors(i == today and C.accent or C.border, nil)
+      b.bar:SetAlpha(d.future and 0.35 or 1)
+      b.day:ClearAllPoints()
+      b.day:SetPoint("BOTTOM", chartP.body, "BOTTOMLEFT", math.floor((i - 0.5) * slot), 2)
+      b.day:SetText(DAYS[i])
+      b.val:ClearAllPoints()
+      b.val:SetPoint("BOTTOM", b.bar, "TOP", 0, 3)
+      b.val:SetText((d.known and d.value > 0) and m[4](d.value) or "")
+    end
+    chartEmpty:SetText(known <= 1 and "Day by day from today on – the bars fill in as the week goes" or "")
+  end
+  local topRows = {}
+  for i = 1, 5 do
+    local r = {}
+    r.n = UI.Text(topP.body, 12, "bold", C.dim)
+    r.name = UI.Text(topP.body, 12, "semi", C.text)
+    r.v = UI.Text(topP.body, 12, nil, C.text)
+    r.v:SetJustifyH("RIGHT")
+    r.track = UI.Panel(topP.body, C.active, nil, 3)
+    r.fill = UI.Panel(r.track, C.accent, nil, 3)
+    r.fill:SetPoint("TOPLEFT") r.fill:SetPoint("BOTTOMLEFT")
+    topRows[i] = r
+  end
+  local function drawTop()
+    local m = METRICS[metric]
+    topP:SetTitle("Top this week · " .. m[2])
+    local list = {}
+    for _, p in ipairs(ns:SortedPeople()) do
+      local v = ns:WeekStat(p, m[1]) or 0
+      if v > 0 then list[#list + 1] = { p = p, v = v } end
+    end
+    table.sort(list, function(a, b) return a.v > b.v end)
+    topP.right:SetText(list[1] and ("Crown: " .. m[4](list[1].v)) or "")
+    local w = topP.body:GetWidth()
+    if not w or w < 50 then w = 280 end
+    for i, r in ipairs(topRows) do
+      local e = list[i]
+      local y = -(i - 1) * 26
+      r.n:ClearAllPoints() r.n:SetPoint("TOPLEFT", 0, y)
+      r.name:ClearAllPoints() r.name:SetPoint("TOPLEFT", 16, y)
+      r.v:ClearAllPoints() r.v:SetPoint("TOPRIGHT", 0, y)
+      r.track:ClearAllPoints()
+      r.track:SetPoint("LEFT", topP.body, "TOPLEFT", 100, y - 7)
+      r.track:SetSize(math.max(20, w - 100 - 64), 6)
+      if e then
+        local c = ns:PersonChar(e.p) or {}
+        r.n:SetText(i) r.n:SetTextColor(hex(i == 1 and C.accent or C.dim))
+        r.name:SetText(ns.Colorize(ns:PersonFirst(e.p) or c.name or "?", ns.ClassHex(c.class)))
+        r.v:SetText(m[4](e.v))
+        r.fill:SetWidth(math.max(3, (w - 164) * e.v / list[1].v))
+        r.fill:SetColors(i == 1 and C.accent or C.btnLine or C.activeLine, nil)
+        for _, x in ipairs({ r.n, r.name, r.v, r.track }) do x:Show() end
+      else
+        for _, x in ipairs({ r.n, r.name, r.v, r.track }) do x:Hide() end
+      end
+    end
+  end
+  local pills = {}
+  local function drawTitles()
+    for _, pl in ipairs(pills) do pl:Hide() end
+    local cur = ns.Titles and ns.Titles:Current() or {}
+    local x, n = 0, 0
+    local w = titlesP.body:GetWidth() or 600
+    for _, def in ipairs(ns.Titles and ns.Titles.DEFS or {}) do
+      local h = cur[def.key]
+      local pid = h and h.pid
+      if not pid and ns.db.titlesWeek == ns.WeekKey() then pid = (ns.db.titles or {})[def.key] end
+      local p = type(pid) == "string" and ns.db.people[pid]
+      if p then
+        n = n + 1
+        local pl = pills[n] or UI.Pill(titlesP.body)
+        pills[n] = pl
+        pl:Set((ns:PersonFirst(p) or "?") .. " · " .. def.name, def.color)
+        if x + pl:GetWidth() > w then break end
+        pl:ClearAllPoints()
+        pl:SetPoint("LEFT", titlesP.body, "LEFT", x, 0)
+        pl:Show()
+        x = x + pl:GetWidth() + 8
+      end
+    end
+    titlesP.right:SetText(n == 0 and "nobody holds one yet" or "")
+  end
+  function tab:DrawOverview()
+    paintTiles() drawChart() drawTop() drawTitles() mseg:Refresh()
+  end
+  ovPage:HookScript("OnSizeChanged", function() if page == "overview" then C_Timer.After(0, function() tab:DrawOverview() end) end end)
   local seg = UI.Panel(tablePage, C.input, C.inputLine, true)
   seg:SetSize(170, 28)
   seg:SetPoint("TOPRIGHT", 0, -OV_TOP)
@@ -1081,13 +1221,14 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     elseif page == "graph" then
       drawGraph()
     elseif page == "overview" then
+      tab:DrawOverview()
+    elseif page == "table" then
       table.sort(people, function(a, b)
         local va, vb = value(a, sortKey), value(b, sortKey)
         if va ~= vb then return va > vb end
         return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b)
       end)
       tableList:SetData(people)
-      paintTiles()
       for key, t in pairs(headerTexts) do UI.Track(t):SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
     elseif page == "history" then
       paintHist()

@@ -1479,6 +1479,24 @@ function UI.Section(parent, title, accent, light)
   return p
 end
 
+-- (1.4.66) the Pulse cards: a light panel with a title strip drawn BEHIND a frame (a sibling one
+-- level down, so the frame's own text stays on top), inset like the canvas (8 px sides, 8 px gap
+-- above). It follows the frame's visibility. card:SetTitle(t), card.right for the strip's right side.
+function UI.Backplate(f, title)
+  local c = UI.Section(f:GetParent() or UIParent, title, nil, true)
+  c:SetFrameStrata(f:GetFrameStrata())
+  c:SetFrameLevel(math.max(0, f:GetFrameLevel() - 1))
+  c:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -8)
+  c:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 0)
+  c:EnableMouse(false)
+  c:SetShown(f:IsShown())
+  f:HookScript("OnShow", function() c:SetShown(not c.shouldShow or c.shouldShow()) end)
+  f:HookScript("OnHide", function() c:Hide() end)
+  -- y of the first line under the strip, in the frame's own coordinates
+  c.top = -(8 + c.stripH + 8)
+  return c
+end
+
 -- a choice bar: one of a few options, the chosen one filled
 function UI.Seg(parent, opts, get, set, h)
   local f = CreateFrame("Frame", nil, parent)

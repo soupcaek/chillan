@@ -8,12 +8,16 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   local range = "all"
 
   local h = UI.Text(tab, 15, "semi", C.text)
-  h:SetPoint("TOPLEFT", 16, -16)
+  h:SetPoint("TOPLEFT", 14, -18)
   h:SetText(ns.Logo() .. " PvP")
   -- (1.4.47) whose page: you or anyone in the gang who has shared theirs
   local viewPid = ns.pid
-  local who = UI.Button(tab, 150, 24, "You  ▾", "secondary")
+  local who = UI.Button(tab, 130, 28, "You", "secondary")
   who:SetPoint("LEFT", h, "RIGHT", 14, 0)
+  -- (1.4.66) a drawn arrow: the "▾" character isn't in the font (it showed as a box)
+  who.chev = UI.Icon(who, "Up", 12, C.muted)
+  who.chev:SetRotation(math.pi)
+  who.chev:SetPoint("RIGHT", -10, 0)
   local sub = UI.Text(tab, 11, nil, C.dim)
   sub:SetPoint("LEFT", who, "RIGHT", 10, 0)
   sub:SetText("")
@@ -35,17 +39,28 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   -- today / week / all time
   local RANGES = { { "today", "Today" }, { "week", "Week" }, { "all", "All time" } }
   local rbtns = {}
-  for i = #RANGES, 1, -1 do
-    local r = RANGES[i]
-    local b = UI.Button(tab, 74, 24, r[2], "secondary", function() range = r[1] tab:Refresh() end)
-    b.key = r[1]
-    if i == #RANGES then b:SetPoint("TOPRIGHT", -16, -12) else b:SetPoint("RIGHT", rbtns[i + 1], "LEFT", -6, 0) end
-    rbtns[i] = b
-  end
+  local rseg = UI.Seg(tab, { "Today", "Week", "All time" }, function()
+    for i, r in ipairs(RANGES) do if r[1] == range then return i end end
+  end, function(i) range = RANGES[i][1] tab:Refresh() end)
+  rseg:SetPoint("TOPRIGHT", -12, -12)
+
+  -- (1.4.66) the cards in a scroll area, as Kit panels with a title strip
+  local sc = CreateFrame("ScrollFrame", nil, tab)
+  sc:SetPoint("TOPLEFT", 12, -52)
+  sc:SetPoint("BOTTOMRIGHT", -12, 12)
+  local holder = CreateFrame("Frame", nil, sc)
+  holder:SetSize(600, 600)
+  sc:SetScrollChild(holder)
+  sc:EnableMouseWheel(true)
+  sc:SetScript("OnMouseWheel", function(self, d)
+    local max = math.max(0, holder:GetHeight() - self:GetHeight())
+    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - d * 40)))
+  end)
+  sc:SetScript("OnSizeChanged", function(self, w) holder:SetWidth(w) end)
 
   -- one card per battleground
   local cards = {}
-  local CARD_H = 100
+  local CARD_H = 124
   local function cell(parent, x, y, label)
     local v = UI.Text(parent, 13, "semi", C.text)
     v:SetPoint("TOPLEFT", x, y)
@@ -55,15 +70,13 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     return v, k
   end
   for i, def in ipairs(P.BG_KEYS) do
-    local c = UI.Panel(tab, C.card, C.line, true)
-    c:SetPoint("TOPLEFT", 16, -44 - (i - 1) * (CARD_H + 6))
-    c:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
+    local c = UI.Section(holder, def.name)
+    c:SetPoint("TOPLEFT", 0, -(i - 1) * (CARD_H + 10))
+    c:SetPoint("RIGHT", holder, "RIGHT", 0, 0)
     c:SetHeight(CARD_H)
+    holder:SetHeight(i * (CARD_H + 10))
     c.def = def
-    c.title = UI.Text(c, 14, "semi", C.text)
-    c.title:SetPoint("TOPLEFT", 14, -10)
-    c.title:SetText(def.name)
-    c.rate = UI.Text(c, 12, "semi", C.green)
+    c.rate = UI.Text(c, 11, "bold", C.green)
     c.rate:SetPoint("LEFT", c.title, "RIGHT", 10, 0)
     -- stats grid: 4 columns × 2 rows
     local cw = 118
@@ -72,7 +85,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
       "HKs per game", "best HKs", "average game", "time played" }
     for k = 1, 8 do
       local col, row = (k - 1) % 4, math.floor((k - 1) / 4)
-      local v = cell(c, 14 + col * cw, -38 - row * 30, labels[k])
+      local v = cell(c, 14 + col * cw, -62 - row * 30, labels[k])
       c.cells[k] = v
     end
     -- reputation
@@ -80,12 +93,12 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     -- (1.4.40) after the title and win rate, never on top of them: cut with "…" if it doesn't fit
     c.repName = UI.Text(c, 11, nil, C.text2)
     c.repName:SetPoint("LEFT", c.rate, "RIGHT", 14, 0)
-    c.repName:SetPoint("RIGHT", c, "LEFT", 14 + 4 * cw - 4, 0)
+    c.repName:SetPoint("RIGHT", c, "RIGHT", -12, 0)
     c.repName:SetJustifyH("RIGHT")
     c.repName:SetWordWrap(false)
     c.repBg = c:CreateTexture(nil, "ARTWORK")
     c.repBg:SetHeight(4)
-    c.repBg:SetPoint("TOPLEFT", 14, -29)
+    c.repBg:SetPoint("TOPLEFT", 14, -41)
     c.repBg:SetWidth(4 * cw - 14)
     UI.Track(c.repBg):SetColorTexture(hex(C.line))
     c.repBar = c:CreateTexture(nil, "OVERLAY")
@@ -94,7 +107,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
     UI.Track(c.repBar):SetColorTexture(hex(C.gold))
     -- gang leaderboard on the right
     c.gangHead = UI.Text(c, 10, "semi", C.dim)
-    c.gangHead:SetPoint("TOPLEFT", 14 + 4 * cw + 16, -10)
+    c.gangHead:SetPoint("TOPLEFT", 14 + 4 * cw + 16, -40)
     c.gangHead:SetText("GANG · WIN % · HKS/GAME · STANDING")
     c.gang = {}
     for r = 1, 4 do
@@ -113,13 +126,13 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
   local function pct(x) return math.floor((x or 0) * 100 + 0.5) .. " %" end
 
   function tab:Refresh()
-    for _, b in ipairs(rbtns) do b:SetStyle(b.key == range and "primary" or "secondary") end
+    rseg:Refresh()
     local me = viewPid == ns.pid
     local vp = not me and ns:GetPerson(viewPid)
     local st, repOf
     if me then
       st, repOf = P.PvPStats(range), P.RepForKey
-      who:SetLabel("You  ▾")
+      who:SetLabel("You")
       sub:SetText("")
     else
       local full = vp and vp.pvpFull or {}
@@ -132,7 +145,7 @@ ns:RegisterTab("pvp", "PvP", "Target", function(tab)
         return { name = names[key] or key, standing = STANDING_N[x.reaction] or "", reaction = x.reaction, exalted = x.reaction >= 8,
           pct = x.repPct or 0, winsLeft = x.winsLeft, left = 0 }
       end
-      who:SetLabel(ns:PersonFirst(vp) .. "  ▾")
+      who:SetLabel(ns:PersonFirst(vp))
       sub:SetText(ns:PersonFirst(vp) .. "'s battlegrounds · updated " .. ns.Ago(full.at))
     end
     for _, c in ipairs(cards) do

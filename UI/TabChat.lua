@@ -440,37 +440,37 @@ end
 ns:RegisterTab("chat", "Chat", "Chat", function(tab)
   local FEED_W = 0   -- the feed moved to Stats → History → Feed; chat takes the full width
 
-  local h = UI.Text(tab, 15, "semi", C.text)
-  h:SetPoint("TOPLEFT", 16, -16)
-  h:SetText("Gang chat")
-  local hint = UI.Text(tab, 11, nil, C.dim)
-  hint:SetPoint("LEFT", h, "RIGHT", 10, 0)
-  hint:SetText("Tip: /cg text sends straight from normal chat")
-
-
-  local msgs = UI.MessageFrame(tab, 13)
-  msgs:SetPoint("TOPLEFT", 16, -44)
-  msgs:SetPoint("BOTTOMRIGHT", -FEED_W - 16, 60)
+  -- (1.4.66) the Kit look: the chat in a panel, the tip and the feed link in its title strip,
+  -- the write box and Send under it
+  local cp = UI.Section(tab, "Gang chat")
+  cp:SetPoint("TOPLEFT", 12, -12)
+  cp:SetPoint("BOTTOMRIGHT", -12, 52)
+  local hint = UI.Text(cp, 11, nil, C.dim)
+  hint:SetPoint("LEFT", cp.title, "RIGHT", 12, 0)
+  hint:SetText("/cg text sends straight from normal chat")
+  local msgs = UI.MessageFrame(cp.body, 13)
+  msgs:SetPoint("TOPLEFT", 0, 0)
+  msgs:SetPoint("BOTTOMRIGHT", 0, 0)
 
   local input
   local function send()
     ns.Data:SendChat(input:GetText())
     input:SetText("")
   end
-  input = UI.EditBox(tab, 300, 36, "Write to the gang …", send)
+  input = UI.EditBox(tab, 300, 28, "Write to the gang …", send)
   UI.AttachMentions(input)
-  input:SetPoint("BOTTOMLEFT", 16, 14)
-  input:SetPoint("RIGHT", tab, "RIGHT", -FEED_W - 90, 0)
+  input:SetPoint("BOTTOMLEFT", 12, 12)
+  input:SetPoint("RIGHT", tab, "RIGHT", -12 - 80 - 8, 0)
   input.edit:SetScript("OnEnterPressed", function(self) send() self:SetFocus() end)
-  local sendBtn = UI.Button(tab, 64, 36, "Send", "primary", send)
+  local sendBtn = UI.Button(tab, 80, 28, "Send", "primary", send)
   sendBtn:SetPoint("LEFT", input, "RIGHT", 8, 0)
 
-  local feedLink = UI.Button(tab, 120, 26, "Gang feed ›", "ghost", function()
+  local feedLink = UI.Button(cp, 100, 20, "Gang feed ›", "ghost", function()
     ns.Window:Select("history")
     local st = ns.Window.tabs.stats
     if st and st.SetPage then st:SetPage("history", "feed") end
   end)
-  feedLink:SetPoint("TOPRIGHT", -16, -12)
+  feedLink:SetPoint("RIGHT", cp, "TOPRIGHT", -6, -(1 + cp.stripH / 2))
 
   local lastChatKey
   ns:Listen("ITEMINFO", function() if tab:IsShown() then tab:Refresh() end end)
