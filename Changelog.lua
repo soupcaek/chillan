@@ -2,6 +2,8 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.60", date = "25.11", items = {
+    "Flag rows: \"click to target\" shows only when the click really targets the carrier on screen. The game only lets addons point the button at a new carrier outside a fight, so a flag taken mid-fight shows no hint until the fight ends; then it's armed again by itself" } },
   { v = "1.4.59", date = "25.11", items = {
     "Market window redesigned (canvas option A): every area is its own panel with a border and a title strip, buttons have real borders, rows are striped, and prices are never cut off (no copper from 10g up). Sell: Up Next on the left, Post and the listings on the right. Buy: search and results on the left, the item with its price graph, listings and buy bar on the right",
     "Shopping is now Wishlist, with a price graph (7, 14 or 30 days) of the row you pick: low, high, average and trend",

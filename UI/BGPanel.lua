@@ -94,6 +94,7 @@ local function makeSecure(slot)
   b.slot = slot
   b:Hide()
   b:SetScript("OnEnter", function(self)
+    if not self.live then return end   -- (1.4.60) only when it really points at the carrier shown
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine("Click: target the carrier", 1, 1, 1)
     GameTooltip:Show()
@@ -507,6 +508,22 @@ function B:DrawCarriers(key)
     self.diUnit = want3
     self.secure[3]:SetAttribute("unit", want3)
   end
+  -- (1.4.60) "click to target" only when the button really points at the carrier shown. The game
+  -- lets us point it at someone new only outside a fight, so a flag taken mid-fight shows no hint
+  -- until the fight ends (then it's armed again by itself)
+  local function arm(i, unit, armedTo)
+    local live = unit ~= nil and unitOK(unit) and armedTo == unit and self.secureOn and self.slots[i]:IsShown()
+    self.secure[i].live = live and true or false
+    if not live then self.slots[i].hint:SetText("") end
+  end
+  if key == "WSG" then
+    arm(1, enemyUnit, "arena1")
+    arm(2, ourUnit, self.ourUnit)
+    self.secure[3].live = false
+  elseif key == "DI" then
+    arm(3, ourUnit or enemyUnit, self.diUnit)
+    self.secure[1].live, self.secure[2].live = false, false
+  end
 end
 
 ---------------------------------------------------------------------------
@@ -625,7 +642,7 @@ function B:Draw()
       if s:IsShown() ~= want then s:SetShown(want) end
     end
   end
-  if carriers then self:DrawCarriers(key) end
+  if carriers then self:SyncSecure(f:IsVisible()) self:DrawCarriers(key) end
   local slotsH = nSlots > 0 and (nSlots * (SLOT_H + 4)) or 0
   if t2l then
     self.info2:ClearAllPoints() self.right2:ClearAllPoints()

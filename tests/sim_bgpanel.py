@@ -230,3 +230,19 @@ print("DI back:", LA.eval(strip2 % (s3 + '.label:GetText() .. ": " .. ' + s3 + '
 assert LA.eval(strip2 % (s3 + '.name:GetText()'))[0] == "in the middle"
 # the win line is in the winner's colour
 LA.execute('''issecretvalue = nil''')
+# ---- 1.4.60: "click to target" only when the button really points at the carrier shown
+LA.execute('''issecretvalue = nil
+GetNumGroupMembers = function() return 1 end
+UnitExists = function(u) return u == "raid1" end
+UnitName = function(u) if u == "raid1" then return "Tribulation" end if u == "player" then return MOCK_ME.name end end
+C_UnitAuras = { GetAuraDataByIndex = function(u, j) if u == "raid1" and j == 1 then return { name = "Darkspear Flag", spellId = 1 } end end }
+COMBAT = true
+InCombatLockdown = function() return COMBAT end
+ADDON_NS.BGObj.flag = {}; ADDON_NS.BGPanel.diUnit = "arena1"
+ADDON_NS.BGPanel:Draw()''')
+s3 = 'ADDON_NS.BGPanel.slots[3]'
+fight = LA.eval(s3 + '.hint:GetText()')
+LA.execute('''COMBAT = false; ADDON_NS.BGPanel:Draw()''')
+calm = LA.eval(s3 + '.hint:GetText()')
+print("hint in a fight:", repr(fight), "| after:", repr(calm), "| button unit:", LA.eval('ADDON_NS.BGPanel.diUnit'))
+assert fight == "" and calm == "click to target" and LA.eval('ADDON_NS.BGPanel.diUnit') == "raid1"
