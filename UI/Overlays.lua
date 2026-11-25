@@ -93,6 +93,8 @@ function O:UpdateMinibar()
   if not ns.db.settings.minibar or not ns.db.code then m:Hide() return end
   m:Show()
   local online = ns:SortedPeople(function(p, pid) return pid ~= ns.pid and ns:IsOnline(p) end)
+  -- (1.4.55) in a battleground nobody's status can be heard, so no faces: they could be wrong
+  if ns.PausedLabel and ns.PausedLabel() then online = {} end
   table.sort(online, function(a, b) return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b) end)
   local x = m.logo:GetStringWidth() + 22
   -- (1.2.4) bigger faces, at most 4; the rest as "+N"

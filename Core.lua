@@ -1097,6 +1097,6 @@ C_Timer.NewTicker(30, blindCheck)
 -- "0 online" the headers say the gang sync is paused (nil when it isn't)
 function ns.PausedLabel()
   if not ns.CommBlind() then return nil end
-  return ns.InBattleground() and "Paused in BG" or "Paused in dungeon"
+  return ns.InBattleground() and "PvP mode · social paused" or "Paused in dungeon"
 end
-ns.PAUSED_TIP = "Addon messages are blocked inside instances. The gang syncs again when you leave."
+ns.PAUSED_TIP = "The game blocks addon messages inside battlegrounds and dungeons, so gang chat, online status and sharing pause here. Everything syncs again when you leave."

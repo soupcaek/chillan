@@ -83,7 +83,7 @@ assert LA.eval('AFTER') == "+115", "recap honor not refreshed"
 LA.execute('ADDON_NS.commBlindSince = ADDON_NS.Now(); ADDON_NS.commBlindUntil = nil')
 lab = LA.eval('tostring(ADDON_NS.PausedLabel())')
 print("paused label:", lab)
-assert lab.startswith("Paused in")
+assert lab.startswith("Paused in") or lab.startswith("PvP mode")
 LA.execute('ADDON_NS.commBlindSince = nil')
 assert LA.eval('ADDON_NS.PausedLabel()') is None
 # 1.4.48: BG tiles: no HK tile (the card's big line has it), honor this game instead of honor/h

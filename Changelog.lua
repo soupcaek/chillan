@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.55", date = "25.11", items = {
+    "Battlegrounds read right: Chillan now uses Forever's own map icons (the same numbers DBM-PvP and Capping use) and the battleground's own lines (\"The Alliance has assaulted the Ruins!\") in Arathi Basin and Darkspear Islands. Owners and capture timers are right for both sides, and the game's own time left is used where it gives one",
+    "PvP mode: the top says \"PvP mode · social paused\", without friends' faces (their status can't be heard in a battleground). The window's height follows what the panel shows; your own size comes back when you leave",
+    "Card: \"+133 honor this game\" next to rep this game, HKs and deaths always (no kill streak), rep as \"Friendly · 7 680 / 12 000 · 64 %\", and Today just wins for this battleground",
+    "Alterac Valley: only what's on a countdown – next to fall with a big timer, the rest with bars in the colour of the side taking it, no extra text. Arathi Basin and Darkspear Islands: score and bases per side, \"Horde wins in ~6 min\" with a final score estimate, base boxes deep when held and bright with a white countdown bar while being taken. Darkspear Islands' score now shows",
+    "Warsong Gulch: flags as 2/3, the game clock, Enemy FC and Our FC rows (name, class, health bar, where the flag is, click to target), dropped flag and flag respawn countdowns. Darkspear Islands: the centre flag's carrier and the 21 s reset after a capture",
+    "/chill perf lists how much memory Chillan and your other addons use" } },
   { v = "1.4.54", date = "25.11", items = {
     "Battleground bases: Chillan now learns Forever's own map icons. When a base's icon changes at the same moment as a side's base count, it knows what that icon means and remembers it for later games. Until then a base being taken shows a grey timer instead of nothing",
     "Flag rows rebuilt from the flags' places on the map: Warsong Gulch \"Our flag: taken · near …\" / \"Their flag: we have it · near …\", Darkspear Islands \"Centre flag: carried · near …\". Name, health and click-to-target only when the game gives the carrier",

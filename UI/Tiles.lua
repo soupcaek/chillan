@@ -187,10 +187,10 @@ for _, d in ipairs({
   -- (1.4.48) honor this game: the session count, the honor messages and the scoreboard, the most of them
   { key = "bghonor", name = "Honor this battleground", get = function()
     local b = P().bg
-    if not b then return "–", "honor" end
+    if not b then return "+0", "honor this game" end
     local _, h = P():BGNumbers()
     h = math.max(h or 0, b.honorChat or 0, (b.me and b.me.honor) or 0)
-    return ns.Num(h), "honor"
+    return "+" .. ns.Num(h), "honor this game"
   end },
   { key = "bghk", name = "Kills this battleground", get = function()
     local k = P():BGNumbers()

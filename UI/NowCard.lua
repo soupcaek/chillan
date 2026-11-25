@@ -460,10 +460,9 @@ function N:Update()
     local me = b and b.me
     local hk = me and me.hk or kills
     f.big:SetText(tostring(hk or 0))
-    -- (1.4.48) one line: HKs, deaths only when there are any, the kill streak only when it runs
+    -- (1.4.55) HKs and deaths, always both, so the line keeps its shape (no kill streak)
     local deaths = (me and me.deaths) or (b and b.deaths) or 0
-    f.bigSub:SetText("HKs" .. (deaths > 0 and ("  ·  " .. ns.Plural(deaths, "death")) or "")
-      .. ((b and b.streak > 1) and ("  ·  streak " .. b.streak) or ""))
+    f.bigSub:SetText("HKs  ·  " .. ns.Plural(deaths, "death"))
     f.right:SetText("")
     -- (1.4.34) the bar shows the battleground's reputation instead of XP
     local rep = P:BGRep()
@@ -474,7 +473,9 @@ function N:Update()
       else
         local span = math.max(1, (rep.max or 0) - (rep.min or 0))
         f.meter.pct = math.max(0, math.min(1, ((rep.value or 0) - (rep.min or 0)) / span))
-        f.right:SetText(rep.short .. " · " .. rep.standing .. " " .. math.floor(f.meter.pct * 100) .. " %")
+        -- (1.4.55) "Frostwolf · Friendly · 7 680 / 12 000 · 64 %"
+        f.right:SetText(rep.short .. " · " .. rep.standing .. " · " .. ns.Num((rep.value or 0) - (rep.min or 0))
+          .. " / " .. ns.Num(span) .. " · " .. math.floor(f.meter.pct * 100) .. " %")
         -- (1.4.48) rep left and the average per win are in the tooltip (hover the card)
       end
     end
@@ -483,9 +484,8 @@ function N:Update()
     local st = P.PvPStats("today")
     local here = st[P.BGKey(b and b.name or ns.S(GetInstanceInfo))]
     if here then
+      -- (1.4.55) just the games won here today: honor and streak read as totals, which they weren't
       rows[#rows + 1] = dim("Today  ") .. here.won .. " / " .. here.played .. " won"
-        .. ((here.honor or 0) > 0 and (dim(" · ") .. ns.Num(here.honor) .. dim(" honor")) or "")
-        .. ((here.cur or 0) > 1 and ns.Colorize(" · win streak " .. here.cur, C.green) or "")
     end
     if dg then rows[#rows + 1] = ns.Colorize("Revenge: " .. dg.name .. " is here", C.green) .. dim("  killed the gang " .. dg.n .. "×") end
   end

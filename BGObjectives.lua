@@ -14,29 +14,37 @@ O.KEYS = { [30] = "AV", [489] = "WSG", [529] = "AB" }
 O.CAP = { AV = 300, AB = 60, DI = 60 }
 O.FLAG_RESPAWN = 12
 
--- the map's base icons (textureIndex in the minimap POI icon sheet), as the game draws them:
--- assaulted, with the side doing the assaulting
+-- (1.4.55) the map's base icons as Forever draws them (textureIndex in the minimap POI sheet).
+-- Forever uses the retail numbers, not classic's (one lower): DBM-PvP's and Capping's tables agree,
+-- and they match what we saw live in Alterac Valley (24 Nov). Being taken, by the side taking it:
 local ASSAULT = {
-  [3] = "a", [13] = "h",                  -- graveyard
-  [8] = "a", [11] = "h",                  -- tower / bunker
+  [4] = "a", [14] = "h",                  -- graveyard, relief hut
+  [9] = "a", [12] = "h",                  -- tower, bunker
   [17] = "a", [19] = "h",                 -- mine
   [22] = "a", [24] = "h",                 -- lumber mill
   [27] = "a", [29] = "h",                 -- blacksmith
   [32] = "a", [34] = "h",                 -- farm
   [37] = "a", [39] = "h",                 -- stables
-  [208] = "a", [209] = "h", [213] = "a", [214] = "h", [218] = "a", [219] = "h",
+  [137] = "a", [139] = "h", [142] = "a", [144] = "h", [147] = "a", [149] = "h", [152] = "a", [154] = "h",
+  [208] = "a", [209] = "h",               -- market
+  [213] = "a", [214] = "h",               -- ruins
+  [218] = "a", [219] = "h",               -- shrine
 }
--- held: the Arathi Basin bases come in fives (neutral, Alliance assaulting, Alliance, Horde
--- assaulting, Horde) from 16 to 40
+-- held, by the side holding it
+local HELD = {
+  [15] = "a", [13] = "h",                 -- graveyard
+  [11] = "a", [10] = "h",                 -- tower, bunker
+  [18] = "a", [20] = "h", [23] = "a", [25] = "h", [28] = "a", [30] = "h", [33] = "a", [35] = "h", [38] = "a", [40] = "h",
+  [138] = "a", [140] = "h", [143] = "a", [145] = "h", [148] = "a", [150] = "h", [153] = "a", [155] = "h",
+  [205] = "a", [206] = "h", [210] = "a", [211] = "h", [215] = "a", [216] = "h",
+}
 local function heldBy(icon)
   if type(icon) ~= "number" then return nil end
-  if ASSAULT[icon] then return nil end
-  if icon >= 16 and icon <= 40 then
-    local r = (icon - 16) % 5
-    if r == 2 then return "a" elseif r == 4 then return "h" elseif r == 0 then return "n" end
-  end
-  return nil
+  return HELD[icon]
 end
+-- a tower or bunker icon (standing: held or being burned)
+local function isTowerIcon(icon) return type(icon) == "number" and icon >= 9 and icon <= 12 end
+O.isTowerIcon = isTowerIcon
 O.heldBy = heldBy
 O.ASSAULT = ASSAULT
 
@@ -75,7 +83,7 @@ function O:TowerList(side)
   for _, name in ipairs(O.AV_TOWERS[side] or {}) do
     local n = self.nodes[name]
     local state
-    if not n or n.gone or type(n.icon) ~= "number" or n.icon < 8 or n.icon > 11 then state = n and "gone" or "unknown"
+    if not n or n.gone or type(n.icon) ~= "number" or not isTowerIcon(n.icon) then state = n and "gone" or "unknown"
     elseif n.atk and n.atk ~= side then state = "burning"
     else state = "standing" end
     out[#out + 1] = { name = name, state = state, left = (state == "burning") and self:Left(n) or nil }
@@ -119,7 +127,12 @@ local function readPOIs()
       if ns.isSecret(icon) then icon = nil end
       local desc = info.description
       if ns.isSecret(desc) or type(desc) ~= "string" then desc = nil end
-      out[#out + 1] = { name = info.name, icon = icon, atlas = (not ns.isSecret(info.atlasName)) and info.atlasName or nil, id = id, desc = desc }
+      local left
+      if A.GetAreaPOISecondsLeft then
+        local okL, sl = pcall(A.GetAreaPOISecondsLeft, id)
+        if okL and type(sl) == "number" and not ns.isSecret(sl) and sl > 0 and sl < 3600 then left = sl end
+      end
+      out[#out + 1] = { name = info.name, icon = icon, atlas = (not ns.isSecret(info.atlasName)) and info.atlasName or nil, id = id, desc = desc, left = left }
     end
   end
   return out
@@ -168,6 +181,8 @@ function O:ScanNodes(fresh)
     end
     if atk then
       if changed and n.atk ~= atk then n.atk, n.since = atk, t end
+    elseif held and n.chatAt and t - n.chatAt < 5 then
+      -- the announcement came a moment before the map caught up: the announcement stands
     elseif held then
       n.atk, n.since = nil, nil
       n.side = held
@@ -178,6 +193,12 @@ function O:ScanNodes(fresh)
       n.atk, n.since = nil, nil
     elseif not changed and not n.atk then
       if self.key == "AV" then n.side = avTowerSide(p.name) or n.side end
+    end
+    if p.left then
+      n.left, n.leftAt = p.left, t
+      if not n.atk then n.atk, n.since = "?", t end
+    else
+      n.left, n.leftAt = nil, nil
     end
     n.icon = p.icon or false
   end
@@ -283,7 +304,10 @@ end
 
 -- seconds until an assaulted node falls (nil when we don't know when it started)
 function O:Left(n)
-  if not n or not n.atk or not n.since then return nil end
+  if not n or not n.atk then return nil end
+  -- (1.4.55) the game's own time left, where it gives one
+  if n.left and n.leftAt then return math.max(0, math.floor(n.left - (now() - n.leftAt))) end
+  if not n.since then return nil end
   local cap = O.CAP[self.key or ""] or 60
   return math.max(0, math.floor(cap - (now() - n.since)))
 end
@@ -310,7 +334,7 @@ function O:TowersStanding()
   local h, a = 0, 0
   for _, n in pairs(self.nodes) do
     local side = avTowerSide(n.name)
-    if side and not n.gone and type(n.icon) == "number" and n.icon >= 8 and n.icon <= 11 then
+    if side and not n.gone and isTowerIcon(n.icon) then
       if side == "h" then h = h + 1 else a = a + 1 end
     end
   end
@@ -324,7 +348,7 @@ function O:TowerStates()
   local any = false
   for _, n in pairs(self.nodes) do
     local side = avTowerSide(n.name)
-    if side and not n.gone and type(n.icon) == "number" and n.icon >= 8 and n.icon <= 11 then
+    if side and not n.gone and isTowerIcon(n.icon) then
       any = true
       st[side].standing = st[side].standing + 1
       if n.atk and n.atk ~= side then st[side].burning = st[side].burning + 1 end
@@ -355,6 +379,17 @@ function O:Score()
   end
   local a, h = parse(1893), parse(1894)
   if a and h then return { a = a, h = h } end
+  -- (1.4.55) Darkspear Islands: widget 7467, one bar per side, the left one the Alliance's
+  -- (ForeverBattlegroundTimers' reading of the client's widget tables)
+  if W.GetDoubleStatusBarWidgetVisualizationInfo then
+    local okD, d = pcall(W.GetDoubleStatusBarWidgetVisualizationInfo, 7467)
+    if okD and type(d) == "table" and type(d.leftBarValue) == "number" and not ns.isSecret(d.leftBarValue)
+      and type(d.rightBarValue) == "number" and not ns.isSecret(d.rightBarValue) then
+      local m = (type(d.leftBarMax) == "number" and not ns.isSecret(d.leftBarMax) and d.leftBarMax > 0) and d.leftBarMax or 2000
+      local cb = self:CountBases()
+      return { a = { score = d.leftBarValue, max = m, bases = cb and cb.a }, h = { score = d.rightBarValue, max = m, bases = cb and cb.h } }
+    end
+  end
   if not W.GetTopCenterWidgetSetID or not W.GetAllWidgetsBySetID then return nil end
   local ok, set = pcall(W.GetTopCenterWidgetSetID)
   if not ok or not set then return nil end
@@ -385,6 +420,38 @@ function O:Score()
   return nil
 end
 
+-- (1.4.55) bases per side from the map's own labels ("Horde Controlled", "Alliance Controlled"),
+-- else from the icons we know; nil when neither says anything
+function O:CountBases()
+  local c, any = { h = 0, a = 0 }, false
+  for _, n in pairs(self.nodes) do
+    if not n.gone and not O.NotABase(n.name) and (n.side == "h" or n.side == "a") and not n.atk then
+      c[n.side] = c[n.side] + 1
+      any = true
+    end
+  end
+  return any and c or nil
+end
+
+-- Warsong Gulch's clock: widget 6 (630 in older builds), "mm:ss" while shown
+function O:GameClock()
+  local W = C_UIWidgetManager
+  if not W or not W.GetIconAndTextWidgetVisualizationInfo then return nil end
+  for _, id in ipairs({ 6, 630 }) do
+    local ok, info = pcall(W.GetIconAndTextWidgetVisualizationInfo, id)
+    local t = ok and type(info) == "table" and info.text
+    if type(t) == "string" and not ns.isSecret(t) then
+      local m, sec = clean(t):match("(%d+)[^%d]+(%d%d)")
+      if m then
+        self.clockEnds = now() + tonumber(m) * 60 + tonumber(sec)
+        return math.floor(self.clockEnds - now())
+      end
+    end
+  end
+  if self.clockEnds and self.clockEnds > now() then return math.floor(self.clockEnds - now()) end
+  return nil
+end
+
 -- win estimate from how fast each side's score has been going up the last minute
 O.samples = {}
 function O:Sample(sc)
@@ -410,8 +477,9 @@ function O:Estimate(sc)
   local ta = ra > 0 and (max - sc.a.score) / ra or math.huge
   local th = rh > 0 and (max - sc.h.score) / rh or math.huge
   if ta == math.huge and th == math.huge then return nil end
-  if th <= ta then return "h", th end
-  return "a", ta
+  -- (1.4.55) the loser's score when the winner gets there: the final score estimate
+  if th <= ta then return "h", th, math.min(max, math.floor(sc.a.score + ra * th + 0.5)) end
+  return "a", ta, math.min(max, math.floor(sc.h.score + rh * ta + 0.5))
 end
 
 -- Warsong Gulch: flags captured per side, and the respawn after a capture
@@ -476,11 +544,114 @@ function O:Near(x, y)
 end
 
 ---------------------------------------------------------------------------
+-- (1.4.55) the battleground's own announcements. In Darkspear Islands and Arathi Basin they reach
+-- addons readable ("The Horde has assaulted the Camp!"; ForeverBattlegroundTimers' test, 8 Oct,
+-- with every capture 60.0 s after its assault). Alterac Valley's herald yells are hidden: there
+-- the map icons do it. A hidden line is skipped. English client words only.
+---------------------------------------------------------------------------
+O.FLAG_RETURN = 10        -- a dropped flag goes home by itself
+O.FLAG_RESET_DI = 21      -- Darkspear Islands: the centre flag is back this long after a capture
+local BASE_PHRASES = {
+  { "has assaulted the ([^!]+)", "assaulted" }, { "claims the ([^!]+)", "assaulted" },
+  { "has taken control of the ([^!]+)", "taken" }, { "has taken the ([^!]+)", "taken" },
+  { "has defended the ([^!]+)", "defended" },
+}
+local CHAT_SIDE = { CHAT_MSG_BG_SYSTEM_HORDE = "h", CHAT_MSG_BG_SYSTEM_ALLIANCE = "a" }
+
+-- a base named in an announcement, matched to the map's own name (announcements write some in
+-- lower case)
+function O:NodeNamed(name)
+  local low = name:lower()
+  for nm, n in pairs(self.nodes) do if nm:lower() == low then return n end end
+  local proper = name:gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end)
+  local n = { name = proper }
+  self.nodes[proper] = n
+  self.order[#self.order + 1] = proper
+  return n
+end
+
+function O:Announce(event, text)
+  if not self.key or type(text) ~= "string" or ns.isSecret(text) then
+    if self.key and ns.isSecret(text) then self.chatHidden = true end
+    return
+  end
+  self.chatReadable = true
+  local side = CHAT_SIDE[event]
+  local low = text:lower()
+  local t = now()
+  -- bases
+  for _, ph in ipairs(BASE_PHRASES) do
+    local name = text:match(ph[1])
+    if name then
+      name = name:gsub("[%s%.!]+$", "")
+      if name ~= "" and not name:lower():find("flag") and side then
+        local n = self:NodeNamed(name)
+        if ph[2] == "assaulted" then
+          n.atk, n.since, n.left, n.leftAt, n.chatAt = side, t, nil, nil, t
+        else
+          n.atk, n.since, n.left, n.leftAt, n.side = nil, nil, nil, nil, side
+        end
+        self:LogIcon(name, "chat", ph[2] .. " " .. side)
+        return true
+      end
+    end
+  end
+  -- flags
+  if low:find("flags have been reset") or low:find("flags are now placed") or low:find("flag has been reset") then
+    self.flag = {}
+    return true
+  end
+  if not low:find("flag") then return end
+  local team = low:find("horde flag") and "h" or low:find("alliance flag") and "a" or "n"
+  self.flag = self.flag or {}
+  local f = self.flag[team] or {}
+  self.flag[team] = f
+  if low:find("picked up") or low:find("has taken the") then
+    f.state, f.by, f.bySide, f.at = "carried", text:match("picked up by ([^!%.]+)") or text:match("^([^ ]+) has taken the"), side, t
+    f.droppedAt = nil
+  elseif low:find("was dropped") or low:find("been dropped") then
+    f.state, f.droppedAt, f.by = "dropped", t, nil
+  elseif low:find("returned") then
+    f.state, f.droppedAt, f.by = "home", nil, nil
+  elseif low:find("captured the") or low:find("been captured") then
+    f.state, f.by, f.droppedAt = "home", nil, nil
+    if self.key == "WSG" then self.respawnAt = t + O.FLAG_RESPAWN end
+    if self.key == "DI" then self.resetAt = t + O.FLAG_RESET_DI end
+  end
+  return true
+end
+
+-- what the announcements said about a flag ("h", "a" or "n" for Darkspear Islands' own)
+function O:FlagInfo(team) return self.flag and self.flag[team] end
+-- seconds until a dropped flag goes home, or nil
+function O:DroppedLeft()
+  local best
+  for _, f in pairs(self.flag or {}) do
+    if f.state == "dropped" and f.droppedAt then
+      local l = math.ceil(f.droppedAt + O.FLAG_RETURN - now())
+      if l > 0 and (not best or l < best) then best = l end
+    end
+  end
+  return best
+end
+function O:ResetLeft()
+  if not self.resetAt then return nil end
+  local l = math.ceil(self.resetAt - now())
+  if l <= 0 then self.resetAt = nil return nil end
+  return l
+end
+
+for ev in pairs({ CHAT_MSG_BG_SYSTEM_HORDE = 1, CHAT_MSG_BG_SYSTEM_ALLIANCE = 1, CHAT_MSG_BG_SYSTEM_NEUTRAL = 1 }) do
+  ns:On(ev, function(text) if O.key and O:Announce(ev, text) then ns:Fire("BGOBJ") end end)
+end
+
+---------------------------------------------------------------------------
 -- lifecycle
 ---------------------------------------------------------------------------
 function O:Reset(key)
   self.key = key
   self.prevBases, self.changedNow, self.seenW = nil, {}, nil
+  self.flag, self.resetAt, self.clockEnds, self.chatReadable, self.chatHidden = {}, nil, nil, nil, nil
   self.nodes, self.order, self.samples = {}, {}, {}
   self.lastFlags, self.respawnAt = nil, nil
 end

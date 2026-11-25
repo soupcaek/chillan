@@ -218,6 +218,33 @@ SlashCmdList.CHILLAN = function(msg)
     ns.db.settings.window = nil
     ns.db.settings.minibarPos = nil
     ReloadUI()
+  elseif cmd == "perf" then
+    -- (1.4.55) how much memory Chillan uses next to your other addons
+    local upd = UpdateAddOnMemoryUsage or (C_AddOns and C_AddOns.UpdateAddOnMemoryUsage)
+    local get = GetAddOnMemoryUsage or (C_AddOns and C_AddOns.GetAddOnMemoryUsage)
+    local num = (C_AddOns and C_AddOns.GetNumAddOns) or GetNumAddOns
+    local info = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+    if not (upd and get and num and info) then ns.Print("The game doesn't report addon memory here.") return end
+    pcall(upd)
+    local list, total = {}, 0
+    for i = 1, num() do
+      local name = info(i)
+      local ok, kb = pcall(get, i)
+      if ok and type(kb) == "number" and not ns.isSecret(kb) and kb > 0 then
+        list[#list + 1] = { name = name, kb = kb }
+        total = total + kb
+      end
+    end
+    table.sort(list, function(a, b) return a.kb > b.kb end)
+    local function mb(kb) return string.format("%.1f MB", kb / 1024) end
+    local mine
+    for i, a in ipairs(list) do if a.name == ADDON then mine = i end end
+    ns.Print("Addon memory, " .. #list .. " addons, " .. mb(total) .. " in all:")
+    for i = 1, math.min(6, #list) do
+      local a = list[i]
+      print(string.format("  %d. %s  %s", i, a.name == ADDON and ns.Colorize(a.name, ns.C.green) or a.name, mb(a.kb)))
+    end
+    if mine and mine > 6 then print(string.format("  %d. %s  %s", mine, ns.Colorize(ADDON, ns.C.green), mb(list[mine].kb))) end
   elseif cmd == "bgdebug" then
     if ns.BGObj then ns.BGObj.Debug() end
   elseif cmd == "debug" then

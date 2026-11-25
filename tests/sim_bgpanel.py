@@ -40,12 +40,12 @@ print("chip 3:", LA.eval('(ADDON_NS.BGPanel.chips[3].text:GetText() or ""):gsub(
 print("score line:", LA.eval('(ADDON_NS.BGPanel.score:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'), "|", LA.eval('(ADDON_NS.BGPanel.scoreR:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")'))
 # Alterac Valley: only what's under attack, towers standing
 LA.execute('''GetInstanceInfo = function() return "Alterac Valley", "pvp", 0, "", 40, 0, false, 30 end
-POIS = { {"Stonehearth Bunker", 11}, {"Iceblood Tower", 9}, {"Tower Point", 9}, {"Dun Baldar North Bunker", 10}, {"Snowfall Graveyard", 3}, {"Frostwolf Graveyard", 12} }
+POIS = { {"Stonehearth Bunker", 11}, {"Iceblood Tower", 10}, {"Tower Point", 10}, {"Dun Baldar North Bunker", 11}, {"Snowfall Graveyard", 15}, {"Frostwolf Graveyard", 13} }
 ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Draw()''')
-LA.execute('POIS[1][2] = 8; POIS[2][2] = 11; ADDON_NS.BGObj:Update(); GT = GT + 60; POIS[5][2] = 13; ADDON_NS.BGObj:Update(); GT = GT + 12; ADDON_NS.BGPanel:Draw()')
+LA.execute('POIS[1][2] = 12; POIS[2][2] = 9; ADDON_NS.BGObj:Update(); GT = GT + 60; POIS[5][2] = 14; ADDON_NS.BGObj:Update(); GT = GT + 12; ADDON_NS.BGPanel:Draw()')
 strip = '(%s or ""):gsub("|c%%x%%x%%x%%x%%x%%x%%x%%x", ""):gsub("|r", "")'
 v = 'ADDON_NS.BGPanel.av'
-print("AV next:", LA.eval(strip % (v + '.name:GetText()')), "|", LA.eval(strip % (v + '.sub:GetText()')), "|", LA.eval(v + '.big:GetText()'))
+print("AV next:", LA.eval(strip % (v + '.name:GetText()')), "|", LA.eval(v + '.big:GetText()'))
 print("AV row1:", LA.eval(strip % (v + '.rows[1].label:GetText()')), "|", LA.eval(strip % (v + '.rows[1].time:GetText()')))
 print("AV pips:", LA.eval('(function() local s = ADDON_NS.BGObj:TowerStates() return "H " .. s.h.standing .. "/" .. s.h.burning .. "  A " .. s.a.standing .. "/" .. s.a.burning end)()'))
 assert LA.eval(v + '.big:GetText()') != ""
@@ -76,7 +76,7 @@ n = LA.eval('#ADDON_NS.BGObj:Chips()')
 print("attacks right after joining:", n)
 assert n == 0
 # seen changing: counted; and it survives a /reload
-LA.execute('POIS[3][2] = 8; ADDON_NS.BGObj:Update(); GT = GT + 30; ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()')
+LA.execute('POIS[3][2] = 9; ADDON_NS.BGObj:Update(); GT = GT + 30; ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()')
 left = LA.eval('ADDON_NS.BGObj:Left(ADDON_NS.BGObj.nodes["Iceblood Tower"])')
 print("after reload, Iceblood Tower burns in:", left)
 assert left and 265 <= left <= 271
@@ -119,3 +119,50 @@ T3 = ADDON_NS.BGObj.nodes["Camp"].atk''')
 print("DI learn: unknown assault ->", LA.eval('tostring(T1)'), "| held after +1 ->", LA.eval('tostring(T2)'), "| next game, icon 501 ->", LA.eval('tostring(T3)'))
 print("DI chips:", LA.eval('(function() local o = {} for _, n in ipairs(ADDON_NS.BGObj:Chips()) do o[#o+1] = n.name end return table.concat(o, ", ") end)()'))
 assert LA.eval('T1') == "?" and LA.eval('T2') == "a" and LA.eval('T3') == "a"
+# ---- 1.4.55 ----
+strip2 = '(%s or ""):gsub("|c%%x%%x%%x%%x%%x%%x%%x%%x", ""):gsub("|r", "")'
+# Darkspear Islands: chat lines drive the timers and owners, score from widget 7467, bases from labels
+LA.execute('''ADDON_NS.db.bgLearn = nil
+GetInstanceInfo = function() return "Darkspear Islands", "pvp", 0, "", 15, 0, false, 9999 end
+POIS = { {"Camp", 0, "Horde Controlled"}, {"Ruins", 0, "Uncontrolled"}, {"Abandoned Tower", 0, "Alliance Controlled"}, {"Shipwreck Cove", 0, "Uncontrolled"}, {"Darkspear Flag", 0} }
+C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] return { name = p[1], textureIndex = p[2], description = p[3] } end
+C_UIWidgetManager.GetIconAndTextWidgetVisualizationInfo = function() return nil end
+SC = { a = 760, h = 820 }
+C_UIWidgetManager.GetDoubleStatusBarWidgetVisualizationInfo = function(id) if id == 7467 then return { leftBarValue = SC.a, leftBarMax = 2000, rightBarValue = SC.h, rightBarMax = 2000 } end end
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()
+FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The Alliance has assaulted the Ruins!")
+GT = GT + 15
+ADDON_NS.BGObj:Update()''')
+print("DI Ruins:", LA.eval('ADDON_NS.BGObj.nodes["Ruins"].atk'), LA.eval('ADDON_NS.BGObj:Left(ADDON_NS.BGObj.nodes["Ruins"])'),
+      "| bases:", LA.eval('(function() local c = ADDON_NS.BGObj:CountBases() return c.h .. " vs " .. c.a end)()'),
+      "| score:", LA.eval('(function() local s = ADDON_NS.BGObj:Score() return s.h.score .. "-" .. s.a.score .. " bases " .. tostring(s.h.bases) end)()'))
+assert LA.eval('ADDON_NS.BGObj.nodes["Ruins"].atk') == "a"
+LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The Alliance has taken the Ruins!"); ADDON_NS.BGObj:Update()''')
+assert LA.eval('ADDON_NS.BGObj.nodes["Ruins"].side') == "a" and not LA.eval('ADDON_NS.BGObj.nodes["Ruins"].atk')
+# final score estimate
+LA.execute('''for i = 1, 6 do GT = GT + 12; SC.h = SC.h + 30; SC.a = SC.a + 10; ADDON_NS.BGObj:Update() end''')
+print("DI estimate:", LA.eval('(function() local s, t, o = ADDON_NS.BGObj:Estimate() return tostring(s) .. " " .. math.floor(t) .. "s final other " .. tostring(o) end)()'))
+# the centre flag from chat, and the reset after a capture
+LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The flag was picked up by Brannoc!"); ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
+print("DI slot:", LA.eval(strip2 % 'ADDON_NS.BGPanel.slots[1].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[1].name:GetText()'))
+LA.execute('''FIRE("CHAT_MSG_BG_SYSTEM_ALLIANCE", "The Alliance has captured the flag!")''')
+print("DI reset:", LA.eval('tostring(ADDON_NS.BGObj:ResetLeft())'))
+assert LA.eval('ADDON_NS.BGObj:ResetLeft()') == 21
+# Warsong Gulch: flags out of 3, the clock, dropped flag
+LA.execute('''GetInstanceInfo = function() return "Warsong Gulch", "pvp", 0, "", 10, 0, false, 489 end
+C_UIWidgetManager.GetDoubleStatusBarWidgetVisualizationInfo = function() return nil end
+C_UIWidgetManager.GetIconAndTextWidgetVisualizationInfo = function(id)
+  if id == 1893 then return { text = "1/3" } end
+  if id == 1894 then return { text = "2/3" } end
+  if id == 6 then return { text = "14:20", state = 1 } end
+end
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()
+FIRE("CHAT_MSG_BG_SYSTEM_HORDE", "The Alliance flag was dropped by Lil Woyer!")
+ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
+print("WSG score:", LA.eval(strip2 % 'ADDON_NS.BGPanel.score:GetText()'), "|", LA.eval(strip2 % 'ADDON_NS.BGPanel.scoreR:GetText()'),
+      "| clock:", LA.eval(strip2 % 'ADDON_NS.BGPanel.info:GetText() .. " " .. ADDON_NS.BGPanel.right:GetText()'),
+      "| dropped:", LA.eval(strip2 % 'ADDON_NS.BGPanel.info2:GetText() .. " " .. ADDON_NS.BGPanel.right2:GetText()'))
+print("auto height:", LA.eval('math.floor(ADDON_NS.EventWindow.frame:GetHeight())'), "content", LA.eval('ADDON_NS.BGPanel.contentH'))
+# a hidden announcement is skipped
+LA.execute('ISSECRET_NEXT = true')
+assert LA.eval('math.floor(ADDON_NS.EventWindow.frame:GetHeight())') == 218, "auto height"

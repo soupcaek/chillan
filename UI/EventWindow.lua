@@ -614,8 +614,13 @@ function E:Reanchor(anchor)
   ns.db.settings.evMin = nil
   -- attached height is remembered separately from the detached window's size
   local S = ns.db.settings
-  f:SetHeight(S.evMin and 28 or (S.evDockH or (S.evSize and S.evSize.h) or 210))
-  if self.grip then self.grip:SetShown(not UI.IsLocked() and not S.evMin) end
+  -- (1.4.55) in PvP mode the battleground panel sets the height
+  if ns.BGPanel and ns.BGPanel.on then
+    ns.BGPanel:Fit()
+  else
+    f:SetHeight(S.evMin and 28 or (S.evDockH or (S.evSize and S.evSize.h) or 210))
+    if self.grip then self.grip:SetShown(not UI.IsLocked() and not S.evMin) end
+  end
   return true
 end
 
