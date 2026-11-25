@@ -71,6 +71,7 @@ function W:ApplyScale()
   if not self.frame then return end
   local sc = (ns.db.settings.popupScale or 1)
   pcall(self.frame.SetScale, self.frame, sc)
+  UI.RelayoutBoxes()
 end
 
 local function savePos(f)
@@ -83,7 +84,7 @@ function W:Create()
   local f = CreateFrame("Frame", "ChillanMainFrame", UIParent)
   self.frame = f
   local sz = ns.db.settings.windowSize
-  f:SetSize(math.max(MIN_W, (sz and sz.w) or WIDTH), math.max(MIN_H, (sz and sz.h) or HEIGHT))
+  f:SetSize(math.floor(math.max(MIN_W, (sz and sz.w) or WIDTH) + 0.5), math.floor(math.max(MIN_H, (sz and sz.h) or HEIGHT) + 0.5))
   local pos = ns.db.settings.window
   if pos and pos.point then
     f:SetPoint(pos.point, UIParent, pos.rel or pos.point, pos.x, pos.y)
@@ -116,7 +117,7 @@ function W:Create()
   title:EnableMouse(true)
   title:RegisterForDrag("LeftButton")
   title:SetScript("OnDragStart", function() f:StartMoving() end)
-  title:SetScript("OnDragStop", function() f:StopMovingOrSizing() savePos(f) end)
+  title:SetScript("OnDragStop", function() f:StopMovingOrSizing() UI.SnapFrame(f) savePos(f) end)
 
   local seal = title:CreateTexture(nil, "ARTWORK")
   seal:SetTexture(ns.TEX .. "Logo")
@@ -282,10 +283,12 @@ function W:Create()
   line2:SetHeight(1)
   -- (1.4.65) the gang code and version stay in the title row, next to the logo
 
-  -- content
+  self.line2 = line2
+  -- content (1.4.66: cut to the window, so a page never spills over the footer or out of the window)
   local content = CreateFrame("Frame", nil, f)
   content:SetPoint("TOPLEFT", 1, -TOP_H - PAGEBAR_H - 2)
   content:SetPoint("BOTTOMRIGHT", -1, FOOT_H + 1)
+  if content.SetClipsChildren then content:SetClipsChildren(true) end
   self.content = content
 
   -- pages are built the first time they're opened (all 12 were built when the window opened before 1.0)
@@ -311,7 +314,10 @@ function W:Create()
   grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
   grip:SetScript("OnMouseUp", function()
     f:StopMovingOrSizing()
-    ns.db.settings.windowSize = { w = math.floor(f:GetWidth()), h = math.floor(f:GetHeight()) }
+    -- (1.4.66) whole pixels: a half-pixel size or corner blurs every line in the window
+    f:SetSize(math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5))
+    UI.SnapFrame(f)
+    ns.db.settings.windowSize = { w = math.floor(f:GetWidth() + 0.5), h = math.floor(f:GetHeight() + 0.5) }
     savePos(f)
     W:Refresh()
   end)
@@ -319,7 +325,7 @@ function W:Create()
 
   self:BuildSetup()
 
-  f:SetScript("OnShow", function() W:Refresh() end)
+  f:SetScript("OnShow", function() UI.SnapFrame(f) W:Refresh() end)
   ns:Listen("DATA", function() if f:IsShown() then W:Refresh() end end)
   ns:Listen("CODE_CHANGED", function() if f:IsShown() then W:Refresh() end end)
   self:Select("home")
@@ -366,6 +372,18 @@ function W:UpdateBadges()
 end
 ns:Listen("BADGES", function() if W.frame then W:UpdateBadges() end end)
 
+-- (1.4.66) the pages band only where a section has more than one page; elsewhere the page starts
+-- right under the sections (the empty band looked broken)
+function W:SetBand(on)
+  if self.bandOn == on then return end
+  self.bandOn = on
+  self.pagebar:SetShown(on)
+  self.line2:SetShown(on)
+  self.content:ClearAllPoints()
+  self.content:SetPoint("TOPLEFT", 1, on and (-TOP_H - PAGEBAR_H - 2) or (-TOP_H - 1))
+  self.content:SetPoint("BOTTOMRIGHT", -1, FOOT_H + 1)
+end
+
 -- the page pills for the section we're in
 function W:PaintPageBar(secKey, sec)
   for _, b in pairs(self.pageButtons) do b:Hide() end
@@ -374,6 +392,7 @@ function W:PaintPageBar(secKey, sec)
   -- a hidden page (player, compare) shows as an extra pill while it's open
   if self.current and not has(pages, self.current) then pages[#pages + 1] = self.current end
   self.pagebar.seg:Hide()
+  self:SetBand(#pages > 1)
   if #pages == 1 then return end   -- (1.1.7) one page: no pill (Home, Chat)
   -- (1.4.64) the pages as one choice bar (the Market look)
   local prev, total = nil, 0

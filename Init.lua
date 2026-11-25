@@ -142,6 +142,8 @@ SlashCmdList.CHILLAN = function(msg)
     ns.Window:Toggle()
   elseif cmd == "selftest" or cmd == "test" then
     ns.SelfTest()
+  elseif cmd == "kit" and ns.Kit then
+    ns.Kit:Toggle()
   elseif cmd == "popups" then
     ns.Print("Popups this session (newest last):")
     if not ns.popupLog or #ns.popupLog == 0 then print("  none") end

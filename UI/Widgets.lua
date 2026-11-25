@@ -107,14 +107,120 @@ function UI.Slider(parent, w, minV, maxV, step, get, set, fmt)
   return f
 end
 
+-- (1.4.66) crisp boxes: the old 9-slice texture landed on half pixels and its corners went missing.
+-- A box is now drawn from pieces that each map onto whole screen pixels: three solid fill bands,
+-- four corner pieces (one texel per pixel), four 1-px edge lines and four 1-px corner rings.
+UI.boxes = setmetatable({}, { __mode = "k" })
+local WHITE = "Interface\\Buttons\\WHITE8x8"
+local function snapTex(t)
+  if t.SetSnapToPixelGrid then t:SetSnapToPixelGrid(false) end
+  if t.SetTexelSnappingBias then t:SetTexelSnappingBias(0) end
+  return t
+end
+-- one screen pixel in this frame's units
+function UI.Px(f)
+  local s = (f and f.GetEffectiveScale and f:GetEffectiveScale()) or UIParent:GetEffectiveScale()
+  if PixelUtil and PixelUtil.GetNearestPixelSize then return PixelUtil.GetNearestPixelSize(1, s, 1) end
+  return 1
+end
+-- round a length to whole screen pixels
+function UI.Snap(f, v)
+  local p = UI.Px(f)
+  return math.floor(v / p + 0.5) * p
+end
+-- a set of textures that acts like one (Show/Hide/SetVertexColor), so old code using f.bg / f.border works
+local function texGroup(list)
+  local g = { list = list }
+  function g:SetVertexColor(r, gg, b, a) for _, t in ipairs(self.list) do t:SetVertexColor(r, gg, b, a) end end
+  function g:Show() for _, t in ipairs(self.list) do t:Show() end self.shown = true end
+  function g:Hide() for _, t in ipairs(self.list) do t:Hide() end self.shown = false end
+  function g:SetShown(v) if v then self:Show() else self:Hide() end end
+  function g:IsShown() return self.shown end
+  function g:SetAlpha(a) for _, t in ipairs(self.list) do t:SetAlpha(a) end end
+  function g:SetDrawLayer(layer, sub) for _, t in ipairs(self.list) do t:SetDrawLayer(layer, sub) end end
+  function g:SetAllPoints() end
+  return g
+end
+local CORNER_TC = {   -- texcoords that turn the top-left piece into each corner (content is r x r of 16)
+  TOPLEFT = function(u) return 0, u, 0, u end,
+  TOPRIGHT = function(u) return u, 0, 0, u end,
+  BOTTOMLEFT = function(u) return 0, u, u, 0 end,
+  BOTTOMRIGHT = function(u) return u, 0, u, 0 end,
+}
+local function layoutBox(f)
+  local p = UI.Px(f)
+  local r = f.radius
+  local R = r * p
+  local fp, bp = f.fillParts, f.lineParts
+  for i, pt in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+    for _, t in ipairs({ fp.c[i], bp.c[i] }) do
+      t:ClearAllPoints()
+      t:SetPoint(pt, f, pt, 0, 0)
+      t:SetSize(R, R)
+    end
+  end
+  -- fill: top band, middle, bottom band (no overlaps, so see-through fills stay even)
+  fp.top:ClearAllPoints()
+  fp.top:SetPoint("TOPLEFT", f, "TOPLEFT", R, 0)
+  fp.top:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -R, -R)
+  fp.mid:ClearAllPoints()
+  fp.mid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -R)
+  fp.mid:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, R)
+  fp.bot:ClearAllPoints()
+  fp.bot:SetPoint("TOPLEFT", f, "BOTTOMLEFT", R, R)
+  fp.bot:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -R, 0)
+  -- edges: exactly one screen pixel
+  bp.t:ClearAllPoints() bp.t:SetPoint("TOPLEFT", f, "TOPLEFT", R, 0) bp.t:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -R, -p)
+  bp.b:ClearAllPoints() bp.b:SetPoint("TOPLEFT", f, "BOTTOMLEFT", R, p) bp.b:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -R, 0)
+  bp.l:ClearAllPoints() bp.l:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -R) bp.l:SetPoint("BOTTOMRIGHT", f, "BOTTOMLEFT", p, R)
+  bp.r:ClearAllPoints() bp.r:SetPoint("TOPLEFT", f, "TOPRIGHT", -p, -R) bp.r:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, R)
+end
+-- move a frame so its top-left corner sits on a whole screen pixel (half pixels blur every line in it)
+function UI.SnapFrame(f)
+  local l, t = f:GetLeft(), f:GetTop()
+  if not l or not t then return end
+  local p = UI.Px(f)
+  local nl, nt = math.floor(l / p + 0.5) * p, math.floor(t / p + 0.5) * p
+  if math.abs(nl - l) < 0.001 and math.abs(nt - t) < 0.001 then return end
+  local point, rel, relPoint, x, y = f:GetPoint(1)
+  if not point then return end
+  f:SetPoint(point, rel, relPoint, (x or 0) + (nl - l), (y or 0) + (nt - t))
+end
+function UI.RelayoutBoxes() for f in pairs(UI.boxes) do layoutBox(f) end end
+-- the screen-pixel size changes with the UI scale or a window's own scale: redo the edges then
+do
+  local ev = CreateFrame("Frame")
+  ev:RegisterEvent("PLAYER_ENTERING_WORLD")
+  ev:RegisterEvent("UI_SCALE_CHANGED")
+  ev:RegisterEvent("DISPLAY_SIZE_CHANGED")
+  ev:SetScript("OnEvent", function() if C_Timer then C_Timer.After(0.1, UI.RelayoutBoxes) else UI.RelayoutBoxes() end end)
+end
+
+-- UI.Panel(parent, fill, line, small, alpha): small = radius 4 (buttons, inputs), else radius 6 (panels).
+-- A number in `small` sets the radius directly (9 = an 18-px pill).
 function UI.Panel(parent, fill, line, small, alpha)
   local f = CreateFrame("Frame", nil, parent)
-  f.bg = UI.Track(f:CreateTexture(nil, "BACKGROUND"))
-  f.bg:SetAllPoints()
-  UI.Rounded(f.bg, small)
-  f.border = UI.Track(f:CreateTexture(nil, "BORDER"))
-  f.border:SetAllPoints()
-  roundedBorder(f.border, small)
+  f.radius = type(small) == "number" and small or (small and 4 or 6)
+  local file = ns.TEX .. "Corner" .. f.radius
+  local u = f.radius / 16
+  local function piece(layer, tex)
+    local t = UI.Track(snapTex(f:CreateTexture(nil, layer)))
+    t:SetTexture(tex)
+    return t
+  end
+  local fp, bp = { c = {} }, { c = {} }
+  local fl, bl = {}, {}
+  for i, pt in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+    fp.c[i] = piece("BACKGROUND", file .. "F") fp.c[i]:SetTexCoord(CORNER_TC[pt](u))
+    bp.c[i] = piece("BORDER", file .. "R") bp.c[i]:SetTexCoord(CORNER_TC[pt](u))
+    fl[#fl + 1], bl[#bl + 1] = fp.c[i], bp.c[i]
+  end
+  for _, k in ipairs({ "top", "mid", "bot" }) do fp[k] = piece("BACKGROUND", WHITE) fl[#fl + 1] = fp[k] end
+  for _, k in ipairs({ "t", "b", "l", "r" }) do bp[k] = piece("BORDER", WHITE) bl[#bl + 1] = bp[k] end
+  f.fillParts, f.lineParts = fp, bp
+  f.bg, f.border = texGroup(fl), texGroup(bl)
+  UI.boxes[f] = true
+  layoutBox(f)
   function f:SetColors(fillHex, lineHex, a)
     if fillHex then
       local r, g, b = hex(fillHex)
@@ -201,6 +307,7 @@ function UI.PopupScale() return (ns.db and ns.db.settings and ns.db.settings.pop
 function UI.ApplyPopupScale()
   local sc = UI.PopupScale()
   for f in pairs(UI.popupFrames) do pcall(f.SetScale, f, sc) end
+  UI.RelayoutBoxes()
 end
 
 function UI.Movable(frame, key, defaultPos, target)
@@ -224,11 +331,13 @@ function UI.Movable(frame, key, defaultPos, target)
     if not target.isMoving then return end
     target.isMoving = nil
     target:StopMovingOrSizing()
+    UI.SnapFrame(target)
     savePos(target, key)
     if target.OnMoved then target:OnMoved() end
   end)
   UI.movables[key] = target
   UI.RestorePos(target)
+  UI.RelayoutBoxes()
 end
 
 ---------------------------------------------------------------------------
@@ -502,16 +611,16 @@ end
 -- Tekstfelt
 ---------------------------------------------------------------------------
 function UI.EditBox(parent, w, h, placeholder, onEnter)
-  local holder = UI.Panel(parent, C.field or C.input, C.btnLine or C.inputLine, true)
-  holder:SetSize(w or 160, h or 34)
+  local holder = UI.Panel(parent, C.field or C.input, C.border or C.inputLine, true)
+  holder:SetSize(w or 160, h or 28)
   local e = CreateFrame("EditBox", nil, holder)
   e:SetPoint("TOPLEFT", 10, 0)
   e:SetPoint("BOTTOMRIGHT", -10, 0)
-  e:SetFont(ns.FONT, 13, "")
+  e:SetFont(ns.FONT, 12, "")
   UI.Track(e):SetTextColor(hex(C.text))
   e:SetAutoFocus(false)
   e:SetMaxLetters(200)
-  e.ph = UI.Text(holder, 13, nil, C.dim)
+  e.ph = UI.Text(holder, 12, nil, C.dim)
   e.ph:SetPoint("LEFT", 10, 0)
   e.ph:SetPoint("RIGHT", -10, 0)
   e.ph:SetText(placeholder or "")
@@ -519,7 +628,7 @@ function UI.EditBox(parent, w, h, placeholder, onEnter)
     if e:GetText() == "" and not e:HasFocus() then e.ph:Show() else e.ph:Hide() end
   end
   e:SetScript("OnEditFocusGained", function() holder:SetColors(C.field or C.input, C.accent) upd() end)
-  e:SetScript("OnEditFocusLost", function() holder:SetColors(C.field or C.input, C.btnLine or C.inputLine) upd() end)
+  e:SetScript("OnEditFocusLost", function() holder:SetColors(C.field or C.input, C.border or C.inputLine) upd() end)
   e:SetScript("OnTextChanged", upd)
   e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   e:SetScript("OnEnterPressed", function(self)
@@ -538,19 +647,27 @@ end
 -- Avkrysning
 ---------------------------------------------------------------------------
 -- (1.4.64) an on/off switch: a rounded track in the accent colour when on, a knob that moves
+-- (1.4.66) the switch as on the canvas: an 18-px pill and a 12-px knob drawn ABOVE the track
+-- (the old knob sat under the track's frame, so only a coloured block showed)
 function UI.Switch(parent)
   local s = CreateFrame("Frame", nil, parent)
-  s:SetSize(30, 16)
-  s.track = UI.Panel(s, C.active, C.btnLine or C.activeLine, true)
+  s:SetSize(34, 18)
+  s.track = UI.Panel(s, C.active, C.btnLine or C.activeLine, 9)
   s.track:SetAllPoints()
-  s.knob = s:CreateTexture(nil, "OVERLAY")
-  s.knob:SetTexture(ns.TEX .. "Circle")
-  s.knob:SetSize(12, 12)
+  s.top = CreateFrame("Frame", nil, s)
+  s.top:SetAllPoints()
+  s.top:SetFrameLevel(s.track:GetFrameLevel() + 2)
+  s.knob = UI.Track(s.top:CreateTexture(nil, "OVERLAY"))
+  s.knob:SetTexture(ns.TEX .. "Dot12")
+  s.knob:SetTexCoord(0, 0.75, 0, 0.75)
+  if s.knob.SetSnapToPixelGrid then s.knob:SetSnapToPixelGrid(false) s.knob:SetTexelSnappingBias(0) end
   function s:Set(on)
-    self.track:SetColors(on and C.accent or C.active, on and (C.accentHover or C.accent) or (C.btnLine or C.activeLine))
+    local p = UI.Px(self)
+    self.knob:SetSize(12 * p, 12 * p)
+    self.track:SetColors(on and C.accent or C.active, on and C.accent or (C.btnLine or C.activeLine))
     self.knob:ClearAllPoints()
-    self.knob:SetPoint(on and "RIGHT" or "LEFT", on and -2 or 2, 0)
-    self.knob:SetVertexColor(hex(on and C.accentText or C.muted))
+    self.knob:SetPoint(on and "RIGHT" or "LEFT", on and -3 * p or 3 * p, 0)
+    self.knob:SetVertexColor(hex(on and (C.accentText or C.window) or C.muted))
   end
   s:Set(false)
   return s
@@ -1321,58 +1438,66 @@ end
 ---------------------------------------------------------------------------
 -- a bordered panel with a title strip ("UP NEXT" … right text); content goes in p.body
 function UI.Section(parent, title, accent, light)
-  local p = UI.Panel(parent, C.panel or C.card, C.border or C.activeLine, true, light and 0.72 or nil)
-  if accent then
-    p.acc = UI.Track(p:CreateTexture(nil, "ARTWORK"))
-    p.acc:SetColorTexture(hex(accent == true and C.accent or accent))
-    p.acc:SetHeight(2)
-    p.acc:SetPoint("TOPLEFT", 1, -1) p.acc:SetPoint("TOPRIGHT", -1, -1)
-  end
-  local sh = light and 20 or 25
-  p.strip = UI.Track(p:CreateTexture(nil, "BORDER"))
+  -- (1.4.66) the Kit panel: 6 px corners, a 28 px title strip (11 px bold capitals), body 8 px / 12 px in
+  local p = UI.Panel(parent, C.panel or C.card, C.border or C.activeLine, 6, light and 0.72 or nil)
+  local sh = light and 22 or 27        -- strip height inside the 1 px border (+ its 1 px line = 28)
+  -- the strip: rounded at the top (5 px inside the 6 px border), square at the bottom
+  p.stripTop = UI.Panel(p, C.strip or C.cardHover, nil, 5, light and 0.6 or nil)
+  p.stripTop:SetPoint("TOPLEFT", 1, -1) p.stripTop:SetPoint("TOPRIGHT", -1, -1)
+  p.stripTop:SetHeight(10)
+  p.stripTop:SetFrameLevel(p:GetFrameLevel())
+  p.strip = UI.Track(p:CreateTexture(nil, "BORDER", nil, 1))
   p.strip:SetColorTexture(hex(C.strip or C.cardHover))
   if light then p.strip:SetAlpha(0.6) end
-  p.strip:SetPoint("TOPLEFT", 1, accent and -3 or -1)
-  p.strip:SetPoint("TOPRIGHT", -1, accent and -3 or -1)
-  p.strip:SetHeight(sh)
+  p.strip:SetPoint("TOPLEFT", 1, -6)
+  p.strip:SetPoint("BOTTOMRIGHT", p, "TOPRIGHT", -1, -(1 + sh))
+  -- the stripTop covers 1..11; the rect covers 6..1+sh, so the overlap 6..11 is drawn twice: keep the
+  -- top piece short enough that only its rounded part shows
+  p.stripTop:SetHeight(6)
   p.stripLine = UI.Track(p:CreateTexture(nil, "ARTWORK"))
   p.stripLine:SetColorTexture(hex(C.border or C.activeLine))
-  p.stripLine:SetHeight(1)
-  p.stripLine:SetPoint("TOPLEFT", p.strip, "BOTTOMLEFT") p.stripLine:SetPoint("TOPRIGHT", p.strip, "BOTTOMRIGHT")
-  p.title = UI.Text(p, light and 10 or 11, "semi", C.text2)
-  p.title:SetPoint("LEFT", p.strip, "LEFT", 10, 0)
+  p.stripLine:SetPoint("TOPLEFT", 1, -(1 + sh))
+  p.stripLine:SetPoint("BOTTOMRIGHT", p, "TOPRIGHT", -1, -(2 + sh))
+  if accent then
+    p.acc = UI.Track(p:CreateTexture(nil, "OVERLAY"))
+    p.acc:SetColorTexture(hex(accent == true and C.accent or accent))
+    p.acc:SetPoint("TOPLEFT", 3, 0)
+    p.acc:SetPoint("BOTTOMRIGHT", p, "TOPRIGHT", -3, -2)
+  end
+  p.title = UI.Text(p, light and 10 or 11, "bold", C.text2)
+  p.title:SetPoint("LEFT", p, "TOPLEFT", 12, -(1 + sh / 2))
   p.title:SetText((title or ""):upper())
   p.right = UI.Text(p, 11, nil, C.dim)
-  p.right:SetPoint("RIGHT", p.strip, "RIGHT", -10, 0)
+  p.right:SetPoint("RIGHT", p, "TOPRIGHT", -12, -(1 + sh / 2))
   p.body = CreateFrame("Frame", nil, p)
-  p.body:SetPoint("TOPLEFT", p.strip, "BOTTOMLEFT", 9, -9)
-  p.body:SetPoint("BOTTOMRIGHT", -10, 9)
-  p.stripH = sh + (accent and 2 or 0)
+  p.body:SetPoint("TOPLEFT", 12, -(2 + sh + 8))
+  p.body:SetPoint("BOTTOMRIGHT", -12, 8)
+  p.stripH = 2 + sh
   function p:SetTitle(t) self.title:SetText((t or ""):upper()) end
   -- the panel's height for a body this tall
-  function p:FitBody(h) self:SetHeight(self.stripH + 2 + 18 + h) end
+  function p:FitBody(h) self:SetHeight(self.stripH + 8 + h + 8) end
   return p
 end
 
 -- a choice bar: one of a few options, the chosen one filled
 function UI.Seg(parent, opts, get, set, h)
   local f = CreateFrame("Frame", nil, parent)
-  f:SetHeight(h or 24)
-  local bg = UI.Panel(f, C.field or C.input, C.btnLine or C.activeLine, true)
+  f:SetHeight(h or 28)
+  local bg = UI.Panel(f, C.field or C.input, C.border or C.activeLine, true)
   bg:SetAllPoints()
   bg:SetFrameLevel(f:GetFrameLevel())
   f.btns = {}
-  local x = 2
+  local x = 3
   for i, o in ipairs(opts) do
-    local b = UI.Button(f, 0, (h or 24) - 4, type(o) == "table" and o[1] or o, "nav", function() set(i) f:Refresh() end)
+    local b = UI.Button(f, 0, (h or 28) - 6, type(o) == "table" and o[1] or o, "nav", function() set(i) f:Refresh() end)
     if type(o) == "table" then b.tooltip = o[2] end
-    local w = math.max(40, math.ceil(b.label:GetStringWidth()) + 20)
+    local w = math.max(36, math.ceil(b.label:GetStringWidth()) + 22)
     b:SetWidth(w)
     b:SetPoint("LEFT", x, 0)
-    x = x + w + 1
+    x = x + w
     f.btns[i] = b
   end
-  f:SetWidth(x + 1)
+  f:SetWidth(x + 3)
   function f:Refresh() for i, b in ipairs(self.btns) do b:SetStyle(get() == i and "mkOn" or "nav") end end
   f:Refresh()
   return f
@@ -1401,14 +1526,14 @@ end
 
 function UI.InfoTip(parent, anchor, title, text)
   local b = CreateFrame("Frame", nil, parent)
-  b:SetSize(15, 15)
+  b:SetSize(14, 14)
   -- right after the text, also when the font string is stretched wider than its text
   if anchor.GetStringWidth then b:SetPoint("LEFT", anchor, "LEFT", math.ceil(anchor:GetStringWidth()) + 6, 0)
   else b:SetPoint("LEFT", anchor, "RIGHT", 6, 0) end
-  local bg = UI.Panel(b, C.active, nil, true)
+  local bg = UI.Panel(b, nil, C.btnLine or C.activeLine, 7)
   bg:SetAllPoints()
   -- (1.4.59) on the background, not under it (it showed as an empty square)
-  local i = UI.Text(bg, 10, "semi", C.muted)
+  local i = UI.Text(bg, 9, "bold", C.muted)
   i:SetPoint("CENTER", 0, 0)
   i:SetText("i")
   b:EnableMouse(true)

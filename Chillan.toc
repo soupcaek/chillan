@@ -49,6 +49,7 @@ UI\Widgets.lua
 UI\FeedRows.lua
 UI\PersonQuick.lua
 UI\MainWindow.lua
+UI\Kit.lua
 UI\TabHome.lua
 UI\TabMarket.lua
 UI\MarketWindow.lua

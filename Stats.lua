@@ -141,3 +141,67 @@ function St:RecentLoot(p, n)
   end
   return out
 end
+
+---------------------------------------------------------------------------
+-- (1.4.66) per-day numbers for the Progress chart. The gang only shares weekly totals, so once in a
+-- while the weekly totals of everyone are written down under today's date; a day's number is then
+-- today's total minus the day before (same week). Kept for 15 days.
+---------------------------------------------------------------------------
+St.DAY_KEYS = { "Online", "Quests", "Gold", "Deaths", "Levels", "Kills" }
+function St:SnapDay()
+  if not ns.db or not ns.db.people then return end
+  local wk = ns.WeekKey()
+  local day = date("%Y-%m-%d")
+  ns.db.dayStats = ns.db.dayStats or {}
+  local d = ns.db.dayStats[day] or {}
+  ns.db.dayStats[day] = d
+  for pid, p in pairs(ns.db.people) do
+    local s = p.stats
+    if s and s.wk == wk then
+      local row = { wk = wk }
+      for _, k in ipairs(self.DAY_KEYS) do row[k] = s["w" .. k] or 0 end
+      d[pid] = row
+    end
+  end
+  -- forget days older than 15 days
+  local cut = date("%Y-%m-%d", time() - 15 * 86400)
+  for k in pairs(ns.db.dayStats) do if k < cut then ns.db.dayStats[k] = nil end end
+end
+
+-- this week's days (Monday first): { {day="2026-11-23", value=n, known=true|false}, ... } for one key,
+-- summed over the gang, or for one person when pid is given
+function St:DaySeries(key, pid)
+  local out = {}
+  local ds = ns.db.dayStats or {}
+  local now = time()
+  local wd = tonumber(date("%w", now))           -- 0 = Sunday
+  local back = (wd + 6) % 7                         -- days since Monday
+  local wk = ns.WeekKey()
+  local prevTotals = {}
+  for i = 0, 6 do
+    local t = now - (back - i) * 86400
+    local day = date("%Y-%m-%d", t)
+    local snap = ds[day]
+    local v, known = 0, false
+    if snap and t <= now then
+      for id, row in pairs(snap) do
+        if (not pid or id == pid) and row.wk == wk then
+          known = true
+          local before = prevTotals[id] or 0
+          v = v + math.max(0, (row[key] or 0) - before)
+          prevTotals[id] = row[key] or 0
+        end
+      end
+    end
+    out[#out + 1] = { day = day, value = v, known = known, future = t > now }
+  end
+  return out
+end
+
+if C_Timer and C_Timer.NewTicker then
+  ns:On("PLAYER_LOGIN", function()
+    C_Timer.After(30, function() St:SnapDay() end)
+    C_Timer.NewTicker(300, function() St:SnapDay() end)
+  end)
+  ns:On("PLAYER_LOGOUT", function() St:SnapDay() end)
+end
