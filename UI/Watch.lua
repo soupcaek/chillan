@@ -173,8 +173,14 @@ function W:Create()
   f:SetSize(300, 30)
   f:EnableMouse(true)
   self.frame = f
+  -- (1.4.65) the light Market look: a small see-through title strip behind the heading
+  f.strip = UI.Track(f:CreateTexture(nil, "BACKGROUND", nil, 2))
+  f.strip:SetColorTexture(hex(C.strip or C.cardHover))
+  f.strip:SetAlpha(0.55)
+  f.strip:SetPoint("TOPLEFT", 1, 0) f.strip:SetPoint("TOPRIGHT", -1, 0)
+  f.strip:SetHeight(20)
   f.head = UI.Text(f, 10, "semi", C.dim)
-  f.head:SetPoint("TOPLEFT", 10, -8)
+  f.head:SetPoint("TOPLEFT", 10, -6)
   f.head:SetText("WATCHING")
   f.more = CreateFrame("Button", nil, f)
   f.more:SetSize(60, 14)
@@ -289,13 +295,13 @@ function W:Update()
   local w = f:GetWidth()
   for _, r in ipairs(f.rows) do r:Hide() end
   if #people == 0 then
-    f.head:Hide() f.more:Hide()
+    f.head:Hide() f.more:Hide() f.strip:Hide()
     f.add:Show()
     f:SetHeight(26)
   else
     f.add:Hide()
-    f.head:Show() f.more:Show()
-    local y = -22
+    f.head:Show() f.more:Show() f.strip:Show()
+    local y = -24
     for i, p in ipairs(people) do
       local r = f.rows[i] or makeRow(f, i)
       f.rows[i] = r

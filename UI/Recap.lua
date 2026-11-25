@@ -191,28 +191,43 @@ local function makeCard()
   f.line1:SetHeight(1)
   f.line1:SetPoint("TOPLEFT", 1, -42)
   f.line1:SetPoint("TOPRIGHT", -1, -42)
-  UI.Track(f.line1):SetColorTexture(hex(C.line))
+  UI.Track(f.line1):SetColorTexture(hex(C.border or C.line))
+  -- (1.4.65) the Market look: an accent top, a title strip, the numbers as tiles
+  f.strip = UI.Track(f.panel:CreateTexture(nil, "ARTWORK"))
+  f.strip:SetColorTexture(hex(C.strip or C.cardHover))
+  f.strip:SetPoint("TOPLEFT", 1, -1) f.strip:SetPoint("TOPRIGHT", -1, -1)
+  f.strip:SetHeight(41)
+  f.acc = UI.Track(b:CreateTexture(nil, "OVERLAY"))
+  f.acc:SetColorTexture(hex(C.accent))
+  f.acc:SetHeight(2)
+  f.acc:SetPoint("TOPLEFT", 1, -1) f.acc:SetPoint("TOPRIGHT", -1, -1)
   f.cells = {}
-  local cw = (CARD_W - 32) / 4
+  local cw = (CARD_W - 32 - 18) / 4
   for i = 1, 4 do
     local c = {}
-    c.v = UI.Text(b, 20, "semi", C.text)
-    c.v:SetPoint("TOPLEFT", 16 + (i - 1) * cw, -54)
+    c.tile = UI.Panel(b, C.panel or C.card, C.border or C.line, true)
+    c.tile:SetPoint("TOPLEFT", 16 + (i - 1) * (cw + 6), -50)
+    c.tile:SetSize(cw, 52)
+    c.tile.top = UI.Track(c.tile:CreateTexture(nil, "ARTWORK"))
+    c.tile.top:SetHeight(2)
+    c.tile.top:SetPoint("TOPLEFT", 1, -1) c.tile.top:SetPoint("TOPRIGHT", -1, -1)
+    c.v = UI.Text(b, 18, "semi", C.text)
+    c.v:SetPoint("TOPLEFT", c.tile, "TOPLEFT", 10, -9)
     c.k = UI.Text(b, 11, nil, C.dim)
     c.k:SetPoint("TOPLEFT", c.v, "BOTTOMLEFT", 0, -3)
-    c.k:SetWidth(cw - 6)
+    c.k:SetWidth(cw - 16)
     c.k:SetJustifyH("LEFT")
     c.k:SetWordWrap(false)
     f.cells[i] = c
   end
   f.momHead = UI.Text(b, 11, nil, C.dim)
-  f.momHead:SetPoint("TOPLEFT", 16, -112)
+  f.momHead:SetPoint("TOPLEFT", 16, -116)
   f.momHead:SetText("Best moments")
   f.moms = {}
   for i = 1, 4 do
     local m = {}
     m.icon = UI.Icon(b, "Star", 13, C.gold)
-    m.icon:SetPoint("TOPLEFT", 16, -130 - (i - 1) * 20)
+    m.icon:SetPoint("TOPLEFT", 16, -134 - (i - 1) * 20)
     m.text = UI.Text(b, 12, nil, C.text2)
     m.text:SetPoint("LEFT", m.icon, "RIGHT", 8, 0)
     m.text:SetPoint("RIGHT", f, "RIGHT", -16, 0)
@@ -229,7 +244,7 @@ local function makeCard()
   UI.Track(f.bar):SetColorTexture(hex(C.gold))
   f.cmpText = UI.Text(b, 11, nil, C.dim)
   f.share = UI.Button(b, 110, 28, "Share to gang", "secondary", function() R:Share() end)
-  f.close = UI.Button(b, 70, 28, "Close", "secondary", function() R:CloseCard() end)
+  f.close = UI.Button(b, 70, 28, "Close", "ghost", function() R:CloseCard() end)
   f.extra = UI.Button(b, 80, 28, "", "primary", function() if f.extraFn then f.extraFn() end end)
   return f
 end
@@ -257,6 +272,8 @@ function R:Open(id)
     c.v:SetText(cell and cell[1] or "")
     c.k:SetText(cell and cell[2] or "")
     c.v:SetTextColor(hex((cell and cell[3]) or C.text))
+    c.tile:SetShown(cell ~= nil)
+    c.tile.top:SetColorTexture(hex((cell and cell[3]) or C.accent))
   end
   local y = -130
   local shown = 0
@@ -271,7 +288,7 @@ function R:Open(id)
     else m.icon:Hide() m.text:Hide() end
   end
   f.momHead:SetShown(shown > 0)
-  y = (shown > 0) and (-130 - shown * 20 - 8) or -112
+  y = (shown > 0) and (-134 - shown * 20 - 8) or -116
   local cmp = recap.compare
   f.cmpHead:ClearAllPoints() f.barBg:ClearAllPoints() f.bar:ClearAllPoints() f.cmpText:ClearAllPoints()
   if cmp then

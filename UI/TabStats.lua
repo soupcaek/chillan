@@ -375,9 +375,50 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     { key = "deaths", label = "Died", w = 34, tip = "Deaths" },
     { key = "points", label = "Pts", w = 40, tip = "Achievement points from the Trophies tab:\nBronze 5 · Silver 10 · Gold 25 · Legendary 50\n(always all-time, not just this week)" },
   }
+  -- (1.4.65) your own numbers as tiles with coloured tops (the canvas), above the table
+  local OV_TOP = 62
+  local ovTiles = {}
+  local tileDefs = {
+    { "Online", "played", C.accent, function(v) return ns.Duration(v) end },
+    { "Levels", "levels", "6FA8F2", function(v) return (v > 0 and "+" or "") .. v end },
+    { "Gold", "gold earned", C.amber, function(v) return ns.Money(v) end },
+    { "Deaths", "deaths", C.red, function(v) return tostring(v) end },
+  }
+  for i, d in ipairs(tileDefs) do
+    local t = UI.Panel(tablePage, C.panel or C.card, C.border or C.line, true)
+    t:SetHeight(52)
+    t.acc = UI.Track(t:CreateTexture(nil, "ARTWORK"))
+    t.acc:SetColorTexture(hex(d[3]))
+    t.acc:SetHeight(2)
+    t.acc:SetPoint("TOPLEFT", 1, -1) t.acc:SetPoint("TOPRIGHT", -1, -1)
+    t.v = UI.Text(t, 17, "semi", C.text)
+    t.v:SetPoint("TOPLEFT", 12, -10)
+    t.k = UI.Text(t, 11, nil, C.dim)
+    t.k:SetPoint("BOTTOMLEFT", 12, 8)
+    ovTiles[i] = t
+  end
+  local function placeTiles(w)
+    local tw = math.floor(((w and w > 100 and w or 600) - 30) / 4)
+    for i, t in ipairs(ovTiles) do
+      t:ClearAllPoints()
+      t:SetPoint("TOPLEFT", (i - 1) * (tw + 10), 0)
+      t:SetWidth(tw)
+    end
+  end
+  tablePage:HookScript("OnSizeChanged", function(self, w) placeTiles(w) end)
+  local function paintTiles()
+    placeTiles(tablePage:GetWidth())
+    local me = ns.db.people[ns.pid]
+    if not me then return end
+    for i, d in ipairs(tileDefs) do
+      local v = (mode == "week" and ns:WeekStat(me, d[1]) or ns:TotalStat(me, d[1])) or 0
+      ovTiles[i].v:SetText(d[4](v))
+      ovTiles[i].k:SetText(d[2] .. (mode == "week" and " this week" or " in all"))
+    end
+  end
   local seg = UI.Panel(tablePage, C.input, C.inputLine, true)
   seg:SetSize(170, 28)
-  seg:SetPoint("TOPRIGHT", 0, 0)
+  seg:SetPoint("TOPRIGHT", 0, -OV_TOP)
   local segBtns = {}
   local function paintSeg()
     for k, b in pairs(segBtns) do
@@ -416,8 +457,8 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     cells.name:SetPoint("RIGHT", parent, "RIGHT", rightX, 0)
   end
   local header = CreateFrame("Frame", nil, tablePage)
-  header:SetPoint("TOPLEFT", 0, -38)
-  header:SetPoint("TOPRIGHT", -6, -38)
+  header:SetPoint("TOPLEFT", 0, -38 - OV_TOP)
+  header:SetPoint("TOPRIGHT", -6, -38 - OV_TOP)
   header:SetHeight(16)
   local headerTexts = {}
   for _, col in ipairs(COLS) do
@@ -497,7 +538,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     UI.Track(row.bar):SetVertexColor(hex(ns.ClassHex(c.class)))
   end
   local tableList = UI.List(tablePage, 36, 5, createRow, updateRow)
-  tableList:SetPoint("TOPLEFT", 0, -58)
+  tableList:SetPoint("TOPLEFT", 0, -58 - OV_TOP)
   tableList:SetPoint("BOTTOMRIGHT", 6, 0)
 
   -------------------------------------------------------------------------
@@ -1046,6 +1087,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         return ns:PersonMaxLevel(a) > ns:PersonMaxLevel(b)
       end)
       tableList:SetData(people)
+      paintTiles()
       for key, t in pairs(headerTexts) do UI.Track(t):SetTextColor(hex(key == sortKey and C.accent or C.dim)) end
     elseif page == "history" then
       paintHist()

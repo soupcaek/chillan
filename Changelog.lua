@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.65", date = "25.11", items = {
+    "Main window laid out as on the canvas: the title row with the gang code and version, Settings and What's new as buttons; the sections on a row of their own with an accent underline; the pages band; and a footer with who's online",
+    "Friends: the list next to a side column – Your status as a choice bar (Auto, LFG, Help, DND), Group (Ready check, Layer hop) and This week's titles",
+    "Progress › Overview: your own week (or all-time) numbers as tiles with coloured tops above the table",
+    "Pulse: small see-through title strips on the card and Watching. Recap cards: an accent top, a title strip and the numbers as tiles" } },
   { v = "1.4.64", date = "25.11", items = {
     "The Market look everywhere: every button has a real border, cards have crisper edges, checkboxes are on/off switches, and choices are choice bars. Built from your theme's own colours, with your accent (theme or class) as the highlight everywhere, the Market too; gold is kept for money",
     "Main window: the section you're in has an accent underline, and its pages are one choice bar on a darker band",

@@ -56,6 +56,14 @@ function N:Create()
   f:EnableMouse(true)
   self.frame = f
   f.head = UI.Text(f, 10, "semi", C.accent)
+  -- (1.4.65) a small see-through title strip behind the card's heading (the light Market look)
+  f.strip = UI.Track(f:CreateTexture(nil, "BACKGROUND", nil, 2))
+  f.strip:SetColorTexture(hex(C.strip or C.cardHover))
+  f.strip:SetAlpha(0.55)
+  f.strip:SetPoint("TOPLEFT", f, "TOPLEFT", 1, 0)
+  f.strip:SetPoint("RIGHT", f, "RIGHT", -1, 0)
+  f.strip:SetPoint("BOTTOM", f.head, "BOTTOM", 0, -5)
+  f.strip:Hide()
   f.big = UI.Text(f, 18, "bold", C.text)
   f.bigSub = UI.Text(f, 11, nil, C.muted)
   f.right = UI.Text(f, 11, nil, C.muted)
@@ -151,9 +159,11 @@ local function place(f, rows, track)
   if f.head:GetText() and f.head:GetText() ~= "" then
     f.head:SetPoint("TOPLEFT", PAD, y)
     f.head:Show()
+    f.strip:Show()
     y = y - 15
   else
     f.head:Hide()
+    f.strip:Hide()
   end
   if f.big:GetText() and f.big:GetText() ~= "" then
     f.big:SetPoint("TOPLEFT", PAD, y)

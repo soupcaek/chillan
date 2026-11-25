@@ -26,13 +26,14 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   head:SetText("Friends")
   local count = UI.Text(tab, 13, nil, C.dim)
   count:SetPoint("LEFT", head, "RIGHT", 8, 0)
+  head:Hide() count:Hide()   -- (1.4.65) the count is in the Gang panel's strip
   local mine = UI.Button(tab, 80, 26, "My page", "ghost", function() ns.Window:OpenPlayer(ns.pid) end)
-  mine:SetPoint("LEFT", count, "RIGHT", 10, 0)
+  mine:SetPoint("TOPLEFT", 12, -12)
   local mapBtn = UI.IconButton(tab, 26, "Map", "Open the world map (friends are pinned on it)", function() ns.OpenMapAt(nil) end)
   mapBtn:SetPoint("LEFT", mine, "RIGHT", 6, 0)
   local crownKey = UI.Text(tab, 11, nil, C.dim)
   crownKey:SetPoint("LEFT", mapBtn, "RIGHT", 12, 0)
-  crownKey:SetText(UI.InlineIcon("Crown", "E0C068", 11) .. " holds a title this week")
+  crownKey:SetText("")   -- (1.4.65) this week's titles are in their own panel
 
   -- (1.4.64) the filters as one choice bar, the list in a panel (the Market look)
   local FILTERS = { "all", "online", "zone" }
@@ -40,7 +41,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     for i, k in ipairs(FILTERS) do if k == filter then return i end end
     return 1
   end, function(i) filter = FILTERS[i] tab:Refresh() end, 26)
-  seg:SetPoint("TOPRIGHT", -12, -12)
+  seg:SetPoint("TOPRIGHT", -12 - 270, -12)
   local function setFilter(key) filter = key seg:Refresh() tab:Refresh() end
 
   -- Rader
@@ -189,7 +190,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
 
   local listP = UI.Section(tab, "Gang")
   listP:SetPoint("TOPLEFT", 12, -46)
-  listP:SetPoint("BOTTOMRIGHT", -12, 60)
+  listP:SetPoint("BOTTOMRIGHT", -12 - 270, 12)
   local list = UI.List(listP.body, 52, 0, createRow, updateRow)
   list:SetPoint("TOPLEFT", -4, 0)
   list:SetPoint("BOTTOMRIGHT", 4, 0)
@@ -203,31 +204,67 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   tab:HookScript("OnHide", function() quick:Close() end)
 
   -- Bottom line: your own status and the ready check
-  local line = UI.SolidLine(tab)
-  line:SetPoint("BOTTOMLEFT", 0, 52)
-  line:SetPoint("BOTTOMRIGHT", 0, 52)
-  line:SetHeight(1)
-
-  local sl = UI.Text(tab, 12, nil, C.dim)
-  sl:SetPoint("BOTTOMLEFT", 16, 20)
-  sl:SetText("Your status")
-  local statusBtn = UI.Button(tab, 170, 32, "", "ghost")
-  statusBtn:SetPoint("LEFT", sl, "RIGHT", 10, 0)
-  UI.Track(statusBtn.label):SetTextColor(hex(C.text))
-  statusBtn:SetScript("OnClick", function(self)
-    local items = {}
-    for _, code in ipairs(ns.MANUAL_STATUS) do
-      local label = code == "AUTO" and "Automatic" or ns.STATUS[code].label
-      items[#items + 1] = { text = label, color = code ~= "AUTO" and ns.STATUS[code].color or nil,
-        func = function() ns.Tracker:SetStatus(code) tab:Refresh() end }
+  -- (1.4.65) the side column (canvas): your status, the group buttons, this week's titles
+  local side = CreateFrame("Frame", nil, tab)
+  side:SetPoint("TOPRIGHT", -12, -12)
+  side:SetPoint("BOTTOMRIGHT", -12, 12)
+  side:SetWidth(260)
+  local stP = UI.Section(side, "Your status", true)
+  stP:SetPoint("TOPLEFT") stP:SetPoint("TOPRIGHT")
+  stP:FitBody(48)
+  local statusCodes = ns.MANUAL_STATUS
+  local stSeg = UI.Seg(stP.body, (function()
+    local o = {}
+    for i, code in ipairs(statusCodes) do
+      o[i] = code == "AUTO" and { "Auto", "Your status follows what you do (questing, in a dungeon, AFK)" }
+        or code == "LFG" and { "LFG", ns.STATUS.LFG.label } or code == "HELP" and { "Help", ns.STATUS.HELP.label }
+        or code == "DND" and { "DND", ns.STATUS.DND.label } or { code }
     end
-    UI.Menu(self, items)
-  end)
-
-  local ready = UI.Button(tab, 112, 36, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
-  ready:SetIcon("Check", 14)
-  ready:SetPoint("BOTTOMRIGHT", -16, 8)
+    return o
+  end)(), function()
+    local cur = ns.db.statusOverride or "AUTO"
+    for i, code in ipairs(statusCodes) do if code == cur then return i end end
+    return 1
+  end, function(i) ns.Tracker:SetStatus(statusCodes[i]) tab:Refresh() end)
+  stSeg:SetPoint("TOPLEFT", 0, 0)
+  local stNow = UI.Text(stP.body, 11, nil, C.dim)
+  stNow:SetPoint("TOPLEFT", 0, -32)
+  local grP = UI.Section(side, "Group")
+  grP:SetPoint("TOPLEFT", stP, "BOTTOMLEFT", 0, -10) grP:SetPoint("TOPRIGHT", stP, "BOTTOMRIGHT", 0, -10)
+  grP:FitBody(28)
+  local ready = UI.Button(grP.body, 112, 28, "Ready check", "secondary", function() ns.Extras:StartReadyCheck() end)
+  ready:SetIcon("Check", 12)
+  ready:SetPoint("TOPLEFT", 0, 0)
   ready.tooltip = "Checks bag space, durability and food and drink for everyone in the group"
+  local hop = UI.Button(grP.body, 104, 28, "Layer hop", "secondary", function() if ns.LayerHop then ns.LayerHop:Request() end end)
+  hop:SetPoint("LEFT", ready, "RIGHT", 6, 0)
+  hop.tooltip = "Join someone on another layer – the gang first, then LayerSwap users nearby"
+  local wkP = UI.Section(side, "This week")
+  wkP:SetPoint("TOPLEFT", grP, "BOTTOMLEFT", 0, -10) wkP:SetPoint("BOTTOMRIGHT", side, "BOTTOMRIGHT", 0, 0)
+  local wkRows = {}
+  for i = 1, 8 do
+    local l = UI.Text(wkP.body, 12, nil, C.dim)
+    l:SetPoint("TOPLEFT", 0, -(i - 1) * 22)
+    local r = UI.Text(wkP.body, 12, nil, C.text)
+    r:SetPoint("TOPRIGHT", 0, -(i - 1) * 22)
+    r:SetJustifyH("RIGHT")
+    wkRows[i] = { l = l, r = r }
+  end
+  local function paintWeek()
+    local cur = ns.Titles and ns.Titles:Current() or {}
+    local i = 0
+    for _, def in ipairs(ns.Titles and ns.Titles.DEFS or {}) do
+      local h = cur[def.key]
+      local p = h and ns:GetPerson(h.pid)
+      if p and i < #wkRows then
+        i = i + 1
+        wkRows[i].l:SetText(ns.Colorize(def.name, def.color))
+        wkRows[i].r:SetText(ns:PersonLabel(p))
+      end
+    end
+    for k = i + 1, #wkRows do wkRows[k].l:SetText("") wkRows[k].r:SetText("") end
+    if i == 0 then wkRows[1].l:SetText("No titles yet this week.") end
+  end
 
   function tab:Refresh()
     local myZone = ns.Tracker:Me().live and ns.Tracker:Me().live.zone
@@ -269,8 +306,9 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     count:SetText(n .. " of " .. total .. " online")
     listP.right:SetText(n .. " of " .. total .. " online")
     local st = ns.Tracker:Status()
-    local manual = ns.db.statusOverride
-    statusBtn:SetLabel((ns.STATUS[st] and ns.STATUS[st].label or st) .. (manual and "" or "  (auto)"))
+    stSeg:Refresh()
+    stNow:SetText("Friends see: " .. ns.Colorize(ns.STATUS[st] and ns.STATUS[st].label or st, ns.STATUS[st] and ns.STATUS[st].color or C.text))
+    paintWeek()
   end
 
   setFilter("all")

@@ -25,8 +25,12 @@ function W:OpenPlayer(pid)
   self:Select("player")
 end
 
-local WIDTH, HEIGHT, TITLE_H, PAGEBAR_H = 860, 560, 48, 38
-local MIN_W, MIN_H = 780, 500
+-- (1.4.65) the canvas layout: a title row, the sections on a row of their own, the pages band,
+-- the page, and a footer line
+local WIDTH, HEIGHT, TITLE_H, PAGEBAR_H = 860, 622, 40, 38
+local SEC_H, FOOT_H = 36, 26
+local TOP_H = TITLE_H + SEC_H
+local MIN_W, MIN_H = 780, 562
 
 -- Five sections; each opens its pages. Settings and What's new sit in the header.
 W.SECTIONS = {
@@ -172,20 +176,25 @@ function W:Create()
   dot:SetPoint("RIGHT", online, "LEFT", -6, 0)
 
   local line1 = UI.SolidLine(f)
-  line1:SetPoint("TOPLEFT", 1, -TITLE_H)
-  line1:SetPoint("TOPRIGHT", -1, -TITLE_H)
+  line1:SetPoint("TOPLEFT", 1, -TOP_H)
+  line1:SetPoint("TOPRIGHT", -1, -TOP_H)
   line1:SetHeight(1)
 
-  -- Sections across the top (1.0). The old side rail was full: 10 tabs took 444 of its 452 px.
+  -- Sections across the top (1.0), on a row of their own under the title (1.4.65)
+  local secRow = CreateFrame("Frame", nil, f)
+  secRow:SetPoint("TOPLEFT", 0, -TITLE_H)
+  secRow:SetPoint("TOPRIGHT", 0, -TITLE_H)
+  secRow:SetHeight(SEC_H)
+  self.secRow = secRow
   local secX = nil
   self.secButtons = {}
   for i, sec in ipairs(W.SECTIONS) do
     -- Settings and What's new are the cog and the bell on the right, not tabs as well (1.1.5)
     if sec.header then break end
-    local b = UI.Button(title, 10, 30, sec.label, "nav")
+    local b = UI.Button(secRow, 10, 30, sec.label, "nav")
     b.label:SetFont(ns.FONT_SEMI, 13, "")
     b:SetWidth(b.label:GetStringWidth() + 26)
-    if secX then b:SetPoint("LEFT", secX, "RIGHT", 2, 0) else b:SetPoint("LEFT", q, "RIGHT", 22, 0) end
+    if secX then b:SetPoint("LEFT", secX, "RIGHT", 2, 0) else b:SetPoint("LEFT", secRow, "LEFT", 6, 0) end
     secX = b
     b.key = sec.key
     b:SetScript("OnClick", function() W:Select(W:LastPage(sec.key)) end)
@@ -193,7 +202,7 @@ function W:Create()
     -- (1.4.64) the section you're in: an accent underline, like the Market's tabs
     b.under = UI.Track(b:CreateTexture(nil, "ARTWORK"))
     b.under:SetHeight(2)
-    b.under:SetPoint("BOTTOMLEFT", 8, -9) b.under:SetPoint("BOTTOMRIGHT", -8, -9)
+    b.under:SetPoint("BOTTOMLEFT", 8, -3) b.under:SetPoint("BOTTOMRIGHT", -8, -3)
     b.under:SetColorTexture(hex(C.accent))
     b.under:Hide()
     b.badge = CreateFrame("Frame", nil, b)
@@ -211,10 +220,12 @@ function W:Create()
   end
 
   -- header icons: settings and what's new
-  local cog = UI.IconButton(title, 30, "Gear", "Settings", function() W:Select("settings") end)
-  cog:SetPoint("RIGHT", close, "LEFT", -4, 0)
-  local bell = UI.IconButton(title, 30, "Scroll", "What's new", function() W:Select("changelog") end)
-  bell:SetPoint("RIGHT", cog, "LEFT", -4, 0)
+  local cog = UI.Button(title, 92, 24, "Settings", "ghost", function() W:Select("settings") end)
+  cog:SetIcon("Gear", 12)
+  cog:SetPoint("RIGHT", close, "LEFT", -6, 0)
+  local bell = UI.Button(title, 102, 24, "What's new", "ghost", function() W:Select("changelog") end)
+  bell:SetIcon("Scroll", 12)
+  bell:SetPoint("RIGHT", cog, "LEFT", -6, 0)
   bell.badge = bell:CreateTexture(nil, "OVERLAY")
   bell.badge:SetTexture(ns.TEX .. "Circle")
   bell.badge:SetSize(8, 8)
@@ -222,10 +233,24 @@ function W:Create()
   UI.Track(bell.badge):SetVertexColor(hex(C.accent))
   bell.badge:Hide()
   self.cogBtn, self.bellBtn = cog, bell
+  -- (1.4.65) a footer line: who's online (opens Friends) on the left
+  local foot = CreateFrame("Frame", nil, f)
+  foot:SetPoint("BOTTOMLEFT", 0, 0)
+  foot:SetPoint("BOTTOMRIGHT", 0, 0)
+  foot:SetHeight(FOOT_H)
+  local fline = UI.SolidLine(foot)
+  fline:SetPoint("TOPLEFT", 1, 0) fline:SetPoint("TOPRIGHT", -1, 0) fline:SetHeight(1)
+  online:SetParent(foot)
+  online:SetFontObject(nil)
+  online:SetFont(ns.FONT, 11, "")
+  dot:SetParent(foot)
   online:ClearAllPoints()
-  online:SetPoint("RIGHT", bell, "LEFT", -12, 0)
+  online:SetPoint("LEFT", foot, "LEFT", 26, 0)
+  self.footHint = UI.Text(foot, 11, nil, C.dim)
+  self.footHint:SetPoint("RIGHT", foot, "RIGHT", -26, 0)
+  self.footHint:SetText("")
   -- (1.1.7) "N online" opens the Friends page
-  local onlineBtn = CreateFrame("Button", nil, title)
+  local onlineBtn = CreateFrame("Button", nil, foot)
   onlineBtn:SetPoint("TOPLEFT", online, "TOPLEFT", -16, 4)
   onlineBtn:SetPoint("BOTTOMRIGHT", online, "BOTTOMRIGHT", 2, -4)
   onlineBtn:SetScript("OnClick", function() W:Select("friends") end)
@@ -240,8 +265,8 @@ function W:Create()
 
   -- page bar: the pages of the current section, the gang code and the version on the right
   local pagebar = CreateFrame("Frame", nil, f)
-  pagebar:SetPoint("TOPLEFT", 0, -TITLE_H - 1)
-  pagebar:SetPoint("TOPRIGHT", 0, -TITLE_H - 1)
+  pagebar:SetPoint("TOPLEFT", 0, -TOP_H - 1)
+  pagebar:SetPoint("TOPRIGHT", 0, -TOP_H - 1)
   pagebar:SetHeight(PAGEBAR_H)
   self.pagebar = pagebar
   self.pageButtons = {}
@@ -252,23 +277,15 @@ function W:Create()
   pagebar.seg:SetHeight(28)
   pagebar.seg:Hide()
   local line2 = UI.SolidLine(f)
-  line2:SetPoint("TOPLEFT", 1, -TITLE_H - PAGEBAR_H - 1)
-  line2:SetPoint("TOPRIGHT", -1, -TITLE_H - PAGEBAR_H - 1)
+  line2:SetPoint("TOPLEFT", 1, -TOP_H - PAGEBAR_H - 1)
+  line2:SetPoint("TOPRIGHT", -1, -TOP_H - PAGEBAR_H - 1)
   line2:SetHeight(1)
-  chip:SetParent(pagebar)
-  chip:ClearAllPoints()
-  upd:SetParent(pagebar)
-  ver:SetParent(pagebar)
-  ver:ClearAllPoints()
-  ver:SetPoint("RIGHT", pagebar, "RIGHT", -14, 0)
-  chip:SetPoint("RIGHT", ver, "LEFT", -10, 0)
-  upd:ClearAllPoints()
-  upd:SetPoint("RIGHT", chip, "LEFT", -10, 0)
+  -- (1.4.65) the gang code and version stay in the title row, next to the logo
 
   -- content
   local content = CreateFrame("Frame", nil, f)
-  content:SetPoint("TOPLEFT", 1, -TITLE_H - PAGEBAR_H - 2)
-  content:SetPoint("BOTTOMRIGHT", -1, 1)
+  content:SetPoint("TOPLEFT", 1, -TOP_H - PAGEBAR_H - 2)
+  content:SetPoint("BOTTOMRIGHT", -1, FOOT_H + 1)
   self.content = content
 
   -- pages are built the first time they're opened (all 12 were built when the window opened before 1.0)
@@ -412,6 +429,7 @@ function W:Select(key)
   if self.cogBtn then UI.Track(self.cogBtn.icon):SetVertexColor(hex(key == "settings" and C.accent or C.muted)) end
   if self.bellBtn then UI.Track(self.bellBtn.icon):SetVertexColor(hex(key == "changelog" and C.accent or C.muted)) end
   self:PaintPageBar(secKey, sec)
+  if self.footHint then self.footHint:SetText(key == "settings" and "Changes apply at once" or "") end
   self:Refresh()
   self:UpdateBadges()
 end
