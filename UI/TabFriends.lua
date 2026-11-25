@@ -64,7 +64,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row.time = UI.Text(row, 12, nil, C.dim)
     row.time:SetJustifyH("LEFT")
     row.time:SetWordWrap(false)
-    row.invite = UI.Button(row, 66, 30, "Invite", "primary")
+    row.invite = UI.Button(row, 66, 28, "Invite", "secondary")   -- (1.4.68) one loud button per panel, not one per row
     row.invite:SetPoint("RIGHT", -10, 0)
     row.whisper = UI.IconButton(row, 30, "Chat", "Whisper")
     row.whisper:SetPoint("RIGHT", row.invite, "LEFT", -6, 0)

@@ -58,10 +58,10 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     row.sub:SetWordWrap(false)
     row:SetScript("OnEnter", function(self)
       if not self.item or self.quickOpen then return end
-      self.panel:SetColors(C.cardHover, C.line)
+      self.panel:SetColors(C.cardHover, nil)
     end)
     row:SetScript("OnLeave", function(self)
-      if not self.quickOpen then self.panel:SetColors(C.card, C.line) end
+      if not self.quickOpen then self.panel:SetColors(self.rest, nil) end
     end)
     -- (1.2.0) click: a card beside it with their pace, all their characters and "Open player"
     row:SetScript("OnClick", function(self)
@@ -71,7 +71,11 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     end)
     return row
   end
-  local function updateRow(row, p)
+  local function updateRow(row, p, idx)
+    -- (1.4.68) rows inside the panel: striped, no box around each (cards in a card looked busy)
+    row.rest = (idx or 1) % 2 == 0 and (C.rowAlt or C.window) or nil
+    row.striped, row.stripe = true, row.rest
+    if not row.quickOpen then row.panel:SetColors(row.rest, nil) end
     local c = ns:PersonChar(p) or {}
     local online = ns:IsOnline(p)
     local L = p.live or {}
@@ -96,7 +100,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
       row.sub:SetText(c.zone or (p.live and p.live.zone) or "offline")
     end
   end
-  local list = UI.List(left, 44, 6, createRow, updateRow)
+  local list = UI.List(left, 44, 0, createRow, updateRow)
   list:SetPoint("TOPLEFT", 0, 0)
   list:SetPoint("BOTTOMRIGHT", 6, 0)
   list.emptyText = "Nobody in the gang yet."

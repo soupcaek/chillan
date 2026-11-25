@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.69", date = "25.11", items = {
+    "A design pass over every page: lists inside panels are striped rows instead of a box per line (Home's gang, History, Died to, Cunt List), and only one loud button per panel (Invite is a normal button now)",
+    "Gang › Died to works again (the page came up empty in 1.4.68) and the Cunt List button shows on the row under the mouse. The Cunt List page has the panel look too",
+    "Pulse boxes with short labels: honor today, rep gained, gold today",
+    "Progress: the day chart never grows into a wall of bar on a tall window, the top list shows as many people as fit, and the Table page's side cards have title strips",
+    "The title row no longer ends with a stray dot after \"update available\"" } },
   { v = "1.4.68", date = "25.11", items = {
     "Pulse: the write box says \"Click to write to the gang\" (Enter opens the game's own chat), the emote star opens the picker again, the layer box says \"Swap\" with \"layer · 10 left\" under it, and the menu button is a plain ⋯",
     "Stay open in combat (the pin) is on for everyone again",

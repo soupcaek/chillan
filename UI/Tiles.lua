@@ -147,7 +147,8 @@ for _, d in ipairs({
       return tostring(pve.bosses), (pve.bosses == 1 and "boss" or "bosses") .. " · " .. ns.Plural(pve.runs, "run")
     end
     if not honor and not hk then return "–", "honor today" end
-    return ns.Num(honor or 0), "honor" .. (hk and (" · " .. hk .. " HKs") or "")
+    -- (1.4.68) short labels: the boxes are narrow (HKs are on the hover and the BG card)
+    return ns.Num(honor or 0), "honor today"
   end },
   { key = "reph", name = "Reputation per hour", tipFn = function()
     -- (1.4.59) which faction, how much and how fast
@@ -159,7 +160,7 @@ for _, d in ipairs({
     if not fac then return "–", "rep/h" end
     -- (1.4.58) the big card already shows this faction and its rate: the box gives the total instead
     local wf = P().WatchedRep and P().WatchedRep()
-    if wf and wf.name == fac then return "+" .. ns.Num(n), "rep this session" end
+    if wf and wf.name == fac then return "+" .. ns.Num(n), "rep gained" end
     local short = ns.ShortFaction(fac)
     if #short > 11 then short = short:sub(1, 10) .. "…" end
     return rate and ns.Num(rate) or ("+" .. ns.Num(n)), short .. (rate and " /h" or "")
@@ -168,8 +169,7 @@ for _, d in ipairs({
     local g = P().GoldDay()
     if not g or g == 0 then return "–", "gold today" end
     local gh = P():GoldPerHour()
-    return (g < 0 and "−" or "+") .. goldText(math.abs(g)),
-      (gh and gh > 0) and (goldText(gh) .. "/h") or "today", g < 0 and C.red or nil
+    return (g < 0 and "−" or "+") .. goldText(math.abs(g)), "gold today", g < 0 and C.red or nil
   end },
   { key = "goldh", name = "Gold per hour", get = function()
     local g = P():GoldPerHour()

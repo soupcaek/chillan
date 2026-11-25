@@ -1,37 +1,29 @@
 -- Chillan? – the "Died to" page (1.0.1): Alliance players who killed someone in the gang.
 -- It fills itself. Nobody gets warned about these – put someone on the Cunt List for that.
 local ADDON, ns = ...
-local UI, C = ns.UI, ns.C
+local UI, C, hex = ns.UI, ns.C, ns.hex
 
 ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
-  local head = UI.Text(tab, 16, "semi", C.text)
-  head:SetPoint("TOPLEFT", 16, -16)   -- (1.1.7) same margins as Friends
-  head:SetText("Died to")
-  local sub = UI.Text(tab, 11, nil, C.dim)
-  sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
-  sub:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
-  sub:SetJustifyH("LEFT")
-  sub:SetWordWrap(true)
-  sub:SetText("Enemies who killed one of us")
-  UI.InfoTip(tab, sub, "Died to", "Enemy players who killed a gang member in the last 60 days. The list updates by itself. Killing one within a week of their last kill counts as revenge.")
-
-  local search = UI.EditBox(tab, 100, 28, "Search names and zones …", function(self) self:ClearFocus() end)
-  search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
-  -- (1.4.68) sort by the latest kill or by who killed us most
+  -- (1.4.68) the Kit layout: search and sort on top, the list in a panel
   local sortBy = ns.db.settings.diedToSort or 1
   local sortSeg = UI.Seg(tab, { "Latest", "Most kills" }, function() return sortBy end, function(i)
     sortBy = i ns.db.settings.diedToSort = i tab:Refresh()
   end)
-  sortSeg:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -16, 0)
-  sortSeg:SetPoint("TOP", search, "TOP", 0, 0)
+  sortSeg:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -12, -12)
+  local search = UI.EditBox(tab, 100, 28, "Search names and zones …", function(self) self:ClearFocus() end)
+  search:SetPoint("TOPLEFT", 12, -12)
   search:SetPoint("RIGHT", sortSeg, "LEFT", -8, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
+  local lp = UI.Section(tab, "Enemies who killed one of us")
+  lp:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
+  lp:SetPoint("BOTTOMRIGHT", -12, 12)
+  UI.InfoTip(lp, lp.title, "Died to", "Enemy players who killed a gang member in the last 60 days. The list updates by itself. Killing one within a week of their last kill counts as revenge.")
 
   local function createRow(list)
     local row = CreateFrame("Frame", nil, list)
-    row.panel = UI.Panel(row, C.card, C.line, false)
-    row.panel:SetAllPoints()
-    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.stripe = UI.Track(row:CreateTexture(nil, "BACKGROUND"))
+    row.stripe:SetAllPoints()
+    row.stripe:SetColorTexture(hex(C.rowAlt or C.window))
     row.name = UI.Text(row, 13, "semi", C.text)
     row.name:SetPoint("TOPLEFT", 12, -8)
     row.name:SetPoint("RIGHT", -170, 0)
@@ -50,9 +42,16 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
     row.add = UI.Button(row, 110, 24, "Cunt List …", "ghost")
     row.add:SetPoint("RIGHT", -10, 0)
     row.add.tooltip = "Put them on the Cunt List (you write why) – then the whole gang gets warned"
+    -- (1.4.68) the button only on the row under the mouse (a column of buttons was loud)
+    row:EnableMouse(true)
+    row.add:SetAlpha(0)
+    row:SetScript("OnEnter", function(self) self.add:SetAlpha(1) end)
+    row:SetScript("OnLeave", function(self) if not self.add:IsMouseOver() then self.add:SetAlpha(0) end end)
+    row.add:HookScript("OnLeave", function() if not row:IsMouseOver() then row.add:SetAlpha(0) end end)
     return row
   end
-  local function updateRow(row, e)
+  local function updateRow(row, e, idx)
+    row.stripe:SetShown((idx or 1) % 2 == 0)
     local onList = ns.Cunts and ns.Cunts:Get(e.name)
     row.name:SetText(e.name .. (e.extra and e.extra ~= "" and ns.Colorize("  " .. e.extra, C.muted) or "")
       .. (onList and ns.Colorize("  · on the Cunt List", C.red) or ""))
@@ -65,9 +64,9 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
     row.add:SetShown(not onList)
     row.add:SetScript("OnClick", function() ns.Cunts:AskAdd(e.name) end)
   end
-  local list = UI.List(tab, 62, 6, createRow, updateRow)
-  list:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
-  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", -14, 14)
+  local list = UI.List(lp.body, 62, 0, createRow, updateRow)
+  list:SetPoint("TOPLEFT", 0, 0)
+  list:SetPoint("BOTTOMRIGHT", lp.body, "BOTTOMRIGHT", 6, 0)
   list.emptyText = "Nobody yet. When an Alliance player kills one of the gang, they show up here."
 
   function tab:Refresh()

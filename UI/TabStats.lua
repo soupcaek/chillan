@@ -461,7 +461,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for _, d in ipairs(series) do if d.known then known = known + 1 maxV = math.max(maxV, d.value) end end
     local slot = w / 7
     local bw = math.min(26, math.floor(slot * 0.5))
-    local plotH = h - 18 - 40   -- (1.4.68) room above the tallest bar for its value and the note
+    local plotH = math.min(180, h - 18 - 40)   -- (1.4.68) room above the tallest bar; never a wall of bar
     local today = (tonumber(date("%w")) + 6) % 7 + 1
     for i, b in ipairs(bars) do
       local d = series[i] or {}
@@ -482,7 +482,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     chartEmpty:SetText(known <= 1 and "Day by day from today on – the bars fill in as the week goes" or "")
   end
   local topRows = {}
-  for i = 1, 5 do
+  for i = 1, 10 do
     local r = {}
     r.n = UI.Text(topP.body, 12, "bold", C.dim)
     r.name = UI.Text(topP.body, 12, "semi", C.text)
@@ -505,8 +505,9 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     topP.right:SetText(list[1] and ("Crown: " .. m[4](list[1].v)) or "")
     local w = topP.body:GetWidth()
     if not w or w < 50 then w = 280 end
+    local fit = math.max(3, math.floor(((topP.body:GetHeight() or 130) + 12) / 26))
     for i, r in ipairs(topRows) do
-      local e = list[i]
+      local e = i <= fit and list[i]
       local y = -(i - 1) * 26
       r.n:ClearAllPoints() r.n:SetPoint("TOPLEFT", 0, y)
       r.name:ClearAllPoints() r.name:SetPoint("TOPLEFT", 16, y)
@@ -880,18 +881,21 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       if ach and ns.Ach and ns.Ach.byId[ach] then UI.AchTooltip(self, ach)
       elseif self.item and self.item.pid then ns.Overlays:ShowProfile(self, self.item.pid) end
     end)
-    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() GameTooltip:Hide() end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(self.rest, nil) ns.Overlays:HideProfile() GameTooltip:Hide() end)
     return row
   end
-  local function updateMs(row, e)
+  local function updateMs(row, e, idx)
     row.item = e
+    -- (1.4.68) striped rows, not a box per line
+    row.rest = (idx or 1) % 2 == 0 and (C.rowAlt or C.window) or nil
+    row.panel:SetColors(row.rest, nil)
     row.date:SetText(e.t and date("%d.%m", e.t) or "")
     row.icon:SetTexture(ns.TEX .. "Icon" .. (e.icon or "Star"))
     UI.Track(row.icon):SetVertexColor(hex(e.color or C.gold))
     local p = ns:GetPerson(e.pid) or {}
     row.text:SetText(ns:ShortWho(p, e.char) .. " " .. ns.Colorize(e.text, C.text2))
   end
-  local msList = UI.List(msFrame, 38, 5, createMs, updateMs)
+  local msList = UI.List(msFrame, 36, 0, createMs, updateMs)
   msList:SetAllPoints()
   msList.emptyText = "The chronicle fills itself: first to level 10, first mount, first epic, first through a dungeon and gold achievements."
 
@@ -1040,11 +1044,25 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   right:SetWidth(RIGHT_W)
   tab.rightCol = right
 
+  -- (1.4.68) the Kit title strip on the side cards (as every other panel): a 27 px band and its line
+  local function stripify(cd)
+    cd.stripTop = UI.Panel(cd, C.strip or C.cardHover, nil, 5)
+    cd.stripTop:SetPoint("TOPLEFT", 1, -1) cd.stripTop:SetPoint("TOPRIGHT", -1, -1)
+    cd.stripTop:SetHeight(6)
+    cd.stripTop:SetFrameLevel(cd:GetFrameLevel())
+    local band = UI.Track(cd:CreateTexture(nil, "BORDER", nil, 1))
+    band:SetColorTexture(hex(C.strip or C.cardHover))
+    band:SetPoint("TOPLEFT", 1, -6) band:SetPoint("BOTTOMRIGHT", cd, "TOPRIGHT", -1, -24)
+    local ln = UI.Track(cd:CreateTexture(nil, "ARTWORK"))
+    ln:SetColorTexture(hex(C.border or C.activeLine))
+    ln:SetPoint("TOPLEFT", 1, -24) ln:SetPoint("BOTTOMRIGHT", cd, "TOPRIGHT", -1, -25)
+  end
   local function card(height, titleText)
-    local cd = UI.Panel(right, C.card, C.line, false)
+    local cd = UI.Panel(right, C.panel or C.card, C.border or C.line)
     cd:SetHeight(height)
-    cd.title = UI.Text(cd, 10, "semi", C.muted)
-    cd.title:SetPoint("TOPLEFT", 12, -12)
+    stripify(cd)
+    cd.title = UI.Text(cd, 10, "bold", C.text2)
+    cd.title:SetPoint("TOPLEFT", 12, -8)
     cd.title:SetText(titleText:upper())
     return cd
   end
@@ -1140,7 +1158,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local shame = card(30 + 2 * BAR_ROW_H + 8, "Wall of shame (week)")
   shame:SetPoint("TOPLEFT") shame:SetPoint("TOPRIGHT")
   shame.total = UI.Text(shame, 10, nil, C.dim)
-  shame.total:SetPoint("TOPRIGHT", -12, -12)
+  shame.total:SetPoint("TOPRIGHT", -12, -8)
   shame.total:SetJustifyH("RIGHT")
   shame.empty = UI.Text(shame, 13, "semi", C.text2)
   shame.empty:SetPoint("TOPLEFT", 12, -32)
@@ -1171,17 +1189,18 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   spotHolder:SetPoint("TOPLEFT", shame, "BOTTOMLEFT", 0, -8)
   spotHolder:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT")
   for i = 1, 3 do
-    local cd = UI.Panel(spotHolder, C.card, C.line, false)
+    local cd = UI.Panel(spotHolder, C.panel or C.card, C.border or C.line)
+    stripify(cd)
     local btn = CreateFrame("Button", nil, cd)
     btn:SetAllPoints()
-    cd.title = UI.Text(cd, 10, "semi", C.muted)
-    cd.title:SetPoint("TOPLEFT", 12, -12)
+    cd.title = UI.Text(cd, 10, "bold", C.text2)
+    cd.title:SetPoint("TOPLEFT", 12, -8)
     cd.page = UI.Text(cd, 10, nil, C.dim)
-    cd.page:SetPoint("TOPRIGHT", -10, -12)
+    cd.page:SetPoint("TOPRIGHT", -10, -8)
     cd.page:SetJustifyH("RIGHT")
     cd.title:SetPoint("RIGHT", cd.page, "LEFT", -6, 0)   -- (1.1.7) the title stops before "3 of 11"
     cd.big = UI.Text(cd, 15, "semi", C.text)
-    cd.big:SetPoint("TOPLEFT", 12, -30)
+    cd.big:SetPoint("TOPLEFT", 12, -33)
     cd.big:SetPoint("RIGHT", -10, 0)
     cd.big:SetWordWrap(false)
     cd.sub = UI.Text(cd, 11, nil, C.text2)

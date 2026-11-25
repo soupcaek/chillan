@@ -1,44 +1,34 @@
 -- Chillan? – the Cunt List page: every entry, why, who added it, notes; search, note, remove
 local ADDON, ns = ...
-local UI, C = ns.UI, ns.C
+local UI, C, hex = ns.UI, ns.C, ns.hex
 
 ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
-  local head = UI.Text(tab, 16, "semi", C.text)
-  head:SetPoint("TOPLEFT", 16, -16)   -- (1.1.7) same margins as Friends
-  head:SetText("The Cunt List")
+  -- (1.4.68) the Kit layout: search and the add buttons on top, the list in a panel
   local add = UI.Button(tab, 150, 28, "Add your target", "secondary", function()
     local n = ns.S(UnitIsPlayer, "target") and ns.S(UnitName, "target")
     if type(n) ~= "string" or n == "" then ns.Print("Target a player first (or right-click their name in chat).") return end
     ns.Cunts:AskAdd(n)
   end)
   add:SetIcon("Plus", 13)
-  add:SetPoint("TOPRIGHT", -16, -12)
-
-  -- anyone, by name: no target needed
+  add:SetPoint("TOPRIGHT", -12, -12)
   local byName = UI.Button(tab, 130, 28, "Add by name", "secondary", function() ns.Cunts:AskAddByName() end)
   byName:SetIcon("Plus", 13)
   byName:SetPoint("RIGHT", add, "LEFT", -8, 0)
-
-  -- the subtitle stays left of the button and wraps instead of running under it
-  head:SetPoint("RIGHT", byName, "LEFT", -12, 0)
-  local sub = UI.Text(tab, 11, nil, C.dim)
-  sub:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4)
-  sub:SetPoint("RIGHT", byName, "LEFT", -12, 0)
-  sub:SetJustifyH("LEFT")
-  sub:SetWordWrap(true)
-  sub:SetText("Right-click a name to add")
-  UI.InfoTip(tab, sub, "The Cunt List", "Ninja looters and general dicks. Right-click a player's name or portrait (or use the buttons) to add them – the whole gang gets warned when one is near.")
-
-  local search = UI.EditBox(tab, 100, 30, "Search names and reasons …", function(self) self:ClearFocus() end)
-  search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
-  search:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
+  local search = UI.EditBox(tab, 100, 28, "Search names and reasons …", function(self) self:ClearFocus() end)
+  search:SetPoint("TOPLEFT", 12, -12)
+  search:SetPoint("RIGHT", byName, "LEFT", -8, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
+  local lp = UI.Section(tab, "The Cunt List")
+  lp:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
+  lp:SetPoint("BOTTOMRIGHT", -12, 12)
+  lp.right:SetText("right-click a name to add")
+  UI.InfoTip(lp, lp.title, "The Cunt List", "Ninja looters and general dicks. Right-click a player's name or portrait (or use the buttons) to add them – the whole gang gets warned when one is near.")
 
   local function createRow(list)
     local row = CreateFrame("Frame", nil, list)
-    row.panel = UI.Panel(row, C.card, C.line, false)
-    row.panel:SetAllPoints()
-    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.stripe = UI.Track(row:CreateTexture(nil, "BACKGROUND"))
+    row.stripe:SetAllPoints()
+    row.stripe:SetColorTexture(hex(C.rowAlt or C.window))
     row:EnableMouse(true)
     row.name = UI.Text(row, 13, "semi", C.red)
     row.name:SetPoint("TOPLEFT", 12, -8)
@@ -67,7 +57,8 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return row
   end
-  local function updateRow(row, e)
+  local function updateRow(row, e, idx)
+    row.stripe:SetShown((idx or 1) % 2 == 0)
     row.entry = e
     row.name:SetText(e.name)
     row.reason:SetText(e.reason)
@@ -78,9 +69,9 @@ ns:RegisterTab("cunts", "Cunts", "Skull", function(tab)
     if ns.Cunts:CanRemove(e) then row.del:Show() else row.del:Hide() end
     row.del:SetScript("OnClick", function() ns.Cunts:Remove(e.key) end)
   end
-  local list = UI.List(tab, 62, 6, createRow, updateRow)
-  list:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
-  list:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", -14, 14)
+  local list = UI.List(lp.body, 62, 0, createRow, updateRow)
+  list:SetPoint("TOPLEFT", 0, 0)
+  list:SetPoint("BOTTOMRIGHT", lp.body, "BOTTOMRIGHT", 6, 0)
   list.emptyText = "Nobody yet. Right-click a player's name or portrait → «Add to the Cunt List»."
 
   function tab:Refresh()

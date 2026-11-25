@@ -338,7 +338,7 @@ function W:UpdateBadges()
   if self.updBtn then
     local newer = ns.newestVersion and ns.NewerVersion(ns.newestVersion, ns.VERSION)
     if newer then
-      self.updBtn.text:SetText("update available (" .. ns.newestVersion .. ") ·")
+      self.updBtn.text:SetText("update available (" .. ns.newestVersion .. ")")
       self.updBtn:SetWidth(self.updBtn.text:GetStringWidth() + 4)
     end
     self.updBtn:SetShown(newer and true or false)
