@@ -252,7 +252,8 @@ local function momentRows(f, mo)
     f.head:SetText((x.won and "VICTORY" or "DEFEAT") .. (x.score and (" · " .. x.score) or "") .. " · " .. math.floor((x.dur or 0) / 60) .. " MIN")
     f.head:SetTextColor(hex(x.won and "5FD18B" or "F2777A"))
     f.big:SetText(x.honor and ("+" .. ns.Num(x.honor)) or "–")
-    f.bigSub:SetText("honor · " .. (x.wonToday or 0) .. " / " .. (x.played or 0) .. " won today")
+    f.bigSub:SetText("honor · " .. (x.wonToday or 0) .. " / " .. (x.played or 0) .. " won today"
+      .. ((x.streak or 0) > 1 and (" · " .. x.streak .. " in a row") or ""))
     if x.mvp and #(x.gang or {}) <= 1 then
       -- (1.4.19) alone: your own match, not "Gang MVP: you"
       rows[#rows + 1] = dim("Your match  ") .. ns.Plural(x.mvp.hk, "HK") .. dim(" · ") .. ns.Plural(x.mvp.deaths, "death")
@@ -265,10 +266,7 @@ local function momentRows(f, mo)
       rows[#rows + 1] = dim("Flag hero  ") .. x.hero .. dim("  " .. table.concat(fl, ", "))
     end
     if x.revs and #x.revs > 0 then rows[#rows + 1] = dim("Revenge  ") .. ns.Colorize(table.concat(x.revs, ", "), C.green) end
-    local chips = {}
-    if (x.streak or 0) > 1 then chips[#chips + 1] = "win streak " .. x.streak end
-    if (x.best or 0) > 1 then chips[#chips + 1] = "best kill streak " .. x.best end
-    if #chips > 0 then rows[#rows + 1] = table.concat(chips, dim(" · ")) end
+    -- (1.4.61) no third line: the kill streak is gone, a win streak rides on the honor line
   end
   return rows
 end
