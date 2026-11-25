@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.64", date = "25.11", items = {
+    "The Market look everywhere: every button has a real border, cards have crisper edges, checkboxes are on/off switches, and choices are choice bars. Built from your theme's own colours, with your accent (theme or class) as the highlight everywhere, the Market too; gold is kept for money",
+    "Main window: the section you're in has an accent underline, and its pages are one choice bar on a darker band",
+    "Settings rebuilt: a side list of groups (Your gang, Appearance, Windows, Notifications, Quiet, Map & radar, Layer hop, Market) with a search box; each group in panels, switches with an ⓘ for the explanation, Popups how many / where as choice bars",
+    "Friends: the filters as one choice bar, the members in a Gang panel with striped rows",
+    "Pulse window: a thin accent edge on the first box. Popups: the accent edge on free-floating toasts too" } },
   { v = "1.4.63", date = "25.11", items = {
     "Darkspear Islands: the flag row follows the flag again (it got stuck on \"in the middle\" when the other side carried it). The flag counts as back in the middle only when its map point comes back after being gone",
     "Battlegrounds: the panel keeps room for the win estimate (and Warsong Gulch's clock and flag timers) from the start, so the base boxes no longer slide onto the flag row when the line appears mid-fight" } },

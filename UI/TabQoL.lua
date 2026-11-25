@@ -210,7 +210,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
       if w.Refresh then w:Refresh() end
       -- (1.1.7) under a switch that's off, the small options show unticked (they don't apply);
       -- your choice is kept and comes back when the main switch goes on
-      if not live and w.box and w.mark then w.box:SetColors(C.input, C.inputLine) w.mark:Hide() end
+      if not live and w.box and w.box.Set then w.box:Set(false) end
       w:SetAlpha(live and 1 or 0.35)
       if w.EnableMouse and w.Refresh then w:EnableMouse(live) end
     end

@@ -745,6 +745,14 @@ function ns:ApplyAccent()
   ns.C.accent = h
   ns.C.accentHover = lighten(h, 0.35)
   ns.C.activeHover = lighten(ns.C.active, 0.06)
+  -- (1.4.64) the Market's look, from each theme's own colours: panels, title strips, borders,
+  -- striped rows and button edges
+  ns.C.panel = ns.C.card
+  ns.C.strip = lighten(ns.C.card, 0.035)
+  ns.C.border = ns.C.activeLine
+  ns.C.rowAlt = lighten(ns.C.window, 0.02)
+  ns.C.btnLine = lighten(ns.C.activeLine, 0.16)
+  ns.C.field = ns.C.backdrop
   if ns.UI and ns.UI.RebuildStyles then ns.UI.RebuildStyles() end
   if ns.Overlays and ns.Overlays.KIND then
     ns.Overlays.KIND.join.color = h

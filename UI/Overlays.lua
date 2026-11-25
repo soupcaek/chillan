@@ -441,7 +441,12 @@ local function layoutToasts()
       t:SetFrameStrata("DIALOG")
       t.base = { "TOP", toastAnchor, "TOP", 0, y, 0 }
       t.slide = 1
-      if t.edge then t.edge:Hide() end
+      -- (1.4.64) the accent edge on free toasts too (the Market look)
+      if t.edge then
+        t.edge:ClearAllPoints()
+        t.edge:SetPoint("TOPLEFT", 0, 0) t.edge:SetPoint("BOTTOMLEFT", 0, 0)
+        t.edge:Show()
+      end
     end
     placeToast(t)
     y = y - t:GetHeight() - (m and 4 or 8)

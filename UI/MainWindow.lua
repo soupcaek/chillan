@@ -100,7 +100,7 @@ function W:Create()
   shadow:SetPoint("BOTTOMRIGHT", 40, -50)
   shadow:SetVertexColor(0, 0, 0, 0.9)
 
-  local bg = UI.Panel(f, C.window, C.inputLine, false)
+  local bg = UI.Panel(f, C.window, C.btnLine or C.inputLine, false)
   bg:SetAllPoints()
   bg:SetFrameLevel(f:GetFrameLevel())
 
@@ -189,9 +189,13 @@ function W:Create()
     secX = b
     b.key = sec.key
     b:SetScript("OnClick", function() W:Select(W:LastPage(sec.key)) end)
-    b:SetScript("OnLeave", function(self)
-      if W:SectionOf(W.current) == self.key then self.panel:SetColors(C.active, nil) else self.panel:SetColors(nil, nil) end
-    end)
+    b:SetScript("OnLeave", function(self) self.panel:SetColors(nil, nil) end)
+    -- (1.4.64) the section you're in: an accent underline, like the Market's tabs
+    b.under = UI.Track(b:CreateTexture(nil, "ARTWORK"))
+    b.under:SetHeight(2)
+    b.under:SetPoint("BOTTOMLEFT", 8, -9) b.under:SetPoint("BOTTOMRIGHT", -8, -9)
+    b.under:SetColorTexture(hex(C.accent))
+    b.under:Hide()
     b.badge = CreateFrame("Frame", nil, b)
     b.badge:SetSize(16, 16)
     b.badge:SetPoint("CENTER", b, "TOPRIGHT", -4, -6)
@@ -241,6 +245,12 @@ function W:Create()
   pagebar:SetHeight(PAGEBAR_H)
   self.pagebar = pagebar
   self.pageButtons = {}
+  pagebar.band = UI.Track(pagebar:CreateTexture(nil, "BACKGROUND"))
+  pagebar.band:SetAllPoints()
+  pagebar.band:SetColorTexture(hex(C.rowAlt or C.window))
+  pagebar.seg = UI.Panel(pagebar, C.field or C.input, C.btnLine or C.activeLine, true)
+  pagebar.seg:SetHeight(28)
+  pagebar.seg:Hide()
   local line2 = UI.SolidLine(f)
   line2:SetPoint("TOPLEFT", 1, -TITLE_H - PAGEBAR_H - 1)
   line2:SetPoint("TOPRIGHT", -1, -TITLE_H - PAGEBAR_H - 1)
@@ -346,26 +356,33 @@ function W:PaintPageBar(secKey, sec)
   for _, k in ipairs(sec.pages) do pages[#pages + 1] = k end
   -- a hidden page (player, compare) shows as an extra pill while it's open
   if self.current and not has(pages, self.current) then pages[#pages + 1] = self.current end
+  self.pagebar.seg:Hide()
   if #pages == 1 then return end   -- (1.1.7) one page: no pill (Home, Chat)
-  local prev
+  -- (1.4.64) the pages as one choice bar (the Market look)
+  local prev, total = nil, 0
   for _, key in ipairs(pages) do
     local b = self.pageButtons[key]
     if not b then
-      b = UI.Button(self.pagebar, 10, 26, W.PAGE_LABELS[key] or key, "ghost", function() W:Select(key) end)
+      b = UI.Button(self.pagebar, 10, 22, W.PAGE_LABELS[key] or key, "nav", function() W:Select(key) end)
+      b:SetFrameLevel(self.pagebar.seg:GetFrameLevel() + 2)
       b.count = UI.Text(b, 11, "semi", C.red)
       b.count:SetPoint("LEFT", b.label, "RIGHT", 0, 0)
       self.pageButtons[key] = b
     end
-    b:SetWidth(b.label:GetStringWidth() + 26)
+    local w = b.label:GetStringWidth() + 26
+    b:SetWidth(w)
     b:ClearAllPoints()
-    if prev then b:SetPoint("LEFT", prev, "RIGHT", 6, 0) else b:SetPoint("LEFT", self.pagebar, "LEFT", 12, 0) end
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 1, 0) else b:SetPoint("LEFT", self.pagebar, "LEFT", 15, 0) end
     prev = b
-    local on = key == self.current
-    b.panel:SetColors(on and C.active or nil, on and C.activeLine or C.inputLine)
-    UI.Track(b.label):SetTextColor(hex(on and C.text or C.muted))
-    b.style = { fill = on and C.active or nil, line = on and C.activeLine or C.inputLine, text = on and C.text or C.muted, hover = on and C.activeHover or C.card }
+    total = total + w + 1
+    b:SetStyle(key == self.current and "mkOn" or "nav")
     b:Show()
   end
+  local seg = self.pagebar.seg
+  seg:ClearAllPoints()
+  seg:SetPoint("LEFT", self.pagebar, "LEFT", 12, 0)
+  seg:SetWidth(total + 5)
+  seg:Show()
 end
 
 function W:Select(key)
@@ -388,13 +405,9 @@ function W:Select(key)
   local secKey, sec = self:SectionOf(key)
   if not has(sec.hidden or {}, key) then self.lastPage[secKey] = key end
   for k, b in pairs(self.secButtons or {}) do
-    if k == secKey then
-      b.panel:SetColors(C.active, nil)
-      UI.Track(b.label):SetTextColor(hex(C.accent))
-    else
-      b.panel:SetColors(nil, nil)
-      UI.Track(b.label):SetTextColor(hex(C.muted))
-    end
+    b.panel:SetColors(nil, nil)
+    UI.Track(b.label):SetTextColor(hex(k == secKey and C.text or C.muted))
+    if b.under then b.under:SetShown(k == secKey) end
   end
   if self.cogBtn then UI.Track(self.cogBtn.icon):SetVertexColor(hex(key == "settings" and C.accent or C.muted)) end
   if self.bellBtn then UI.Track(self.bellBtn.icon):SetVertexColor(hex(key == "changelog" and C.accent or C.muted)) end

@@ -174,7 +174,7 @@ function UI.PersonQuick(parent, opts)
   function q:Mark(row, on)
     if not row or not row.panel then return end
     if on then row.panel:SetColors(C.active, C.accent) row.quickOpen = true
-    else row.panel:SetColors(C.card, C.line) row.quickOpen = nil end
+    else if row.striped then row.panel:SetColors(row.stripe, nil) else row.panel:SetColors(C.card, C.line) end row.quickOpen = nil end
   end
 
   function q:Close()

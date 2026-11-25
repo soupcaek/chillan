@@ -15,9 +15,13 @@ local WIDTH, MIN_H = 900, 660
 local PAD = 12
 local ROW_H, GAP = 22, 0
 local TABS = { "Sell", "Buy", "My auctions", "Item Tracker", "Gang" }
-local PANEL, PHEAD, PLINE, ROWALT = "1C1F24", "23272D", "3A4048", "191C20"
-local WIN = "14161A"
-local GOLD, BLUE = "E0B04F", "6FA8F2"
+-- (1.4.64) the theme's own colours and your accent (gold stays for money only)
+local BLUE = "6FA8F2"
+local function PANELc() return C.panel or C.card end
+local function PHEADc() return C.strip or C.cardHover end
+local function PLINEc() return C.border or C.activeLine end
+local function ROWALTc() return C.rowAlt or C.window end
+local function ACCc() return C.accent end
 
 local function dim(t) return ns.Colorize(t, C.dim) end
 -- money, never cut: no copper from 10g up
@@ -85,17 +89,17 @@ end
 
 -- a panel: border, a title strip ("UP NEXT" ... right text), a body with padding
 local function panel(parent, title, accent)
-  local p = UI.Panel(parent, PANEL, PLINE, true)
+  local p = UI.Panel(parent, PANELc(), PLINEc(), true)
   if accent then
     local a = solid(p, accent, "ARTWORK")
     a:SetHeight(2)
     a:SetPoint("TOPLEFT", 1, -1) a:SetPoint("TOPRIGHT", -1, -1)
   end
-  local strip = solid(p, PHEAD, "BORDER")
+  local strip = solid(p, PHEADc(), "BORDER")
   strip:SetPoint("TOPLEFT", 1, accent and -3 or -1)
   strip:SetPoint("TOPRIGHT", -1, accent and -3 or -1)
   strip:SetHeight(25)
-  local line = solid(p, PLINE, "ARTWORK")
+  local line = solid(p, PLINEc(), "ARTWORK")
   line:SetHeight(1)
   line:SetPoint("TOPLEFT", strip, "BOTTOMLEFT") line:SetPoint("TOPRIGHT", strip, "BOTTOMRIGHT")
   p.title = UI.Text(p, 11, "semi", "C9CDD2")
@@ -115,16 +119,16 @@ end
 local function makeRow(parent, cols, btnW)
   local r = CreateFrame("Button", nil, parent)
   r:SetHeight(ROW_H)
-  r.alt = solid(r, ROWALT)
+  r.alt = solid(r, ROWALTc())
   r.alt:SetAllPoints()
   r.bg = r:CreateTexture(nil, "BACKGROUND", nil, 1)
   r.bg:SetAllPoints()
-  r.bg:SetColorTexture(0.88, 0.69, 0.31, 0.13)
+  do local ar, ag, ab = hex(C.accent) r.bg:SetColorTexture(ar, ag, ab, 0.13) end
   r.bg:Hide()
   r.bar = r:CreateTexture(nil, "ARTWORK")
   r.bar:SetWidth(2)
   r.bar:SetPoint("TOPLEFT") r.bar:SetPoint("BOTTOMLEFT")
-  r.bar:SetColorTexture(hex(GOLD))
+  r.bar:SetColorTexture(hex(ACCc()))
   r.bar:Hide()
   r.hl = r:CreateTexture(nil, "HIGHLIGHT")
   r.hl:SetAllPoints()
@@ -182,7 +186,7 @@ local function header(parent, cols, btnW, first, ...)
   local f = UI.Text(h, 10, nil, C.dim)
   f:SetPoint("TOPLEFT", 6, -2)
   f:SetText(first or "")
-  local line = solid(h, PLINE, "ARTWORK")
+  local line = solid(h, PLINEc(), "ARTWORK")
   line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT") line:SetPoint("BOTTOMRIGHT")
   h.first = f
@@ -216,7 +220,7 @@ end
 local function seg(parent, opts, get, set)
   local f = CreateFrame("Frame", nil, parent)
   f:SetHeight(24)
-  local bg = UI.Panel(f, "101215", "4A5059", true)
+  local bg = UI.Panel(f, C.field or C.input, C.btnLine or C.activeLine, true)
   bg:SetAllPoints()
   f.btns = {}
   local x = 2
@@ -236,7 +240,7 @@ end
 
 local function edit(parent, w, placeholder, onEnter)
   local e = UI.EditBox(parent, w, 26, placeholder, onEnter)
-  e:SetColors("0E1013", "4A5059")
+  
   e.edit:SetFont(ns.FONT, 12, "")
   e.edit.ph:SetFont(ns.FONT, 12, "")
   return e
@@ -268,7 +272,7 @@ local function makeChart(parent)
     g:SetHeight(1)
     c.grid[i] = g
   end
-  c.lines, c.dot = {}, solid(c.plot, GOLD, "OVERLAY")
+  c.lines, c.dot = {}, solid(c.plot, ACCc(), "OVERLAY")
   c.dot:SetSize(6, 6)
   function c:SetData(pts, days)
     for _, l in ipairs(self.lines) do l:Hide() end
@@ -300,7 +304,7 @@ local function makeChart(parent)
       if not l then
         l = self.plot:CreateLine(nil, "ARTWORK")
         l:SetThickness(2)
-        l:SetColorTexture(hex(GOLD))
+        l:SetColorTexture(hex(ACCc()))
         self.lines[i - 1] = l
       end
       local x1, y1 = xy(pts[i - 1])
@@ -337,7 +341,7 @@ function W:Create()
   f:SetClampedToScreen(true)
   f:Hide()
   self.frame = f
-  local bg = UI.Panel(f, WIN, "4A5059")
+  local bg = UI.Panel(f, C.window, C.btnLine or C.activeLine)
   bg:SetAllPoints()
   bg:SetFrameLevel(f:GetFrameLevel())
 
@@ -363,16 +367,16 @@ function W:Create()
     b:SetSize(w, 30)
     b:SetPoint("TOPLEFT", x, -30)
     x = x + w
-    b.line = solid(b, GOLD, "ARTWORK")
+    b.line = solid(b, ACCc(), "ARTWORK")
     b.line:SetHeight(2)
     b.line:SetPoint("BOTTOMLEFT", 6, 0) b.line:SetPoint("BOTTOMRIGHT", -6, 0)
     b:SetScript("OnClick", function() W:Show(i) end)
     self.tabBtns[i] = b
   end
-  local sep = solid(f, PLINE, "ARTWORK")
+  local sep = solid(f, PLINEc(), "ARTWORK")
   sep:SetHeight(1)
   sep:SetPoint("TOPLEFT", 1, -60) sep:SetPoint("TOPRIGHT", -1, -60)
-  local fsep = solid(f, PLINE, "ARTWORK")
+  local fsep = solid(f, PLINEc(), "ARTWORK")
   fsep:SetHeight(1)
   fsep:SetPoint("BOTTOMLEFT", 1, 26) fsep:SetPoint("BOTTOMRIGHT", -1, 26)
   self.status = UI.Text(f, 11, nil, C.dim)
@@ -506,7 +510,7 @@ function W:BuildSell(p)
   s.uhintTip = UI.InfoTip(s.upP.body, s.uhint, "Up Next",
     "Your bags, most valuable first: items that pay more on the auction (after its 5 % cut) than at a vendor. Items with no price yet are here too when they're green or better. Right-click a row to hide it for good; right-click it under For a vendor to bring it back. Skip moves an item to the end for this visit.")
 
-  s.postP = panel(p, "Post", GOLD)
+  s.postP = panel(p, "Post", ACCc())
   s.postP:SetPoint("TOPLEFT", LEFT_W + 12, 0)
   s.postP:SetPoint("TOPRIGHT", 0, 0)
   s.postP:SetHeight(246)
@@ -824,7 +828,7 @@ function W:BuildBuy(p)
   b.results:SetPoint("TOPLEFT", b.rhead, "BOTTOMLEFT", 0, -2)
   b.results:SetPoint("BOTTOMRIGHT", b.resP.body, "BOTTOMRIGHT", 4, 0)
 
-  b.itemP = panel(p, "Pick a result", GOLD)
+  b.itemP = panel(p, "Pick a result", ACCc())
   b.itemP:SetPoint("TOPLEFT", BUY_LEFT + 12, 0)
   b.itemP:SetPoint("TOPRIGHT", 0, 0)
   b.itemP:SetHeight(214)
@@ -845,7 +849,7 @@ function W:BuildBuy(p)
   b.chart:SetPoint("TOPLEFT", 0, -22)
   b.chart:SetPoint("BOTTOMRIGHT", 0, 0)
 
-  b.bar = UI.Panel(p, PANEL, PLINE, true)
+  b.bar = UI.Panel(p, PANELc(), PLINEc(), true)
   b.bar:SetPoint("BOTTOMLEFT", BUY_LEFT + 12, 0)
   b.bar:SetPoint("BOTTOMRIGHT", 0, 0)
   b.bar:SetHeight(48)
@@ -1064,7 +1068,7 @@ function W:BuildAuctions(p)
   local tw = math.floor((WIDTH - 2 * PAD - 20) / 3)
   local accents = { BLUE, C.red, C.green }
   for i = 1, 3 do
-    local t = UI.Panel(p, PANEL, PLINE, true)
+    local t = UI.Panel(p, PANELc(), PLINEc(), true)
     t:SetSize(tw, 52)
     t:SetPoint("TOPLEFT", (i - 1) * (tw + 10), 0)
     local acc = solid(t, accents[i], "ARTWORK")
@@ -1210,7 +1214,7 @@ function W:BuildShop(p)
     r:Mark(s.selId == it.id)
     r.alt:SetShown(not under and r.alt:IsShown())
     if under then r.bg:SetColorTexture(0.37, 0.82, 0.55, 0.14) r.bg:Show()
-    else r.bg:SetColorTexture(0.88, 0.69, 0.31, 0.13) end
+    else do local ar, ag, ab = hex(C.accent) r.bg:SetColorTexture(ar, ag, ab, 0.13) end end
     r.btn:SetScript("OnClick", nil)
     r.btn:Hide() r.pill:Hide()
     local state, _, bkey = AH.Buying()
@@ -1244,7 +1248,7 @@ function W:BuildShop(p)
   s.list:SetPoint("TOPLEFT", s.head, "BOTTOMLEFT", 0, -2)
   s.list:SetPoint("BOTTOMRIGHT", s.listP.body, "BOTTOMRIGHT", 4, 36)
   s.list.emptyText = "Nothing tracked yet. Type an item's name above, or shift-click it, and set a price to be told about."
-  local fl = solid(s.listP.body, PLINE, "ARTWORK")
+  local fl = solid(s.listP.body, PLINEc(), "ARTWORK")
   fl:SetHeight(1)
   fl:SetPoint("BOTTOMLEFT", -4, 32) fl:SetPoint("BOTTOMRIGHT", 4, 32)
   s.sum = UI.Text(s.listP.body, 12, nil, C.muted)

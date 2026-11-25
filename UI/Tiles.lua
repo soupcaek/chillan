@@ -592,6 +592,13 @@ function T:Layout()
   for c = 1, cols - 1 do line(c * tw, -8, c * tw + 1, -(rows * H) + 8) end
   for r = 1, rows - 1 do line(8, -r * H, blockW - 8, -r * H - 1) end
   for i = li + 1, #self.lines do self.lines[i]:Hide() end
+  -- (1.4.64) a thin accent edge on the first card (the light version of the Market look)
+  if not self.edge then self.edge = UI.Track(self.holder:CreateTexture(nil, "OVERLAY")) end
+  self.edge:SetColorTexture(hex(C.accent))
+  self.edge:ClearAllPoints()
+  self.edge:SetPoint("TOPLEFT", self.holder, "TOPLEFT", 0, -6)
+  self.edge:SetPoint("BOTTOMLEFT", self.holder, "TOPLEFT", 2, -H + 6)
+  self.edge:Show()
   -- the bar grows with the cards (up to 3 wide), more cards go downwards
   self.rowWidth = blockW
   if ns.Overlays.FitMinibar then ns.Overlays:FitMinibar() end

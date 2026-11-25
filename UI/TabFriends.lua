@@ -34,31 +34,19 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   crownKey:SetPoint("LEFT", mapBtn, "RIGHT", 12, 0)
   crownKey:SetText(UI.InlineIcon("Crown", "E0C068", 11) .. " holds a title this week")
 
-  local filterButtons = {}
-  local function setFilter(key)
-    filter = key
-    for k, b in pairs(filterButtons) do
-      if k == key then
-        b.panel:SetColors(C.active, C.activeLine) UI.Track(b.label):SetTextColor(hex(C.text)) b.style = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover }
-      else
-        b.panel:SetColors(nil, C.inputLine) UI.Track(b.label):SetTextColor(hex(C.muted)) b.style = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card }
-      end
-    end
-    tab:Refresh()
-  end
-  local prev
-  for _, def in ipairs({ { "zone", "Same zone" }, { "online", "Online only" }, { "all", "All" } }) do
-    local b = UI.Button(tab, 10, 28, def[2], "ghost", function() setFilter(def[1]) end)
-    b:SetWidth(b.label:GetStringWidth() + 22)
-    if prev then b:SetPoint("RIGHT", prev, "LEFT", -6, 0) else b:SetPoint("TOPRIGHT", -16, -12) end
-    prev = b
-    filterButtons[def[1]] = b
-  end
+  -- (1.4.64) the filters as one choice bar, the list in a panel (the Market look)
+  local FILTERS = { "all", "online", "zone" }
+  local seg = UI.Seg(tab, { "All", "Online only", "Same zone" }, function()
+    for i, k in ipairs(FILTERS) do if k == filter then return i end end
+    return 1
+  end, function(i) filter = FILTERS[i] tab:Refresh() end, 26)
+  seg:SetPoint("TOPRIGHT", -12, -12)
+  local function setFilter(key) filter = key seg:Refresh() tab:Refresh() end
 
   -- Rader
   local function createRow(list)
     local row = CreateFrame("Button", nil, list)
-    row.panel = UI.Panel(row, C.card, C.line, false)
+    row.panel = UI.Panel(row, nil, nil, true)
     row.panel:SetAllPoints()
     row.panel:SetFrameLevel(row:GetFrameLevel())
     row.avatar = UI.Avatar(row, 34)
@@ -97,12 +85,12 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     row:SetScript("OnEnter", function(self)
       if not self.item or self.item.sep then return end
       if self.item.pid ~= ns.pid then self.watch:Show() end
-      if not self.quickOpen then self.panel:SetColors(C.cardHover, C.line) end
+      if not self.quickOpen then self.panel:SetColors(C.cardHover, nil) end
       ns.Overlays:ShowProfile(self, self.item.pid)
     end)
     row:SetScript("OnLeave", function(self)
       if self.watch and not self.watch:IsMouseOver() and not (self.item and ns.Watch:Has(self.item.pid)) then self.watch:Hide() end
-      if not self.quickOpen then self.panel:SetColors(C.card, C.line) end
+      if not self.quickOpen then self.panel:SetColors(self.stripe, nil) end
       ns.Overlays:HideProfile()
     end)
     row:SetScript("OnClick", function(self)
@@ -123,7 +111,11 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
   end
 
   local ROW_PARTS = { "panel", "avatar", "name", "sub", "zone", "time", "invite", "whisper", "wp", "pill" }
-  local function updateRow(row, p)
+  local function updateRow(row, p, idx)
+    -- (1.4.64) striped rows instead of separate cards
+    row.striped = true
+    row.stripe = (idx or 1) % 2 == 0 and (C.rowAlt or C.card) or nil
+    if not row.quickOpen then row.panel:SetColors(row.stripe, nil) end
     -- section line between online and offline friends
     if p.sep then
       for _, k in ipairs(ROW_PARTS) do if row[k] then row[k]:Hide() end end
@@ -195,9 +187,12 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     end)
   end
 
-  local list = UI.List(tab, 52, 6, createRow, updateRow)
-  list:SetPoint("TOPLEFT", 12, -48)
-  list:SetPoint("BOTTOMRIGHT", -12, 60)
+  local listP = UI.Section(tab, "Gang")
+  listP:SetPoint("TOPLEFT", 12, -46)
+  listP:SetPoint("BOTTOMRIGHT", -12, 60)
+  local list = UI.List(listP.body, 52, 0, createRow, updateRow)
+  list:SetPoint("TOPLEFT", -4, 0)
+  list:SetPoint("BOTTOMRIGHT", 4, 0)
   list.emptyText = "Nobody here yet. Share your gang code (see the More tab), and your friends show up when they log in."
 
   -- (1.2.0) the quick card: joined to the row you clicked, with all their characters
@@ -272,6 +267,7 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
     quick:Refresh()
     local n, total = ns.Window:OnlineCount()
     count:SetText(n .. " of " .. total .. " online")
+    listP.right:SetText(n .. " of " .. total .. " online")
     local st = ns.Tracker:Status()
     local manual = ns.db.statusOverride
     statusBtn:SetLabel((ns.STATUS[st] and ns.STATUS[st].label or st) .. (manual and "" or "  (auto)"))

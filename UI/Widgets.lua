@@ -124,6 +124,8 @@ function UI.Panel(parent, fill, line, small, alpha)
       self.bg:Hide()
     end
     if lineHex then
+      -- (1.4.64) cards drawn with the faint line get the panel border (the Market's crisper edges)
+      if C.border and lineHex == C.line then lineHex = C.border end
       local r, g, b = hex(lineHex)
       self.border:SetVertexColor(r, g, b, 1)
       self.border:Show()
@@ -366,17 +368,18 @@ end
 local STYLES = {}
 -- Button styles follow the active theme (rebuilt when the theme is applied)
 function UI.RebuildStyles()
-  STYLES.primary = { fill = C.accent, line = nil, text = C.accentText, hover = C.accentHover or C.accent, weight = "semi" }
-  STYLES.secondary = { fill = C.active, line = C.activeLine, text = C.text, hover = C.activeHover or C.active, weight = "semi" }
-  STYLES.ghost = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card, weight = nil }
-  STYLES.danger = { fill = C.sosBg, line = C.sosLine, text = C.sosText, hover = "4A2427", weight = "semi" }
+  -- (1.4.64) every button has a real border (the Market look)
+  STYLES.primary = { fill = C.accent, line = C.accentHover or C.accent, text = C.accentText, hover = C.accentHover or C.accent, weight = "semi" }
+  STYLES.secondary = { fill = C.active, line = C.btnLine or C.activeLine, text = C.text, hover = C.activeHover or C.active, weight = "semi" }
+  STYLES.ghost = { fill = nil, line = C.border or C.inputLine, text = C.muted, hover = C.card, weight = nil }
+  STYLES.danger = { fill = "5A2A2D", line = "9A4A4E", text = "FFD0D1", hover = "6A3235", weight = "semi" }
   STYLES.nav = { fill = nil, line = nil, text = C.dim, hover = C.card, weight = nil }
   -- (1.4.59) the Market window's buttons: real borders, so they stand out from the panels
-  STYLES.mkPri = { fill = "E0B04F", line = "F0C870", text = "17191C", hover = "ECC060", weight = "semi" }
-  STYLES.mkSec = { fill = "2C3138", line = "5A616B", text = C.text, hover = "363C44", weight = "semi" }
-  STYLES.mkRed = { fill = "5A2A2D", line = "9A4A4E", text = "FFD0D1", hover = "6A3235", weight = "semi" }
-  STYLES.mkGhost = { fill = nil, line = "4A5059", text = C.muted, hover = "23272D", weight = nil }
-  STYLES.mkOn = { fill = "3D434C", line = "4A5059", text = C.text, hover = "3D434C", weight = "semi" }
+  STYLES.mkPri = STYLES.primary
+  STYLES.mkSec = STYLES.secondary
+  STYLES.mkRed = STYLES.danger
+  STYLES.mkGhost = STYLES.ghost
+  STYLES.mkOn = { fill = C.activeLine, line = C.btnLine or C.activeLine, text = C.text, hover = C.activeLine, weight = "semi" }
 end
 UI.RebuildStyles()
 
@@ -499,7 +502,7 @@ end
 -- Tekstfelt
 ---------------------------------------------------------------------------
 function UI.EditBox(parent, w, h, placeholder, onEnter)
-  local holder = UI.Panel(parent, C.input, C.inputLine, true)
+  local holder = UI.Panel(parent, C.field or C.input, C.btnLine or C.inputLine, true)
   holder:SetSize(w or 160, h or 34)
   local e = CreateFrame("EditBox", nil, holder)
   e:SetPoint("TOPLEFT", 10, 0)
@@ -515,8 +518,8 @@ function UI.EditBox(parent, w, h, placeholder, onEnter)
   local function upd()
     if e:GetText() == "" and not e:HasFocus() then e.ph:Show() else e.ph:Hide() end
   end
-  e:SetScript("OnEditFocusGained", function() holder:SetColors(C.input, C.accent) upd() end)
-  e:SetScript("OnEditFocusLost", function() holder:SetColors(C.input, C.inputLine) upd() end)
+  e:SetScript("OnEditFocusGained", function() holder:SetColors(C.field or C.input, C.accent) upd() end)
+  e:SetScript("OnEditFocusLost", function() holder:SetColors(C.field or C.input, C.btnLine or C.inputLine) upd() end)
   e:SetScript("OnTextChanged", upd)
   e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   e:SetScript("OnEnterPressed", function(self)
@@ -534,14 +537,31 @@ end
 ---------------------------------------------------------------------------
 -- Avkrysning
 ---------------------------------------------------------------------------
+-- (1.4.64) an on/off switch: a rounded track in the accent colour when on, a knob that moves
+function UI.Switch(parent)
+  local s = CreateFrame("Frame", nil, parent)
+  s:SetSize(30, 16)
+  s.track = UI.Panel(s, C.active, C.btnLine or C.activeLine, true)
+  s.track:SetAllPoints()
+  s.knob = s:CreateTexture(nil, "OVERLAY")
+  s.knob:SetTexture(ns.TEX .. "Circle")
+  s.knob:SetSize(12, 12)
+  function s:Set(on)
+    self.track:SetColors(on and C.accent or C.active, on and (C.accentHover or C.accent) or (C.btnLine or C.activeLine))
+    self.knob:ClearAllPoints()
+    self.knob:SetPoint(on and "RIGHT" or "LEFT", on and -2 or 2, 0)
+    self.knob:SetVertexColor(hex(on and C.accentText or C.muted))
+  end
+  s:Set(false)
+  return s
+end
+
 function UI.Check(parent, label, getter, setter)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(260, 26)
-  b.box = UI.Panel(b, C.input, C.inputLine, true)
-  b.box:SetSize(18, 18)
+  b.box = UI.Switch(b)
   b.box:SetPoint("LEFT")
-  b.mark = UI.Icon(b.box, "Check", 14, C.accentText)
-  b.mark:SetPoint("CENTER")
+  b.mark = b.box.knob
   b.label = UI.Text(b, 13, nil, C.text2)
   b.label:SetPoint("LEFT", b.box, "RIGHT", 10, 0)
   -- (1.4.21) a label never runs out of its box: it ends with "…" (the tooltip has the full text)
@@ -549,15 +569,7 @@ function UI.Check(parent, label, getter, setter)
   b.label:SetJustifyH("LEFT")
   b.label:SetWordWrap(false)
   b.label:SetText(label)
-  function b:Refresh()
-    if getter() then
-      self.box:SetColors(C.accent, nil)
-      self.mark:Show()
-    else
-      self.box:SetColors(C.input, C.inputLine)
-      self.mark:Hide()
-    end
-  end
+  function b:Refresh() self.box:Set(getter() and true or false) end
   b:SetScript("OnClick", function(self)
     setter(not getter())
     self:Refresh()
@@ -1304,6 +1316,89 @@ function UI.ApplyThemeLive()
 end
 
 -- (1.4.48) a small "i" after a heading: the explanation lives in its tooltip, not under the heading
+---------------------------------------------------------------------------
+-- (1.4.64) the Market look as shared pieces: a panel with a title strip, a choice bar, a row
+---------------------------------------------------------------------------
+-- a bordered panel with a title strip ("UP NEXT" … right text); content goes in p.body
+function UI.Section(parent, title, accent, light)
+  local p = UI.Panel(parent, C.panel or C.card, C.border or C.activeLine, true, light and 0.72 or nil)
+  if accent then
+    p.acc = UI.Track(p:CreateTexture(nil, "ARTWORK"))
+    p.acc:SetColorTexture(hex(accent == true and C.accent or accent))
+    p.acc:SetHeight(2)
+    p.acc:SetPoint("TOPLEFT", 1, -1) p.acc:SetPoint("TOPRIGHT", -1, -1)
+  end
+  local sh = light and 20 or 25
+  p.strip = UI.Track(p:CreateTexture(nil, "BORDER"))
+  p.strip:SetColorTexture(hex(C.strip or C.cardHover))
+  if light then p.strip:SetAlpha(0.6) end
+  p.strip:SetPoint("TOPLEFT", 1, accent and -3 or -1)
+  p.strip:SetPoint("TOPRIGHT", -1, accent and -3 or -1)
+  p.strip:SetHeight(sh)
+  p.stripLine = UI.Track(p:CreateTexture(nil, "ARTWORK"))
+  p.stripLine:SetColorTexture(hex(C.border or C.activeLine))
+  p.stripLine:SetHeight(1)
+  p.stripLine:SetPoint("TOPLEFT", p.strip, "BOTTOMLEFT") p.stripLine:SetPoint("TOPRIGHT", p.strip, "BOTTOMRIGHT")
+  p.title = UI.Text(p, light and 10 or 11, "semi", C.text2)
+  p.title:SetPoint("LEFT", p.strip, "LEFT", 10, 0)
+  p.title:SetText((title or ""):upper())
+  p.right = UI.Text(p, 11, nil, C.dim)
+  p.right:SetPoint("RIGHT", p.strip, "RIGHT", -10, 0)
+  p.body = CreateFrame("Frame", nil, p)
+  p.body:SetPoint("TOPLEFT", p.strip, "BOTTOMLEFT", 9, -9)
+  p.body:SetPoint("BOTTOMRIGHT", -10, 9)
+  p.stripH = sh + (accent and 2 or 0)
+  function p:SetTitle(t) self.title:SetText((t or ""):upper()) end
+  -- the panel's height for a body this tall
+  function p:FitBody(h) self:SetHeight(self.stripH + 2 + 18 + h) end
+  return p
+end
+
+-- a choice bar: one of a few options, the chosen one filled
+function UI.Seg(parent, opts, get, set, h)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetHeight(h or 24)
+  local bg = UI.Panel(f, C.field or C.input, C.btnLine or C.activeLine, true)
+  bg:SetAllPoints()
+  bg:SetFrameLevel(f:GetFrameLevel())
+  f.btns = {}
+  local x = 2
+  for i, o in ipairs(opts) do
+    local b = UI.Button(f, 0, (h or 24) - 4, type(o) == "table" and o[1] or o, "nav", function() set(i) f:Refresh() end)
+    if type(o) == "table" then b.tooltip = o[2] end
+    local w = math.max(40, math.ceil(b.label:GetStringWidth()) + 20)
+    b:SetWidth(w)
+    b:SetPoint("LEFT", x, 0)
+    x = x + w + 1
+    f.btns[i] = b
+  end
+  f:SetWidth(x + 1)
+  function f:Refresh() for i, b in ipairs(self.btns) do b:SetStyle(get() == i and "mkOn" or "nav") end end
+  f:Refresh()
+  return f
+end
+
+-- a settings row: label (with an ⓘ when there's more to say) on the left, a switch on the right,
+-- a thin line under it
+function UI.SwitchRow(parent, label, getter, setter, tip)
+  local r = CreateFrame("Button", nil, parent)
+  r:SetHeight(30)
+  r.label = UI.Text(r, 12, nil, C.text)
+  r.label:SetPoint("LEFT", 0, 0)
+  r.label:SetText(label)
+  if tip then r.info = UI.InfoTip(r, r.label, label, tip) end
+  r.sw = UI.Switch(r)
+  r.sw:SetPoint("RIGHT", 0, 0)
+  r.line = UI.Track(r:CreateTexture(nil, "ARTWORK"))
+  r.line:SetColorTexture(hex(C.line))
+  r.line:SetHeight(1)
+  r.line:SetPoint("BOTTOMLEFT") r.line:SetPoint("BOTTOMRIGHT")
+  function r:Refresh() self.sw:Set(getter() and true or false) end
+  r:SetScript("OnClick", function(self) setter(not getter()) self:Refresh() end)
+  r:Refresh()
+  return r
+end
+
 function UI.InfoTip(parent, anchor, title, text)
   local b = CreateFrame("Frame", nil, parent)
   b:SetSize(15, 15)
