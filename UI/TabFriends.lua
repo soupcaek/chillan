@@ -145,8 +145,8 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
         z = z .. ns.Colorize("  ·  " .. ns.Layer.Label(L.layer), (mine and mine == L.layer) and "9BE08A" or "9BA1A8")
       end
       row.zone:SetText(z)
-      local coords = (L.x and L.y) and string.format("  ·  %.0f, %.0f", L.x * 100, L.y * 100) or ""
-      row.time:SetText("Online " .. ns.Duration(ns.Now() - (L.session or ns.Now())) .. coords)
+      -- (1.4.68) no coordinates (they crowded the place name)
+      row.time:SetText("Online " .. ns.Duration(ns.Now() - (L.session or ns.Now())))
       row:SetAlpha(1)
       row.invite:Show()
     else
@@ -170,9 +170,10 @@ ns:RegisterTab("friends", "Friends", "Friends", function(tab)
       row.name:SetWidth(colX - 8); row.sub:SetWidth(colX - 8)
       row.zone:ClearAllPoints(); row.time:ClearAllPoints()
       row.zone:SetPoint("TOPLEFT", row.avatar, "TOPRIGHT", 12 + colX, 0)
-      row.zone:SetPoint("RIGHT", row.pill, "LEFT", -10, 0)
+      -- (1.4.68) the place ends with "…" before the watch eye, so they never overlap
+      row.zone:SetPoint("RIGHT", row.watch, "LEFT", -6, 0)
       row.time:SetPoint("BOTTOMLEFT", row.avatar, "BOTTOMRIGHT", 12 + colX, 0)
-      row.time:SetPoint("RIGHT", row.pill, "LEFT", -10, 0)
+      row.time:SetPoint("RIGHT", row.watch, "LEFT", -6, 0)
     end
     local target = L.char or p.main
     row.whisper:SetScript("OnClick", function() ns.Whisper(target) end)

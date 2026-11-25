@@ -395,7 +395,7 @@ function E:Create()
   sep:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT", -8, 0)
 
   -- Skrivefelt
-  local input = UI.EditBox(f, 100, 26, "Write to the gang …  (Enter)", function(eb)
+  local input = UI.EditBox(f, 100, 26, "Click to write to the gang …", function(eb)
     local txt = eb:GetText()
     if txt and txt ~= "" then ns.Data:SendChat(txt) end
     eb:SetText("")

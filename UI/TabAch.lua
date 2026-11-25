@@ -154,12 +154,8 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
     else
       row.right:SetText("")
     end
-    local o = others(d.id, pid)
-    if #o > 0 and not hidden then
-      row.others:SetText("Also: " .. table.concat(o, ", ", 1, math.min(3, #o)) .. (#o > 3 and (" +" .. (#o - 3)) or ""))
-    else
-      row.others:SetText("")
-    end
+    -- (1.4.68) no "Also: name, name…" under each trophy
+    row.others:SetText("")
   end
 
   local list = UI.List(tab, 54, 6, createRow, updateRow)
@@ -169,7 +165,7 @@ ns:RegisterTab("ach", "Trophies", "Trophy", function(tab)
   function tab:Refresh()
     local pid = ns.Window.achPid or ns.pid
     local p = ns:GetPerson(pid) or {}
-    who:SetLabel("Showing: " .. ((pid == ns.pid) and "me" or (ns:PersonAlias(p) or ns:PersonName(p))) .. "  · switch")
+    who:SetLabel("Showing: " .. ((pid == ns.pid) and (ns.db.alias or ns:PersonFirst(p) or "me") or (ns:PersonAlias(p) or ns:PersonName(p))))
     local total = #A.defs
     big:SetText(A:Count(pid) .. " / " .. total)
     pts:SetText(A:Points(pid) .. " points")

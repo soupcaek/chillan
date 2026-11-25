@@ -73,7 +73,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     { "Price change since the last scan", "mkTrend", "Shown when the price moved 5 % or more." },
   })
   rowsPanel("Auction house and sharing", {
-    { "Market window beside the auction house", "mkWindow", "Opens with the auction house: Sell (your bags as a queue, priced 1c under the cheapest), Buy, My auctions, Item Tracker and Gang. Close it with × for one visit; the Chillan? Market tab on the auction house brings it back." },
+    { "Market window at the auction house", "mkWindow", "Opens with the auction house: Sell (your bags as a queue, priced 1c under the cheapest), Buy, My auctions, Item Tracker and Gang. Close it with × for one visit; the Chillan? Market tab on the auction house brings it back." },
     { "Share prices with the gang", "marketShare", "After you scan, the prices that changed go to the gang quietly; friends logging in get the newest ones, and an item you hover with no price is asked for." },
   })
 

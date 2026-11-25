@@ -354,7 +354,8 @@ function B:DrawAV(y, w)
     v.bar:ClearAllPoints() v.bar:SetPoint("TOPLEFT", 0, y) v.bar:SetPoint("TOPRIGHT", 0, y)
     v.bar:SetStatusBarColor(hex(BRIGHT[first.atk] or C.muted))
     v.big:SetTextColor(hex(BRIGHT[first.atk] or C.text))
-    v.bar:SetValue(left and (left / cap) or 0)
+    -- (1.4.68) the bar grows as the capture gets closer (it used to run down)
+    v.bar:SetValue(left and (1 - left / cap) or 0)
     v.bar:Show()
     y = y - 16
     if #list > 1 then
@@ -371,7 +372,7 @@ function B:DrawAV(y, w)
         r.time:SetText(mmss(l))
         r.bar:ClearAllPoints() r.bar:SetPoint("TOPLEFT", 0, y - 17) r.bar:SetPoint("TOPRIGHT", 0, y - 17)
         r.bar:SetStatusBarColor(hex(BRIGHT[node.atk] or C.muted))
-        r.bar:SetValue(l and (l / cap) or 0)
+        r.bar:SetValue(l and (1 - l / cap) or 0)
         r.bar:SetAlpha(l and 1 or 0.5)
         r.label:Show() r.time:Show() r.bar:Show()
         y = y - 28

@@ -15,9 +15,16 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
   sub:SetText("Enemies who killed one of us")
   UI.InfoTip(tab, sub, "Died to", "Enemy players who killed a gang member in the last 60 days. The list updates by itself. Killing one within a week of their last kill counts as revenge.")
 
-  local search = UI.EditBox(tab, 100, 30, "Search names and zones …", function(self) self:ClearFocus() end)
+  local search = UI.EditBox(tab, 100, 28, "Search names and zones …", function(self) self:ClearFocus() end)
   search:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
-  search:SetPoint("RIGHT", tab, "RIGHT", -16, 0)
+  -- (1.4.68) sort by the latest kill or by who killed us most
+  local sortBy = ns.db.settings.diedToSort or 1
+  local sortSeg = UI.Seg(tab, { "Latest", "Most kills" }, function() return sortBy end, function(i)
+    sortBy = i ns.db.settings.diedToSort = i tab:Refresh()
+  end)
+  sortSeg:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -16, 0)
+  sortSeg:SetPoint("TOP", search, "TOP", 0, 0)
+  search:SetPoint("RIGHT", sortSeg, "LEFT", -8, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
 
   local function createRow(list)
@@ -71,6 +78,13 @@ ns:RegisterTab("diedto", "Died to", "Skull", function(tab)
         out[#out + 1] = e
       end
     end
+    if sortBy == 2 then
+      table.sort(out, function(a, b)
+        if (a.n or 0) ~= (b.n or 0) then return (a.n or 0) > (b.n or 0) end
+        return (a.last or 0) > (b.last or 0)
+      end)
+    end
+    sortSeg:Refresh()
     list:SetData(out)
   end
   ns:Listen("CUNTS", function() if tab:IsVisible() then tab:Refresh() end end)

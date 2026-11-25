@@ -250,7 +250,7 @@ function UI.SolidLine(parent, h)
 end
 
 function UI.Text(parent, size, weight, color, layer)
-  local fs = UI.Track(parent:CreateFontString(nil, layer or "OVERLAY"))
+  local fs = UI.Track(parent:CreateFontString(nil, type(layer) == "string" and layer or "OVERLAY"))
   local font = ns.FONT
   if weight == "semi" then font = ns.FONT_SEMI elseif weight == "bold" then font = ns.FONT_BOLD end
   if not fs:SetFont(font, size or 13, "") then
@@ -1292,7 +1292,9 @@ local function ensurePicker()
     end)
     P.cells[i] = b
   end
-  P.empty = UI.Text(P, 12, nil, C.text2, true)
+  -- (1.4.68) the 5th argument is a draw layer: "true" there made the picker fail to open
+  P.empty = UI.Text(P, 12, nil, C.text2)
+  P.empty:SetWordWrap(true)
   P.empty:SetPoint("TOPLEFT", 12, -66)
   P.empty:SetPoint("RIGHT", -12, 0)
   P.foot = UI.Text(P, 10, nil, C.dim)
@@ -1526,12 +1528,25 @@ end
 function UI.SwitchRow(parent, label, getter, setter, tip)
   local r = CreateFrame("Button", nil, parent)
   r:SetHeight(30)
+  r.sw = UI.Switch(r)
+  r.sw:SetPoint("RIGHT", 0, 0)
   r.label = UI.Text(r, 12, nil, C.text)
   r.label:SetPoint("LEFT", 0, 0)
   r.label:SetText(label)
-  if tip then r.info = UI.InfoTip(r, r.label, label, tip) end
-  r.sw = UI.Switch(r)
-  r.sw:SetPoint("RIGHT", 0, 0)
+  -- (1.4.68) a long label ends with "…" before the ⓘ and the switch, never under them
+  r.label:SetPoint("RIGHT", r.sw, "LEFT", tip and -28 or -10, 0)
+  r.label:SetJustifyH("LEFT")
+  r.label:SetWordWrap(false)
+  if tip then
+    r.info = UI.InfoTip(r, r.label, label, tip)
+    local function placeInfo()
+      local sw, lw = math.ceil(r.label:GetStringWidth() or 0), r.label:GetWidth() or 0
+      r.info:ClearAllPoints()
+      r.info:SetPoint("LEFT", r.label, "LEFT", (lw > 1 and math.min(sw, lw) or sw) + 6, 0)
+    end
+    placeInfo()
+    r:HookScript("OnSizeChanged", placeInfo)
+  end
   r.line = UI.Track(r:CreateTexture(nil, "ARTWORK"))
   r.line:SetColorTexture(hex(C.line))
   r.line:SetHeight(1)

@@ -28,29 +28,30 @@ end
 -- (1.1.7) "Crafters": who can make what, grouped by profession. The gang code and your name moved to
 -- Settings → Your gang.
 ns:RegisterTab("more", "Crafters", "More", function(tab)
-  local right = CreateFrame("Frame", nil, tab)
-  right:SetPoint("TOPLEFT", 16, -16)
-  right:SetPoint("BOTTOMRIGHT", -16, 14)
-
-  local kh = UI.Text(right, 15, "semi", C.text)
-  kh:SetPoint("TOPLEFT")
-  kh:SetText("Who can make what?")
-  UI.InfoTip(right, kh, "Who can make what?", "Search for a recipe to see who can craft it. Click a name to send them a request.")
+  -- (1.4.68) compact: one striped row per profession or recipe, the people on the same line, each
+  -- person once (alts and second installs of the same person are one chip, with their best skill)
   local search
-  search = UI.EditBox(right, 100, 32, "Search for a recipe or profession …", function(self) self:ClearFocus() end)
-  search:SetPoint("TOPLEFT", kh, "BOTTOMLEFT", 0, -10)
-  search:SetPoint("RIGHT", right, "RIGHT", 0, 0)
+  search = UI.EditBox(tab, 100, 28, "Search for a recipe or profession …", function(self) self:ClearFocus() end)
+  search:SetPoint("TOPLEFT", 12, -12)
+  search:SetPoint("RIGHT", tab, "RIGHT", -12, 0)
   search.edit:HookScript("OnTextChanged", function() tab:Refresh() end)
+  local cp = UI.Section(tab, "Who can make what")
+  cp:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -10)
+  cp:SetPoint("BOTTOMRIGHT", -12, 12)
+  UI.InfoTip(cp, cp.title, "Who can make what?", "Search for a recipe to see who can craft it. Click a name to send them a request. Professions are shared automatically; open your profession window once and your recipes are shared too.")
+  local right = cp.body
+  local WHAT_W = 170
 
   local CHIPS = 6
   local function createCraft(list)
     local row = CreateFrame("Frame", nil, list)
-    row.panel = UI.Panel(row, C.card, C.line, false)
-    row.panel:SetAllPoints()
-    row.panel:SetFrameLevel(row:GetFrameLevel())
+    row.stripe = UI.Track(row:CreateTexture(nil, "BACKGROUND"))
+    row.stripe:SetAllPoints()
+    row.stripe:SetColorTexture(hex(C.rowAlt or C.window))
     row.what = UI.Text(row, 12, "semi", C.text)
-    row.what:SetPoint("TOPLEFT", 12, -8)
-    row.what:SetPoint("RIGHT", -12, 0)
+    row.what:SetPoint("LEFT", 8, 0)
+    row.what:SetWidth(WHAT_W - 12)
+    row.what:SetWordWrap(false)
     row.chips = {}
     for i = 1, CHIPS do
       local b = UI.Button(row, 60, 22, "", "ghost")
@@ -59,17 +60,20 @@ ns:RegisterTab("more", "Crafters", "More", function(tab)
     end
     return row
   end
-  local function updateCraft(row, it)
+  local function updateCraft(row, it, idx)
+    row.stripe:SetShown(idx % 2 == 0)
     row.what:SetText(it.what .. (it.sub and ns.Colorize("  " .. it.sub, C.dim) or ""))
-    local x = 12
+    local x = WHAT_W
     for i, b in ipairs(row.chips) do
       local who = it.people[i]
-      if who and x < (row:GetWidth() or 600) - 80 then
-        local p = ns:GetPerson(who.pid) or {}
+      local p = who and (ns:GetPerson(who.pid) or {})
+      if who then
         b:SetLabel(ns:PersonLabel(p) .. (who.detail and ns.Colorize("  " .. who.detail, C.dim) or ""))
-        b:SetWidth((b.label:GetStringWidth() or 60) + 20)
+        b:SetWidth((b.label:GetStringWidth() or 60) + 18)
+      end
+      if who and x + b:GetWidth() < (row:GetWidth() or 600) - 4 then
         b:ClearAllPoints()
-        b:SetPoint("BOTTOMLEFT", x, 8)
+        b:SetPoint("LEFT", x, 0)
         x = x + b:GetWidth() + 6
         if who.pid == ns.pid then
           b.tooltip = "That's you"
@@ -84,8 +88,8 @@ ns:RegisterTab("more", "Crafters", "More", function(tab)
       end
     end
   end
-  local crafts = UI.List(right, 58, 6, createCraft, updateCraft)
-  crafts:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -8)
+  local crafts = UI.List(right, 32, 0, createCraft, updateCraft)
+  crafts:SetPoint("TOPLEFT", 0, 0)
   crafts:SetPoint("BOTTOMRIGHT", right, "BOTTOMRIGHT", 6, 0)
   crafts.emptyText = "Professions are shared automatically. Open your profession window once, and your recipes are shared too."
 
@@ -97,10 +101,19 @@ ns:RegisterTab("more", "Crafters", "More", function(tab)
   function tab:Refresh()
     local q = (search:GetText() or ""):lower()
     local groups, order = {}, {}
+    local hidden = ns:HiddenDuplicates()
     local function add(key, what, sub, ask, pid, detail, skill)
+      pid = hidden[pid] or pid     -- the same person on another install counts once
       local g = groups[key]
-      if not g then g = { what = what, sub = sub, ask = ask, people = {}, sort = sub and 1 or 0 } groups[key] = g order[#order + 1] = g end
-      g.people[#g.people + 1] = { pid = pid, detail = detail, skill = skill or 0 }
+      if not g then g = { what = what, sub = sub, ask = ask, people = {}, byPid = {}, sort = sub and 1 or 0 } groups[key] = g order[#order + 1] = g end
+      local have = g.byPid[pid]
+      if have then
+        if (skill or 0) > have.skill then have.skill, have.detail = skill or 0, detail end
+        return
+      end
+      local e = { pid = pid, detail = detail, skill = skill or 0 }
+      g.byPid[pid] = e
+      g.people[#g.people + 1] = e
     end
     -- every install counts here: an alt's profession is still something the person can make
     for pid, p in pairs(ns.db.people) do

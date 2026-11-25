@@ -448,7 +448,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     bars[i] = b
   end
   local chartEmpty = UI.Text(chartP.body, 11, nil, C.dim)
-  chartEmpty:SetPoint("TOP", 0, -8)
+  chartEmpty:SetPoint("TOP", 0, -2)
   local DAYS = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }
   local function drawChart()
     local m = METRICS[metric]
@@ -461,7 +461,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     for _, d in ipairs(series) do if d.known then known = known + 1 maxV = math.max(maxV, d.value) end end
     local slot = w / 7
     local bw = math.min(26, math.floor(slot * 0.5))
-    local plotH = h - 34
+    local plotH = h - 18 - 40   -- (1.4.68) room above the tallest bar for its value and the note
     local today = (tonumber(date("%w")) + 6) % 7 + 1
     for i, b in ipairs(bars) do
       local d = series[i] or {}
@@ -875,12 +875,16 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     row.text:SetPoint("RIGHT", -10, 0)
     row:SetScript("OnEnter", function(self)
       self.panel:SetColors(C.cardHover, C.line)
-      if self.item and self.item.pid then ns.Overlays:ShowProfile(self, self.item.pid) end
+      -- (1.4.68) an unlocked trophy: what it is; anything else: the person's card
+      local ach = self.item and self.item.key and tostring(self.item.key):match("^ACH:([^:]+):")
+      if ach and ns.Ach and ns.Ach.byId[ach] then UI.AchTooltip(self, ach)
+      elseif self.item and self.item.pid then ns.Overlays:ShowProfile(self, self.item.pid) end
     end)
-    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() end)
+    row:SetScript("OnLeave", function(self) self.panel:SetColors(C.card, C.line) ns.Overlays:HideProfile() GameTooltip:Hide() end)
     return row
   end
   local function updateMs(row, e)
+    row.item = e
     row.date:SetText(e.t and date("%d.%m", e.t) or "")
     row.icon:SetTexture(ns.TEX .. "Icon" .. (e.icon or "Star"))
     UI.Track(row.icon):SetVertexColor(hex(e.color or C.gold))

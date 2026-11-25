@@ -479,15 +479,16 @@ function N:Update()
     -- (1.4.34) the bar shows the battleground's reputation instead of XP
     local rep = P:BGRep()
     if rep then
+      -- (1.4.68) the faction goes up in the card's title ("ALTERAC VALLEY · FROSTWOLF"); the right
+      -- side keeps only the standing and the numbers
+      f.head:SetText(((b and b.name or ns.S(GetInstanceInfo) or "Battleground") .. " · " .. rep.short):upper())
       if rep.exalted then
         f.meter.pct = 1
-        f.right:SetText(rep.short .. " · Exalted")
+        f.right:SetText("Exalted")
       else
         local span = math.max(1, (rep.max or 0) - (rep.min or 0))
         f.meter.pct = math.max(0, math.min(1, ((rep.value or 0) - (rep.min or 0)) / span))
-        -- (1.4.55) "Frostwolf · Friendly · 7 680 / 12 000 · 64 %"
-        f.right:SetText(rep.short .. " · " .. rep.standing .. " · " .. ns.Num((rep.value or 0) - (rep.min or 0))
-          .. " / " .. ns.Num(span) .. " · " .. math.floor(f.meter.pct * 100) .. " %")
+        f.right:SetText(rep.standing .. " · " .. ns.Num((rep.value or 0) - (rep.min or 0)) .. " / " .. ns.Num(span))
         -- (1.4.48) rep left and the average per win are in the tooltip (hover the card)
       end
     end

@@ -1127,7 +1127,7 @@ end
 -- when we last moved. A real (non-private) layer number still shows if the game gives one.
 function L:TileState()
   local cur = ns.Layer and not (ns.Layer.Private and ns.Layer.Private()) and ns.Layer:CurrentLabel() or nil
-  local big = cur or "Swap layer"
+  local big = cur or "Swap"   -- (1.4.68) short: the box is narrow ("Swap layer" got cut to "…")
   local m = self.mine
   if not m then
     local wait, left = L.CapWait()
@@ -1137,7 +1137,7 @@ function L:TileState()
       return big, "Moved " .. (since < 60 and "just now" or (math.floor(since / 60) .. "m ago")), "9BE08A"
     end
     left = left or L.CAP
-    return big, left .. (left == 1 and " hop left" or " hops left")
+    return big, "layer · " .. left .. " left"
   end
   if m.moved then return big, "Moved!", "9BE08A" end
   if m.joinedAt then return big, "Checking the move…", "E0C068" end

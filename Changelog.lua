@@ -2,6 +2,13 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.68", date = "25.11", items = {
+    "Pulse: the write box says \"Click to write to the gang\" (Enter opens the game's own chat), the emote star opens the picker again, the layer box says \"Swap\" with \"layer · 10 left\" under it, and the menu button is a plain ⋯",
+    "Stay open in combat (the pin) is on for everyone again",
+    "Battlegrounds: tower and graveyard bars fill up as the capture gets closer. Alterac Valley: the faction sits in the card's title, the bar line keeps just the standing and numbers",
+    "Gang › Friends: no coordinates; the place name ends with … before the watch eye. Died to: sort by Latest or Most kills. Crafters: one compact row per profession, everyone listed once (alts and second installs merged, best skill shown)",
+    "Progress › Overview: room above the tallest bar, so its value no longer runs into the title. Trophies: \"Showing: name\", and no \"Also: …\" under each trophy. History: hover an unlocked trophy to see what it is",
+    "Switch rows: a long label ends with … before the ⓘ and the switch (Market › Auction house and sharing)" } },
   { v = "1.4.67", date = "25.11", items = {
     "Pulse as on the canvas: the rep (FROSTWOLF · FRIENDLY, 4 772 / 6 000, the rate per hour), Watching and the gang feed are each a card with a title strip; no faces in the header (hover it for who's online) and no session line (the boxes above already show it)",
     "Progress › Overview as on the canvas: your week as tiles, the week day by day (online time, levels, gold or kills), the top five this week and this week's titles. The sortable table and the challenge cards moved to their own page, Table",

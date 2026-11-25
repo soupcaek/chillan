@@ -642,6 +642,8 @@ ns.MIGRATIONS = {
   end,
   -- 7 (1.1.2): the boxes and the Now card stay open in combat unless you unpin them
   [7] = function(db) db.settings.pulsePin = true end,
+  -- 8 (1.4.68): "stay open in combat" on for everyone again
+  [8] = function(db) db.settings.pulsePin = true end,
 }
 
 -- reasons only the old automatic enemy log wrote (a person adding someone always types a reason)
