@@ -85,3 +85,37 @@ print("icon log:", LA.eval('ADDON_NS.db.bgIconLog[#ADDON_NS.db.bgIconLog]'))
 # in a fight the carrier slots are left alone (a secure button may hold on to them)
 LA.execute('IN_COMBAT = true; ADDON_NS.BGPanel:Draw(); IN_COMBAT = false')
 print("drew in combat without touching slots: ok")
+# 1.4.54: flags from the map, not from units the game may hide
+LA.execute('''IsInInstance = function() return true, "pvp" end; ADDON_NS.InBattleground = function() return true end
+GetInstanceInfo = function() return "Warsong Gulch", "pvp", 0, "", 10, 0, false, 489 end
+POIS = { {"Silverwing Hold", 0}, {"Warsong Lumber Mill", 0} }
+C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] local px = id == 1 and 0.5 or 0.5 local py = id == 1 and 0.1 or 0.9
+  return { name = p[1], textureIndex = p[2], position = { GetXY = function() return px, py end } } end
+GetNumBattlefieldFlagPositions = function() return 1 end
+GetBattlefieldFlagPosition = function(i) return 0.52, 0.15, "Interface\\\\WorldStateFrame\\\\HordeFlag" end
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update(); ADDON_NS.BGPanel:Apply(); ADDON_NS.BGPanel:Draw()''')
+strip = '(%s or ""):gsub("|c%%x%%x%%x%%x%%x%%x%%x%%x", ""):gsub("|r", "")'
+print("WSG slots:", LA.eval(strip % 'ADDON_NS.BGPanel.slots[1].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[1].name:GetText()'), "|",
+  LA.eval(strip % 'ADDON_NS.BGPanel.slots[2].label:GetText() .. ": " .. ADDON_NS.BGPanel.slots[2].name:GetText()'))
+# 1.4.54: learning Forever's icons from the bases count
+LA.execute('''GetInstanceInfo = function() return "Darkspear Islands", "pvp", 0, "", 15, 0, false, 9999 end
+GetNumBattlefieldFlagPositions = function() return 0 end
+ADDON_NS.db.bgLearn = nil
+POIS = { {"Camp", 500}, {"Ruins", 500}, {"Abandoned Tower", 500}, {"Shipwreck Cove", 500}, {"Darkspear Flag", 600} }
+C_AreaPoiInfo.GetAreaPOIInfo = function(_, id) local p = POIS[id] return { name = p[1], textureIndex = p[2] } end
+BASES = { a = 0, h = 0 }
+C_UIWidgetManager.GetIconAndTextWidgetVisualizationInfo = function(id)
+  if id == 1893 then return { text = "Bases: " .. BASES.a .. "  Resources: 100/2000" } end
+  if id == 1894 then return { text = "Bases: " .. BASES.h .. "  Resources: 100/2000" } end
+end
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()
+POIS[3][2] = 501; ADDON_NS.BGObj:Update()          -- Alliance starts on the tower: unknown icon
+T1 = ADDON_NS.BGObj.nodes["Abandoned Tower"].atk
+GT = GT + 60; POIS[3][2] = 502; BASES.a = 1; ADDON_NS.BGObj:Update()   -- taken: Alliance +1
+T2 = ADDON_NS.BGObj.nodes["Abandoned Tower"].side
+ADDON_NS.BGObj:Reset(nil); ADDON_NS.BGObj:Update()  -- next game
+POIS[1][2] = 501; ADDON_NS.BGObj:Update()           -- the same assault icon on Camp
+T3 = ADDON_NS.BGObj.nodes["Camp"].atk''')
+print("DI learn: unknown assault ->", LA.eval('tostring(T1)'), "| held after +1 ->", LA.eval('tostring(T2)'), "| next game, icon 501 ->", LA.eval('tostring(T3)'))
+print("DI chips:", LA.eval('(function() local o = {} for _, n in ipairs(ADDON_NS.BGObj:Chips()) do o[#o+1] = n.name end return table.concat(o, ", ") end)()'))
+assert LA.eval('T1') == "?" and LA.eval('T2') == "a" and LA.eval('T3') == "a"

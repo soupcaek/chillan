@@ -11,6 +11,10 @@ local B = {}
 ns.BGPanel = B
 
 local HORDE, ALLI, AMBER = C.red, "6FA8F2", C.amber
+-- (1.4.54) one colour rule for every battleground: bright = being taken (by that side),
+-- deep = held (by that side), dark = destroyed or nobody's
+local BRIGHT = { h = "E2575C", a = "4E8FE0" }
+local DEEP = { h = "8E2F35", a = "2B5288" }
 local function sideColor(s) return s == "h" and HORDE or s == "a" and ALLI or C.dim end
 local function sideName(s) return s == "h" and "Horde" or "Alliance" end
 local function mmss(s) return string.format("%d:%02d", math.floor(s / 60), s % 60) end
@@ -186,7 +190,7 @@ function B:CreateAV()
   v.name:SetWordWrap(false)
   v.sub = UI.Text(f, 12, nil, C.text2)
   v.sub:SetWordWrap(false)
-  v.big = UI.Text(f, 24, "bold", AMBER)
+  v.big = UI.Text(f, 24, "bold", C.text)
   v.big:SetJustifyH("RIGHT")
   v.bar = makeBar(f, 8)
   v.also = UI.Text(f, 10, "semi", C.dim)
@@ -230,7 +234,7 @@ function B:CreateAV()
         local r, g, b = 0.6, 0.63, 0.66
         local txt = t.state
         if t.state == "standing" then r, g, b = hex(sideColor(side))
-        elseif t.state == "burning" then r, g, b = hex(AMBER) txt = "burning" .. (t.left and (" · " .. mmss(t.left)) or "")
+        elseif t.state == "burning" then r, g, b = hex(BRIGHT[side == "h" and "a" or "h"]) txt = "burning" .. (t.left and (" · " .. mmss(t.left)) or "")
         elseif t.state == "gone" then txt = "destroyed"
         else txt = "not seen yet" end
         GameTooltip:AddDoubleLine(t.name, txt, 1, 1, 1, r, g, b)
@@ -295,7 +299,8 @@ function B:DrawAV(y, w)
     v.sub:SetText(avWhat(first) .. (left and "" or dim(" · started before you joined"))) v.sub:Show()
     y = y - 52
     v.bar:ClearAllPoints() v.bar:SetPoint("TOPLEFT", 0, y) v.bar:SetPoint("TOPRIGHT", 0, y)
-    v.bar:SetStatusBarColor(hex(AMBER))
+    v.bar:SetStatusBarColor(hex(BRIGHT[first.atk] or C.muted))
+    v.big:SetTextColor(hex(BRIGHT[first.atk] or C.text))
     v.bar:SetValue(left and (left / cap) or 0)
     v.bar:Show()
     y = y - 16
@@ -314,7 +319,7 @@ function B:DrawAV(y, w)
         r.label:SetText(avName(node) .. dim(" · ") .. avWhat(node))
         r.time:SetText(l and mmss(l) or dim("before you joined"))
         r.bar:ClearAllPoints() r.bar:SetPoint("TOPLEFT", 0, y - 17) r.bar:SetPoint("TOPRIGHT", 0, y - 17)
-        r.bar:SetStatusBarColor(hex(sideColor(node.atk)))
+        r.bar:SetStatusBarColor(hex(BRIGHT[node.atk] or C.muted))
         r.bar:SetValue(l and (l / cap) or 0)
         r.bar:SetAlpha(l and 1 or 0.5)
         r.label:Show() r.time:Show() r.bar:Show()
@@ -343,8 +348,8 @@ function B:DrawAV(y, w)
         t:ClearAllPoints()
         if side == "h" then t:SetPoint("LEFT", v.hLabel, "RIGHT", 6 + (i - 1) * 14, 0)
         else t:SetPoint("TOPRIGHT", -((4 - i) * 14), y - 1) end
-        local col, a = sideColor(side), 1
-        if i <= s.burning then col = AMBER
+        local col, a = DEEP[side], 1
+        if i <= s.burning then col = BRIGHT[side == "h" and "a" or "h"]
         elseif i > s.standing then col, a = C.active, 1 end
         t:SetVertexColor(hex(col))
         t:SetAlpha(a)
@@ -361,6 +366,59 @@ function B:DrawAV(y, w)
     y = y - 20
   end
   return y
+end
+
+---------------------------------------------------------------------------
+-- flags and carriers (1.4.54): where each flag is, from the map, which the game shows everyone.
+-- A carrier's name, health and click-to-target only when the game gives us the carrier itself.
+---------------------------------------------------------------------------
+local function flagText(spot, heldWord)
+  if not spot then return nil end
+  return heldWord .. (spot.near and (dim(" · near ") .. spot.near) or "")
+end
+
+function B:DrawCarriers(key)
+  local O = ns.BGObj
+  local spots = O:FlagSpots() or {}
+  local me = ns.S(UnitFactionGroup, "player") == "Alliance" and "a" or "h"
+  local s1, s2 = self.slots[1], self.slots[2]
+  local enemyUnit = unitOK("arena1") and "arena1" or nil
+  local ourUnit = findOurCarrier()
+  if key == "WSG" then
+    -- our flag (their carrier has it) and theirs (our carrier has it)
+    local ours, theirs
+    for _, sp in ipairs(spots) do
+      if sp.owner == me then ours = sp elseif sp.owner then theirs = sp end
+    end
+    s1.label:SetText("Our flag")
+    s2.label:SetText("Their flag")
+    if not (enemyUnit and fillSlot(s1, enemyUnit)) then
+      self:SlotText(s1, ours and flagText(ours, ns.Colorize("taken", BRIGHT[me == "h" and "a" or "h"])) or dim("at base"), ours ~= nil)
+    end
+    if not (ourUnit and fillSlot(s2, ourUnit)) then
+      self:SlotText(s2, theirs and flagText(theirs, ns.Colorize("we have it", BRIGHT[me])) or dim("at base"), theirs ~= nil)
+    end
+  else
+    -- Darkspear Islands: one flag in the middle
+    local sp = spots[1]
+    s1.label:SetText("Centre flag")
+    self:SlotText(s1, sp and flagText(sp, ns.Colorize("carried", C.text)) or dim("in the middle"), sp ~= nil)
+    s2.label:SetText("Carrier")
+    if not ((enemyUnit and fillSlot(s2, enemyUnit)) or (ourUnit and fillSlot(s2, ourUnit))) then
+      self:SlotText(s2, dim(sp and "the game doesn't name the carrier here" or "nobody has it"), false)
+    end
+  end
+  if ourUnit and ourUnit ~= self.ourUnit and not InCombatLockdown() then
+    self.ourUnit = ourUnit
+    self.secure[2]:SetAttribute("unit", ourUnit)
+  end
+end
+
+function B:SlotText(s, text, active)
+  s.name:SetText(text or "")
+  s.name:SetTextColor(hex(C.text))
+  s.bar:Hide()
+  s:SetAlpha(active and 1 or 0.7)
 end
 
 ---------------------------------------------------------------------------
@@ -421,12 +479,13 @@ function B:Draw()
         if node.atk then
           local left = O:Left(node)
           -- being taken: the taker's colour, bright; the timer in white
-          c:SetColors(node.atk == "h" and "8A3438" or "2F5C93", node.atk == "h" and HORDE or ALLI)
+          -- "?": being taken, by a side Chillan hasn't learned this icon for yet
+          c:SetColors(BRIGHT[node.atk] or "5A5F67", BRIGHT[node.atk] or "8A9099")
           c.text:SetText(ns.Colorize(label, "FFFFFF") .. (left and ("  " .. ns.Colorize(mmss(left), "FFFFFF")) or ""))
         else
           -- held: the owner's colour, deep
           local s = node.side
-          c:SetColors(s == "h" and "4A1C20" or s == "a" and "182C47" or C.active)
+          c:SetColors(DEEP[s] or C.active)
           c.text:SetText(ns.Colorize(label, s == "h" and "F3B5B7" or s == "a" and "B9D3F5" or C.muted))
         end
         c:Show()
@@ -442,7 +501,7 @@ function B:Draw()
     if side and secs < 3600 then right = ns.Colorize(sideName(side) .. " wins in ~" .. math.max(1, math.ceil(secs / 60)) .. " min", side == "h" and C.green or HORDE) end
   elseif key == "WSG" then
     local r = O:RespawnLeft()
-    if r then left = dim("Flags back in ") .. ns.Colorize(mmss(r), AMBER) end
+    if r then left = dim("Flags back in ") .. ns.Colorize(mmss(r), C.text) end
   end
   if left ~= "" or right ~= "" then
     self.info:ClearAllPoints() self.right:ClearAllPoints()
@@ -456,15 +515,7 @@ function B:Draw()
   if not InCombatLockdown() then
     for _, s in ipairs(self.slots) do if s:IsShown() ~= carriers then s:SetShown(carriers) end end
   end
-  if carriers then
-    fillSlot(self.slots[1], "arena1", "flag at base")
-    local our = findOurCarrier()
-    fillSlot(self.slots[2], our, "flag at base")
-    if our and our ~= self.ourUnit and not InCombatLockdown() then
-      self.ourUnit = our
-      self.secure[2]:SetAttribute("unit", our)
-    end
-  end
+  if carriers then self:DrawCarriers(key) end
   self:SyncSecure(carriers and f:IsVisible())
 end
 

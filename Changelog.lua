@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.54", date = "25.11", items = {
+    "Battleground bases: Chillan now learns Forever's own map icons. When a base's icon changes at the same moment as a side's base count, it knows what that icon means and remembers it for later games. Until then a base being taken shows a grey timer instead of nothing",
+    "Flag rows rebuilt from the flags' places on the map: Warsong Gulch \"Our flag: taken · near …\" / \"Their flag: we have it · near …\", Darkspear Islands \"Centre flag: carried · near …\". Name, health and click-to-target only when the game gives the carrier",
+    "One colour rule in every battleground: bright red or blue while being taken, deeper once held, dark when destroyed or nobody's (Alterac Valley's countdown, bars and tower squares too)",
+    "Chillan also records the score display's layout per battleground, to read the Darkspear Islands score next" } },
   { v = "1.4.53", date = "25.11", items = {
     "Battleground panel: base boxes follow the width of the window, and the centre flag point in Darkspear Islands no longer shows as a base",
     "New colours: a base being captured is bright red (Horde) or bright blue (Alliance) with a white timer; once captured it turns deeper red or deeper blue. No more yellow",

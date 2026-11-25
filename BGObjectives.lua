@@ -129,6 +129,7 @@ O.readPOIs = readPOIs
 function O:ScanNodes(fresh)
   local list = readPOIs()
   if not list then return end
+  self.changedNow = {}
   local t = now()
   local seen = {}
   for _, p in ipairs(list) do
@@ -140,24 +141,43 @@ function O:ScanNodes(fresh)
       self.nodes[p.name] = n
       self.order[#self.order + 1] = p.name
     end
-    local atk = p.icon and ASSAULT[p.icon]
+    -- (1.4.54) what this icon means: learned in earlier games first (Forever's own numbers), else
+    -- the classic numbers
+    local L = p.icon and self:Learned()[p.icon]
+    local atk, held
+    if L then
+      if L.k == "atk" then atk = L.s else held = L.s end
+    else
+      atk = p.icon and ASSAULT[p.icon]
+      held = heldBy(p.icon)
+    end
     local dl = p.desc and p.desc:lower()
     if dl then
-      if dl:find("horde") and dl:find("control") then atk = nil p.held = "h"
-      elseif dl:find("alliance") and dl:find("control") then atk = nil p.held = "a" end
+      if dl:find("horde") and dl:find("control") then atk, held = nil, "h"
+      elseif dl:find("alliance") and dl:find("control") then atk, held = nil, "a" end
     end
     -- (1.4.52) an attack counts only when we SEE the icon change to an assault icon, as Capping does.
     -- An icon that was already there when we joined or reloaded says nothing for sure (live 24 Nov:
     -- every Alliance bunker read "burning" two minutes into a game). Attacks we did see survive a
     -- /reload (O:Restore).
     local changed = n.icon ~= nil and n.icon ~= false and p.icon ~= n.icon
-    if changed then self:LogIcon(p.name, n.icon, p.icon, p.atlas, p.desc) end
+    if changed then
+      self:LogIcon(p.name, n.icon, p.icon, p.atlas, p.desc)
+      n.prevIcon = n.icon
+      self.changedNow[#self.changedNow + 1] = n
+    end
     if atk then
       if changed and n.atk ~= atk then n.atk, n.since = atk, t end
-    else
+    elseif held then
       n.atk, n.since = nil, nil
-      local held = p.held or heldBy(p.icon)
-      if held then n.side = held elseif self.key == "AV" then n.side = avTowerSide(p.name) or n.side end
+      n.side = held
+    elseif changed and self.key ~= "AV" then
+      -- an icon we don't know yet, seen changing: something is being taken, by whom we'll learn
+      n.atk, n.since = "?", t
+    elseif n.atk == "?" and n.since and t - n.since > (O.CAP[self.key or ""] or 60) + 5 then
+      n.atk, n.since = nil, nil
+    elseif not changed and not n.atk then
+      if self.key == "AV" then n.side = avTowerSide(p.name) or n.side end
     end
     n.icon = p.icon or false
   end
@@ -166,13 +186,83 @@ function O:ScanNodes(fresh)
   self:Save()
 end
 
+-- (1.4.54) Forever's icons, learned: per battleground, icon -> { k = "held"/"atk", s = "h"/"a" }
+function O:Learned()
+  if not ns.db then return {} end
+  ns.db.bgLearn = ns.db.bgLearn or {}
+  local k = self.key or "?"
+  ns.db.bgLearn[k] = ns.db.bgLearn[k] or {}
+  return ns.db.bgLearn[k]
+end
+function O:Learn(icon, k, side)
+  if type(icon) ~= "number" or not side then return end
+  local L = self:Learned()
+  local old = L[icon]
+  if old and old.k == k and old.s == side then return end
+  L[icon] = { k = k, s = side }
+  self:LogIcon("learned", tostring(icon), k .. " " .. side)
+end
+-- the score display counts bases per side: an icon that changes as a count changes says what it is
+function O:LearnFromCounts(sc)
+  if not sc or not sc.h.bases or not sc.a.bases then self.prevBases = nil return end
+  local prev = self.prevBases
+  self.prevBases = { h = sc.h.bases, a = sc.a.bases }
+  local ch = self.changedNow or {}
+  if not prev or #ch ~= 1 then return end
+  local n = ch[1]
+  local dh, da = sc.h.bases - prev.h, sc.a.bases - prev.a
+  local function held(side)
+    self:Learn(n.icon, "held", side)
+    -- what it showed while being taken was the same side's assault icon
+    if type(n.prevIcon) == "number" and not (self:Learned()[n.prevIcon] and self:Learned()[n.prevIcon].k == "held") then
+      self:Learn(n.prevIcon, "atk", side)
+    end
+    n.atk, n.since, n.side = nil, nil, side
+  end
+  local function lost(owner)
+    local taker = owner == "h" and "a" or "h"
+    self:Learn(n.icon, "atk", taker)
+    if n.atk == "?" or not n.atk then n.atk = taker n.since = n.since or now() end
+  end
+  if dh == 1 and da == 0 then held("h")
+  elseif da == 1 and dh == 0 then held("a")
+  elseif dh == -1 and da == 0 then lost("h")
+  elseif da == -1 and dh == 0 then lost("a") end
+end
+
+-- what the score display shows, logged once per new text (to read Forever's own layout afterwards)
+function O:LogWidgets()
+  local W = C_UIWidgetManager
+  if not W or not W.GetTopCenterWidgetSetID or not W.GetAllWidgetsBySetID then return end
+  local ok, set = pcall(W.GetTopCenterWidgetSetID)
+  local ok2, widgets = pcall(W.GetAllWidgetsBySetID, ok and set or 0)
+  if not ok2 or type(widgets) ~= "table" then return end
+  self.seenW = self.seenW or {}
+  for _, w in ipairs(widgets) do
+    local line
+    if w.widgetType == 0 and W.GetIconAndTextWidgetVisualizationInfo then
+      local okI, info = pcall(W.GetIconAndTextWidgetVisualizationInfo, w.widgetID)
+      local t = okI and type(info) == "table" and info.text
+      if type(t) == "string" and not ns.isSecret(t) then line = "text " .. t end
+    elseif w.widgetType == 3 and W.GetDoubleStatusBarWidgetVisualizationInfo then
+      local okI, info = pcall(W.GetDoubleStatusBarWidgetVisualizationInfo, w.widgetID)
+      if okI and type(info) == "table" then line = string.format("double %s/%s vs %s/%s", tostring(info.leftBarValue), tostring(info.leftBarMax), tostring(info.rightBarValue), tostring(info.rightBarMax)) end
+    end
+    line = "widget " .. tostring(w.widgetID) .. " type " .. tostring(w.widgetType) .. (line and (": " .. line:gsub("%d+", "#")) or "")
+    if not self.seenW[line] then
+      self.seenW[line] = true
+      self:LogIcon("widget", "", line)
+    end
+  end
+end
+
 -- what we saw change, for checking the icon numbers afterwards (SavedVariables, last 200)
 function O:LogIcon(name, from, to, atlas, desc)
   if not ns.db then return end
   local log = ns.db.bgIconLog or {}
   ns.db.bgIconLog = log
   log[#log + 1] = string.format("%s %s %s: %s -> %s  atlas=%s  desc=%s", date("%d.%m %H:%M:%S"), self.key or "?", name, tostring(from), tostring(to), tostring(atlas), tostring(desc))
-  while #log > 200 do table.remove(log, 1) end
+  while #log > 400 do table.remove(log, 1) end
 end
 
 -- the attacks we saw, kept over a /reload (GetTime keeps running across one)
@@ -278,6 +368,20 @@ function O:Score()
     end
   end
   if #found >= 2 then return { a = found[1], h = found[2] } end
+  -- (1.4.54) the other style: one bar per side (Alliance left, Horde right)
+  if W.GetDoubleStatusBarWidgetVisualizationInfo then
+    for _, w in ipairs(widgets) do
+      if w.widgetType == 3 then
+        local okD, d = pcall(W.GetDoubleStatusBarWidgetVisualizationInfo, w.widgetID)
+        local l, r = okD and type(d) == "table" and d.leftBarValue, okD and type(d) == "table" and d.rightBarValue
+        if type(l) == "number" and type(r) == "number" and not ns.isSecret(l) and not ns.isSecret(r) then
+          local m = (not ns.isSecret(d.leftBarMax) and d.leftBarMax) or 2000
+          local base = found[1] and found[2] and found or nil
+          return { a = { score = l, max = m, bases = base and base[1].bases }, h = { score = r, max = m, bases = base and base[2].bases } }
+        end
+      end
+    end
+  end
   return nil
 end
 
@@ -329,11 +433,54 @@ function O:RespawnLeft()
   return left
 end
 
+-- (1.4.54) flags away from their base, from the map: { x, y, owner ("h"/"a" from the flag's
+-- picture, nil for the Darkspear Islands flag), near (the closest base or graveyard by name) }
+function O:FlagSpots()
+  local okN, n = pcall(GetNumBattlefieldFlagPositions)
+  if not okN or type(n) ~= "number" or ns.isSecret(n) or n < 1 then return nil end
+  local okM, map = pcall(C_Map.GetBestMapForUnit, "player")
+  local out = {}
+  for i = 1, n do
+    local ok, x, y, tex
+    if C_PvP and C_PvP.GetBattlefieldFlagPosition and okM and map then ok, x, y, tex = pcall(C_PvP.GetBattlefieldFlagPosition, i, map) end
+    if not ok or not x then ok, x, y, tex = pcall(GetBattlefieldFlagPosition, i) end
+    if ok and type(x) == "number" and not ns.isSecret(x) and not ns.isSecret(y) and x > 0 then
+      local t = (type(tex) == "string" and not ns.isSecret(tex)) and tex:lower() or ""
+      local owner = t:find("horde") and "h" or t:find("alliance") and "a" or nil
+      out[#out + 1] = { x = x, y = y, owner = owner, tex = tex, near = self:Near(x, y) }
+    end
+  end
+  return out
+end
+
+-- the closest named map point to x, y (map coordinates 0-1)
+function O:Near(x, y)
+  local A = C_AreaPoiInfo
+  local okM, map = pcall(C_Map.GetBestMapForUnit, "player")
+  if not A or not okM or not map then return nil end
+  local okP, pois = pcall(A.GetAreaPOIForMap, map)
+  if not okP or type(pois) ~= "table" then return nil end
+  local best, bd
+  for _, id in ipairs(pois) do
+    local ok, info = pcall(A.GetAreaPOIInfo, map, id)
+    local pos = ok and type(info) == "table" and info.position
+    if pos and pos.GetXY and type(info.name) == "string" and not ns.isSecret(info.name) then
+      local px, py = pos:GetXY()
+      if type(px) == "number" and not ns.isSecret(px) then
+        local d = (px - x) ^ 2 + (py - y) ^ 2
+        if not bd or d < bd then best, bd = info.name, d end
+      end
+    end
+  end
+  return best and O.Short(best) or nil
+end
+
 ---------------------------------------------------------------------------
 -- lifecycle
 ---------------------------------------------------------------------------
 function O:Reset(key)
   self.key = key
+  self.prevBases, self.changedNow, self.seenW = nil, {}, nil
   self.nodes, self.order, self.samples = {}, {}, {}
   self.lastFlags, self.respawnAt = nil, nil
 end
@@ -346,7 +493,12 @@ function O:Update()
   if key ~= "WSG" then
     self:ScanNodes(fresh)
   end
-  if key == "AB" or key == "DI" then self:Sample(self:Score()) end
+  if key == "AB" or key == "DI" then
+    local sc = self:Score()
+    self:Sample(sc)
+    self:LearnFromCounts(sc)
+    self:LogWidgets()
+  end
   if key == "WSG" then self:NoteFlags() end
 end
 
@@ -363,6 +515,9 @@ function O.Debug()
   end
   local sc = O:Score()
   if sc then print(string.format("  score A %s/%s (%s bases)  H %s/%s (%s bases)", sc.a.score, sc.a.max, tostring(sc.a.bases), sc.h.score, sc.h.max, tostring(sc.h.bases))) end
+  for i, sp in ipairs(O:FlagSpots() or {}) do
+    print(string.format("  flag %d: %.2f, %.2f  %s  near %s", i, sp.x, sp.y, tostring(sp.tex), tostring(sp.near)))
+  end
   for _, u in ipairs({ "arena1", "arena2" }) do
     local ok, ex = pcall(UnitExists, u)
     local okN, nm = pcall(UnitName, u)
