@@ -158,3 +158,27 @@ assert "22800" in rows
 LA.execute('FIRE("AUCTION_HOUSE_CLOSED")')
 print("closed:", LA.eval('ADDON_NS.MarketWin.frame:IsShown()'))
 errors(A, "A"); errors(B, "B")
+# ---- 1.4.59: price history, graphs, the price before your own search, /chill price, rep hover
+LA.execute('''NOW = 1795600000
+local M = ADDON_NS.Market
+for d = 13, 1, -1 do M:Set(9999, 50000 + d * 1000, NOW - d * 86400, "x") end
+M:Set(9999, 48000, NOW, "x"); M:Set(9999, 47000, NOW + 60, "x")''')
+h = LA.eval('#ADDON_NS.Market.History(9999, 14)')
+print("history points:", h, "| today's:", LA.eval('ADDON_NS.Market.History(9999, 14)[%d].v' % h), "| trend:", LA.eval('ADDON_NS.AH.Trend(ADDON_NS.Market.History(9999, 14))'))
+assert h == 14 and LA.eval('ADDON_NS.Market.History(9999, 14)[14].v') == 47000
+assert LA.eval('ADDON_NS.Market.History(9999, 7)') and LA.eval('#ADDON_NS.Market.History(9999, 7)') == 7
+LA.execute('ADDON_NS.Market.PruneHistory()')
+assert LA.eval('#ADDON_NS.Market.History(9999, 30)') == 14
+# the gang price from before your search
+LA.execute('ADDON_NS.AH.searchAt = NOW + 50')
+print("gang before search:", LA.eval('ADDON_NS.AH.GangBefore(9999)'), "| now:", LA.eval('ADDON_NS.AH.GangPrice(9999)'))
+assert LA.eval('ADDON_NS.AH.GangBefore(9999)') == 48000
+# /chill price opens the Buy tab on the item, with its graph
+LA.execute('''C_Item.GetItemInfo = function(id) return "Thing " .. id, "|cffffffff|Hitem:" .. id .. "|h[Thing]|h|r", 1, 1, 1, "", "", 20, "", 1, 10 end
+SlashCmdList.CHILLAN("price |cffffffff|Hitem:9999|h[Thing]|h|r")''')
+print("price tab:", LA.eval('ADDON_NS.MarketWin.tab'), "| item:", LA.eval('ADDON_NS.MarketWin.buyP.sel and ADDON_NS.MarketWin.buyP.sel.itemID'), "| delta:", LA.eval('ADDON_NS.MarketWin.buyP.chart.delta:GetText()'))
+assert LA.eval('ADDON_NS.MarketWin.buyP.sel.itemID') == 9999 and LA.eval('ADDON_NS.MarketWin.tab') == 2
+# the wishlist graph
+LA.execute('ADDON_NS.AH.ShopAdd(9999, 1); ADDON_NS.MarketWin.shopP.selId = 9999; ADDON_NS.MarketWin:Show(4)')
+print("wishlist graph:", LA.eval('ADDON_NS.MarketWin.shopP.graphP.title:GetText()'), "|", LA.eval('ADDON_NS.MarketWin.shopP.side[3]:GetText()'))
+errors(A, "A-end")

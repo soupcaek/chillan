@@ -36,6 +36,25 @@ function AH.GangPrice(id)
   local e = ns.Market and ns.Market:Get(id)
   return e and e.v or nil
 end
+-- (1.4.59) the gang price from before your own search: browsing updates the price with what you
+-- just saw, which made every result read 0 %
+function AH.GangBefore(id)
+  local e = ns.Market and ns.Market:Get(id)
+  if not e then return nil end
+  if AH.searchAt and (e.t or 0) >= AH.searchAt - 1 then return e.p end
+  return e.v
+end
+-- the price trend for a list of history points: "rising", "falling" or "steady"
+function AH.Trend(pts)
+  if #pts < 3 then return nil end
+  local n = math.min(3, math.floor(#pts / 2))
+  local a, b = 0, 0
+  for i = 1, n do a = a + pts[i].v b = b + pts[#pts - i + 1].v end
+  a, b = a / n, b / n
+  if a <= 0 then return nil end
+  local ch = (b - a) / a
+  return ch >= 0.05 and "rising" or ch <= -0.05 and "falling" or "steady", ch
+end
 -- the lowest price that still pays at least the vendor price after the cut
 function AH.Floor(id)
   local v = AH.Vendor(id)
@@ -637,7 +656,7 @@ function AH.Search(text)
   while #d.recent > 6 do table.remove(d.recent) end
   local O = Enum and Enum.AuctionHouseSortOrder or {}
   local q = { searchString = text, sorts = { { sortOrder = O.Price or 0, reverseSort = false } }, filters = {}, itemClassFilters = {} }
-  AH.results, AH.searching, AH.searchText = {}, true, text
+  AH.results, AH.searching, AH.searchText, AH.searchAt = {}, true, text, ns.Now()
   local good = pcall(C_AuctionHouse.SendBrowseQuery, q)
   if not good then AH.searching = false end
   changed("results")

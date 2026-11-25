@@ -245,6 +245,11 @@ SlashCmdList.CHILLAN = function(msg)
       print(string.format("  %d. %s  %s", i, a.name == ADDON and ns.Colorize(a.name, ns.C.green) or a.name, mb(a.kb)))
     end
     if mine and mine > 6 then print(string.format("  %d. %s  %s", mine, ns.Colorize(ADDON, ns.C.green), mb(list[mine].kb))) end
+  elseif cmd == "price" or cmd == "pris" then
+    -- (1.4.59) an item's price graph: /chill price arcane crystal (or shift-click the item in)
+    local id = ns.MarketWin and ns.MarketWin.ResolveItem(rest)
+    if id then ns.MarketWin:ShowPrice(id)
+    else ns.Print("Price: type an item's name or shift-click it, e.g. /chill price arcane crystal") end
   elseif cmd == "bgdebug" then
     if ns.BGObj then ns.BGObj.Debug() end
   elseif cmd == "debug" then

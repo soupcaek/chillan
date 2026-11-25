@@ -52,8 +52,61 @@ function M:Set(id, value, t, by)
   local old = d[id]
   if old and (old.t or 0) >= t then return false end
   d[id] = { v = value, t = t, by = by, p = old and old.v or nil }
+  M.NoteHistory(id, value, t)
   return true, old
 end
+
+-- (1.4.59) price history: one price per item per day ("day,value;" in base 36, oldest first). Kept
+-- 14 days for every item, 30 for your wishlist (pruned at login)
+local H36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+local function to36(n)
+  n = math.floor(n or 0)
+  if n <= 0 then return "0" end
+  local s = ""
+  while n > 0 do local r = n % 36 s = H36:sub(r + 1, r + 1) .. s n = math.floor(n / 36) end
+  return s
+end
+function M.NoteHistory(id, value, t)
+  if not ns.db then return end
+  ns.db.mkHist = ns.db.mkHist or {}
+  local h = ns.db.mkHist
+  local day = math.floor((t or ns.Now()) / 86400)
+  local s = h[id] or ""
+  local lastDay = s:match("([%w]+),[%w]+;$")
+  lastDay = lastDay and tonumber(lastDay, 36)
+  local entry = to36(day) .. "," .. to36(value) .. ";"
+  if not lastDay or day > lastDay then h[id] = s .. entry
+  elseif day == lastDay then h[id] = s:gsub("[%w]+,[%w]+;$", entry) end
+end
+-- { { day = d, v = copper }, ... } oldest first, for the last n days
+function M.History(id, days)
+  local s = ns.db and ns.db.mkHist and ns.db.mkHist[id]
+  local out = {}
+  if not s then return out end
+  local from = math.floor(ns.Now() / 86400) - (days or 14) + 1
+  for a, b in s:gmatch("([%w]+),([%w]+);") do
+    local d, v = tonumber(a, 36), tonumber(b, 36)
+    if d and v and d >= from then out[#out + 1] = { day = d, v = v } end
+  end
+  return out
+end
+function M.PruneHistory()
+  local h = ns.db and ns.db.mkHist
+  if not h then return end
+  local today = math.floor(ns.Now() / 86400)
+  local wish = {}
+  for _, w in ipairs(ns.db.mkAH and ns.db.mkAH.shop or {}) do wish[w.id] = true end
+  for id, s in pairs(h) do
+    local keep = today - (wish[id] and 30 or 14)
+    local out = {}
+    for a, b in s:gmatch("([%w]+),([%w]+);") do
+      local d = tonumber(a, 36)
+      if d and d > keep then out[#out + 1] = a .. "," .. b .. ";" end
+    end
+    h[id] = #out > 0 and table.concat(out) or nil
+  end
+end
+ns:On("PLAYER_LOGIN", function() C_Timer.After(20, function() pcall(M.PruneHistory) end) end)
 
 function M:Get(id)
   return id and db()[id]

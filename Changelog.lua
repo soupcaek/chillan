@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.59", date = "25.11", items = {
+    "Market window redesigned (canvas option A): every area is its own panel with a border and a title strip, buttons have real borders, rows are striped, and prices are never cut off (no copper from 10g up). Sell: Up Next on the left, Post and the listings on the right. Buy: search and results on the left, the item with its price graph, listings and buy bar on the right",
+    "Shopping is now Wishlist, with a price graph (7, 14 or 30 days) of the row you pick: low, high, average and trend",
+    "Price history: Chillan keeps one price per item per day from every scan, yours and the gang's (14 days, 30 for your wishlist). Any item's graph: /chill price <name>, or Alt-click an item",
+    "Buy: \"vs gang price\" compares with the price before your own search (it read 0 % everywhere), and a new search clears the old item",
+    "The ⓘ markers show their i again. The rep box's hover names the faction: \"Frostwolf Clan · +200 this session · 181 per hour\"" } },
   { v = "1.4.58", date = "25.11", items = {
     "Flag rows (Darkspear Islands and Warsong Gulch): the side in its colour as the headline – \"Alliance has the flag\", \"Alliance has our flag\" – then the carrier's name, or the game's own line (\"Nunte Aor has taken the flag!\") when the game keeps the name from addons, then where and how long: \"near Cove · held 0:42\". No more \"near near\"",
     "Darkspear Islands: bases read from the map's own labels (Neutral, Contested, Horde/Alliance Controlled) and Forever's own icon numbers, so a neutral Tower or Cove no longer shows as Horde's. The centre flag is \"in the middle\" whenever its map point is back",

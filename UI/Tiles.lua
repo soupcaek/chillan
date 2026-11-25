@@ -149,7 +149,12 @@ for _, d in ipairs({
     if not honor and not hk then return "–", "honor today" end
     return ns.Num(honor or 0), "honor" .. (hk and (" · " .. hk .. " HKs") or "")
   end },
-  { key = "reph", name = "Reputation per hour", get = function()
+  { key = "reph", name = "Reputation per hour", tipFn = function()
+    -- (1.4.59) which faction, how much and how fast
+    local fac, n, rate = P():TopRep()
+    if not fac then return "Reputation", "No reputation gained this session yet." end
+    return fac, "+" .. ns.Num(n) .. " this session" .. (rate and (" · " .. ns.Num(rate) .. " per hour") or "") .. "\nClick: the Stats page"
+  end, get = function()
     local fac, n, rate = P():TopRep()
     if not fac then return "–", "rep/h" end
     -- (1.4.58) the big card already shows this faction and its rate: the box gives the total instead
@@ -489,8 +494,13 @@ local function makeTile(i)
     local d = self.key and T.byKey[self.key]
     if d and d.hover then d.hover(self) return end
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:AddLine(d and d.name or "Chillan?", 1, 1, 1)
-    GameTooltip:AddLine((d and d.tip) or "Click: the Stats page", 0.52, 0.55, 0.57, true)
+    local tt, tx
+    if d and d.tipFn then
+      local ok, a, b = pcall(d.tipFn)
+      if ok then tt, tx = a, b end
+    end
+    GameTooltip:AddLine(tt or (d and d.name) or "Chillan?", 1, 1, 1)
+    GameTooltip:AddLine(tx or (d and d.tip) or "Click: the Stats page", 0.52, 0.55, 0.57, true)
     GameTooltip:Show()
   end)
   t:SetScript("OnLeave", function() GameTooltip:Hide() if T.bossFrame then T.bossFrame:Hide() end end)

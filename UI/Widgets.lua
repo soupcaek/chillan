@@ -371,6 +371,12 @@ function UI.RebuildStyles()
   STYLES.ghost = { fill = nil, line = C.inputLine, text = C.muted, hover = C.card, weight = nil }
   STYLES.danger = { fill = C.sosBg, line = C.sosLine, text = C.sosText, hover = "4A2427", weight = "semi" }
   STYLES.nav = { fill = nil, line = nil, text = C.dim, hover = C.card, weight = nil }
+  -- (1.4.59) the Market window's buttons: real borders, so they stand out from the panels
+  STYLES.mkPri = { fill = "E0B04F", line = "F0C870", text = "17191C", hover = "ECC060", weight = "semi" }
+  STYLES.mkSec = { fill = "2C3138", line = "5A616B", text = C.text, hover = "363C44", weight = "semi" }
+  STYLES.mkRed = { fill = "5A2A2D", line = "9A4A4E", text = "FFD0D1", hover = "6A3235", weight = "semi" }
+  STYLES.mkGhost = { fill = nil, line = "4A5059", text = C.muted, hover = "23272D", weight = nil }
+  STYLES.mkOn = { fill = "3D434C", line = "4A5059", text = C.text, hover = "3D434C", weight = "semi" }
 end
 UI.RebuildStyles()
 
@@ -1306,7 +1312,8 @@ function UI.InfoTip(parent, anchor, title, text)
   else b:SetPoint("LEFT", anchor, "RIGHT", 6, 0) end
   local bg = UI.Panel(b, C.active, nil, true)
   bg:SetAllPoints()
-  local i = UI.Text(b, 10, "semi", C.muted)
+  -- (1.4.59) on the background, not under it (it showed as an empty square)
+  local i = UI.Text(bg, 10, "semi", C.muted)
   i:SetPoint("CENTER", 0, 0)
   i:SetText("i")
   b:EnableMouse(true)
