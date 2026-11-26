@@ -624,8 +624,12 @@ ns:On("PLAYER_DEAD", function()
   if loc.sub and loc.sub ~= "" and loc.sub ~= zone and not loc.inInst then zone = loc.sub .. ", " .. zone end
   me.deathZone = zone
   me.deathAt = ns.Now()
-  session.deaths = session.deaths + 1
-  Tracker:AddStat("Deaths", 1)
+  -- (1.4.70) battleground deaths don't count towards the week's deaths (only world PvP and PvE)
+  local inBG = ns.Kills and ns.Kills.InPvPInstance and ns.Kills:InPvPInstance()
+  if not inBG then
+    session.deaths = session.deaths + 1
+    Tracker:AddStat("Deaths", 1)
+  end
   -- achievement-tellere
   ns.CntDay("deathsDay")
   ns.CntMax("bestDayDeaths", (ns.db.cnt.deathsDay or {})[date("%Y-%m-%d")] or 0)
@@ -677,10 +681,31 @@ ns:On("QUEST_TURNED_IN", function()
   ns:MarkDirty()
 end)
 
+-- (1.4.70) money that only moved between people isn't "earned": gold taken from a player's mail
+-- (your alt, a friend) or received in a trade. Auction house mail still counts.
+local movedUntil = 0
+local function markMoved() movedUntil = ns.Now() + 3 end
+if hooksecurefunc then
+  for _, fn in ipairs({ "TakeInboxMoney", "AutoLootMailItem" }) do
+    if _G[fn] then
+      hooksecurefunc(fn, function(i)
+        local ok, _, _, sender, _, money, _, _, _, _, _, _, isGM = pcall(GetInboxHeaderInfo, i)
+        if not ok or not money or money == 0 then return end
+        -- auction house mail comes from the auction house, which isn't a player
+        local ah = type(sender) == "string" and (sender:find("Auction") or sender:find("auction"))
+        if not ah and not isGM then markMoved() end
+      end)
+    end
+  end
+end
+ns:On("TRADE_SHOW", markMoved)
+ns:On("TRADE_ACCEPT_UPDATE", markMoved)
+ns:On("TRADE_CLOSED", markMoved)
+
 ns:On("PLAYER_MONEY", function()
   local m = ns.S(GetMoney)
   if not m then return end
-  if lastMoney and m > lastMoney then
+  if lastMoney and m > lastMoney and ns.Now() > movedUntil then
     local diff = m - lastMoney
     session.gold = session.gold + diff
     Tracker:AddStat("Gold", diff)

@@ -206,6 +206,13 @@ function PC:Fill(pid)
     where = ns.Colorize("Offline", C.dim) .. "  ·  last seen " .. ns.Ago(p.lastSeen)
       .. (zone ~= "" and ("  ·  " .. zone) or "")
   end
+  -- (1.4.70) /played on the card too (all characters together)
+  local played = ns:PersonPlayed(p)
+  if played and played > 0 then
+    local n = 0
+    for _ in pairs(p.chars or {}) do n = n + 1 end
+    where = where .. "\n" .. ns.Colorize("/played " .. ns.Duration(played) .. (n > 1 and ("  ·  " .. n .. " characters") or ""), C.dim)
+  end
   f.zone:SetText(where)
   place(f.zone, y)
   y = y - math.max(14, f.zone:GetStringHeight() or 14) - 10

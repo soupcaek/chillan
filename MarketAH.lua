@@ -14,7 +14,7 @@ ns.AH = AH
 
 AH.CUT = 0.05
 AH.SEARCH_TIMEOUT = 5
-AH.POST_TIMEOUT = 10
+AH.POST_TIMEOUT = 6
 AH.BUY_TIMEOUT = 15
 AH.MAX_ROWS = 50
 AH.CACHE_FOR = 120          -- seconds a listing stays fresh
@@ -372,6 +372,28 @@ function AH.NoteSale(auctionID, itemID, qty, total)
   AH.dirty = true
   return true
 end
+-- (1.4.70) what a sold auction brought in, before the cut. The game's amount for a sold stack is
+-- sometimes the price per item and sometimes the whole stack (a stack of Glory Dew counted as 91g:
+-- the stack price times the count again). Judge it against what you asked per item when you posted
+-- it, else against the market value; when it's still unclear, take the smaller reading.
+function AH.SaleTotal(itemID, qty, amount, commodity)
+  qty = math.max(1, qty or 1)
+  if qty == 1 then return amount end
+  local asked = (AH.Stats().unit or {})[itemID]
+  local unit = asked and asked.p
+  if not unit and ns.Market and ns.Market.Get then
+    local e = ns.Market:Get(itemID)
+    unit = e and e.v
+  end
+  if unit and unit > 0 then
+    -- whichever reading lands closer to "unit price x count"
+    local asTotal, asUnit = amount, amount * qty
+    local want = unit * qty
+    return (math.abs(asTotal - want) <= math.abs(asUnit - want)) and asTotal or asUnit
+  end
+  return amount
+end
+
 -- gold after the cut and number of sales in the last n seconds
 function AH.SoldSince(sec)
   local s = AH.Stats()
@@ -490,14 +512,20 @@ function AH.Post(e, qty, price, duration, cb)
   if not AH.CanPost() then return false end
   local loc = AH.Location(e)
   if not loc then return false end
+  -- (1.4.70) the game's own sell frame may hold the same item: let go of it BEFORE posting. Clearing
+  -- it afterwards cancelled the post we had just sent, so the first click did nothing
+  local f = _G.AuctionHouseFrame
+  if f and f.ClearPostItem then pcall(f.ClearPostItem, f) end
   local need
   if e.commodity then need = C_AuctionHouse.PostCommodity(loc, duration, qty, price)
   else need = C_AuctionHouse.PostItem(loc, duration, qty, nil, price) end
   post.waiting, post.cb, post.multi = true, cb, (not e.commodity and qty > 1)
   post.n = e.commodity and 1 or qty
-  -- the game's own sell frame may hold the same item: let go of it
-  local f = _G.AuctionHouseFrame
-  if f and f.ClearPostItem then pcall(f.ClearPostItem, f) end
+  post.key, post.itemID, post.unit, post.at = e.key, e.itemID, price, ns.Now()
+  -- what you asked per item, so a sale can be counted right later (see NoteSale)
+  local st = AH.Stats()
+  st.unit = st.unit or {}
+  st.unit[e.itemID] = { p = price, commodity = e.commodity and true or nil, at = ns.Now() }
   if need then
     post.confirm = { commodity = e.commodity, loc = loc, duration = duration, qty = qty, price = price }
     hookWarning()
@@ -606,7 +634,7 @@ on("OWNED_AUCTIONS_UPDATED", function()
       list[#list + 1] = x
       if x.sold then
         local price = a.buyoutAmount or a.bidAmount
-        if price then AH.NoteSale(a.auctionID, x.itemID, x.qty, commodity and price * x.qty or price) end
+        if price then AH.NoteSale(a.auctionID, x.itemID, x.qty, AH.SaleTotal(x.itemID, x.qty, price, commodity)) end
       end
     end
   end

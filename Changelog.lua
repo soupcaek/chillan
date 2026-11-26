@@ -2,6 +2,14 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.70", date = "26.11", items = {
+    "Progress › Overview: the tiles are the gang's totals for the week (\"gang · levels this week\" and so on), so they add up to the list below. Gold is shown in whole gold",
+    "Deaths in battlegrounds no longer count toward your deaths",
+    "Gold earned ignores money moved between players: mail from friends, alts and trades. Sales are checked against the price you asked, so one sale can't show as far more than it was (the +91g Glory Dew)",
+    "Titles this week: hover a title to see what it means and who holds it",
+    "Market: Post works on the first click, Next up keeps its order after a post, and the next Post works without picking the item again. A partly posted stack stays selected",
+    "Player cards show /played and how many characters",
+    "Item tooltips in the Market widen to fit their text" } },
   { v = "1.4.69", date = "25.11", items = {
     "A design pass over every page: lists inside panels are striped rows instead of a box per line (Home's gang, History, Died to, Cunt List), and only one loud button per panel (Invite is a normal button now)",
     "Gang › Died to works again (the page came up empty in 1.4.68) and the Cunt List button shows on the row under the mouse. The Cunt List page has the panel look too",

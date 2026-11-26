@@ -624,12 +624,21 @@ function W:BuildQueue()
     end
   end
   local skipped = self.skipped or {}
-  table.sort(up, function(a, b)
-    local sa, sb = skipped[a.key] or 0, skipped[b.key] or 0
-    if sa ~= sb then return sa < sb end
+  -- (1.4.70) a steady order: an item keeps its place once it's in the list. Sorting by value every
+  -- time made rows jump around whenever a price answer came back from the auction house
+  self.rank = self.rank or {}
+  local fresh = {}
+  for _, e in ipairs(up) do if not self.rank[e.key] then fresh[#fresh + 1] = e end end
+  table.sort(fresh, function(a, b)
     local wa, wb = (a.each or -1) * a.count, (b.each or -1) * b.count
     if wa ~= wb then return wa > wb end
     return a.name < b.name
+  end)
+  for _, e in ipairs(fresh) do self.rankN = (self.rankN or 0) + 1 self.rank[e.key] = self.rankN end
+  table.sort(up, function(a, b)
+    local sa, sb = skipped[a.key] or 0, skipped[b.key] or 0
+    if sa ~= sb then return sa < sb end
+    return self.rank[a.key] < self.rank[b.key]
   end)
   table.sort(vend, function(a, b) return (a.vendor * a.count) > (b.vendor * b.count) end)
   return up, vend, vendTotal, loading
@@ -649,7 +658,18 @@ function W:DrawSell()
     end
   end
   local up, vend = self.sellQueue, self.vendQueue
-  if not s.cur and up[1] then self:SelectSell(up[1], true) end
+  -- (1.4.70) after a post, move on to the next item, not the one just posted: the bags can take a
+  -- moment to show it gone, and picking it again left a Post button that did nothing
+  if not s.cur then
+    local justPosted = self.justPosted
+    if justPosted and ns.Now() - justPosted.at > 5 then justPosted = nil self.justPosted = nil end
+    for _, e in ipairs(up) do
+      if not (justPosted and justPosted.key == e.key and justPosted.left <= 0) then
+        self:SelectSell(e, true)
+        break
+      end
+    end
+  end
   local e = s.cur
   if e then
     s.icon:SetTexture(e.icon)
@@ -764,7 +784,9 @@ function W:DoPost()
     if good then
       local c = AH.Listing(e.key)
       if c then c.at = 0 end
-      s.cur = nil
+      W.justPosted = { key = e.key, left = e.count - qty, at = ns.Now() }
+      -- the rest of a stack stays selected; a whole stack moves on to the next item
+      if qty < e.count then e.count = e.count - qty else s.cur = nil end
       W.bagsDirty = true
     end
     W:DrawSell()

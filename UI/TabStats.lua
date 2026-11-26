@@ -382,7 +382,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
   local tileDefs = {
     { "Online", "played", C.accent, function(v) return ns.Duration(v) end },
     { "Levels", "levels", "6FA8F2", function(v) return (v > 0 and "+" or "") .. v end },
-    { "Gold", "gold earned", C.amber, function(v) return ns.Money(v) end },
+    { "Gold", "gold earned", C.amber, function(v) return ns.Money(math.floor(v / 10000) * 10000) end },
     { "Deaths", "deaths", C.red, function(v) return tostring(v) end },
   }
   for i, d in ipairs(tileDefs) do
@@ -406,14 +406,16 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
     end
   end
   ovPage:HookScript("OnSizeChanged", function(self, w) placeTiles(w) end)
+  -- (1.4.70) the whole gang's week, like the chart and the top list beside it (the tiles showed only
+  -- your own numbers, so they never matched the list). Each person once, alts and installs merged.
   local function paintTiles()
     placeTiles(ovPage:GetWidth())
-    local me = ns.db.people[ns.pid]
-    if not me then return end
+    local people = ns:SortedPeople()   -- the same people as the top list
     for i, d in ipairs(tileDefs) do
-      local v = (mode == "week" and ns:WeekStat(me, d[1]) or ns:TotalStat(me, d[1])) or 0
+      local v = 0
+      for _, p in ipairs(people) do v = v + (ns:WeekStat(p, d[1]) or 0) end
       ovTiles[i].v:SetText(d[4](v))
-      ovTiles[i].k:SetText(d[2] .. " this week")
+      ovTiles[i].k:SetText("gang · " .. d[2] .. " this week")
     end
   end
 
@@ -544,6 +546,25 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
         local pl = pills[n] or UI.Pill(titlesP.body)
         pills[n] = pl
         pl:Set((ns:PersonFirst(p) or "?") .. " · " .. def.name, def.color)
+        -- (1.4.70) hover: what the title means and the number behind it
+        pl:EnableMouse(true)
+        pl.def, pl.holder = def, h
+        if not pl.hooked then
+          pl.hooked = true
+          pl:SetScript("OnEnter", function(self)
+            local d = self.def
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:AddLine(d.name, hex(d.color))
+            GameTooltip:AddLine((d.desc or ""):gsub("^%l", string.upper), 0.85, 0.85, 0.9, true)
+            local hv = self.holder
+            if hv and hv.value and ns.Titles.Format then
+              GameTooltip:AddLine(" ")
+              GameTooltip:AddDoubleLine(ns:PersonFirst(ns.db.people[hv.pid]) or "?", ns.Titles:Format(d, hv.value), 1, 1, 1, 1, 1, 1)
+            end
+            GameTooltip:Show()
+          end)
+          pl:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        end
         if x + pl:GetWidth() > w then break end
         pl:ClearAllPoints()
         pl:SetPoint("LEFT", titlesP.body, "LEFT", x, 0)
