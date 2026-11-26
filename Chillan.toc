@@ -58,6 +58,7 @@ UI\TabChat.lua
 UI\TabStats.lua
 UI\TabAch.lua
 UI\TabIdeas.lua
+UI\TabNotes.lua
 UI\TabMap.lua
 UI\TabMore.lua
 UI\TabCunts.lua

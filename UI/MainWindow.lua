@@ -41,11 +41,12 @@ W.SECTIONS = {
   { key = "pvp", label = "PvP", pages = { "pvp" } },
   { key = "market", label = "Market", pages = { "market" } },
   { key = "tools", label = "Tools", pages = { "qol", "ideas" } },
+  { key = "notes", label = "Notes", pages = { "notes" } },
   { key = "settings", label = "Settings", pages = { "settings" }, header = true },
   { key = "changelog", label = "What's new", pages = { "changelog" }, header = true },
 }
 W.PAGE_LABELS = { home = "Home", friends = "Friends", cunts = "Cunt List", diedto = "Died to", more = "Crafters", chat = "Gang chat",
-  stats = "Overview", table = "Table", graph = "Chart", titles = "Titles", history = "History", legend = "Legend book", ach = "Trophies", market = "Market", pvp = "PvP", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new",
+  stats = "Overview", table = "Table", graph = "Chart", titles = "Titles", history = "History", legend = "Legend book", ach = "Trophies", market = "Market", pvp = "PvP", qol = "QoL helpers", ideas = "Idea box", settings = "Settings", changelog = "What's new", notes = "Notes",
   player = "Player", compare = "Compare" }
 W.lastPage = {}
 -- (1.1.7) Progress is one row of pages; Chart, Titles, History and Legend book live inside the Stats page

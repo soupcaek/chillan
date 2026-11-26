@@ -140,6 +140,10 @@ SlashCmdList.CHILLAN = function(msg)
   cmd = (cmd or ""):lower()
   if cmd == "" then
     ns.Window:Toggle()
+  elseif cmd == "todo" then
+    if ns.Notes then ns.Notes.Slash(rest) end
+  elseif cmd == "notes" then
+    if ns.Notes then ns.Notes.Open() end
   elseif cmd == "need" or cmd == "rolls" then
     if ns.LootRolls then ns.LootRolls:Test() end
   elseif cmd == "versions" or cmd == "version" or cmd == "ver" then
