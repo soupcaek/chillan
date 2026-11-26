@@ -24,7 +24,7 @@ R.rolls = R.drops   -- (old name, kept for callers)
 local NEED, GREED, PASS = "5FD18B", "E0B04F", "858B92"
 local CHOICE_COL = { Need = NEED, Greed = GREED, Pass = PASS, Disenchant = "B9AEDB", Transmog = "B9AEDB" }
 local CHOICE_ORDER = { Need = 1, Greed = 2, Transmog = 2, Disenchant = 3, Pass = 4 }
-local ROW_H, DONE_H, LINE_H, MAX_NAMES, KEEP_DONE = 42, 22, 16, 8, 20
+local ROW_H, DONE_H, LINE_H, MAX_NAMES, KEEP_DONE = 42, 28, 16, 8, 20
 local FREE_W = 300
 
 local function safe(v) if v == nil or secret(v) then return nil end return v end
@@ -301,12 +301,15 @@ local function winnerOf(d)
 end
 
 -- the right-hand text of a row
-function R.Tally(d)
+function R.Tally(d, colored)
   if d.done then
     local w = winnerOf(d)
     if not w then return "Everyone passed" end
     local how = w.choice and (w.choice .. (w.roll and (" " .. w.roll) or "")) or (w.roll and tostring(w.roll))
-    return (isMe(w.name) and "You win" or (shown(w.name) .. " wins")) .. (how and (" · " .. how) or "")
+    -- (1.4.75) the winner's name in their class colour
+    local who = isMe(w.name) and "You" or shown(w.name)
+    if colored and w.class then who = ns.Colorize(who, ns.ClassHex(w.class)) end
+    return who .. (isMe(w.name) and " win" or " wins") .. (how and (" · " .. how) or "")
   end
   local n = counts(d)
   local out = {}
@@ -545,23 +548,23 @@ local function fillBlock(b, d, w)
   local open = R.hovered == d
   b.icon:SetTexture(d.texture or (d.item and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(tonumber(d.item))) or 134400)
   b.name:SetText(d.link or "?")
-  b.tally:SetText(R.Tally(d))
+  b.tally:SetText(R.Tally(d, true))
   b.tally:SetTextColor(hex(d.done and C.text2 or C.dim))
   local h
   if d.done then
     -- one line: icon small, name, who won
-    b.icon:SetSize(16, 16)
-    b.icon:ClearAllPoints() b.icon:SetPoint("TOPLEFT", 8, -3)
-    b.name:ClearAllPoints() b.name:SetPoint("TOPLEFT", 30, -5)
-    b.tally:ClearAllPoints() b.tally:SetPoint("TOPRIGHT", -22, -5)
+    b.icon:SetSize(22, 22)
+    b.icon:ClearAllPoints() b.icon:SetPoint("TOPLEFT", 6, -3)
+    b.name:ClearAllPoints() b.name:SetPoint("LEFT", b.icon, "RIGHT", 8, 0)
+    b.tally:ClearAllPoints() b.tally:SetPoint("TOPRIGHT", -22, -8)
     b.name:SetPoint("RIGHT", b.tally, "LEFT", -6, 0)
     b.barBg:Hide() for _, t in ipairs(b.seg) do t:Hide() end
     b.you:Hide() b.time:Hide()
     b.x:Show()
     h = DONE_H
   else
-    b.icon:SetSize(24, 24)
-    b.icon:ClearAllPoints() b.icon:SetPoint("TOPLEFT", 6, -8)
+    b.icon:SetSize(28, 28)
+    b.icon:ClearAllPoints() b.icon:SetPoint("TOPLEFT", 4, -7)
     b.name:ClearAllPoints() b.name:SetPoint("TOPLEFT", 38, -6)
     b.tally:ClearAllPoints() b.tally:SetPoint("TOPRIGHT", -8, -7)
     b.name:SetPoint("RIGHT", b.tally, "LEFT", -6, 0)

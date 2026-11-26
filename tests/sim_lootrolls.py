@@ -70,6 +70,7 @@ check("row text", "Need 1" in str(b.tally.GetText(b.tally)) and "s" in str(b.tim
 setdrop([("Thunka", 5, None), ("Kenny Surname", 3, 12), ("Valdrin-Realm", 0, 87)], winner="Valdrin-Realm")
 check("winner: one line " + str(R.Tally(drops[0])), drops[0].done and R.Tally(drops[0]) == "Valdrin wins · Need 87")
 check("you passed", R.YouLine(drops[0]) == "You: Pass")
+check("winner in class colour", "|c" in str(b.tally.GetText(b.tally)) and "Valdrin" in str(b.tally.GetText(b.tally)))
 check("remembered", len(list(R.history.values())) == 1)
 h0 = R.frame.GetHeight(R.frame)
 L.execute("ADDON_NS.LootRolls.hovered = ADDON_NS.LootRolls.drops[1] ADDON_NS.LootRolls:Layout()")
