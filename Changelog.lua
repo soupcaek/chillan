@@ -2,6 +2,17 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.72", date = "26.11", items = {
+    "New Notes tab: your own to-do list and notepad (private, never sent). Pin either box to your screen. /chill todo <text> adds one",
+    "Loot rolls: under the roll window, who picked Need, Greed or Pass, then the rolls and the winner. Scrolls in big groups, can be dragged. /chill need shows a test roll",
+    "New player cards: the Home hover card, the Pulse/chat hover card and the Player page are tidier, one fact per row. Titles show as a crown and +N (hover to see them)",
+    "Home › This week: your week as a list, Your place in the gang, Next ding, and Enemy of the week says who they killed",
+    "Version check: an old Chillan shows on Home and on the player card, /chill versions lists everyone, and you get a line at login when a newer version is out",
+    "Market: Post always works now (it could turn itself off without showing it). Stack sales are no longer counted too big, and item names show instead of numbers",
+    "Gold earned is only counted from this version on (older ones counted gold moved between your own characters). Your week starts over once",
+    "Layer swap: much less chat, no more \"No player named …\" lines",
+    "Alterac Valley: a burned tower or taken bunker leaves the list right away",
+    "Played instead of /played everywhere; long tooltips wrap; greyed-out buttons look greyed out" } },
   { v = "1.4.71", date = "26.11", items = {
     "Swap asks more players: besides the gang and LayerSwap users, it now also reaches Forever Layer Hop, VoidNet and AutoLayer users (like Layer Anarchy does). Same button, nothing to set up. You don't need the LayerSwap addon",
     "Nobody invited after a round? Click Swap again: the AutoLayer ask waits in the chat box, Enter sends it",
