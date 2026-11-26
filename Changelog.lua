@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.74", date = "26.11", items = {
+    "Loot rolls rethought: one Loot rolls section grows out of the bottom of Pulse while something is rolled for (a small movable strip when Pulse is closed). One row per item with a Need/Greed/Pass bar, your pick and the time left",
+    "Loot rolls now show everyone's picks: they come from the game's loot history (the chat only had your own lines)",
+    "Hover a row for who picked what: winner first, then you and the gang, at most 8 names. A finished row says who won for 20 s, then goes to \"last 5\" (/chill rolls)",
+    "Close buttons on the section and on finished rows; /chill need shows one test row" } },
   { v = "1.4.73", date = "26.11", items = {
     "Dungeon card: a boss track across the card, the next boss with your pace against the gang's best, deaths and your last kill against the gang record, and a Baron run timer in Stratholme. Hover the track for every boss, who died and the loot",
     "Ready check is a small check mark in the dungeon card's title (hover for what it checks)",
