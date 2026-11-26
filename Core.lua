@@ -740,31 +740,21 @@ ns.ACCENTS = {
 }
 
 -- Themes change the whole addon: background, cards, lines, text and the default accent
+-- (1.4.72) retuned: every layer one clear step apart (window → panel → title strip), stronger tinted
+-- borders, visible striped rows and a saturated accent with solid text on it
 ns.THEMES = {
-  { key = "graphite", name = "Graphite", desc = "Neutral grey",
-    c = { backdrop = "0C0D0F", window = "17191C", card = "1D2024", cardHover = "22262B", line = "24282D", input = "202328",
-      inputLine = "2A2E33", active = "2A2E33", activeLine = "3A3F45", text = "E8EAED", text2 = "C9CDD2", muted = "9BA1A8",
-      dim = "858B92", accent = "C8D1DC", accentText = "121417" } },
-  { key = "midnight", name = "Midnight", desc = "Near black, cool blue",
-    c = { backdrop = "07090C", window = "0E1116", card = "161B23", cardHover = "1C222C", line = "1E2530", input = "141920",
-      inputLine = "263040", active = "222A36", activeLine = "324054", text = "E6EDF6", text2 = "B9C4D2", muted = "8C99AB",
-      dim = "6F7D90", accent = "8FB8E8", accentText = "0B1726" } },
+  { key = "graphite", name = "Graphite", desc = "Neutral grey, steel blue",
+    c = { backdrop = "0A0B0D", window = "131518", card = "1C1F23", cardHover = "272A2E", line = "232528", input = "0A0B0D", inputLine = "3A4148", active = "2B3036", activeLine = "3A4148", text = "F2F4F6", text2 = "CFD4DA", muted = "9CA4AD", dim = "78808A", accent = "8EB4E0", accentText = "0A1420", strip = "25292E", rowAlt = "1A1D21" } },
+  { key = "midnight", name = "Midnight", desc = "Near black, strong blue",
+    c = { backdrop = "05070B", window = "0C1016", card = "141A23", cardHover = "1F252E", line = "1D2026", input = "05070B", inputLine = "31405A", active = "1F2836", activeLine = "31405A", text = "EDF3FB", text2 = "BFCBDB", muted = "8898AD", dim = "6A7A8E", accent = "5AA0F2", accentText = "04101E", strip = "1C2531", rowAlt = "111720" } },
   { key = "coal", name = "Coal", desc = "Pure black and gold",
-    c = { backdrop = "000000", window = "050505", card = "121212", cardHover = "191919", line = "1C1C1C", input = "0E0E0E",
-      inputLine = "262626", active = "202020", activeLine = "333333", text = "F2F2F2", text2 = "BDBDBD", muted = "8E8E8E",
-      dim = "777777", accent = "E0C068", accentText = "2A1F05" } },
+    c = { backdrop = "000000", window = "070707", card = "121212", cardHover = "1D1D1D", line = "181818", input = "000000", inputLine = "383838", active = "222222", activeLine = "383838", text = "F7F7F7", text2 = "C8C8C8", muted = "969696", dim = "707070", accent = "F0B43C", accentText = "221600", strip = "1C1C1C", rowAlt = "0E0E0E" } },
   { key = "slate", name = "Slate", desc = "Dark green-grey, teal",
-    c = { backdrop = "0A0E0F", window = "14191A", card = "1B2324", cardHover = "212B2C", line = "253031", input = "182021",
-      inputLine = "2C3839", active = "263233", activeLine = "36494A", text = "E3EEEC", text2 = "B5C7C5", muted = "8AA19F",
-      dim = "6E8583", accent = "7ED6D1", accentText = "062523" } },
-  { key = "horde", name = "Horde", desc = "Dark wine, muted red",
-    c = { backdrop = "0D0A0C", window = "171316", card = "211A1E", cardHover = "281F24", line = "2E2429", input = "1D171A",
-      inputLine = "352A30", active = "2E242A", activeLine = "46363E", text = "F0E6EA", text2 = "C8B9BF", muted = "9F8D94",
-      dim = "87767D", accent = "F2999B", accentText = "3A0F12" } },
-  { key = "void", name = "Void", desc = "Deep purple-black",
-    c = { backdrop = "0A0910", window = "13121A", card = "1B1A25", cardHover = "22202E", line = "262433", input = "18171F",
-      inputLine = "2E2B3D", active = "28263A", activeLine = "3B3852", text = "ECEAF6", text2 = "BDB9D0", muted = "9591AB",
-      dim = "7B7792", accent = "B9AEDB", accentText = "1E1838" } },
+    c = { backdrop = "070B0C", window = "0F1516", card = "172022", cardHover = "222B2D", line = "1F2526", input = "070B0C", inputLine = "345052", active = "223032", activeLine = "345052", text = "E9F4F2", text2 = "BDD0CE", muted = "88A3A0", dim = "66807D", accent = "38CFC3", accentText = "02201D", strip = "1F2B2D", rowAlt = "141C1D" } },
+  { key = "horde", name = "Horde", desc = "Dark wine, Horde red",
+    c = { backdrop = "0B0708", window = "150F11", card = "20161A", cardHover = "2B2125", line = "251F21", input = "0B0708", inputLine = "54343D", active = "33232A", activeLine = "54343D", text = "F6EAED", text2 = "D2BEC4", muted = "A48D94", dim = "806A71", accent = "E5484D", accentText = "FFF2F2", strip = "2B1E23", rowAlt = "1B1316" } },
+  { key = "void", name = "Void", desc = "Deep purple-black, violet",
+    c = { backdrop = "08070E", window = "110F19", card = "1A1725", cardHover = "25222F", line = "211F29", input = "08070E", inputLine = "433B5E", active = "2A2540", activeLine = "433B5E", text = "F0EDFA", text2 = "C6C0DC", muted = "9892B4", dim = "736D90", accent = "9F7AEA", accentText = "FFFFFF", strip = "241F33", rowAlt = "17141F" } },
 }
 
 function ns.Theme(key)
@@ -804,9 +794,9 @@ function ns:ApplyAccent()
   -- (1.4.64) the Market's look, from each theme's own colours: panels, title strips, borders,
   -- striped rows and button edges
   ns.C.panel = ns.C.card
-  ns.C.strip = lighten(ns.C.card, 0.035)
+  ns.C.strip = theme.c.strip or lighten(ns.C.card, 0.035)
   ns.C.border = ns.C.activeLine
-  ns.C.rowAlt = lighten(ns.C.window, 0.02)
+  ns.C.rowAlt = theme.c.rowAlt or lighten(ns.C.window, 0.02)
   ns.C.btnLine = lighten(ns.C.activeLine, 0.16)
   ns.C.field = ns.C.backdrop
   if ns.UI and ns.UI.RebuildStyles then ns.UI.RebuildStyles() end

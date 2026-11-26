@@ -134,7 +134,10 @@ local function newPanel()
   f.icon:SetPoint("LEFT", f, "TOPLEFT", 6, -HEAD / 2)
   f.title = UI.Text(f, 10, "bold", C.text2)
   f.right = UI.Text(f, 10, nil, C.dim)
-  f.right:SetPoint("RIGHT", f, "TOPRIGHT", -8, -HEAD / 2)
+  -- (1.4.72) a close button: a kept or reopened list stays until you close it
+  f.x = UI.IconButton(f, 16, "Close", "Close", function(self) local r = f.roll if r then R:Close(r, true) end end)
+  f.x:SetPoint("RIGHT", f, "TOPRIGHT", -4, -HEAD / 2)
+  f.right:SetPoint("RIGHT", f.x, "LEFT", -4, 0)
   f.title:SetPoint("RIGHT", f.right, "LEFT", -6, 0)
   f.rows = {}
   -- the item's tooltip on the title
@@ -328,8 +331,12 @@ function R:Open(id, link, seconds, players, texture)
   return roll
 end
 
-function R:Close(roll)
+-- the last finished rolls (newest first), for /chill rolls
+R.history = {}
+function R:Close(roll, byHand)
   if not roll or R.rolls[roll.id] ~= roll then return end
+  -- kept open (setting or reopened): only the close button ends it
+  if not byHand and (roll.keep or (S().lootRollsKeep and not roll.test)) then return end
   R.rolls[roll.id] = nil
   if roll.panel then
     roll.panel:Hide()
@@ -371,9 +378,24 @@ function R:Finish(roll, winner)
   if roll.done and roll.winner then return end
   roll.done, roll.winner = true, winner
   if winner then player(roll, winner).won = true end
+  -- remembered for /chill rolls (the last 5, with who picked what)
+  if not roll.test then
+    local copy = { id = "past" .. tostring(roll.id), link = roll.link, item = roll.item, texture = roll.texture, winner = winner,
+      at = time(), players = {} }
+    -- the same player entries: roll numbers that arrive after the winner line still land here
+    for i, q in ipairs(roll.players) do copy.players[i] = q end
+    table.insert(R.history, 1, copy)
+    while #R.history > 5 do table.remove(R.history) end
+  end
   R:Place(roll)
   R:Draw(roll)
-  C_Timer.After(8, function() R:Close(roll) end)
+  -- (1.4.72) 20 s to read it (8 was gone before a battleground's 40 roll lines were in), longer while
+  -- the mouse is on it; /chill rolls brings it back
+  local function later()
+    if roll.panel and roll.panel:IsMouseOver() then C_Timer.After(3, later) return end
+    R:Close(roll)
+  end
+  C_Timer.After(roll.test and 8 or 20, later)
 end
 
 function R:OnLine(text)
@@ -435,6 +457,29 @@ local TEST_PLAYERS = {
   { name = "Thunka", class = "SHAMAN" }, { name = "Kenny", class = "ROGUE" }, { name = "Valdrin", class = "PALADIN" },
   { name = "Eirik", class = "MAGE" },
 }
+-- /chill rolls [n]: the last finished roll again (n = 2 for the one before), until you close it
+function R:ShowPast(n)
+  n = tonumber(n) or 1
+  local h = R.history[n]
+  if not h then
+    ns.Print(#R.history == 0 and "Loot rolls: no finished roll yet this session." or ("Loot rolls: only " .. #R.history .. " kept – try /chill rolls 1 to " .. #R.history .. "."))
+    return
+  end
+  local id = h.id .. ":" .. GetTime()
+  local was = S().lootRolls
+  S().lootRolls = true
+  local roll = R:Open(id, h.link, nil, h.players, h.texture)
+  S().lootRolls = was
+  if not roll then return end
+  roll.keep, roll.done, roll.winner, roll.test = true, true, h.winner, true
+  for i, q in ipairs(h.players) do
+    local p = roll.players[i]
+    p.choice, p.roll, p.won, p.at = q.choice, q.roll, q.won, q.at
+  end
+  R:Draw(roll)
+  ns.Print("Loot rolls: " .. (h.link or "?") .. " from " .. date("%H:%M", h.at) .. ". Close it with the ✕.")
+end
+
 function R:Test()
   -- (dev4) GetItemInfo/GetItemIcon are only in C_Item on this client
   local info = (C_Item and C_Item.GetItemInfo) or GetItemInfo

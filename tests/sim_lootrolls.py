@@ -65,8 +65,16 @@ G.FIRE("CHAT_MSG_LOOT", "Valdrin won: " + link)
 check("winner set", roll.winner == "Valdrin" and roll.done)
 r1 = roll.panel.rows[1]
 check("winner first with star", "Valdrin" in str(r1.name.GetText(r1.name)) and r1.star.GetText(r1.star) == "\u2605")
-G.ADVANCE(9)
-check("closes after 8 s", R.rolls[7] is None)
+G.ADVANCE(21)
+check("closes after 20 s", R.rolls[7] is None)
+check("finished roll remembered", len(list(R.history.values())) == 1)
+L.execute("SlashCmdList.CHILLAN('rolls')")
+past = [r for k, r in R.rolls.items()]
+check("/chill rolls reopens it", len(past) == 1 and past[0].winner == "Valdrin")
+G.ADVANCE(20)
+check("a reopened list stays", len([r for k, r in R.rolls.items()]) == 1)
+L.execute("for _, r in pairs(ADDON_NS.LootRolls.rolls) do ADDON_NS.LootRolls:Close(r, true) end")
+check("the close button closes it", len([r for k, r in R.rolls.items()]) == 0)
 L.execute("SlashCmdList.CHILLAN('need')")
 G.ADVANCE(9)
 t = [r for k, r in R.rolls.items()]

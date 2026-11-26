@@ -4,6 +4,8 @@ local ADDON, ns = ...
 ns.CHANGELOG = {
   { v = "1.4.72", date = "26.11", items = {
     "New Notes tab: your own to-do list and notepad (private, never sent). Pin either box to your screen. /chill todo <text> adds one",
+    "Themes retuned: every theme has clearer layers, stronger borders, visible striped rows and a stronger accent of its own (violet Void, Horde red, blue Midnight …)",
+    "Loot rolls: the result stays 20 s (longer while your mouse is on it), /chill rolls shows the last rolls again, and Tools › Loot rolls can keep it open until you close it",
     "Loot rolls: under the roll window, who picked Need, Greed or Pass, then the rolls and the winner. Scrolls in big groups, can be dragged. /chill need shows a test roll",
     "New player cards: the Home hover card, the Pulse/chat hover card and the Player page are tidier, one fact per row. Titles show as a crown and +N (hover to see them)",
     "Player page: a Dungeons and raids panel (runs, bosses killed, most run, fastest run and boss kill, gang records held), and Latest epic is a real epic you can hover",
@@ -13,6 +15,8 @@ ns.CHANGELOG = {
     "Gold earned is only counted from this version on (older ones counted gold moved between your own characters). Your week starts over once",
     "Layer swap: much less chat, no more \"No player named …\" lines",
     "Alterac Valley: a burned tower or taken bunker leaves the list right away",
+    "Player page: BGs won and lost, gang records listed on hover, other tiles at level 60; no XP counted at level 60 any more",
+    "Tools: Loot rolls and Market cards with their switches",
     "Played instead of /played everywhere; long tooltips wrap; greyed-out buttons look greyed out" } },
   { v = "1.4.71", date = "26.11", items = {
     "Swap asks more players: besides the gang and LayerSwap users, it now also reaches Forever Layer Hop, VoidNet and AutoLayer users (like Layer Anarchy does). Same button, nothing to set up. You don't need the LayerSwap addon",
