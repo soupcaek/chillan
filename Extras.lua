@@ -13,6 +13,8 @@ function X:Radar()
   local me = ns.Tracker:Me()
   local L = me.live or {}
   if L.inInst or not L.zone or L.zone == "" then return end
+  -- (1.4.75) already in a group: no "quest together?" popups
+  if (IsInGroup and IsInGroup()) or (GetNumGroupMembers and (GetNumGroupMembers() or 0) > 0) then return end
   local myLvl = ns.S(UnitLevel, "player") or 0
   for pid, p in pairs(ns.db.people) do
     local pl = p.live or {}
