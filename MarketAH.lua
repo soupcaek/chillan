@@ -572,6 +572,11 @@ function AH.Post(e, qty, price, duration, cb)
   if need then
     post.confirm = { commodity = e.commodity, loc = loc, duration = duration, qty = qty, price = price }
     hookWarning()
+    AH.Trace("the game asks to confirm this post")
+    -- (dev5) no confirm box ever came: let go after 15 s, or Post stayed off for good
+    local my = (post.gen or 0) + 1
+    post.gen = my
+    C_Timer.After(15, function() if post.waiting and post.confirm and post.gen == my then post.confirm = nil postDone(false) end end)
   else
     postWait()
   end

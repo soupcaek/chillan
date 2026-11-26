@@ -13,7 +13,7 @@ local R = {}
 ns.LootRolls = R
 R.rolls = {}        -- rollID -> roll
 R.panels = {}       -- free panels
-local W, ROW, HEAD = 250, 18, 22
+local W, ROW, HEAD, MAX_ROWS = 250, 18, 22, 12
 local NEED, GREED, PASS = "5FD18B", "E0B04F", "858B92"
 local CHOICE_COL = { Need = NEED, Greed = GREED, Pass = PASS, Disenchant = "B9AEDB" }
 local CHOICE_ORDER = { Need = 1, Greed = 2, Disenchant = 3, Pass = 4 }
@@ -75,6 +75,8 @@ end
 -- one loot line → { kind, who, item, roll } or nil
 function R.Parse(text)
   if type(text) ~= "string" or secret(text) then return nil end
+  -- (dev5) this client starts loot lines with "[Loot]: "
+  text = text:gsub("^%[[^%]|]+%]:%s*", "")
   if not compiled then compile() end
   for _, c in ipairs(compiled) do
     local caps = { text:match(c.p) }
@@ -146,6 +148,25 @@ local function newPanel()
     end
   end)
   f:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  -- (dev5) drag it anywhere (it stays there for that roll); the wheel scrolls a long list
+  f:SetMovable(true)
+  f:SetClampedToScreen(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function(self) if GameTooltip then GameTooltip:Hide() end self:StartMoving() end)
+  f:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    local r = self.roll
+    if r then r.moved, r.detached, r.anchor, r.placed = true, true, nil, true r.lastX, r.lastY = self:GetLeft(), self:GetTop() R:Draw(r) end
+  end)
+  f:EnableMouseWheel(true)
+  f:SetScript("OnMouseWheel", function(self, d)
+    local r = self.roll
+    if not r then return end
+    r.scroll = math.max(0, math.min((r.scrollMax or 0), (r.scroll or 0) - d * 3))
+    R:Draw(r)
+  end)
+  f.more = UI.Text(f, 10, nil, C.dim)
+  f.more:SetPoint("BOTTOMRIGHT", -8, 4)
   return f
 end
 local function row(f, i)
@@ -226,7 +247,14 @@ function R:Draw(roll)
     local left = roll.endsAt and math.max(0, math.floor(roll.endsAt - GetTime())) or nil
     f.right:SetText(picked .. " of " .. #roll.players .. (left and (" · " .. left .. " s") or ""))
   end
-  local list = sorted(roll)
+  local all = sorted(roll)
+  -- (dev5) at most MAX_ROWS rows (a battleground raid has 40): the wheel scrolls the rest
+  roll.scrollMax = math.max(0, #all - MAX_ROWS)
+  roll.scroll = math.min(roll.scroll or 0, roll.scrollMax)
+  local list = {}
+  for i = roll.scroll + 1, math.min(#all, roll.scroll + MAX_ROWS) do list[#list + 1] = all[i] end
+  local below = #all - roll.scroll - #list
+  f.more:SetText(below > 0 and ("scroll for " .. below .. " more") or "")
   for i, p in ipairs(list) do
     local r = row(f, i)
     r:Show()
@@ -246,7 +274,7 @@ function R:Draw(roll)
     r.star:SetText(p.won and "★" or "")
   end
   for i = #list + 1, #f.rows do f.rows[i]:Hide() end
-  f:SetHeight(HEAD + 4 + #list * ROW)
+  f:SetHeight(HEAD + 4 + #list * ROW + (below > 0 and 16 or 0))
 end
 
 -- where the panel goes: under the game's roll window while it's open; where it was once it closes
@@ -254,17 +282,21 @@ function R:Place(roll)
   local f = roll.panel
   if not f then return end
   local g = blizzFrame(roll.id)
-  if g then
+  if g and not roll.moved then
     roll.anchor = g
     f:ClearAllPoints()
     f:SetPoint("TOP", g, "BOTTOM", 0, -2)
     f:SetWidth(math.max(W, math.floor((g:GetWidth() or W) + 0.5)))
+    -- (dev5) remember where it sits: when the roll window closes the panel stays right there
+    -- (it jumped to the top of the screen, because the spot was read after the window was gone)
+    roll.lastX, roll.lastY = f:GetLeft(), f:GetTop()
+    roll.placed = true
     return
   end
   if roll.anchor or not roll.placed then
     if roll.anchor then roll.detached = true end
     -- stand alone at the spot it had (or the top of the screen for a test roll)
-    local x, y = f:GetLeft(), f:GetTop()
+    local x, y = roll.lastX or f:GetLeft(), roll.lastY or f:GetTop()
     roll.anchor = nil
     f:ClearAllPoints()
     if x and y and roll.placed then
@@ -307,13 +339,16 @@ function R:Close(roll)
   end
 end
 
+-- (dev5) names in loot lines carry the surname ("Gumi Megpoid"), the group list only the name ("Gumi")
+local function first(name) return norm((tostring(name or ""):match("^(%S+)")) or "") end
+
 -- the open roll a loot line is about: the oldest with that item where this player hasn't got that news yet
 local function rollFor(item, who, kind)
   local best
   for _, r in pairs(R.rolls) do
     if r.item == item and not r.done then
       local p
-      for _, q in ipairs(r.players) do if norm(q.name) == norm(who or "") then p = q end end
+      for _, q in ipairs(r.players) do if norm(q.name) == norm(who or "") or first(q.name) == first(who) then p = q end end
       local fresh = not who or not p or (kind == "roll" and not p.roll) or (kind ~= "roll" and not p.choice)
       if fresh and (not best or r.startedAt < best.startedAt) then best = r end
     end
@@ -326,6 +361,7 @@ end
 
 local function player(roll, who)
   for _, p in ipairs(roll.players) do if norm(p.name) == norm(who) then return p end end
+  for _, p in ipairs(roll.players) do if first(p.name) == first(who) then return p end end
   local p = { name = who, order = #roll.players + 1 }
   roll.players[#roll.players + 1] = p
   return p
@@ -366,7 +402,8 @@ function R:Tick()
     for _, roll in pairs(R.rolls) do
       any = true
       local g = blizzFrame(roll.id)
-      if (roll.anchor and not g) or (g and not roll.anchor and not roll.detached) then R:Place(roll) end
+      if roll.anchor and g and roll.panel then roll.lastX, roll.lastY = roll.panel:GetLeft(), roll.panel:GetTop() end
+      if (roll.anchor and not g) or (g and not roll.anchor and not roll.detached and not roll.moved) then R:Place(roll) end
       if not roll.done then
         -- nobody said who won long after the time ran out: let it go
         if roll.endsAt and GetTime() > roll.endsAt + 20 and not roll.test then R:Close(roll) else R:Draw(roll) end

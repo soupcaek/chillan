@@ -528,11 +528,15 @@ function UI.Button(parent, w, h, label, style, onClick)
     end
   end
   b:SetStyle(style or "secondary")
+  -- (dev5) a switched-off button looks switched off (it used to look the same and just ignore clicks)
+  b:SetScript("OnDisable", function(self) self:SetAlpha(0.45) end)
+  b:SetScript("OnEnable", function(self) self:SetAlpha(1) end)
   b:SetScript("OnEnter", function(self)
     if self.style.hover then self.panel:SetColors(self.style.hover, self.style.line) end
     if self.tooltip then
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      GameTooltip:SetText(self.tooltip, 1, 1, 1)
+      -- (dev5) long tooltips wrap instead of running across the screen
+      GameTooltip:SetText(self.tooltip, 1, 1, 1, 1, true)
       GameTooltip:Show()
     end
   end)

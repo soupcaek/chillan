@@ -418,7 +418,8 @@ function W:Create()
   self:BuildShop(self.pages[4])
   self:BuildGang(self.pages[5])
 
-  ns:Listen("MKAH", function(what) W:OnChange(what) end)
+  ns:Listen("MKAH", function(what) W:OnChange(what) W:PaintSellTotals() end)
+  ns:On("AUCTION_HOUSE_THROTTLED_SYSTEM_READY", function() if f:IsShown() then W:PaintSellTotals() end end)
   ns:Listen("MARKET", function() if f:IsShown() then W:PaintFooter() W:PaintScan() end end)
   f:SetScript("OnShow", function() W:Refresh() end)
 end
@@ -601,7 +602,7 @@ function W:BuildSell(p)
   s.postBtn:SetPoint("RIGHT", -10, 0)
   s.skipBtn = button(box, 64, 32, "Skip", "mkSec", function() W:SkipCurrent() end)
   s.skipBtn:SetPoint("RIGHT", s.postBtn, "LEFT", -8, 0)
-  s.skipBtn.tooltip = "Not now: the next item (this one goes to the end of Up Next for this visit)."
+  s.skipBtn.tooltip = "Not now – moves it to the end of Up Next."
 
   s.listP = panel(p, "On the auction house now")
   s.listP:SetPoint("TOPLEFT", s.postP, "BOTTOMLEFT", 0, -10)
@@ -791,7 +792,9 @@ function W:PaintSellTotals()
   s.get:SetText(coins(AH.AfterCut(price) * qty))
   local d = AH.Deposit(e, qty, dur)
   s.deposit:SetText(d and (dim("Deposit ") .. coins(d)) or "")
-  s.postBtn:SetEnabled(AH.CanPost() and price > 0)
+  -- (dev5) only a post in flight or no price turns Post off. "The auction house is busy" used to as
+  -- well, and nothing repainted the button when it got ready again: it looked fine but did nothing
+  s.postBtn:SetEnabled(price > 0 and not AH.PostWaiting())
   s.postBtn:SetLabel(AH.PostWaiting() and "Posting …" or "Post")
   s.get:SetTextColor(hex(price < AH.Floor(e.itemID) and C.red or C.green))
 end
@@ -800,6 +803,11 @@ function W:DoPost()
   local e, price, qty, dur = self:SellValues()
   if not e or not price then AH.Trace("Post clicked, but no item or price is picked") return end
   local s = self.sell
+  if not AH.CanPost() then
+    ns.Print("Market: " .. (AH.WhyNot() or "the auction house isn't ready") .. " – click Post again in a moment.")
+    self:PaintSellTotals()
+    return
+  end
   local done = AH.Post(e, qty, price, dur, function(good)
     if good then
       local c = AH.Listing(e.key)

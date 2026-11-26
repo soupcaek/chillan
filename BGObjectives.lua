@@ -235,6 +235,15 @@ function O:ScanNodes(fresh)
     end
     n.icon = p.icon or false
   end
+  -- (dev5) an attack whose time ran out is over: the tower burned or the graveyard was taken. It used to
+  -- stay in "under attack" at 0:00 for the rest of the game and pushed newer attacks out of the list
+  local cap = O.CAP[self.key or ""] or 60
+  for _, n in pairs(self.nodes) do
+    if n.atk and not n.left then
+      local over = n.since and (t - n.since) > cap + 8
+      if over then n.atk, n.since, n.over = nil, nil, t end
+    end
+  end
   for name, n in pairs(self.nodes) do
     if not seen[name] then
       if not n.gone and O.NotABase(name) then self:LogIcon(name, "map", "gone") end
@@ -349,8 +358,11 @@ end
 function O:Restore()
   local sv = ns.db and ns.db.bgObjSave
   if not sv or sv.key ~= self.key or not sv.at or now() - sv.at > 120 or now() < sv.at then return end
+  local cap = O.CAP[self.key or ""] or 60
   for name, a in pairs(sv.atk or {}) do
     local n = self.nodes[name]
+    -- (dev5) an attack that has run out since is not brought back
+    if a[2] and now() - a[2] > cap + 8 then n = nil end
     if n and not n.atk and type(n.icon) == "number" and ASSAULT[n.icon] == a[1] then n.atk, n.since = a[1], a[2] end
   end
 end

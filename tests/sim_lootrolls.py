@@ -59,6 +59,8 @@ for line in ("Kenny has selected Greed for: ", "Valdrin has selected Need for: "
 G.FIRE("CHAT_MSG_LOOT", "Need Roll - 87 for " + link + " by Valdrin")
 G.FIRE("CHAT_MSG_LOOT", "Need Roll - 41 for " + link + " by Thunka")
 check("panel: 3 of 3", "3 of 3" in str(roll.panel.right.GetText(roll.panel.right)))
+G.FIRE("CHAT_MSG_LOOT", "[Loot]: Kenny Surname has selected Greed for: " + link)
+check("[Loot] prefix + surname matched to Kenny", len(list(roll.players.values())) == 3)
 G.FIRE("CHAT_MSG_LOOT", "Valdrin won: " + link)
 check("winner set", roll.winner == "Valdrin" and roll.done)
 r1 = roll.panel.rows[1]
