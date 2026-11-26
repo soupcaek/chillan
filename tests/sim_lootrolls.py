@@ -74,6 +74,9 @@ check("remembered", len(list(R.history.values())) == 1)
 h0 = R.frame.GetHeight(R.frame)
 L.execute("ADDON_NS.LootRolls.hovered = ADDON_NS.LootRolls.drops[1] ADDON_NS.LootRolls:Layout()")
 check("hover opens who picked what", R.frame.GetHeight(R.frame) > h0 + 40)
+L.execute("""local b = ADDON_NS.LootRolls.frame.blocks[1] HIDES = 0 local o = b.Hide b.Hide = function(self) HIDES = HIDES + 1 return o(self) end
+ADDON_NS.LootRolls:Layout() b.Hide = o""")
+check("a repaint never hides the hovered row (that made it blink)", L.globals().HIDES == 0)
 l1 = b.lines[1]
 check("winner first with a star", "Valdrin" in str(l1.name.GetText(l1.name)) and l1.star.GetText(l1.star) == "★")
 G.ADVANCE(1)

@@ -417,10 +417,10 @@ local function makeBlock(f, i)
   b.x:SetPoint("RIGHT", b, "TOPRIGHT", -4, -DONE_H / 2)
   b.x:Hide()
   b.lines = {}
-  b:SetScript("OnEnter", function(self) if self.drop and R.hovered ~= self.drop then R.hovered = self.drop R:Layout() end end)
+  b:SetScript("OnEnter", function(self) if not R.laying and self.drop and R.hovered ~= self.drop then R.hovered = self.drop R:Layout() end end)
   b:SetScript("OnLeave", function(self)
     if GameTooltip then GameTooltip:Hide() end
-    R:CheckHover()
+    C_Timer.After(0.15, function() R:CheckHover() end)
   end)
   b:SetScript("OnClick", function(self)
     local d = self.drop
@@ -439,7 +439,7 @@ local function makeBlock(f, i)
       GameTooltip:Show()
     end
   end)
-  b.iconHit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end R:CheckHover() end)
+  b.iconHit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end C_Timer.After(0.15, function() R:CheckHover() end) end)
   -- a thin line between items
   b.sep = UI.Track(b:CreateTexture(nil, "ARTWORK"))
   b.sep:SetColorTexture(hex(C.line or C.border or "2A2D33"))
@@ -519,6 +519,7 @@ end
 
 -- the hovered row is where the mouse is, not what an event last said
 function R:CheckHover()
+  if R.laying then return end
   local f = self.frame
   local now
   if f and f:IsShown() then
@@ -651,10 +652,10 @@ function R:Layout()
   -- Pulse went away under us: stand alone
   local m = ns.Overlays and ns.Overlays.minibar
   if self.docked and not (m and m:IsShown()) then self:Dock(nil, false) end
+  R.laying = true
   local list = visibleDrops()
   local w = f:GetWidth()
   if not w or w < 50 then w = FREE_W end
-  for _, b in ipairs(f.blocks) do b:Hide() b.drop = nil end
   local active = 0
   for _, d in ipairs(list) do if not d.done then active = active + 1 end end
   f.card:SetTitle("Loot rolls" .. (active > 0 and (" · " .. active) or ""))
@@ -672,7 +673,9 @@ function R:Layout()
     b:Show()
     y = y - h
   end
+  for i = n + 1, #f.blocks do local b = f.blocks[i] b.drop = nil b:Hide() end
   f:SetHeight(-y + 6)
+  R.laying = nil
   local h = math.floor(f:GetHeight())
   if self.lastH ~= h then
     self.lastH = h
