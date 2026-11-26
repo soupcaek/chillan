@@ -420,6 +420,7 @@ end
 ns:On("START_LOOT_ROLL", function(id, ms)
   id = safe(id)
   if not id or not on() then return end
+  if S().lootRollsBig == false and (GetNumGroupMembers and GetNumGroupMembers() or 0) > 5 then return end
   local link = GetLootRollItemLink and safe(GetLootRollItemLink(id))
   local texture = GetLootRollItemInfo and safe((GetLootRollItemInfo(id)))
   -- the game's window appears a frame later: open then, so the panel can sit under it

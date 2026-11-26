@@ -75,9 +75,22 @@ function T:MostRun(x)
   return best, n
 end
 -- gang records this person holds (fastest boss kills and runs)
+local function nice(k) return (tostring(k):gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end)) end
+local function mss(s) return string.format("%d:%02d", math.floor(s / 60), math.floor(s % 60)) end
+-- the gang records this person holds: n, and a tooltip list { title, { what, time }, … }
 function T:Records(pid)
-  local n = 0
-  for _, inst in pairs(ns.db.bossRec or {}) do for _, r in pairs(inst) do if type(r) == "table" and r.pid == pid then n = n + 1 end end end
-  for _, r in pairs(ns.db.runRec or {}) do if type(r) == "table" and r.pid == pid then n = n + 1 end end
-  return n
+  local rows = {}
+  for inst, list in pairs(ns.db.runRec or {}) do
+    if type(list) == "table" and list.pid == pid and list.s then rows[#rows + 1] = { nice(inst) .. " run", ns.Duration(list.s), list.s } end
+  end
+  for inst, list in pairs(ns.db.bossRec or {}) do
+    for boss, r in pairs(type(list) == "table" and list or {}) do
+      if type(r) == "table" and r.pid == pid and r.s then rows[#rows + 1] = { boss .. ns.Colorize("  " .. nice(inst), "808080"), mss(r.s), r.s } end
+    end
+  end
+  table.sort(rows, function(a, b) return a[1] < b[1] end)
+  local tip = { "Gang records held (fastest)" }
+  for i = 1, math.min(#rows, 20) do tip[#tip + 1] = rows[i] end
+  if #rows > 20 then tip[#tip + 1] = { "+ " .. (#rows - 20) .. " more", "" } end
+  return #rows, tip
 end

@@ -277,6 +277,13 @@ ns:On("PLAYER_XP_UPDATE", function()
   local xp, xpMax = Tracker:ReadXP()
   local lvl = ns.S(UnitLevel, "player")
   if not xp or not xpMax or not lvl then return end
+  -- (1.4.72) at max level the game keeps moving an XP number that gives no levels: it is not XP
+  -- earned (a level-60 character showed 3.8 million this week and took "The Machine")
+  local maxL = ns.S(GetMaxPlayerLevel) or 60
+  if lvl >= maxL and (xpState.level or lvl) >= maxL then
+    xpState.xp, xpState.max, xpState.level = xp, xpMax, lvl
+    return
+  end
   if xpState.xp then
     local d
     if xpState.level and lvl > xpState.level then

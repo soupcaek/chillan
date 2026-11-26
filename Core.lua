@@ -613,7 +613,7 @@ local DEFAULTS = {
     minibar = true, sounds = true, toasts = true, mapPins = true, mapPinsOffline = true, briefing = true, levelRecap = true,
     onlineToasts = true, lootMinQuality = 3, minimapButton = true, minimapAngle = 200,
     chatMirror = true, activityMirror = true, chatTab = true, eventFeed = true, feedChat = true, bgPanel = true,
-    accent = "class", popupLevel = "normal", pulsePin = true, market = true, marketShare = true, theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, lootRolls = true, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
+    accent = "class", popupLevel = "normal", pulsePin = true, market = true, marketShare = true, theme = "graphite", overlayAlpha = 0.95, locked = false, questBuddy = true, layerHost = true, layerStrangers = false, lootRolls = true, lootRollsBig = true, mkWindow = true, mentionSound = true, chatSound = true, presenceSound = true, combatQueue = true,
     radar = true, titles = true, mapNotes = true, duraWarn = true,
     -- QoL tab: the safe ones start on, the ones that act for you start off
     qolMount = true, qolMountArmor = true, qolMountZone = true, qolSwimGear = true, qolRunGear = true, qolTrinketSlot = 14,

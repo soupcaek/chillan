@@ -50,6 +50,18 @@ local CARDS = {
     { "Hide error messages", "qolNoErrors", "Hides frequent error messages such as \"Not enough rage\", \"Out of range\" and \"Ability is not ready yet\". Important messages such as \"Inventory is full\" still show." },
     { "Maximum camera distance", "qolMaxZoom", "Raises the maximum camera zoom distance. Disabling restores your previous setting." },
   } },
+  -- (1.4.72) Chillan's own extensions, switched here too (Settings has the same switches)
+  { col = 2, title = "Loot rolls", icon = "Star", desc = "Who picked Need, Greed or Pass, under the roll window. /chill need shows a test", items = {
+    { "Show who picked what", "lootRolls", "Under the game's roll window: everyone's Need, Greed or Pass as it comes in, then the rolls and the winner.", subs = {
+      { "Also in raids and battlegrounds", "lootRollsBig", "Shows the list in groups bigger than five as well (it scrolls)." },
+    } },
+  } },
+  { col = 2, title = "Market", icon = "Board", desc = "Prices, the auction house window and the gang's prices", items = {
+    { "Market on", "market", "Prices in tooltips, scanning at the auction house and the gang's prices.", subs = {
+      { "Window beside the auction house", "mkWindow", "Sell, Buy, My auctions, Item Tracker and Gang open beside the auction house." },
+      { "Share prices with the gang", "marketShare", "After a scan, prices that changed go to the gang quietly." },
+    } },
+  } },
   { col = 1, title = "Interface", icon = "Eye", desc = "Additional information on screen", items = {
     { "Mark unusable items", "qolTint", "Tints bag items you cannot use (level, class, skill or already learned) red." },
     { "Flight timer", "qolFlightTimer", "Shows a bar with remaining flight time. Each route is learned the first time you fly it. Drag the bar to move it." },
@@ -149,6 +161,7 @@ ns:RegisterTab("qol", "QoL", "Check", function(tab)
     for _, it in ipairs(card.items) do
       local cb = UI.Check(f, it[1], function() return S()[it[2]] and true or false end, function(v)
         S()[it[2]] = v
+        if it[2] == "market" and v and ns.Market and ns.Market.HookTooltips then ns.Market:HookTooltips() end
         ns.QoL:Apply()
         tab:Refresh()
       end)

@@ -61,19 +61,27 @@ function UI.KVRows(parent)
       r.cx = cx
       r.k:Show() r.v:Show()
       -- (1.4.72) an item link in a value: hover shows the item
-      if row.link then
+      if row.link or row.tip then
         if not r.hit then
           r.hit = CreateFrame("Frame", nil, parent)
           r.hit:EnableMouse(true)
           r.hit:SetScript("OnEnter", function(self)
-            if not self.link then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
+            if self.link then
+              pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
+            elseif self.tip then
+              -- { title, { left, right }, … }
+              GameTooltip:AddLine(self.tip[1] or "", 1, 1, 1)
+              for i = 2, #self.tip do
+                local l = self.tip[i]
+                GameTooltip:AddDoubleLine(l[1], l[2] or "", 0.85, 0.85, 0.85, 1, 1, 1)
+              end
+            end
             GameTooltip:Show()
           end)
           r.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
         end
-        r.hit.link = row.link
+        r.hit.link, r.hit.tip = row.link, row.tip
         r.hit:ClearAllPoints()
         r.hit:SetPoint("TOPRIGHT", r.v, "TOPRIGHT")
         r.hit:SetSize(math.min(r.v:GetWidth(), math.ceil(r.v:GetStringWidth() or 60) + 2), math.max(14, r.v:GetStringHeight() or 14))

@@ -46,31 +46,6 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
   for i = 1, 5 do
     local t = UI.NumTile(tab, true)
     t:Accent(tileCols[i])
-    t.pinKey = ({ "level", "xph", "eta", "played" })[i]
-    if t.pinKey then
-      t.pin = UI.Icon(t, "Plus", 12, C.dim)
-      t.pin:SetPoint("TOPRIGHT", -8, -8)
-      t:EnableMouse(true)
-      t:SetScript("OnMouseUp", function(self)
-        if not self.isMe then return end
-        local on = ns.Tiles:Toggle(self.pinKey)
-        ns.Print(on and "Pinned under the Chillan? bar." or "Removed from the Chillan? bar.")
-        self:RefreshPin()
-      end)
-      function t:RefreshPin()
-        self.pin:SetShown(self.isMe and true or false)
-        local on = ns.Tiles:IsPinned(self.pinKey)
-        self.pin:SetTexture(ns.TEX .. "Icon" .. (on and "Check" or "Plus"))
-        UI.Track(self.pin):SetVertexColor(hex(on and C.green or C.dim))
-      end
-      t:SetScript("OnEnter", function(self)
-        if not self.isMe then return end
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine(ns.Tiles:IsPinned(self.pinKey) and "Click: remove from the Chillan? bar" or "Click: pin under the Chillan? bar", 1, 1, 1)
-        GameTooltip:Show()
-      end)
-      t:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    end
     tiles[i] = t
   end
 
@@ -156,10 +131,15 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
       { played > 0 and ns.Duration(played) or "–", "Played" .. (nChars > 1 and (" · " .. nChars .. " characters") or "") },
       { s3.streak and ns.Plural(s3.streak, "day") or "–", "streak" },
     }
+    -- (1.4.72) at max level: no "0 % to 61" – honor today and item level instead
+    if (tonumber(c.level) or 0) >= (ns.S(GetMaxPlayerLevel) or 60) then
+      vals[1] = { tostring(c.level), "max level" }
+      vals[2] = { s3.honorT and ns.Num(s3.honorT) or "–", "honor today" }
+      vals[3] = { s3.ilvl and tostring(s3.ilvl) or "–", "item level" }
+    end
     for i, t in ipairs(tiles) do
       t:Set(vals[i][1], vals[i][2])
-      t.isMe = me
-      if t.RefreshPin then t:RefreshPin() end
+
     end
     UI.LayTiles(tiles, tab, 16, TILE_Y, inner, 10)
 
@@ -200,7 +180,6 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
       { "This session", s3.sessXP and (ns.Num(s3.sessXP) .. " XP") or nil },
       { "This week", s3.wXP and (ns.Num(s3.wXP) .. " XP") or nil },
       { "Average level", lvl and (dur(lvl.avg) .. (lvl.estimated and " (est.)" or "")) or nil },
-      { "Fastest", (lvl and lvl.fast) and (lvl.fast.level .. " · " .. dur(lvl.fast.secs)) or nil },
       { "Slowest", (lvl and lvl.slow) and (lvl.slow.level .. " · " .. dur(lvl.slow.secs)) or nil },
       { "To 60", St:ETA60(p) and ("~" .. dur(St:ETA60(p)) .. " played") or ((c.level or 0) >= 60 and "done" or nil) },
     })
@@ -243,9 +222,18 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
         if n > foeN then foe, foeN = e, n end
       end
     end
+    -- battlegrounds won and lost, all time (yours from your own games, a friend's from what they share)
+    local bgP, bgW
+    local bgs = me and (ns.Pulse and ns.Pulse.PvPStats and ns.Pulse.PvPStats("all")) or p.pvp
+    for k, g in pairs(bgs or {}) do
+      if type(g) == "table" and g.played then bgP, bgW = (bgP or 0) + g.played, (bgW or 0) + (g.won or 0) end
+    end
     section("PvP", {
       { "HKs this week", ns.Num(math.floor(ns:WeekStat(p, "Kills"))) },
       { "HKs total", ns.Num(math.floor(ns:TotalStat(p, "Kills"))) },
+      { "BGs won", bgW and ns.Num(bgW) or nil },
+      { "BGs lost", bgW and ns.Num(bgP - bgW) or nil },
+      { "Win rate", (bgP or 0) > 0 and (math.floor(bgW / bgP * 100 + 0.5) .. " %") or nil },
       { "Killed by most", foe and (ns.Colorize(foe.name, C.red) .. " · " .. foeN .. "×") or nil },
     })
 
@@ -253,7 +241,7 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
     local x = ns.PvETally and ns.PvETally:For(pid)
     if x and (x.runs + x.raids + x.bosses) > 0 then
       local most, mostN = ns.PvETally:MostRun(x)
-      local recs = ns.PvETally:Records(pid)
+      local recs, recTip = ns.PvETally:Records(pid)
       section("Dungeons and raids", {
         { "Dungeons run", ns.Num(x.runs) },
         { "Raids", x.raids > 0 and ns.Num(x.raids) or nil },
@@ -261,7 +249,7 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
         { "Most run", most and (most .. ns.Colorize(" · " .. mostN .. "×", C.dim)) or nil },
         { "Fastest run", x.fastRun and (x.fastRun.inst .. ns.Colorize(" · " .. ns.Duration(x.fastRun.s), C.dim)) or nil },
         { "Fastest boss", x.fastBoss and (x.fastBoss.boss .. ns.Colorize(" · " .. string.format("%d:%02d", math.floor(x.fastBoss.s / 60), x.fastBoss.s % 60), C.dim)) or nil },
-        { "Gang records", recs > 0 and ns.Colorize(recs .. " held", C.gold) or nil },
+        { "Gang records", recs > 0 and ns.Colorize(recs .. " held", C.gold) or nil, tip = recTip },
         { "Last run", x.last and (x.last.inst .. ns.Colorize(" · " .. ns.Ago(x.last.t), C.dim)) or nil },
       })
     end
