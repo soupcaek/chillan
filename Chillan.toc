@@ -70,6 +70,7 @@ UI\TabCompare.lua
 UI\Overlays.lua
 UI\LayerHop.lua
 LayerNets.lua
+UI\LootRolls.lua
 UI\BriefingCard.lua
 UI\LevelRecapCard.lua
 UI\Recap.lua
