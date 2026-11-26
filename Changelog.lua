@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.73", date = "26.11", items = {
+    "Dungeon card: a boss track across the card, the next boss with your pace against the gang's best, deaths and your last kill against the gang record, and a Baron run timer in Stratholme. Hover the track for every boss, who died and the loot",
+    "Ready check is a small check mark in the dungeon card's title (hover for what it checks)",
+    "Pulse works as normal in dungeons and raids (only battlegrounds pause the gang sync)",
+    "Loot rolls: several rolls at once fold to one line each beside their roll window (hover for the list); names no longer show \"[Loot]:\"; with the Need addon on, Chillan's list stays off" } },
   { v = "1.4.72", date = "26.11", items = {
     "New Notes tab: your own to-do list and notepad (private, never sent). Pin either box to your screen. /chill todo <text> adds one",
     "Themes retuned: every theme has clearer layers, stronger borders, visible striped rows and a stronger accent of its own (violet Void, Horde red, blue Midnight …)",
