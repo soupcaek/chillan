@@ -2,6 +2,11 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.71", date = "26.11", items = {
+    "Swap asks more players: besides the gang and LayerSwap users, it now also reaches Forever Layer Hop, VoidNet and AutoLayer users (like Layer Anarchy does). Same button, nothing to set up. You don't need the LayerSwap addon",
+    "Nobody invited after a round? Click Swap again: the AutoLayer ask waits in the chat box, Enter sends it",
+    "Settings › Host for layer addons (off by default): when on, you invite players from all of these addons too, with the same limits (at most 6 per 10 minutes, only while ungrouped)",
+    "Another layer addon installed? Chillan says once a day that it can be turned off, so you don't get double invites" } },
   { v = "1.4.70", date = "26.11", items = {
     "Progress › Overview: the tiles are the gang's totals for the week (\"gang · levels this week\" and so on), so they add up to the list below. Gold is shown in whole gold",
     "Deaths in battlegrounds no longer count toward your deaths",

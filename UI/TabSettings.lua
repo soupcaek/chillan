@@ -385,7 +385,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
   local gLayer = group("layer", "Layer hop")
   panel(gLayer, "Layer hop", switches(gLayer, {
     { "Host gang members", "layerHost", nil, "Invites members on another layer in your zone who request a layer hop. Only when you are ungrouped, out of combat and outside instances. They leave the group automatically." },
-    { "Host LayerSwap users", "layerStrangers", nil, "Invites LayerSwap users in your zone who request a layer change. At most 6 per 10 minutes, only while ungrouped." },
+    { "Host for layer addons", "layerStrangers", nil, "Invites players in your zone who ask for a layer change with LayerSwap, Layer Anarchy, Forever Layer Hop, VoidNet or AutoLayer. At most 6 per 10 minutes, only while ungrouped." },
   }), true)
   local gMarket = group("market", "Market")
   panel(gMarket, "Market", switches(gMarket, {

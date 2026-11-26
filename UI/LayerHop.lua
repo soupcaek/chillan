@@ -215,6 +215,12 @@ function L:Request()
   end
   -- a round of asks that's done without an invite: a new click starts a fresh round
   if m and m.mode == "ls" and m.doneAt and not m.joinedAt and not m.by and GetTime() - m.doneAt > 3 then
+    -- (1.4.71) still nobody: AutoLayer's users read a line in their channel, which only a key press may
+    -- send – the line waits in the chat box, Enter asks them (at most every 2 minutes)
+    local AL = L.Nets and L.Nets.AL
+    if AL and not inCombat() and GetTime() - (AL.promptAt or -1e9) > 120 and AL.Prompt() then
+      ns.Print("Layer hop: press Enter to ask AutoLayer users too.")
+    end
     self.mine, m = nil, nil
   end
   local pending = m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL
@@ -609,6 +615,8 @@ function L:AskLayerSwap(m)
   if inCombat() or ns.S(UnitIsDeadOrGhost, "player") then return end
   m.mode = "ls"
   m.t = ns.Now()
+  -- (1.4.71) Forever Layer Hop, VoidNet and AutoLayer users are asked at the same time (LayerNets.lua)
+  if L.Nets and not m.netsAsked then m.netsAsked = true L.Nets.Ask(m) end
   seedFromLayerSwap()
   local w = who
   if w and not w.done and GetTime() - w.at < 10 then return end   -- OnSearch comes back here
@@ -884,6 +892,29 @@ local function hostRoom()
   return n < HOST_MAX
 end
 
+-- (1.4.71) inviting a stranger from any layer network (LayerSwap, Forever Layer Hop, VoidNet, AutoLayer):
+-- the one switch, the same limits. Returns true, or false and why ("off" / "instance" / "busy").
+function L.HostStranger(sender, via)
+  if not S().layerStrangers then return false, "off" end
+  if inInstance() then return false, "instance" end
+  if not canHelp() or (L.mine and not L.mine.joinedAt) then return false, "busy" end
+  if type(sender) ~= "string" or secret(sender) or sender == "" or isGangChar(sender) then return false, "busy" end
+  local key = norm(sender)
+  if lastHosted[key] and GetTime() - lastHosted[key] < HOST_PER_PLAYER then return false, "busy" end
+  if not hostRoom() then return false, "busy" end
+  lastHosted[key] = GetTime()
+  hosted[#hosted + 1] = GetTime()
+  C_Timer.After(0.5 + math.random(), function()
+    if canHelp() then
+      ns.Invite(sender)
+      L.HostFallback(sender)
+      ns.Print("Layer hop: invited " .. ns.ShortName(sender) .. " (" .. (via or "layer addon") .. " user) to your layer.")
+      ns.Cnt("layerHosted")
+    end
+  end)
+  return true
+end
+
 local function onLayerSwap(text, sender)
   if not S().layerStrangers or type(text) ~= "string" or secret(text) then return end
   if not text:find("inv layer", 1, true) then return end
@@ -897,23 +928,10 @@ local function onLayerSwap(text, sender)
   local want = body:match("want%s+(%d+)%-%d+")
   if want and want ~= mine then return end
   for id in body:gmatch("not%s+(%d+)%-%d+") do if id == mine then return end end
-  if isGangChar(sender) then return end
-  local key = norm(sender)
-  if lastHosted[key] and GetTime() - lastHosted[key] < HOST_PER_PLAYER then return end
-  if not hostRoom() then return end
-  lastHosted[key] = GetTime()
-  hosted[#hosted + 1] = GetTime()
-  -- tell their LayerSwap we heard it (it then leaves our group by itself once moved)
+  if not L.HostStranger(sender, "LayerSwap") then return end
+  -- tell their LayerSwap we heard it (it then leaves our group by itself once moved); the invite follows
   pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX,
     "heard " .. sender .. "|" .. mine .. "-0|" .. tostring(myMap) .. "|h", "WHISPER", sender)
-  C_Timer.After(0.5 + math.random(), function()
-    if canHelp() then
-      ns.Invite(sender)
-      L.HostFallback(sender)
-      ns.Print("Layer hop: invited " .. ns.ShortName(sender) .. " (LayerSwap user) to your layer.")
-      ns.Cnt("layerHosted")
-    end
-  end)
 end
 
 ns:On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
@@ -947,7 +965,8 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
   local m = L.mine
   if not m or m.joinedAt or ns.Now() - m.t > REQUEST_TTL then return end
   if secret(inviter) or type(inviter) ~= "string" then return end
-  if not (isGangChar(inviter) or m.whispered[norm(inviter)]) then return end
+  -- (1.4.71) or, for 45 s after our AutoLayer line went out, any invite (AutoLayer users invite unasked)
+  if not (isGangChar(inviter) or m.whispered[norm(inviter)] or (m.anyUntil and GetTime() < m.anyUntil)) then return end
   -- (1.4.41) since build 71037 the invite's 6th field says whether the inviter is on another shard
   -- (false = the same one, measured right in 12 of 12 cases): such an invite can't move us, so it is
   -- declined and the search goes on
@@ -982,7 +1001,8 @@ ns:On("PARTY_INVITE_REQUEST", function(inviter, _, _, _, _, sameField)
   -- own rule: the invite is the player's) – Chillan carries on once you have joined
   if not isGangChar(inviter) then
     m.pendingHost = inviter
-    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " (LayerSwap) invited you – click Accept to move.")
+    local via = (m.netOf and m.netOf[norm(inviter)]) or (m.whispered[norm(inviter)] and "LayerSwap") or "AutoLayer"
+    ns.Print("Layer hop: " .. ns.ShortName(inviter) .. " (" .. via .. ") invited you – click Accept to move.")
     ns:Fire("LAYERHOP")
     return
   end
@@ -1146,10 +1166,11 @@ function L:TileState()
     return big, "Invite from " .. ((p and ns:PersonFirst(p)) or "the gang"), "E0C068"
   end
   if m.mode == "ls" then
-    if m.sent then
+    if m.sent or m.netSent then
       local n = 0
       for _ in pairs(m.replies or {}) do n = n + 1 end
-      return big, "Asked " .. m.sent .. (n > 0 and (", " .. n .. " answered") or ""), "E0C068"
+      for _ in pairs(m.netReplies or {}) do n = n + 1 end
+      return big, "Asked " .. ((m.sent or 0) + (m.netSent or 0)) .. (n > 0 and (", " .. n .. " answered") or ""), "E0C068"
     end
     return big, "Searching zone…", "E0C068"
   end
@@ -1165,7 +1186,7 @@ function L:Slash(rest)
   if what == "host" or what == "strangers" then
     local key = what == "host" and "layerHost" or "layerStrangers"
     if onoff == "on" then S()[key] = true elseif onoff == "off" then S()[key] = false else S()[key] = not S()[key] end
-    ns.Print((what == "host" and "Auto-invite gang members for layer hops: " or "Host layer hops for LayerSwap users (strangers): ")
+    ns.Print((what == "host" and "Auto-invite gang members for layer hops: " or "Host layer swaps for other layer addons' users (strangers): ")
       .. (S()[key] and "|cff9BE08Aon|r" or "off"))
     return
   end
@@ -1174,12 +1195,13 @@ function L:Slash(rest)
     local cur = ns.Layer and ns.Layer:Current()
     ns.Print("Your layer: " .. (cur and label(cur) or "unknown – target or mouse over an NPC or two")
       .. ". Gang auto-invite: " .. (S().layerHost ~= false and "on" or "off")
-      .. ". LayerSwap hosting: " .. (S().layerStrangers and "on" or "off") .. ".")
+      .. ". Hosting for strangers: " .. (S().layerStrangers and "on" or "off") .. ".")
     local why = L.PauseWhy()
     if why then ns.Print("Hosting paused right now: " .. why .. ".") end
     local nc = 0
     for _, c in pairs(chatters) do if time() - c.at < 3600 then nc = nc + 1 end end
     ns.Print("LayerSwap users known: " .. pruneBook() .. ". Players seen in chat channels (last hour): " .. nc .. ".")
+    if L.Nets then ns.Print(L.Nets.Status()) end
     local w = L.lastWho
     if w then
       ns.Print("Last player search: " .. date("%H:%M:%S", w.at) .. " · " .. tostring(w.how)
