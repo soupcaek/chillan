@@ -17,6 +17,7 @@ ns.CHANGELOG = {
     "Alterac Valley: a burned tower or taken bunker leaves the list right away",
     "Player page: BGs won and lost, gang records listed on hover, other tiles at level 60; no XP counted at level 60 any more",
     "Tools: Loot rolls and Market cards with their switches",
+    "Watching: the thin XP line is back under each friend (not at level 60), with a little more room between them",
     "Played instead of /played everywhere; long tooltips wrap; greyed-out buttons look greyed out" } },
   { v = "1.4.71", date = "26.11", items = {
     "Swap asks more players: besides the gang and LayerSwap users, it now also reaches Forever Layer Hop, VoidNet and AutoLayer users (like Layer Anarchy does). Same button, nothing to set up. You don't need the LayerSwap addon",
