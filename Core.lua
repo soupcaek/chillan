@@ -1147,9 +1147,11 @@ function ns.Article(line, word)
 end
 
 -- (1.4.48) when we can't hear the gang (inside an instance), and the grace after coming out
+-- (1.4.73) only battlegrounds and arenas: in dungeons and raids the gang's messages do come through
+-- (Kenny's boss progress and chat from inside Stratholme reached everyone)
 local function blindCheck()
-  local ok, inInst = pcall(IsInInstance)
-  local inside = ok and inInst == true
+  local ok, inInst, kind = pcall(IsInInstance)
+  local inside = ok and inInst == true and (kind == "pvp" or kind == "arena")
   if inside then
     if not ns.commBlindSince then ns.commBlindSince = ns.Now() end
     ns.commBlindUntil = nil
@@ -1184,6 +1186,6 @@ end
 function ns.PausedLabel()
   if not ns.CommBlind() then return nil end
   -- (1.4.73) only the gang sync pauses (the game blocks addon messages in instances); the rest works
-  return ns.InBattleground() and "PvP mode · gang sync paused" or "Dungeon · gang sync paused"
+  return "PvP mode · gang sync paused"
 end
-ns.PAUSED_TIP = "The game blocks addon messages inside battlegrounds and dungeons, so gang chat, online status and sharing pause here. Everything syncs again when you leave."
+ns.PAUSED_TIP = "The game blocks addon messages inside battlegrounds, so gang chat, online status and sharing pause here. Everything syncs again when you leave."

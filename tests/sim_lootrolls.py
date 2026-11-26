@@ -84,6 +84,15 @@ G.ADVANCE(9)
 t = [r for k, r in R.rolls.items()]
 check("test roll finished with a winner", len(t) == 1 and t[0].winner == "Eirik")
 G.ADVANCE(9)
+# several rolls at once fold to one line each
+L.execute("GetLootRollItemLink = function(id) return '|cff0070dd|Hitem:' .. (16000 + id) .. '::::::::60:::::|h[Item ' .. id .. ']|h|r' end")
+G.FIRE("START_LOOT_ROLL", 21, 60000)
+G.FIRE("START_LOOT_ROLL", 22, 60000)
+G.ADVANCE(0.2)
+r21 = R.rolls[21]
+check("two rolls: folded", r21 is not None and R.Compact(R) and r21.panel.GetHeight(r21.panel) < 50)
+G.FIRE("CHAT_MSG_LOOT", "[Loot]: Kenny Surname has selected Greed for: |cff0070dd|Hitem:16021::::::::60:::::|h[Item 21]|h|r")
+check("summary counts Greed", "Greed 1" in str(r21.panel.summary.GetText(r21.panel.summary)))
 errs = [e for e in G.ERRORS.values() if 'HookScript' not in str(e)]
 check("no Lua errors " + str(errs[:3]), not errs)
 print("PASS" if not fails else "FAILED %s" % fails)

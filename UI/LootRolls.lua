@@ -185,6 +185,25 @@ local function newPanel()
     r.scroll = math.max(0, math.min((r.scrollMax or 0), (r.scroll or 0) - d * 3))
     R:Draw(r)
   end)
+  f.summary = UI.Text(f, 11, nil, C.text)
+  f.summary:SetPoint("TOPLEFT", 8, -(HEAD + 4))
+  f.summary:SetPoint("RIGHT", -8, 0)
+  f.summary:SetWordWrap(false)
+  f.summary:Hide()
+  f:HookScript("OnEnter", function(self)
+    if self.roll and R:Compact() then
+      self.expanded = true
+      self:SetFrameLevel(self:GetFrameLevel() + 20)
+      R:Draw(self.roll)
+    end
+  end)
+  f:HookScript("OnLeave", function(self)
+    if self.expanded and not self:IsMouseOver() then
+      self.expanded = nil
+      self:SetFrameLevel(math.max(1, self:GetFrameLevel() - 20))
+      if self.roll then R:Draw(self.roll) end
+    end
+  end)
   f.more = UI.Text(f, 10, nil, C.dim)
   f.more:SetPoint("BOTTOMRIGHT", -8, 4)
   return f
@@ -267,6 +286,28 @@ function R:Draw(roll)
     local left = roll.endsAt and math.max(0, math.floor(roll.endsAt - GetTime())) or nil
     f.right:SetText(picked .. " of " .. #roll.players .. (left and (" · " .. left .. " s") or ""))
   end
+  -- (1.4.73) several rolls at once: each list folds to one summary line beside its roll window (they
+  -- overlapped each other); hover one to see it in full
+  if R:Compact() and not f.expanded then
+    for _, rw in ipairs(f.rows) do rw:Hide() end
+    local n = { Need = 0, Greed = 0, Pass = 0, Disenchant = 0 }
+    local waiting = 0
+    for _, p in ipairs(roll.players) do
+      if p.choice then n[p.choice] = (n[p.choice] or 0) + 1 else waiting = waiting + 1 end
+    end
+    local parts = {}
+    if n.Need > 0 then parts[#parts + 1] = ns.Colorize("Need " .. n.Need, NEED) end
+    if n.Greed > 0 then parts[#parts + 1] = ns.Colorize("Greed " .. n.Greed, GREED) end
+    if n.Disenchant > 0 then parts[#parts + 1] = ns.Colorize("DE " .. n.Disenchant, CHOICE_COL.Disenchant) end
+    if n.Pass > 0 then parts[#parts + 1] = ns.Colorize("Pass " .. n.Pass, PASS) end
+    if waiting > 0 and not roll.done then parts[#parts + 1] = ns.Colorize(waiting .. " waiting", C.dim) end
+    f.summary:SetText(#parts > 0 and table.concat(parts, "   ") or ns.Colorize("nobody has picked yet", C.dim))
+    f.summary:Show()
+    f.more:SetText("")
+    f:SetHeight(HEAD + 20)
+    return
+  end
+  f.summary:Hide()
   local all = sorted(roll)
   -- (dev5) at most MAX_ROWS rows (a battleground raid has 40): the wheel scrolls the rest
   roll.scrollMax = math.max(0, #all - MAX_ROWS)
@@ -305,8 +346,13 @@ function R:Place(roll)
   if g and not roll.moved then
     roll.anchor = g
     f:ClearAllPoints()
-    f:SetPoint("TOP", g, "BOTTOM", 0, -2)
-    f:SetWidth(math.max(W, math.floor((g:GetWidth() or W) + 0.5)))
+    if R:Compact() then
+      f:SetPoint("LEFT", g, "RIGHT", 6, 0)
+      f:SetWidth(W)
+    else
+      f:SetPoint("TOP", g, "BOTTOM", 0, -2)
+      f:SetWidth(math.max(W, math.floor((g:GetWidth() or W) + 0.5)))
+    end
     -- (dev5) remember where it sits: when the roll window closes the panel stays right there
     -- (it jumped to the top of the screen, because the spot was read after the window was gone)
     roll.lastX, roll.lastY = f:GetLeft(), f:GetTop()
@@ -340,6 +386,23 @@ function R:Place(roll)
   roll.placed = true
 end
 
+function R:OpenCount()
+  local n = 0
+  for _, r in pairs(R.rolls) do if not r.keep then n = n + 1 end end
+  return n
+end
+function R:Compact() return R:OpenCount() > 1 end
+-- when the number of open rolls changes, every list goes to its place again (full or folded)
+function R:Relayout()
+  local was = R.compactWas
+  local now = R:Compact()
+  R.compactWas = now
+  for _, r in pairs(R.rolls) do
+    if was ~= now and r.anchor then R:Place(r) end
+    R:Draw(r)
+  end
+end
+
 function R:Open(id, link, seconds, players, texture)
   if not on() and not R.forcing then return end
   local roll = R.rolls[id]
@@ -356,6 +419,7 @@ function R:Open(id, link, seconds, players, texture)
   R:Place(roll)
   R:Draw(roll)
   roll.panel:Show()
+  R:Relayout()
   R:Tick()
   return roll
 end
@@ -382,6 +446,7 @@ function R:Close(roll, byHand)
     R.panels[#R.panels + 1] = roll.panel
     roll.panel = nil
   end
+  R:Relayout()
 end
 
 -- (dev5) names in loot lines carry the surname ("Gumi Megpoid"), the group list only the name ("Gumi")
