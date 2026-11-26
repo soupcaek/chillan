@@ -307,6 +307,12 @@ function O:UpdateGroup()
     local docked = E:Reanchor(last)
     if docked then last = E.frame end
   end
+  -- (1.4.74) Loot rolls grow out of the bottom of Pulse while something is rolled for
+  local LR = ns.LootRolls
+  if LR and LR.Dock then
+    local fr = LR:Dock(last, m:IsShown())
+    if fr then last = fr end
+  end
   m.panel:ClearAllPoints()
   m.panel:SetPoint("TOPLEFT", m, "TOPLEFT")
   m.panel:SetPoint("BOTTOMRIGHT", last, "BOTTOMRIGHT")

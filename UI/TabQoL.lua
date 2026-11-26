@@ -51,10 +51,10 @@ local CARDS = {
     { "Maximum camera distance", "qolMaxZoom", "Raises the maximum camera zoom distance. Disabling restores your previous setting." },
   } },
   -- (1.4.72) Chillan's own extensions, switched here too (Settings has the same switches)
-  { col = 2, title = "Loot rolls", icon = "Star", desc = "/chill rolls shows the last roll again · /chill need shows a test", items = {
-    { "Show who picked what", "lootRolls", "Under the game's roll window: everyone's Need, Greed or Pass as it comes in, then the rolls and the winner.", subs = {
-      { "Also in raids and battlegrounds", "lootRollsBig", "Shows the list in groups bigger than five as well (it scrolls)." },
-      { "Keep it open until I close it", "lootRollsKeep", "The list stays after the winner is known; close it with the ✕. /chill rolls shows the last roll again anyway." },
+  { col = 2, title = "Loot rolls", icon = "Star", desc = "/chill rolls shows the last 5 · /chill need shows a test", items = {
+    { "Loot rolls under Pulse", "lootRolls", "One row per item under Pulse while it's rolled for. Hover a row for who picked what.", subs = {
+      { "Also in raids and battlegrounds", "lootRollsBig", "Shows the rows in groups bigger than five too." },
+      { "Keep finished rows", "lootRollsKeep", "A finished row stays until you close it with the ✕." },
     } },
   } },
   { col = 2, title = "Market", icon = "Board", desc = "Prices, the auction house window and the gang's prices", items = {

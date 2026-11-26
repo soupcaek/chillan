@@ -1,11 +1,12 @@
-# 1.4.71: Forever Layer Hop, VoidNet and AutoLayer behind the same Swap button (LayerNets.lua)
+# 1.4.74: loot rolls grow out of Pulse; the picks come from the loot history list (this client has no
+# "Kenny has selected Greed" chat lines for others), with the chat lines as a fallback
 import os as _os
 HERE = _os.path.dirname(_os.path.abspath(__file__)) + "/"
 REPO = _os.path.dirname(HERE.rstrip("/")) + "/"
 from lupa import lua51
 toc = [l.strip().replace("\\", "/") for l in open(REPO + "Chillan_Camelot.toc") if l.strip().endswith(".lua")]
 
-def client(name):
+def client(name, history):
     L = lua51.LuaRuntime(unpack_returned_tuples=True)
     mock = open(HERE + "mock.lua").read()
     me = L.table_from({"name": name, "realm": "ClassicBetaPvP", "class": "WARRIOR", "race": "Orc", "level": 33, "zone": "Durotar", "money": 1000})
@@ -20,79 +21,100 @@ GetChannelList = function() return 1, "General", false, 2, "Trade", false end
 GetNumDisplayChannels = function() return 0 end
 UnitGUID = function() return "Player-1234-ABCDEF" end
 GetLocale = function() return "enUS" end
+Enum.EncounterLootDropRollState = { NeedMainSpec = 0, NeedOffSpec = 1, Transmog = 2, Greed = 3, NoRoll = 4, Pass = 5 }
+''')
+    if history:
+        L.execute('''
+DROPS = {}
+C_LootHistory = { GetSortedInfoForDrop = function(e, k) return DROPS[e .. ":" .. k] end }
 ''')
     ns = L.globals().LOAD(REPO, L.table_from(toc))
     ns.debug = True
     G = L.globals()
     G.FIRE("ADDON_LOADED", "Chillan"); G.FIRE("PLAYER_LOGIN"); G.FIRE("PLAYER_ENTERING_WORLD", True, False)
-    return L, G, ns
-
-L, G, ns = client("Thunka")
-fails = []
-def check(label, ok):
-    print(("ok  " if ok else "FAIL") + " " + label)
-    if not ok: fails.append(label)
-L.execute("""
+    L.execute("""
 UnitClass = function(u) if u == 'player' then return 'Shaman', 'SHAMAN' end return 'Rogue', 'ROGUE' end
 UnitName = function(u) if u == 'player' then return 'Thunka' end if u == 'party1' then return 'Kenny' end if u == 'party2' then return 'Valdrin' end end
 GetNumGroupMembers = function() return 3 end
 IsInRaid = function() return false end
 GetLootRollItemLink = function() return '|cff0070dd|Hitem:16723::::::::60:::::|h[Lightforge Belt]|h|r' end
 GetLootRollItemInfo = function() return 132500 end
-GetItemInfo = function() return nil end
 """)
-R = ns.LootRolls
+    return L, G, ns
+
+fails = []
+def check(label, ok):
+    print(("ok  " if ok else "FAIL") + " " + label)
+    if not ok: fails.append(label)
 link = "|cff0070dd|Hitem:16723::::::::60:::::|h[Lightforge Belt]|h|r"
-e = R.Parse("Kenny has selected Greed for: " + link)
-check("parse greed", e and e.kind == "Greed" and e.who == "Kenny")
-e = R.Parse("Need Roll - 87 for " + link + " by Valdrin")
-check("parse roll", e and e.kind == "roll" and e.roll == 87 and e.who == "Valdrin")
-e = R.Parse("You passed on: " + link)
-check("parse self pass", e and e.kind == "Pass" and e.who == "Thunka")
+
+# ---- this client: the history list ----
+L, G, ns = client("Thunka", True)
+R = ns.LootRolls
+def setdrop(states, winner=None, allpassed=False):
+    rows = ",".join("{ playerName = '%s', playerClass = 'ROGUE', state = %s, roll = %s, isWinner = %s }" % (n, s, r or "nil", "true" if n == winner else "false") for n, s, r in states)
+    L.execute("DROPS['5:1'] = { itemHyperlink = '%s', rollInfos = { %s }, winner = %s, allPassed = %s }" %
+              (link, rows, ("{ playerName = '%s' }" % winner) if winner else "nil", "true" if allpassed else "false"))
+    G.FIRE("LOOT_HISTORY_UPDATE_DROP", 5, 1)
+G.FIRE("START_LOOT_ROLL", 7, 60000)
+G.ADVANCE(0.2)
+setdrop([("Thunka", 4, None), ("Kenny Surname", 4, None), ("Valdrin-Realm", 4, None)])
+drops = list(R.drops.values())
+check("one row, tied to the game's roll", len(drops) == 1 and drops[0].rollID == 7 and drops[0].hkey == "h5:1")
+check("section shown", R.frame.IsShown(R.frame))
+setdrop([("Thunka", 4, None), ("Kenny Surname", 3, None), ("Valdrin-Realm", 0, None)])
+check("others' picks show: " + str(R.Tally(drops[0])), R.Tally(drops[0]) == "Need 1 · Greed 1 · 1 waiting")
+check("your line while choosing", R.YouLine(drops[0]) == "You: pick in the game's window")
+b = R.frame.blocks[1]
+check("row text", "Need 1" in str(b.tally.GetText(b.tally)) and "s" in str(b.time.GetText(b.time)))
+setdrop([("Thunka", 5, None), ("Kenny Surname", 3, 12), ("Valdrin-Realm", 0, 87)], winner="Valdrin-Realm")
+check("winner: one line " + str(R.Tally(drops[0])), drops[0].done and R.Tally(drops[0]) == "Valdrin wins · Need 87")
+check("you passed", R.YouLine(drops[0]) == "You: Pass")
+check("remembered", len(list(R.history.values())) == 1)
+h0 = R.frame.GetHeight(R.frame)
+L.execute("ADDON_NS.LootRolls.drops[1].hover = true ADDON_NS.LootRolls:Layout()")
+check("hover opens who picked what", R.frame.GetHeight(R.frame) > h0 + 40)
+l1 = b.lines[1]
+check("winner first with a star", "Valdrin" in str(l1.name.GetText(l1.name)) and l1.star.GetText(l1.star) == "★")
+L.execute("ADDON_NS.LootRolls.drops[1].hover = nil")
+G.ADVANCE(21)
+check("gone after 20 s, section closes", len(list(R.drops.values())) == 0 and not R.frame.IsShown(R.frame))
+L.execute("SlashCmdList.CHILLAN('rolls')")
+check("/chill rolls shows the last 5", R.frame.IsShown(R.frame))
+G.ADVANCE(62)
+check("and closes after a minute", not R.frame.IsShown(R.frame))
+# 40 players: gang first, 8 names
+names = ",".join("{ playerName = 'P%d', state = 3 }" % i for i in range(40))
+L.execute("DROPS['6:1'] = { itemHyperlink = '%s', rollInfos = { %s, { playerName = 'Thunka', state = 5 } } }" % (link, names))
+G.FIRE("LOOT_HISTORY_UPDATE_DROP", 6, 1)
+d = [x for x in R.drops.values()][0]
+lst, more = R.Names(d)
+check("big group: 8 names, +33 more, you first", len(list(lst.values())) == 8 and more == 33 and lst[1].name == "Thunka")
+L.execute("SlashCmdList.CHILLAN('need')")
+G.ADVANCE(9)
+t = [x for x in R.drops.values() if x.test]
+check("test roll finished with a winner", len(t) == 1 and t[0].winner == "Eirik")
+errs = [e for e in G.ERRORS.values() if 'HookScript' not in str(e)]
+check("no Lua errors " + str(errs[:3]), not errs)
+
+# ---- fallback: chat lines ----
+L, G, ns = client("Thunka", False)
+R = ns.LootRolls
 e = R.Parse("|cff00ff00[Loot]|r: Kenny has selected Greed for: " + link)
-check("coloured [Loot] tag", e and e.who == "Kenny")
-e = R.Parse("19:31 [Loot]: Kenny has selected Need for: " + link)
-check("time in front", e and e.who == "Kenny" and e.kind == "Need")
+check("parse coloured tag", e and e.kind == "Greed" and e.who == "Kenny")
+e = R.Parse("|Hplayer:Kenny|h[Kenny]|h has selected Need for: " + link)
+check("parse player link", e and e.who == "Kenny")
 check("ordinary loot isn't a roll line", R.Parse("You receive loot: " + link) is None)
 G.FIRE("START_LOOT_ROLL", 7, 60000)
 G.ADVANCE(0.2)
-roll = R.rolls[7]
-check("roll opened with the group", roll is not None and len(list(roll.players.values())) == 3)
-for line in ("Kenny has selected Greed for: ", "Valdrin has selected Need for: ", "You have selected Need for: "):
-    G.FIRE("CHAT_MSG_LOOT", line + link)
+d = [x for x in R.drops.values()][0]
+check("fallback: group as roster", len(list(d.players.values())) == 3)
+for ln in ("Kenny Surname has selected Greed for: ", "Valdrin has selected Need for: ", "You passed on: "):
+    G.FIRE("CHAT_MSG_LOOT", "[Loot]: " + ln + link)
+check("fallback tally " + str(R.Tally(d)), R.Tally(d) == "Need 1 · Greed 1 · Pass 1" and len(list(d.players.values())) == 3)
 G.FIRE("CHAT_MSG_LOOT", "Need Roll - 87 for " + link + " by Valdrin")
-G.FIRE("CHAT_MSG_LOOT", "Need Roll - 41 for " + link + " by Thunka")
-check("panel: 3 of 3", "3 of 3" in str(roll.panel.right.GetText(roll.panel.right)))
-G.FIRE("CHAT_MSG_LOOT", "[Loot]: Kenny Surname has selected Greed for: " + link)
-check("[Loot] prefix + surname matched to Kenny", len(list(roll.players.values())) == 3)
 G.FIRE("CHAT_MSG_LOOT", "Valdrin won: " + link)
-check("winner set", roll.winner == "Valdrin" and roll.done)
-r1 = roll.panel.rows[1]
-check("winner first with star", "Valdrin" in str(r1.name.GetText(r1.name)) and r1.star.GetText(r1.star) == "\u2605")
-G.ADVANCE(21)
-check("closes after 20 s", R.rolls[7] is None)
-check("finished roll remembered", len(list(R.history.values())) == 1)
-L.execute("SlashCmdList.CHILLAN('rolls')")
-past = [r for k, r in R.rolls.items()]
-check("/chill rolls reopens it", len(past) == 1 and past[0].winner == "Valdrin")
-G.ADVANCE(20)
-check("a reopened list stays", len([r for k, r in R.rolls.items()]) == 1)
-L.execute("for _, r in pairs(ADDON_NS.LootRolls.rolls) do ADDON_NS.LootRolls:Close(r, true) end")
-check("the close button closes it", len([r for k, r in R.rolls.items()]) == 0)
-L.execute("SlashCmdList.CHILLAN('need')")
-G.ADVANCE(9)
-t = [r for k, r in R.rolls.items()]
-check("test roll finished with a winner", len(t) == 1 and t[0].winner == "Eirik")
-G.ADVANCE(9)
-# several rolls at once fold to one line each
-L.execute("GetLootRollItemLink = function(id) return '|cff0070dd|Hitem:' .. (16000 + id) .. '::::::::60:::::|h[Item ' .. id .. ']|h|r' end")
-G.FIRE("START_LOOT_ROLL", 21, 60000)
-G.FIRE("START_LOOT_ROLL", 22, 60000)
-G.ADVANCE(0.2)
-r21 = R.rolls[21]
-check("two rolls: folded", r21 is not None and R.Compact(R) and r21.panel.GetHeight(r21.panel) < 50)
-G.FIRE("CHAT_MSG_LOOT", "[Loot]: Kenny Surname has selected Greed for: |cff0070dd|Hitem:16021::::::::60:::::|h[Item 21]|h|r")
-check("summary counts Greed", "Greed 1" in str(r21.panel.summary.GetText(r21.panel.summary)))
+check("fallback winner", d.done and R.Tally(d) == "Valdrin wins · Need 87")
 errs = [e for e in G.ERRORS.values() if 'HookScript' not in str(e)]
 check("no Lua errors " + str(errs[:3]), not errs)
 print("PASS" if not fails else "FAILED %s" % fails)
