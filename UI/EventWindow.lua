@@ -397,6 +397,9 @@ function E:Create()
   -- Skrivefelt
   local input = UI.EditBox(f, 100, 26, "Click to write to the gang …", function(eb)
     local txt = eb:GetText()
+    -- (1.4.75) /roll in the gang chat: a 1-100 roll (or /roll 50, /roll 10-20) the whole gang sees
+    local roll = txt and ns.GangRoll and ns.GangRoll(txt)
+    if roll then txt = roll end
     if txt and txt ~= "" then ns.Data:SendChat(txt) end
     eb:SetText("")
     eb:ClearFocus()

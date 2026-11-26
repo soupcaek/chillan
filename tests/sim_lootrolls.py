@@ -110,6 +110,10 @@ check("the header ✕ closes test rows", len([x for x in R.drops.values() if x.t
 errs = [e for e in G.ERRORS.values() if 'HookScript' not in str(e)]
 check("no Lua errors " + str(errs[:3]), not errs)
 
+r = ns.GangRoll("/roll")
+check("/roll in gang chat " + str(r), r.startswith("rolls ") and r.endswith("(1-100)"))
+check("/roll 10-20", ns.GangRoll("/roll 10-20").endswith("(10-20)") and ns.GangRoll("/roll 50").endswith("(1-50)"))
+check("ordinary text isn't a roll", ns.GangRoll("rolling soon") is None and ns.GangRoll("/rollx") is None)
 # ---- fallback: chat lines ----
 L, G, ns = client("Thunka", False)
 R = ns.LootRolls

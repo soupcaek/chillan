@@ -81,6 +81,12 @@ function W:Menu(anchor)
       func = function() W:Toggle(p.pid) end,
     }
   end
+  -- (1.4.75) don't want the box at all: hide it (⋯ › Show the Watching strip brings it back)
+  items[#items + 1] = { text = "Hide the Watching box", color = C.dim, func = function()
+    ns.db.settings.watchStrip = false
+    if ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
+    ns.Print("Watching is hidden. Bring it back with ⋯ › Show the Watching strip.")
+  end }
   UI.Menu(anchor, items, true)
 end
 

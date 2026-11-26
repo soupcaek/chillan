@@ -1189,3 +1189,17 @@ function ns.PausedLabel()
   return "PvP mode · gang sync paused"
 end
 ns.PAUSED_TIP = "The game blocks addon messages inside battlegrounds, so gang chat, online status and sharing pause here. Everything syncs again when you leave."
+
+-- (1.4.75) "/roll", "/roll 50", "/roll 10-20" typed in the gang chat → "rolls 57 (1-100)", else nil
+function ns.GangRoll(txt)
+  if type(txt) ~= "string" then return nil end
+  local rest = txt:match("^%s*/roll%s*(.-)%s*$") or txt:match("^%s*/rnd%s*(.-)%s*$") or txt:match("^%s*/random%s*(.-)%s*$")
+  if not rest then return nil end
+  local lo, hi = rest:match("^(%d+)%s*%-%s*(%d+)$")
+  if not lo then lo, hi = 1, rest:match("^(%d+)$") or (rest == "" and 100) end
+  lo, hi = tonumber(lo), tonumber(hi)
+  if not lo or not hi then return nil end
+  if lo > hi then lo, hi = hi, lo end
+  hi = math.min(hi, 1000000)
+  return "rolls " .. math.random(lo, hi) .. " (" .. lo .. "-" .. hi .. ")"
+end
