@@ -21,7 +21,7 @@ local ROWS = {
   { "Quests this week", function(p) return ns:WeekStat(p, "Quests") end, "n" },
   { "Quests total", function(p) return ns:TotalStat(p, "Quests") end, "n" },
   { "Online this week", function(p) return ns:WeekStat(p, "Online") end, "t" },
-  { "/played", function(p) return ns:PersonPlayed(p) end, "t" },
+  { "Played", function(p) return ns:PersonPlayed(p) end, "t" },
   { "Longest session", function(p) return (p.stats or {}).tLongest or 0 end, "t" },
   { "Gold earned (week)", function(p) return ns:WeekStat(p, "Gold") end, "g" },
   { "PvP kills total", function(p) return ns:TotalStat(p, "Kills") end, "n" },

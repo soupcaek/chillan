@@ -162,7 +162,7 @@ D("FEPC", "first", "G", "First with an epic", "First in the gang with an epic dr
 -- Tid og økter
 local D1 = 86400
 for i, t in ipairs({ {1,"A whole day","B"},{2,"Weekend trip","S"},{5,"Hooked","S"},{10,"No way back","G"},{20,"Lives in Azeroth","L"} }) do
-  D("PL" .. t[1], "time", t[3], t[2], "/played " .. t[1] .. (t[1] == 1 and " days" or " days") .. " on one character", maxPlayed, t[1] * D1)
+  D("PL" .. t[1], "time", t[3], t[2], "Played " .. t[1] .. " days on one character", maxPlayed, t[1] * D1)
 end
 D("SE3", "time", "B", "Evening session", "One 3-hour session", V(function() return stat("Longest") end), 3 * 3600)
 D("SE6", "time", "S", "Marathon", "One 6-hour session", V(function() return stat("Longest") end), 6 * 3600)

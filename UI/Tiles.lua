@@ -97,7 +97,7 @@ T.DEFS = {
   end },
   { key = "played", name = "Total playtime", get = function()
     local p = ns:PersonPlayed(me())
-    return p > 0 and ns.Duration(p) or "–", "/played"
+    return p > 0 and ns.Duration(p) or "–", "Played"
   end },
   { key = "quests", name = "Quests today", get = function()
     return tostring(today("questsDay")), "quests today"

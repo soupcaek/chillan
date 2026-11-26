@@ -532,7 +532,7 @@ function O:Toast(info)
     local c = (p.chars and p.chars[it.char]) or {}
     title = ns.Colorize(ns.ShortName(it.char), ns.ClassHex(c.class)) .. " reached level " .. tostring(it.a)
     local parts = {}
-    if tonumber(it.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(it.b)) end
+    if tonumber(it.b) then parts[#parts + 1] = "Played " .. ns.Duration(tonumber(it.b)) end
     if it.first then parts[#parts + 1] = "first in the gang!"
     elseif it.place then parts[#parts + 1] = "no. " .. it.place .. " in the gang" end
     text = table.concat(parts, " · ")
@@ -766,7 +766,7 @@ function O:ShowDing(item)
     d.icon:SetTexture(ns.TEX .. "IconUp")
     UI.Track(d.icon):SetVertexColor(hex(C.green))
     d.title:SetText(ns:PersonLabel(p, item.char) .. " reached level " .. tostring(item.a))
-    if tonumber(item.b) then parts[#parts + 1] = "/played " .. ns.Duration(tonumber(item.b)) end
+    if tonumber(item.b) then parts[#parts + 1] = "Played " .. ns.Duration(tonumber(item.b)) end
     if item.first then parts[#parts + 1] = ns.Colorize("first in the gang!", C.gold)
     elseif item.place and tonumber(item.a) and tonumber(item.a) % 10 == 0 then parts[#parts + 1] = "no. " .. item.place .. " in the gang" end
   end

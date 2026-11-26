@@ -6,7 +6,7 @@ local UI, C, hex = ns.UI, ns.C, ns.hex
 local PC = {}
 ns.PersonCard = PC
 
-local W, PAD = 260, 14
+local W, PAD = 290, 14
 
 local function className(c)
   if not c.class then return nil end
@@ -94,6 +94,8 @@ function PC:Create()
   f.zone:SetWordWrap(true)
   f.zone:SetWidth(W - PAD * 2)
 
+  f.bar = UI.LevelBar(f)
+  f.rows = UI.KVRows(f)
   f.divider = UI.SolidLine(f)
   f.divider:SetHeight(1)
   f.ding = UI.Text(f, 11, nil, C.dim)
@@ -154,110 +156,42 @@ function PC:Fill(pid)
   -- farger hentes på nytt hver gang, så temaer/aksentfarger slår inn
   f.panel:SetColors(C.card, C.activeLine, UI.OverlayAlpha and UI.OverlayAlpha() or 1)
   UI.Track(f.divider):SetColorTexture(hex(C.line))
-  UI.Track(f.track):SetVertexColor(hex(C.active))
-  UI.Track(f.fill):SetVertexColor(hex(ns.ClassHex(c.class)))
 
-  f.avatar:Set(c.name, c.class, online and (L.status == "AFK" and C.amber or C.green) or nil, C.card)
+  -- (1.4.72) the canvas card: who (status and zone in the header only), the level bar with the last
+  -- ding on its right, then one fact per row
+  f.avatar:Set(c.name, c.class, online and (L.status == "AFK" and C.amber or C.green) or "4A4F55", C.card)
   local badge = (ns.Titles and ns.Titles.Badge) and ns.Titles:Badge(pid) or ""
-  f.name:SetText(ns.Colorize(c.name or "?", ns.ClassHex(c.class)) .. (badge ~= "" and (" " .. badge) or ""))
-  local alias, cls = ns:PersonAlias(p), className(c)
-  local sub = {}
-  if alias then sub[#sub + 1] = alias end
-  if cls then sub[#sub + 1] = cls end
-  f.sub:SetText(table.concat(sub, " · "))
+  f.name:SetText(ns.WhoLine(p) .. (badge ~= "" and ("  " .. badge) or ""))
+  f.sub:SetText(ns.WhereLine(p))
+  f.sub:SetWordWrap(true)
+  f.sub:ClearAllPoints()
+  f.sub:SetPoint("TOPLEFT", f.name, "BOTTOMLEFT", 0, -3)
+  f.sub:SetPoint("RIGHT", -PAD, 0)
+  local subH = math.max(14, f.sub:GetStringHeight() or 14)
+  local y = -(PAD + math.max(36, 18 + subH) + 12)
 
-  local y = -(PAD + 36 + 12)
-  -- level + XP-linje
-  local lvl = tonumber(c.level)
-  f.level:SetText("Level " .. (lvl or "?"))
-  place(f.level, y)
-  f.pct:ClearAllPoints()
-  f.pct:SetPoint("TOPRIGHT", -PAD, y)
-  local s3 = ns:PersonS3(p)
-  if lvl and lvl >= maxLevel() then
-    f.pct:SetText("Max level")
-    f.track:Hide() f.fill:Hide()
-    y = y - 20
-  elseif s3 and s3.xp and s3.xpMax and s3.xpMax > 0 then
-    local frac = math.max(0, math.min(1, s3.xp / s3.xpMax))
-    f.pct:SetText(math.floor(frac * 100) .. " %")
-    f.track:ClearAllPoints()
-    f.track:SetPoint("TOPLEFT", PAD, y - 18)
-    f.track:SetPoint("TOPRIGHT", -PAD, y - 18)
-    f.fill:ClearAllPoints()
-    f.fill:SetPoint("TOPLEFT", f.track, "TOPLEFT")
-    f.fill:SetWidth(math.max(1, (W - PAD * 2) * frac))
-    f.track:Show()
-    f.fill:SetShown(frac > 0)
-    y = y - 32
-  else
-    f.pct:SetText("")
-    f.track:Hide() f.fill:Hide()
-    y = y - 20
-  end
-
-  -- hvor er han?
-  local zone = L.zone or ""
-  if online and L.sub and L.sub ~= "" and L.sub ~= zone and not L.inInst then zone = zone .. ", " .. L.sub end
-  local where
-  if online then
-    where = ns.Colorize("Online", C.green) .. (zone ~= "" and ("  ·  " .. zone) or "")
-  else
-    where = ns.Colorize("Offline", C.dim) .. "  ·  last seen " .. ns.Ago(p.lastSeen)
-      .. (zone ~= "" and ("  ·  " .. zone) or "")
-  end
-  -- (1.4.70) /played on the card too (all characters together)
-  local played = ns:PersonPlayed(p)
-  if played and played > 0 then
-    local n = 0
-    for _ in pairs(p.chars or {}) do n = n + 1 end
-    where = where .. "\n" .. ns.Colorize("/played " .. ns.Duration(played) .. (n > 1 and ("  ·  " .. n .. " characters") or ""), C.dim)
-  end
-  -- (1.4.72) the Chillan version, marked when it's older than the gang's newest
-  local v = (p.pid == ns.pid) and ns.VERSION or p.version
-  if v then
-    where = where .. "\n" .. (ns.IsOutdated(p) and ns.Colorize("Chillan v" .. v .. "  ·  update in WowUp", "E0C068")
-      or ns.Colorize("Chillan v" .. v, C.dim))
-  end
-  f.zone:SetText(where)
-  place(f.zone, y)
-  y = y - math.max(14, f.zone:GetStringHeight() or 14) - 10
-
-  -- gear vs yours
-  local cmp = (not isMe) and ns.Gear and ns.Gear:Compare(p)
-  if cmp and cmp.avg then
-    local parts = { "Gear ilvl " .. string.format("%.0f", cmp.avg) }
-    if cmp.better > 0 then parts[#parts + 1] = ns.Colorize("better in " .. cmp.better .. " slot" .. (cmp.better == 1 and "" or "s"), C.green) end
-    if cmp.worse > 0 then parts[#parts + 1] = ns.Colorize("worse in " .. cmp.worse, C.red) end
-    if cmp.better == 0 and cmp.worse == 0 then parts[#parts + 1] = ns.Colorize("same as yours", C.dim) end
-    f.gear:SetText(table.concat(parts, "  ·  ") .. ns.Colorize("  (vs yours)", C.dim))
-    place(f.gear, y)
-    f.gear:Show()
-    y = y - math.max(14, f.gear:GetStringHeight() or 14) - 10
-  else
-    f.gear:Hide()
-  end
-
-  -- siste ding
   local d = lastDing(pid)
-  if d then
-    local n = d.reacts and #d.reacts or 0
-    f.ding:SetText("Dinged " .. tostring(d.a) .. "  ·  " .. ns.Ago(d.t)
-      .. (n > 0 and ("  ·  " .. n .. " congrats") or ""))
+  y = y - f.bar:Draw(p, PAD, y, W - PAD * 2, d and ("Dinged " .. tostring(d.a) .. " · " .. ns.Ago(d.t)) or nil) - 8
+
+  local cmp = (not isMe) and ns.Gear and ns.Gear:Compare(p)
+  local gear
+  if cmp and cmp.avg then
+    gear = "ilvl " .. string.format("%.0f", cmp.avg)
+    if cmp.worse > 0 then gear = gear .. " · " .. ns.Colorize(cmp.worse .. " worse", C.red) end
+    if cmp.better > 0 then gear = gear .. " · " .. ns.Colorize(cmp.better .. " better", C.green) end
+    if cmp.better == 0 and cmp.worse == 0 then gear = gear .. " · " .. ns.Colorize("same as yours", C.dim) end
   end
-  local showFoot = d or not self.pinned
-  f.divider:SetShown(showFoot and true or false)
-  if showFoot then
-    f.divider:ClearAllPoints()
-    f.divider:SetPoint("TOPLEFT", PAD, y)
-    f.divider:SetPoint("TOPRIGHT", -PAD, y)
-    y = y - 9
-  end
-  f.ding:SetShown(d and true or false)
-  if d then
-    place(f.ding, y)
-    y = y - math.max(13, f.ding:GetStringHeight() or 13) - 6
-  end
+  y = y - f.rows:Draw({
+    { "Played", ns.PlayedLine(p) },
+    { "Gear", gear },
+    { "Chillan", ns.VersionLine(p, true) },
+  }, PAD, y, W - PAD * 2, 1) - 8
+  local showFoot = not self.pinned
+  f.divider:SetShown(false)
+  f.ding:SetShown(false)
+  f.zone:SetShown(false)
+  f.gear:SetShown(false)
+  f.level:SetShown(false) f.pct:SetShown(false) f.track:SetShown(false) f.fill:SetShown(false)
 
   -- festet: knapper; hover: liten hjelpetekst
   f.close:SetShown(self.pinned and true or false)

@@ -313,7 +313,7 @@ function ns.FeedLine(it, withTime)
     icon, color = "Up", C.green
     text = "reached level " .. tostring(it.a)
     local played = tonumber(it.b)
-    if played then text = text .. " · /played " .. ns.Duration(played) end
+    if played then text = text .. " · played " .. ns.Duration(played) end
     if it.first then text = text .. ns.Colorize(" · first in the gang!", C.gold)
     elseif it.place and tonumber(it.a) and tonumber(it.a) % 10 == 0 then text = text .. " · no. " .. it.place .. " in the gang" end
     if it.reacts and #it.reacts > 0 then

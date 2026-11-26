@@ -45,6 +45,7 @@ Achievements.lua
 QoL.lua
 QuestCoin.lua
 UI\Widgets.lua
+UI\CardKit.lua
 UI\FeedRows.lua
 UI\PersonQuick.lua
 UI\MainWindow.lua

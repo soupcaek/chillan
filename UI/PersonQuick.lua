@@ -31,73 +31,97 @@ function UI.PersonQuick(parent, opts)
   q:SetFrameStrata("DIALOG")
   q:EnableMouse(true)
   q:Hide()
-  q.bar = UI.Track(q:CreateTexture(nil, "OVERLAY"))
-  q.bar:SetColorTexture(hex(C.accent))
-  q.bar:SetWidth(3)
-  q.bar:SetPoint("TOPLEFT", 1, -10)
-  q.bar:SetPoint("BOTTOMLEFT", 1, 10)
+  q.edge = UI.Track(q:CreateTexture(nil, "OVERLAY"))
+  q.edge:SetColorTexture(hex(C.accent))
+  q.edge:SetWidth(3)
+  q.edge:SetPoint("TOPLEFT", 1, -10)
+  q.edge:SetPoint("BOTTOMLEFT", 1, 10)
+  -- (1.4.72) the canvas card: who, the level bar, four tiles, This week / Now as label–value rows
+  q.avatar = UI.Avatar(q, 36)
   q.head = UI.Text(q, 14, "semi", C.text)
+  q.head:SetWordWrap(false)
   q.headSub = UI.Text(q, 11, nil, C.muted)
-  q.cells = {}
-  for i = 1, 4 do
-    local cell = CreateFrame("Frame", nil, q)
-    cell:SetSize(120, 36)
-    cell.v = UI.Text(cell, 14, "bold", C.text)
-    cell.v:SetPoint("TOPLEFT")
-    cell.k = UI.Text(cell, 10, nil, C.muted)
-    cell.k:SetPoint("BOTTOMLEFT")
-    q.cells[i] = cell
-  end
-  q.altHead = UI.Text(q, 10, "semi", C.dim)
+  q.headSub:SetWordWrap(false)
+  q.bar = UI.LevelBar(q)
+  q.tiles = {}
+  for i = 1, 4 do q.tiles[i] = UI.NumTile(q) end
+  q.weekHead = UI.Text(q, 10, "bold", C.dim)
+  q.weekHead:SetText("THIS WEEK")
+  q.nowHead = UI.Text(q, 10, "bold", C.dim)
+  q.nowHead:SetText("NOW")
+  q.weekRows = UI.KVRows(q)
+  q.nowRows = UI.KVRows(q)
+  q.altHead = UI.Text(q, 10, "bold", C.dim)
   q.alts = {}
   for i = 1, 5 do
     local l = UI.Text(q, 12, nil, C.text2)
     l:SetWordWrap(false)
     q.alts[i] = l
   end
-  q.info = UI.Text(q, 11, nil, C.text2)
-  q.info:SetWordWrap(true)
-  q.open = UI.Button(q, 112, 28, "Open player ›", "primary")
-  q.wh = UI.Button(q, 70, 28, "Whisper", "secondary")
-  q.mute = UI.Button(q, 66, 28, "Mute", "ghost")
-  q.watch = UI.Button(q, 66, 28, "Watch", "ghost")
+  q.open = UI.Button(q, 112, 26, "Open player ›", "primary")
+  q.wh = UI.Button(q, 70, 26, "Whisper", "secondary")
+  q.mute = UI.Button(q, 60, 26, "Mute", "ghost")
+  q.watch = UI.Button(q, 70, 26, "Watch", "ghost")
 
   function q:Fill(p)
     local W = self:GetWidth()
-    local wide = W >= 480
     local s3 = ns:PersonS3(p) or {}
     local c = ns:PersonChar(p) or {}
-    local pad = 16
+    local pad = 14
+    local inner = W - 2 * pad
     local y = -12
     -- who
+    local online = ns:IsOnline(p)
+    self.avatar:Set(c.name, c.class, (online or p.pid == ns.pid) and ((p.live or {}).status == "AFK" and C.amber or C.green) or "4A4F55", C.cardHover)
+    self.avatar:ClearAllPoints()
+    self.avatar:SetPoint("TOPLEFT", pad, y)
+    local title = ns.TitleLine(p, 1)
+    self.head:SetText(ns.WhoLine(p) .. (title ~= "" and ("   " .. title) or ""))
     self.head:ClearAllPoints()
-    self.head:SetPoint("TOPLEFT", pad, y)
-    self.head:SetText(ns:PersonLabel(p))
+    self.head:SetPoint("TOPLEFT", self.avatar, "TOPRIGHT", 10, -1)
+    self.head:SetPoint("RIGHT", self, "RIGHT", -pad, 0)
+    self.headSub:SetText(ns.WhereLine(p))
     self.headSub:ClearAllPoints()
-    self.headSub:SetPoint("LEFT", self.head, "RIGHT", 8, 0)
-    self.headSub:SetText("Lvl " .. (c.level or "?") .. " " .. (c.race or "") .. " " .. className(c))
-    y = y - 26
-    -- pace
-    local rate, eta, pct = ns.St:XPRate(p), ns.St:ETA(p), ns.Pct(s3.xp, s3.xpMax)
+    self.headSub:SetPoint("BOTTOMLEFT", self.avatar, "BOTTOMRIGHT", 10, 1)
+    self.headSub:SetPoint("RIGHT", self, "RIGHT", -pad, 0)
+    y = y - 36 - 12
+    -- level bar
+    local eta = ns.St:ETA(p)
+    local nextL = (tonumber(c.level) or 0) + 1
+    y = y - self.bar:Draw(p, pad, y, inner, eta and ("~" .. ns.Duration(eta) .. " to " .. nextL) or nil) - 8
+    -- four tiles
+    local rate = ns.St:XPRate(p)
+    local atMax = (c.level or 0) >= 60
     local vals = {
-      { rate and ns.Num(rate) or "–", "XP per hour" },
-      { eta and ("~" .. ns.Duration(eta)) or "–", "to next level" .. (pct and (" (" .. pct .. " %)") or "") },
+      atMax and { s3.ilvl and tostring(s3.ilvl) or "–", "item level" } or { rate and ns.Num(rate) or "–", "XP per hour" },
       { s3.today and ns.Duration(s3.today) or "–", "online today" },
-      { s3.streak and (s3.streak .. " d") or "–", "streak" },
+      { s3.streak and ns.Plural(s3.streak, "day") or "–", "streak" },
+      { (ns:PersonPlayed(p) or 0) > 0 and ns.Duration(ns:PersonPlayed(p)) or "–", "Played" },
     }
-    if (c.level or 0) >= 60 then vals[1] = { s3.ilvl and tostring(s3.ilvl) or "–", "item level" } vals[2] = { ns.Num(ns:WeekStat(p, "Kills")), "kills this week" } end
-    local perRow = wide and 4 or 2
-    local cw = math.floor((W - 2 * pad) / perRow)
-    for i, cell in ipairs(self.cells) do
-      cell.v:SetText(vals[i][1])
-      cell.k:SetText(vals[i][2])
-      cell:SetWidth(cw - 6)
-      cell.k:SetWidth(cw - 6)
-      cell:ClearAllPoints()
-      local r, col = math.floor((i - 1) / perRow), (i - 1) % perRow
-      cell:SetPoint("TOPLEFT", pad + col * cw, y - r * 42)
-    end
-    y = y - (wide and 44 or 86)
+    for i, t in ipairs(self.tiles) do t:Set(vals[i][1], vals[i][2]) end
+    UI.LayTiles(self.tiles, self, pad, y, inner, 6)
+    y = y - 44 - 12
+    -- this week
+    self.weekHead:ClearAllPoints()
+    self.weekHead:SetPoint("TOPLEFT", pad, y)
+    y = y - 12
+    y = y - self.weekRows:Draw({
+      { "Quests", ns.Num(math.floor(ns:WeekStat(p, "Quests"))) },
+      { "Kills", ns.Num(math.floor(ns:WeekStat(p, "Kills"))) },
+      { "Deaths", ns.Num(math.floor(ns:WeekStat(p, "Deaths"))) },
+      { "Gold earned", ns.WeekGoldLine(p) },
+    }, pad, y, inner, 2) - 10
+    -- now
+    self.nowHead:ClearAllPoints()
+    self.nowHead:SetPoint("TOPLEFT", pad, y)
+    y = y - 12
+    local dura = s3.dura and ns.Colorize(s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text)) or nil
+    y = y - self.nowRows:Draw({
+      { "Gold", s3.money and ns.Money(s3.money) or "–" },
+      { "Item level", s3.ilvl and tostring(s3.ilvl) or "–" },
+      { "Durability", dura or "–" },
+      { "Chillan", ns.VersionLine(p) or "–" },
+    }, pad, y, inner, 2) - 10
     -- characters (all installs), online ones first
     local chars = ns.PersonCharsLive(p)
     for _, l in ipairs(self.alts) do l:Hide() end
@@ -121,34 +145,23 @@ function UI.PersonQuick(parent, opts)
         l:Show()
         y = y - 18
       end
-      y = y - 4
+      y = y - 6
     else
       self.altHead:Hide()
     end
-    -- the week, then buttons
-    local parts = { math.floor(ns:WeekStat(p, "Quests")) .. " quests this week" }
-    if s3.money then parts[#parts + 1] = ns.Money(s3.money) .. " in the pocket" end
-    if s3.ilvl and (c.level or 0) < 60 then parts[#parts + 1] = "ilvl " .. s3.ilvl end
-    if s3.dura and s3.dura < 100 then
-      parts[#parts + 1] = ns.Colorize("gear " .. s3.dura .. " %", s3.dura <= 10 and C.red or (s3.dura <= 30 and C.amber or C.text2))
-    end
-    self.info:SetText(table.concat(parts, "  ·  "))
-    self.info:ClearAllPoints()
-    self.info:SetPoint("TOPLEFT", pad, y - 2)
-    if wide then self.info:SetPoint("RIGHT", self, "RIGHT", -280, 0) else self.info:SetPoint("RIGHT", self, "RIGHT", -pad, 0) end
-    local infoH = self.info:GetStringHeight() or 14
-    local btnY = wide and (y + 4) or (y - infoH - 10)
+    -- buttons: Watch and Mute left, Whisper and Open player right
+    y = y - 2
     self.open:ClearAllPoints()
-    self.open:SetPoint("TOPRIGHT", -12, btnY)
+    self.open:SetPoint("TOPRIGHT", self, "TOPRIGHT", -pad, y)
     self.wh:ClearAllPoints()
     self.wh:SetPoint("RIGHT", self.open, "LEFT", -6, 0)
-    self.mute:ClearAllPoints()
-    self.mute:SetPoint("RIGHT", self.wh, "LEFT", -6, 0)
     self.watch:ClearAllPoints()
-    self.watch:SetPoint("RIGHT", self.mute, "LEFT", -6, 0)
+    self.watch:SetPoint("TOPLEFT", self, "TOPLEFT", pad, y)
+    self.mute:ClearAllPoints()
+    self.mute:SetPoint("LEFT", self.watch:IsShown() and self.watch or self, self.watch:IsShown() and "RIGHT" or "LEFT", self.watch:IsShown() and 6 or pad, 0)
     self.watch:SetShown(p.pid ~= ns.pid and ns.Watch ~= nil)
     self.watch:SetLabel(ns.Watch and ns.Watch:Has(p.pid) and "Unwatch" or "Watch")
-    self.watch.tooltip = "Watching: see where they are and their level under the Now card (up to 4)"
+    self.watch.tooltip = "See where they are and their level under the Now card (up to 4)."
     self.watch:SetScript("OnClick", function()
       ns.Watch:Toggle(p.pid)
       self.watch:SetLabel(ns.Watch:Has(p.pid) and "Unwatch" or "Watch")
@@ -165,9 +178,7 @@ function UI.PersonQuick(parent, opts)
       if opts.onChange then opts.onChange() end
     end)
     self.open:SetScript("OnClick", function() self:Close() ns.Window:OpenPlayer(p.pid) end)
-    local h = -btnY + 28 + 12
-    if not wide then h = -(btnY) + 28 + 12 end
-    self:SetHeight(math.max(h, -y + 40))
+    self:SetHeight(-y + 26 + 12)
   end
 
   -- the row it belongs to is marked while the card is open

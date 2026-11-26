@@ -107,7 +107,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   list:SetPoint("TOPLEFT", 0, 0)
   list:SetPoint("BOTTOMRIGHT", 6, 0)
   list.emptyText = "Nobody in the gang yet."
-  quick = UI.PersonQuick(tab, { side = "right", width = 360, bounds = tab })
+  quick = UI.PersonQuick(tab, { side = "right", width = 400, bounds = tab })
   quick:SetFrameLevel(list:GetFrameLevel() + 40)
   list:HookScript("OnMouseWheel", function() quick:Close() end)
   tab:HookScript("OnHide", function() quick:Close() end)
@@ -177,8 +177,18 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
   end
   local week = card(wh)
   local mine = card(week)
-  local enemy = card(mine)
-  local nextEv = card(enemy)
+  -- (1.4.72) your week as a two-column list (label left, number right)
+  mine.kv = UI.KVRows(mine)
+  function mine:Fit()
+    local w = math.max(120, math.floor((self:GetWidth() or 200) + 0.5))
+    local h = self.kv:Draw(self.rows or {}, 0, -((self.title:GetStringHeight() or 14) + 2), w, 2)
+    self:SetHeight((self.title:GetStringHeight() or 14) + 2 + h)
+  end
+  mine:HookScript("OnSizeChanged", function(self) self:Fit() end)
+  local place = card(mine)
+  local enemy = card(place)
+  local ding = card(enemy)
+  local nextEv = card(ding)
 
   ---------------------------------------------------------------------------
   -- middle: the gang's latest moments (rows with icon boxes and reaction pills)
@@ -238,10 +248,34 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     local me = ns:GetPerson(ns.pid, true)
     local function ws(k) return ns:WeekStat(me, k) end
     mine.title:SetText("Your week")
-    local P = ns.Plural
-    mine.body:SetText(P(ws("Quests"), "quest") .. " · " .. P(ws("Levels"), "level") .. " · " .. goldText(ws("Gold")) .. "\n"
-      .. P(ws("Kills"), "kill") .. " · " .. P(ws("Deaths"), "death") .. " · " .. ns.Duration(ws("Online")))
+    mine.body:SetText("")
+    mine.rows = {
+      { "Quests", ns.Num(math.floor(ws("Quests"))) }, { "Levels", tostring(math.floor(ws("Levels"))) },
+      { "HKs", ns.Num(math.floor(ws("Kills"))) }, { "Deaths", tostring(math.floor(ws("Deaths"))) },
+      { "Gold", ns.WeekGoldLine(me) }, { "Online", ns.Duration(ws("Online")) },
+    }
     mine:Fit()
+    -- (1.4.72) your place in the gang this week, and how far to the one above in quests
+    place.title:SetText("Your place")
+    local function rankOf(key)
+      local list = {}
+      for _, q in ipairs(ns:SortedPeople()) do list[#list + 1] = { p = q, v = ns:WeekStat(q, key) } end
+      table.sort(list, function(a, b) return a.v > b.v end)
+      for i, r in ipairs(list) do if r.p == me then return i, list[i - 1], r.v end end
+    end
+    local ord = function(n) return n .. ((n % 100 >= 11 and n % 100 <= 13) and "th" or ({ "st", "nd", "rd" })[n % 10] or "th") end
+    local kr = rankOf("Kills")
+    local qr, above, qv = rankOf("Quests")
+    if kr and qr and (ws("Kills") > 0 or ws("Quests") > 0) then
+      local t = ord(kr) .. " in kills  ·  " .. ord(qr) .. " in quests"
+      if above and above.v > qv then
+        t = t .. "\n" .. ns.Colorize(ns.Num(math.floor(above.v - qv)) .. " quests behind ", C.text) .. ns:ShortWho(above.p)
+      end
+      place.body:SetText(ns.Colorize(t, C.muted))
+    else
+      place.body:SetText(ns.Colorize("Do a quest or two to get on the board.", C.dim))
+    end
+    place:Fit()
     -- most kills on the gang this week ("Died to")
     local e, n
     if ns.DiedTo then e, n = ns.DiedTo:WeekTop() end
@@ -252,6 +286,21 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
       enemy.body:SetText(ns.Colorize("Nobody has killed the gang this week.", C.dim))
     end
     enemy:Fit()
+    -- (1.4.72) who in the gang levels next, from their XP per hour
+    ding.title:SetText("Next ding")
+    local best, bestEta
+    for _, q in ipairs(ns:SortedPeople()) do
+      local c = ns:PersonChar(q) or {}
+      local eta = (c.level or 0) < 60 and ns.St:ETA(q) or nil
+      if eta and eta > 0 and (ns:IsOnline(q) or q.pid == ns.pid) and (not bestEta or eta < bestEta) then best, bestEta = q, eta end
+    end
+    if best then
+      local c = ns:PersonChar(best) or {}
+      ding.body:SetText(ns:ShortWho(best) .. ns.Colorize("  ·  level " .. ((c.level or 0) + 1) .. " in ~" .. ns.Duration(bestEta), C.muted))
+    else
+      ding.body:SetText(ns.Colorize("Nobody online is levelling right now.", C.dim))
+    end
+    ding:Fit()
   end
 
   local function drawEvent()
