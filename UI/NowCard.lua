@@ -86,6 +86,17 @@ function N:Create()
     l:SetWordWrap(false)
     f.lines[i] = l
   end
+  -- (1.4.73) a right-aligned companion per line (pace, last split)
+  f.linesR = {}
+  for i = 1, MAX_LINES do
+    local r = UI.Text(f, 11, nil, C.text2)
+    r:SetJustifyH("RIGHT")
+    r:SetWordWrap(false)
+    f.linesR[i] = r
+  end
+  -- (1.4.73) the Baron run's 45 minutes, as a red chip in the title
+  f.baron = UI.Text(f, 10, "semi", "F2777A")
+  f.baron:Hide()
   -- the boss track: one small block per boss (green = dead, accent = next)
   f.track = CreateFrame("Frame", nil, f)
   f.track:SetHeight(10)
@@ -139,18 +150,18 @@ function N:Relayout()
   if ns.Tiles and ns.Tiles.holder then ns.Tiles:Layout() elseif ns.Overlays.UpdateGroup then ns.Overlays:UpdateGroup() end
 end
 
-local function drawTrack(f, list, width)
+local function drawTrack(f, list, width, full)
   local tr = f.track
   for _, b in ipairs(tr.blocks) do b:Hide() end
   if not list or #list == 0 then tr:Hide() return 0 end
   local n = #list
-  local bw = math.max(4, math.min(14, math.floor((width + 3) / n) - 3))
+  local bw = full and math.max(4, math.floor((width + 3) / n) - 3) or math.max(4, math.min(14, math.floor((width + 3) / n) - 3))
   local nextDone = false
   for i, b in ipairs(list) do
     local t = tr.blocks[i]
     if not t then t = tr:CreateTexture(nil, "ARTWORK") tr.blocks[i] = t end
     t:ClearAllPoints()
-    t:SetSize(bw, 6)
+    t:SetSize(bw, full and 8 or 6)
     t:SetPoint("LEFT", tr, "LEFT", (i - 1) * (bw + 3), 0)
     if b.killed then t:SetColorTexture(hex("5FD18B"))
     elseif not nextDone then nextDone = true t:SetColorTexture(hex(C.accent))
@@ -197,13 +208,29 @@ local function place(f, rows, track)
     f.meter:Hide()
   end
   local trackW = 0
-  if track then trackW = drawTrack(f, track, math.floor((width - 2 * PAD) * 0.45)) else drawTrack(f, nil) end
+  if track and f.trackFull then
+    -- (1.4.73) option A: the boss track runs the full width on its own row, the lines below it
+    drawTrack(f, track, width - 2 * PAD, true)
+    f.track:SetPoint("TOPLEFT", PAD, y - 2)
+    y = y - 16
+  elseif track then trackW = drawTrack(f, track, math.floor((width - 2 * PAD) * 0.45)) else drawTrack(f, nil) end
+  local rightT = f.rowsRight or {}
   for i, l in ipairs(f.lines) do
     l:ClearAllPoints()
+    local rr = f.linesR[i]
+    rr:ClearAllPoints()
+    rr:Hide()
+    if rows[i] and rightT[i] then
+      rr:SetPoint("TOPRIGHT", -PAD, y)
+      rr:SetText(rightT[i])
+      rr:Show()
+    end
     if rows[i] then
       l:SetPoint("TOPLEFT", PAD, y)
       -- the first line shares its row with the boss track
-      if i == 1 and trackW > 0 then
+      if rows[i] and rightT[i] then
+        l:SetPoint("RIGHT", rr, "LEFT", -8, 0)
+      elseif i == 1 and trackW > 0 then
         f.track:SetPoint("RIGHT", f, "TOPRIGHT", -PAD, y - 6)
         l:SetPoint("RIGHT", f.track, "LEFT", -8, 0)
       else
@@ -218,13 +245,25 @@ local function place(f, rows, track)
   end
   f.btn:Hide() f.btnNote:Hide()
   f.rc:ClearAllPoints()
+  f.baron:ClearAllPoints()
+  local headRight = nil
   if f.showBtn then
     f.rc:SetPoint("RIGHT", f, "TOPRIGHT", -PAD + 4, -(8 + 1 + f.card.stripH / 2 - 1))
-    f.head:SetPoint("RIGHT", f.rc, "LEFT", -6, 0)
+    headRight = f.rc
     f.rc:Show()
   else
     f.rc:Hide()
   end
+  if f.baronText then
+    f.baron:SetText(f.baronText)
+    if headRight then f.baron:SetPoint("RIGHT", headRight, "LEFT", -8, 0)
+    else f.baron:SetPoint("RIGHT", f, "TOPRIGHT", -PAD, -(8 + 1 + f.card.stripH / 2 - 1)) end
+    headRight = f.baron
+    f.baron:Show()
+  else
+    f.baron:Hide()
+  end
+  if headRight then f.head:SetPoint("RIGHT", headRight, "LEFT", -6, 0) end
   f:SetHeight(-y + 8)
 end
 
@@ -321,6 +360,7 @@ function N:Update()
   local mode = P:Mode()
   local rows, track = {}, nil
   f.meter.pct, f.showBtn = nil, false
+  f.trackFull, f.rowsRight, f.baronText = nil, nil, nil
   f.head:SetText("") f.big:SetText("") f.bigSub:SetText("") f.right:SetText("")
   f.head:SetTextColor(hex(C.text2))
   local dg = P:Danger()
@@ -402,7 +442,47 @@ function N:Update()
       track = {}
       for _, b in ipairs(list) do if b.killed or not b.opt then track[#track + 1] = b end end
       local nextB = ns.Bosses:Next(r.name, r.killed)
-      if ns.Extras.inEncounter then
+      -- (1.4.73) option A: the track on its own row; next boss + pace, then deaths + your last split
+      f.trackFull = true
+      f.rowsRight = {}
+      local _, wing = ns.Bosses:For(r.name, r.killed, true)
+      f.head:SetText((r.name .. (wing and (" · " .. wing) or "")):upper())
+      if r.baronEnds then
+        local left = r.baronEnds - ns.Now()
+        if left > 0 and not (r.killed and r.killed["Baron Rivendare"]) then
+          f.baronText = "Baron " .. string.format("%d:%02d", math.floor(left / 60), left % 60)
+        end
+      end
+      if mode == "dungeon" then
+        if ns.Extras.inEncounter then
+          rows[#rows + 1] = ns.Colorize("Boss fight", C.amber)
+        elseif nextB then
+          rows[#rows + 1] = dim("Next  ") .. ns.Colorize(nextB, C.text)
+        else
+          rows[#rows + 1] = n > 0 and ns.Colorize("All bosses down", C.green) or dim("No boss yet")
+        end
+        local best = ns.Extras:BestFor(r.name, "DUNGEON")
+        if best and total and total > 0 and n > 0 then
+          local diff = math.floor(best * n / total - (ns.Now() - r.start))
+          f.rowsRight[#rows] = (diff >= 0 and ns.Colorize("−" .. ns.Duration(diff), C.green) or ns.Colorize("+" .. ns.Duration(-diff), C.amber)) .. dim(" vs best " .. ns.Duration(best))
+        elseif best then
+          f.rowsRight[#rows] = dim("best " .. ns.Duration(best))
+        end
+        rows[#rows + 1] = ns.Colorize(ns.Plural(r.deaths or 0, "death") .. " · " .. ns.Plural(r.wipes or 0, "wipe"), C.muted)
+        local lb = r.lastBoss
+        local secs = lb and r.killed and tonumber(r.killed[lb])
+        if lb and secs then
+          local rec = ns.Bosses:BossRecord(r.name, lb)
+          local tt = string.format("%d:%02d", math.floor(secs / 60), secs % 60)
+          local vs = ""
+          if rec and rec.s then
+            local d = secs - rec.s
+            vs = "  " .. (d <= 0 and ns.Colorize("−" .. string.format("%d:%02d", math.floor(-d / 60), -d % 60), C.green)
+              or ns.Colorize("+" .. string.format("%d:%02d", math.floor(d / 60), d % 60), C.red))
+          end
+          f.rowsRight[#rows] = dim("last: ") .. ns.Colorize(lb, C.text2) .. " " .. tt .. vs
+        end
+      elseif ns.Extras.inEncounter then
         rows[#rows + 1] = ns.Colorize("Boss fight", C.amber) .. dim("  · gang news waits until it's dead")
       elseif nextB then
         rows[#rows + 1] = dim("Next  ") .. ns.Colorize(nextB, C.text)
@@ -410,13 +490,7 @@ function N:Update()
         rows[#rows + 1] = n > 0 and ns.Colorize("All bosses down", C.green) or dim("No boss yet")
       end
       if mode == "dungeon" then
-        -- pace against the gang's best run here
-        local best = ns.Extras:BestFor(r.name, "DUNGEON")
-        if best and total and total > 0 and n > 0 then
-          local diff = math.floor(best * n / total - (ns.Now() - r.start))
-          rows[#rows + 1] = dim("Pace  ") .. (diff >= 0 and ns.Colorize(ns.Duration(diff) .. " ahead", C.green) or ns.Colorize(ns.Duration(-diff) .. " behind", C.amber))
-            .. dim("  of the gang's best (" .. ns.Duration(best) .. ")")
-        end
+        -- (pace and deaths are on the two lines above)
       else
         local gang = ns.Extras.GangInGroup and ns.Extras.GangInGroup() or {}
         local size = ns.S(GetNumGroupMembers) or 0
@@ -428,11 +502,13 @@ function N:Update()
           rows[#rows + 1] = dim("Gang loot tonight  ") .. ns.Colorize(ns.Plural(#gl, "epic"), "A335EE") .. dim("  · " .. table.concat(who, ", "))
         end
       end
-      -- deaths and wipes: the funny bit
-      local most, mostN = nil, 0
-      for name, k in pairs(r.deathsBy or {}) do if k > mostN then most, mostN = name, k end end
-      rows[#rows + 1] = dim("Deaths  ") .. (r.deaths or 0) .. ((most and mostN > 1) and dim("  · most: ") .. most .. " " .. mostN or "")
-        .. dim("   ·   wipes ") .. (r.wipes or 0)
+      -- deaths and wipes: the funny bit (a dungeon has them on its second line)
+      if mode ~= "dungeon" then
+        local most, mostN = nil, 0
+        for name, k in pairs(r.deathsBy or {}) do if k > mostN then most, mostN = name, k end end
+        rows[#rows + 1] = dim("Deaths  ") .. (r.deaths or 0) .. ((most and mostN > 1) and dim("  · most: ") .. most .. " " .. mostN or "")
+          .. dim("   ·   wipes ") .. (r.wipes or 0)
+      end
     end
     if mode == "dungeon" then
       local q = { [2] = "1EFF00", [3] = "0070DD", [4] = "A335EE", [5] = "FF8000" }
@@ -446,7 +522,8 @@ function N:Update()
         end
       end
       if k > 0 or (pr and pr.grey > 0) then
-        rows[#rows + 1] = dim("Loot  ") .. table.concat(pips, "") .. ((pr and pr.grey > 0) and dim("  +" .. pr.grey .. " grey") or "") .. dim("  · hover for the list")
+        -- (1.4.73) the loot is in the boss track's hover now (the card stays two lines)
+        f.lootLine = table.concat(pips, "") .. ((pr and pr.grey > 0) and ("  +" .. pr.grey .. " grey") or "")
       end
     else
       -- your own raid prep
@@ -575,3 +652,12 @@ function N:Tooltip(owner)
   GameTooltip:AddLine(N.moment and "Click: close" or "Click: the Stats page", 0.52, 0.55, 0.57)
   GameTooltip:Show()
 end
+
+-- (1.4.73) the Baron run: when Baron Rivendare first yells in Stratholme the 45 minutes start
+ns:On("CHAT_MSG_MONSTER_YELL", function(text, sender)
+  if ns.isSecret(sender) or type(sender) ~= "string" or not sender:find("Rivendare", 1, true) then return end
+  local r = ns.Pulse and ns.Pulse.Run and select(1, ns.Pulse:Run())
+  if r and tostring(r.name):find("Stratholme", 1, true) and not r.baronEnds then
+    r.baronEnds = ns.Now() + 45 * 60
+  end
+end)

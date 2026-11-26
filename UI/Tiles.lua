@@ -353,6 +353,15 @@ function T:BossList(owner)
     end
     if #list == 0 then i = i + 1 row(i, "No boss killed here yet – the list fills in as you go", false, nil, C.dim) end
     if not known and #list > 0 then i = i + 1 row(i, "More may come – learned from the gang's kills", false, nil, C.dim) end
+    -- (1.4.73) who died and what dropped, here instead of on the card
+    if r then
+      local d = {}
+      for name, k in pairs(r.deathsBy or {}) do d[#d + 1] = name .. " " .. k end
+      table.sort(d)
+      i = i + 1 row(i, "Deaths: " .. (#d > 0 and table.concat(d, " · ") or "none") .. "  ·  wipes " .. (r.wipes or 0), false, nil, C.text2)
+      local nc = ns.NowCard and ns.NowCard.frame
+      if nc and nc.lootLine and nc.lootLine ~= "" then i = i + 1 row(i, "Loot: " .. nc.lootLine, false, nil, C.text2) end
+    end
     i = i + 1 row(i, "Struck through = killed (with the time it took) · › = next", false, nil, C.dim)
   end
   f:SetSize(math.min(320, w), -y + 6)
