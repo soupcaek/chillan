@@ -72,11 +72,12 @@ check("winner: one line " + str(R.Tally(drops[0])), drops[0].done and R.Tally(dr
 check("you passed", R.YouLine(drops[0]) == "You: Pass")
 check("remembered", len(list(R.history.values())) == 1)
 h0 = R.frame.GetHeight(R.frame)
-L.execute("ADDON_NS.LootRolls.drops[1].hover = true ADDON_NS.LootRolls:Layout()")
+L.execute("ADDON_NS.LootRolls.hovered = ADDON_NS.LootRolls.drops[1] ADDON_NS.LootRolls:Layout()")
 check("hover opens who picked what", R.frame.GetHeight(R.frame) > h0 + 40)
 l1 = b.lines[1]
 check("winner first with a star", "Valdrin" in str(l1.name.GetText(l1.name)) and l1.star.GetText(l1.star) == "★")
-L.execute("ADDON_NS.LootRolls.drops[1].hover = nil")
+G.ADVANCE(1)
+check("hover clears when the mouse isn't there (no stuck rows)", R.hovered is None)
 G.ADVANCE(21)
 check("gone after 20 s, section closes", len(list(R.drops.values())) == 0 and not R.frame.IsShown(R.frame))
 L.execute("SlashCmdList.CHILLAN('rolls')")
@@ -91,9 +92,17 @@ d = [x for x in R.drops.values()][0]
 lst, more = R.Names(d)
 check("big group: 8 names, +33 more, you first", len(list(lst.values())) == 8 and more == 33 and lst[1].name == "Thunka")
 L.execute("SlashCmdList.CHILLAN('need')")
+G.ADVANCE(2)
+L.execute("SlashCmdList.CHILLAN('need')")
 G.ADVANCE(9)
 t = [x for x in R.drops.values() if x.test]
-check("test roll finished with a winner", len(t) == 1 and t[0].winner == "Eirik")
+check("/chill need twice: still one test row", len(t) == 1 and t[0].winner == "Eirik")
+G.ADVANCE(9)
+check("finished test row goes by itself", len([x for x in R.drops.values() if x.test]) == 0)
+L.execute("SlashCmdList.CHILLAN('need')")
+G.ADVANCE(1)
+L.execute("ADDON_NS.LootRolls:CloseAll()")
+check("the header ✕ closes test rows", len([x for x in R.drops.values() if x.test]) == 0)
 errs = [e for e in G.ERRORS.values() if 'HookScript' not in str(e)]
 check("no Lua errors " + str(errs[:3]), not errs)
 

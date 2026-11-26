@@ -356,11 +356,11 @@ end
 ---------------------------------------------------------------------------
 local function visibleDrops()
   local out = {}
-  for _, d in ipairs(R.drops) do out[#out + 1] = d end
+  for _, d in ipairs(R.drops) do if not d.hidden then out[#out + 1] = d end end
   if R.pastUntil and GetTime() < R.pastUntil then
     for i = #R.history, 1, -1 do
       local h = R.history[i]
-      local dup = false
+      local dup = h.hidden or false
       for _, d in ipairs(out) do if d.players == h.players then dup = true end end
       if not dup then
         -- (one view per past roll, so hovering it survives the next repaint)
@@ -408,20 +408,19 @@ local function makeBlock(f, i)
   b.you:SetPoint("TOPLEFT", 38, -28)
   b.time = UI.Text(b, 10, nil, C.muted)
   b.time:SetPoint("TOPRIGHT", -8, -28)
-  b.x = UI.IconButton(b, 14, "Close", "Close", function(self) local d = b.drop if d then if d.past then R.pastUntil = nil R:Refresh() else R:Remove(d) end end end)
+  b.x = UI.IconButton(b, 14, "Close", "Close", function(self)
+    local d = b.drop
+    if not d then return end
+    if R.hovered == d then R.hovered = nil end
+    if d.past then d.past.hidden = true R:Refresh() else R:Remove(d) end
+  end)
   b.x:SetPoint("RIGHT", b, "TOPRIGHT", -4, -DONE_H / 2)
   b.x:Hide()
   b.lines = {}
-  b:SetScript("OnEnter", function(self)
-    local d = self.drop
-    if not d then return end
-    d.hover = true
-    R:Layout()
-  end)
+  b:SetScript("OnEnter", function(self) if self.drop and R.hovered ~= self.drop then R.hovered = self.drop R:Layout() end end)
   b:SetScript("OnLeave", function(self)
-    local d = self.drop
     if GameTooltip then GameTooltip:Hide() end
-    if d and not self:IsMouseOver() then d.hover = nil R:Layout() end
+    R:CheckHover()
   end)
   b:SetScript("OnClick", function(self)
     local d = self.drop
@@ -433,14 +432,25 @@ local function makeBlock(f, i)
   b.iconHit:EnableMouse(true)
   b.iconHit:SetScript("OnEnter", function(self)
     local d = b.drop
-    if d then d.hover = true R:Layout() end
+    if d and R.hovered ~= d then R.hovered = d R:Layout() end
     if d and d.link and GameTooltip then
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       pcall(GameTooltip.SetHyperlink, GameTooltip, d.link)
       GameTooltip:Show()
     end
   end)
-  b.iconHit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end local d = b.drop if d and not b:IsMouseOver() then d.hover = nil R:Layout() end end)
+  b.iconHit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end R:CheckHover() end)
+  -- a thin line between items
+  b.sep = UI.Track(b:CreateTexture(nil, "ARTWORK"))
+  b.sep:SetColorTexture(hex(C.line or C.border or "2A2D33"))
+  b.sep:SetHeight(1)
+  b.sep:SetPoint("BOTTOMLEFT", 0, 0)
+  b.sep:SetPoint("BOTTOMRIGHT", 0, 0)
+  -- the inset under a row that holds who picked what
+  b.inset = UI.Track(b:CreateTexture(nil, "BACKGROUND", nil, 3))
+  b.inset:SetColorTexture(hex(C.window or C.field or "141619"))
+  b.inset:SetAlpha(0.85)
+  b.inset:Hide()
   f.blocks[i] = b
   return b
 end
@@ -449,6 +459,9 @@ local function line(b, i)
   local l = b.lines[i]
   if l then return l end
   l = {}
+  l.bg = UI.Track(b:CreateTexture(nil, "BACKGROUND", nil, 4))
+  l.bg:SetColorTexture(hex(C.rowAlt or C.cardHover or "202328"))
+  l.bg:SetHeight(LINE_H)
   l.name = UI.Text(b, 10, "semi", C.text)
   l.choice = UI.Text(b, 10, "semi", C.dim)
   l.roll = UI.Text(b, 10, nil, C.muted)
@@ -487,8 +500,33 @@ function R:Create()
   f.past:SetScript("OnClick", function() R:TogglePast() end)
   f.past:SetScript("OnEnter", function(b) b.t:SetTextColor(hex(C.text)) end)
   f.past:SetScript("OnLeave", function(b) b.t:SetTextColor(hex(C.dim)) end)
+  f.close = UI.IconButton(f, 14, "Close", "Close", function() R:CloseAll() end)
+  f.close:SetPoint("RIGHT", f, "TOPRIGHT", -18, midY)
+  f.past:ClearAllPoints()
+  f.past:SetPoint("RIGHT", f.close, "LEFT", -4, 0)
   f.blocks = {}
   return f
+end
+
+function R:CloseAll()
+  R.hovered, R.pastUntil = nil, nil
+  for i = #R.drops, 1, -1 do
+    local d = R.drops[i]
+    if d.done or d.test then table.remove(R.drops, i) else d.hidden = true end
+  end
+  R:Refresh()
+end
+
+-- the hovered row is where the mouse is, not what an event last said
+function R:CheckHover()
+  local f = self.frame
+  local now
+  if f and f:IsShown() then
+    for _, b in ipairs(f.blocks) do
+      if b:IsShown() and b.drop and b:IsMouseOver() then now = b.drop end
+    end
+  end
+  if now ~= R.hovered then R.hovered = now self:Layout() end
 end
 
 function R:TogglePast()
@@ -503,7 +541,7 @@ end
 
 local function fillBlock(b, d, w)
   b.drop = d
-  local open = d.hover
+  local open = R.hovered == d
   b.icon:SetTexture(d.texture or (d.item and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(tonumber(d.item))) or 134400)
   b.name:SetText(d.link or "?")
   b.tally:SetText(R.Tally(d))
@@ -514,11 +552,11 @@ local function fillBlock(b, d, w)
     b.icon:SetSize(16, 16)
     b.icon:ClearAllPoints() b.icon:SetPoint("TOPLEFT", 8, -3)
     b.name:ClearAllPoints() b.name:SetPoint("TOPLEFT", 30, -5)
-    b.tally:ClearAllPoints() b.tally:SetPoint("TOPRIGHT", (d.past or S().lootRollsKeep) and -22 or -8, -5)
+    b.tally:ClearAllPoints() b.tally:SetPoint("TOPRIGHT", -22, -5)
     b.name:SetPoint("RIGHT", b.tally, "LEFT", -6, 0)
     b.barBg:Hide() for _, t in ipairs(b.seg) do t:Hide() end
     b.you:Hide() b.time:Hide()
-    b.x:SetShown((d.past or S().lootRollsKeep) and true or false)
+    b.x:Show()
     h = DONE_H
   else
     b.icon:SetSize(24, 24)
@@ -545,13 +583,18 @@ local function fillBlock(b, d, w)
     h = ROW_H
   end
   -- hovering: who picked what, right under the row
-  for _, l in pairs(b.lines) do l.name:Hide() l.choice:Hide() l.roll:Hide() l.star:Hide() end
+  for _, l in pairs(b.lines) do l.bg:Hide() l.name:Hide() l.choice:Hide() l.roll:Hide() l.star:Hide() end
   b.hl:SetShown(open and true or false)
+  b.inset:Hide()
   if open and #d.players > 0 then
     local list, more = R.Names(d)
-    local y = -(h - 2)
+    local top = -(h + 1)
+    local y = top - 3
     for i, p in ipairs(list) do
       local l = line(b, i)
+      l.bg:ClearAllPoints()
+      l.bg:SetPoint("TOPLEFT", 30, y + 2) l.bg:SetPoint("TOPRIGHT", -2, y + 2)
+      l.bg:SetShown(i % 2 == 1)
       l.name:ClearAllPoints() l.name:SetPoint("TOPLEFT", 38, y)
       l.star:ClearAllPoints() l.star:SetPoint("TOPRIGHT", -8, y)
       l.roll:ClearAllPoints() l.roll:SetPoint("TOPRIGHT", l.star, "TOPLEFT", -4, 0)
@@ -566,12 +609,17 @@ local function fillBlock(b, d, w)
     end
     if more > 0 then
       local l = line(b, #list + 1)
+      l.bg:Hide()
       l.name:ClearAllPoints() l.name:SetPoint("TOPLEFT", 38, y)
       l.name:SetText(ns.Colorize("+" .. more .. " more", C.dim))
       l.name:Show()
       y = y - LINE_H
     end
-    h = -y + 4
+    b.inset:ClearAllPoints()
+    b.inset:SetPoint("TOPLEFT", 30, top)
+    b.inset:SetPoint("BOTTOMRIGHT", -2, 4)
+    b.inset:Show()
+    h = -y + 6
   end
   b:SetHeight(h)
   return h
@@ -620,6 +668,7 @@ function R:Layout()
     b:SetPoint("TOPLEFT", 12, y)
     b:SetPoint("TOPRIGHT", -12, y)
     local h = fillBlock(b, list[i], w)
+    b.sep:SetShown(i > 1)
     b:Show()
     y = y - h
   end
@@ -636,7 +685,7 @@ function R:Refresh()
   local now = GetTime()
   for i = #R.drops, 1, -1 do
     local d = R.drops[i]
-    local hold = d.hover or (d.test and false) or (S().lootRollsKeep and not d.test)
+    local hold = R.hovered == d or (S().lootRollsKeep and not d.test)
     if d.done and not hold and d.doneAt and now - d.doneAt >= (d.test and 8 or KEEP_DONE) then
       table.remove(R.drops, i)
     elseif not d.done and d.endsAt and now > d.endsAt + 25 and not d.test then
@@ -645,7 +694,9 @@ function R:Refresh()
     end
   end
   local f = self:Create()
-  local want = on() and (#R.drops > 0 or (R.pastUntil and now < R.pastUntil)) and true or false
+  local shownN = 0
+  for _, d in ipairs(R.drops) do if not d.hidden then shownN = shownN + 1 end end
+  local want = on() and (shownN > 0 or (R.pastUntil and now < R.pastUntil)) and true or false
   if want ~= f:IsShown() then
     f:SetShown(want)
     self.lastH = nil
@@ -661,6 +712,7 @@ function R:Tick()
   R.ticking = true
   local function step()
     if #R.drops == 0 and not (R.pastUntil and GetTime() < R.pastUntil) then R.ticking = false R:Refresh() return end
+    R:CheckHover()
     R:Refresh()
     C_Timer.After(0.5, step)
   end
@@ -713,6 +765,8 @@ function R:Test()
   local link = info and select(2, info(12927)) or "|cffa335ee|Hitem:12927::::::::60:::::|h[Truestrike Shoulders]|h|r"
   local icon = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
   local _, myClass = UnitClass("player")
+  for i = #R.drops, 1, -1 do if R.drops[i].test then table.remove(R.drops, i) end end
+  R.hovered = nil
   R.testN = (R.testN or 0) + 1
   local d = newDrop("test" .. R.testN, link)
   d.test, d.texture, d.endsAt = true, icon and icon(12927) or nil, GetTime() + 30
