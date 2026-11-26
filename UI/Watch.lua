@@ -131,9 +131,9 @@ local function makeRow(f, i)
   r.fact:SetPoint("RIGHT", -2, 0)
   r.fact:SetWordWrap(false)
   r.bar = UI.Track(r:CreateTexture(nil, "ARTWORK"))
-  r.bar:SetPoint("BOTTOMLEFT", 0, 4)
-  r.bar:SetPoint("BOTTOMRIGHT", 0, 4)
-  r.bar:SetHeight(3)
+  r.bar:SetPoint("BOTTOMLEFT", 12, 3)
+  r.bar:SetPoint("BOTTOMRIGHT", 0, 3)
+  r.bar:SetHeight(2)
   r.bar:SetColorTexture(hex(C.active))
   r.fill = r:CreateTexture(nil, "OVERLAY")
   r.fill:SetPoint("TOPLEFT", r.bar, "TOPLEFT")
@@ -315,14 +315,19 @@ function W:Update()
       r.fact:SetText(#list > 0 and list[(self.tick or 0) % #list + 1] or "")
       local s3 = ns:PersonS3(p) or {}
       local pct = (s3.xp and s3.xpMax and s3.xpMax > 0) and (s3.xp / s3.xpMax) or nil
-      -- (1.4.17) at 60 the bar shows progress to their next PvP rank (empty until they send it)
-      if (c.level or 0) >= 60 then pct = s3.rankProg end
-      local cr, cg, cb = ns.ClassColor(c.class)
-      if (c.level or 0) >= 60 then cr, cg, cb = 0.85, 0.3, 0.25 end   -- honor bar: Horde red
-      r.fill:SetColorTexture(cr, cg, cb, 0.9)
-      r.fill:SetWidth(math.max(1, (w - 20) * (pct or 0)))
-      -- (1.4.66) no bar under the row (the canvas card is name, place and one fact)
-      r.fill:Hide() r.bar:Hide()
+      -- (1.4.72) the XP line is back: a fine line in their class colour under the row, not at level 60
+      local showBar = pct ~= nil and (c.level or 0) < (ns.S(GetMaxPlayerLevel) or 60)
+      if showBar then
+        local cr, cg, cb = ns.ClassColor(c.class)
+        r.bar:SetColorTexture(hex(C.active))
+        r.fill:SetColorTexture(cr, cg, cb, 0.9)
+        local bw = math.max(10, (r:GetWidth() or (w - 40)) - 12)
+        r.fill:SetWidth(math.max(1, bw * pct))
+        r.fill:SetShown(pct > 0)
+      else
+        r.fill:Hide()
+      end
+      r.bar:SetShown(showBar)
       r:Show()
       y = y - ROW_H
     end
