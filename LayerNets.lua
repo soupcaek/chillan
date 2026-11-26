@@ -83,6 +83,8 @@ pump = function()
 end
 local function send(prefix, text, to, urgent, life, kind)
   if #text > 255 then return end
+  -- an offline name's "No player named …" line is ours: LayerHop's chat filter hides it
+  if (kind or "WHISPER") == "WHISPER" and type(to) == "string" and L.sentTo then L.sentTo[norm(to)] = GetTime() + (life or 15) end
   if #queue >= 60 then if not urgent then return end table.remove(queue) end
   local q = { prefix = prefix, text = text, to = to, kind = kind, exp = life and (now() + life) or nil }
   if urgent then

@@ -215,12 +215,7 @@ function L:Request()
   end
   -- a round of asks that's done without an invite: a new click starts a fresh round
   if m and m.mode == "ls" and m.doneAt and not m.joinedAt and not m.by and GetTime() - m.doneAt > 3 then
-    -- (1.4.71) still nobody: AutoLayer's users read a line in their channel, which only a key press may
-    -- send – the line waits in the chat box, Enter asks them (at most every 2 minutes)
-    local AL = L.Nets and L.Nets.AL
-    if AL and not inCombat() and GetTime() - (AL.promptAt or -1e9) > 120 and AL.Prompt() then
-      ns.Print("Layer hop: press Enter to ask AutoLayer users too.")
-    end
+    -- (1.4.72) no AutoLayer line in the chat box any more: it opened the chat box (as a whisper) mid-hop
     self.mine, m = nil, nil
   end
   local pending = m and not m.joinedAt and ns.Now() - m.t < REQUEST_TTL
@@ -253,10 +248,7 @@ function L:Request()
     C_Timer.After(0.1, function()
       Comm:Broadcast(Comm:Build("LQ", id, ns.pid, Comm:MyFull(), ns.Now(), from or "", map or ""), 1)
     end)
-    local names = {}
-    for i, p in ipairs(hosts) do if i <= 3 then names[#names + 1] = ns:ShortWho(p) end end
-    ns.Print("Layer hop: asking the gang (" .. table.concat(names, ", ") .. (#hosts > 3 and " …" or "")
-      .. " can move you" .. (from and (" off " .. label(from)) or "") .. ").")
+    -- (1.4.72) quiet while working: the Swap tile shows how it goes
     -- no gang invite after a while: the LayerSwap users this click found get the ask
     C_Timer.After(10, function()
       if self.mine == m and not m.by and not m.joinedAt and m.mode == "gang" then self:AskLayerSwap(m) end
@@ -685,10 +677,6 @@ function L:Whisper(m, names)
     m.doneAt = GetTime()
     -- (1.4.51) LayerSwap 1.14.54 hosts hold their reply up to ~4 s: give them 5 before the re-ask
     C_Timer.After(5.1, function() L:Anyway(m) end)
-    local w = who
-    ns.Print("Layer hop: " .. (m.noGang and "no gang member is on another layer here, so " or "") .. "asked " .. (m.sent or sent)
-      .. " player" .. ((m.sent or sent) == 1 and "" or "s")
-      .. ((w and w.inZone) and (" (" .. w.inZone .. " in your zone)") or "") .. " – waiting for a LayerSwap host on another layer.")
     -- what came back, so a hop without an invite says why
     local mm = m
     C_Timer.After(12, function()
@@ -699,13 +687,10 @@ function L:Whisper(m, names)
         elseif r.host then busy = busy + 1 else quiet = quiet + 1 end
       end
       local total = same + other + busy + quiet
-      if total == 0 then
-        local w2 = who
-        ns.Print("Layer hop: no LayerSwap user answered here. "
-          .. ((w2 and w2.more) and "The zone has more players than one search shows – click Layer hop again to ask others." or "Click Layer hop again in a bit, or try a busier zone."))
-      else
-        ns.Print("Layer hop: " .. total .. " LayerSwap user" .. (total == 1 and "" or "s") .. " answered – "
-          .. same .. " on your layer, " .. other .. " hosting on another layer, " .. (busy + quiet) .. " not able to host right now. Click Layer hop again to ask more.")
+      for _ in pairs(mm.netReplies or {}) do total = total + 1 end
+      -- (1.4.72) one short line, only when it's stuck (the tile shows the counts)
+      if other == 0 then
+        ns.Print("Layer hop: no host on another layer answered yet – click Swap again to ask more, or try a busier zone.")
       end
     end)
   end
@@ -730,13 +715,20 @@ local function systemFilter(_, _, text, ...)
   if not name then return false end
   local key = norm(name)
   local at = L.sentTo[key]
-  if not at or GetTime() - at > 15 then return false end
+  if not at or GetTime() - at > 60 then return false end
   -- a known host the game can't find right now is left alone 10 min, not forgotten
   local b = ns.db.lsBook
   if b then for nm, e in pairs(b) do if norm(nm) == key and type(e) == "table" then e.gone = time() end end end
   return true
 end
-if ChatFrame_AddMessageEventFilter then ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", systemFilter) end
+-- (1.4.72) the filter API moved to ChatFrameUtil on this client: the old name alone left every
+-- "No player named …" in chat
+do
+  local added = {}
+  for _, add in ipairs({ ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter, ChatFrame_AddMessageEventFilter }) do
+    if add and not added[add] then added[add] = true pcall(add, "CHAT_MSG_SYSTEM", systemFilter) end
+  end
+end
 L.NotPlaying = notPlaying
 
 -- a LayerSwap user answered our ask: "heard <me>|<their layer>|<zone>|<h or ->"

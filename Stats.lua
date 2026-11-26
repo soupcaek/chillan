@@ -160,6 +160,9 @@ function St:SnapDay()
     if s and s.wk == wk then
       local old = d[pid]
       local row = { wk = wk, base = old and old.wk == wk and old.base or {} }
+      -- (1.4.72) gold counts from the moment this person's Chillan counts it right
+      row.g72 = ns.GoldTrusted(p) or nil
+      if row.g72 and old and not old.g72 then row.base.Gold = nil end
       for _, k in ipairs(self.DAY_KEYS) do
         row[k] = s["w" .. k] or 0
         -- the first value noted today: the day's starting point when there's no earlier day
@@ -190,7 +193,7 @@ function St:DaySeries(key, pid)
     local v, known = 0, false
     if snap and t <= now then
       for id, row in pairs(snap) do
-        if (not pid or id == pid) and row.wk == wk then
+        if (not pid or id == pid) and row.wk == wk and (key ~= "Gold" or row.g72) then
           -- a person's first note this week is only a starting point, unless it's Monday's (the
           -- week starts at 0 then); otherwise a whole week would land on the first day we noted
           local before = prevTotals[id] or (i == 0 and 0) or (row.base and row.base[key])
@@ -209,6 +212,7 @@ end
 
 if C_Timer and C_Timer.NewTicker then
   ns:On("PLAYER_LOGIN", function()
+    C_Timer.After(5, function() pcall(ns.FixOwnGold) end)
     C_Timer.After(30, function() St:SnapDay() end)
     C_Timer.NewTicker(300, function() St:SnapDay() end)
   end)

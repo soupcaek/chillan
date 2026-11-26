@@ -525,12 +525,28 @@ end
 -- /chill versions: everyone's version, the outdated ones marked
 function ns.PrintVersions()
   local newest = ns.NewestRelease()
-  local rows = {}
+  -- (1.4.72) one line per person: a second PC or account under the same name shows its newest install,
+  -- with a note when another one is older
+  local byName = {}
   for pid, p in pairs(ns.db.people or {}) do
     local v = pid == ns.pid and ns.VERSION or p.version
+    local key = ((ns.PersonFirst and ns:PersonFirst(p)) or ns:PersonName(p) or pid):lower()
+    local g = byName[key]
+    if not g then g = { n = 0, old = 0 } byName[key] = g end
+    g.n = g.n + 1
+    if ns.IsOutdated(p) then g.old = g.old + 1 end
+    if not g.best or (v and (not g.bestV or ns.NewerVersion(v, g.bestV))) or (pid == ns.pid) then
+      if not (g.best and g.best == ns.pid) then g.best, g.bestV, g.p = pid, v, p end
+    end
+  end
+  local rows = {}
+  for _, g in pairs(byName) do
+    local pid, p = g.best, g.p
+    local v = g.bestV
     local old = ns.IsOutdated(p) or (pid == ns.pid and newest and not ns.VERSION:find("dev", 1, true) and ns.NewerVersion(newest, ns.VERSION))
     local line = ns:PersonName(p) .. "  " .. (v and ("v" .. v) or "?")
       .. (old and " |cffF2777A(old – update in WowUp)|r" or "")
+      .. ((not old and g.old > 0) and (" |cffE0C068(+" .. g.old .. " older install)|r") or "")
       .. ((pid ~= ns.pid and not ns:IsOnline(p)) and " |cff808080· offline|r" or "")
     rows[#rows + 1] = { old = old and 0 or 1, line = line }
   end
@@ -953,9 +969,25 @@ function ns:PersonAltCount(p)
 end
 
 -- Ukestall som faktisk gjelder denne uka
+-- (1.4.72) gold earned is only believed from Chillan 1.4.72 on: older ones counted gold moved between
+-- your own characters (mail, trades) as earned. Your own week starts over once when you update.
+function ns.GoldTrusted(p)
+  if not p then return false end
+  if p.pid == ns.pid or p == (ns.db.people and ns.db.people[ns.pid]) then return ns.db.goldFix72 == true end
+  local v = p.version
+  return type(v) == "string" and v ~= "" and not ns.NewerVersion("1.4.72", v)
+end
+function ns.FixOwnGold()
+  if ns.db.goldFix72 then return end
+  local me = ns.db.people and ns.db.people[ns.pid]
+  if not me or not me.stats then return end
+  me.stats.wGold = 0
+  ns.db.goldFix72 = true
+end
 function ns:WeekStat(p, key)
   local s = p.stats or {}
   if s.wk ~= ns.WeekKey() then return 0 end
+  if key == "Gold" and not ns.GoldTrusted(p) then return 0 end
   return s["w" .. key] or 0
 end
 function ns:TotalStat(p, key)

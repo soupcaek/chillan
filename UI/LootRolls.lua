@@ -398,8 +398,11 @@ local TEST_PLAYERS = {
   { name = "Eirik", class = "MAGE" },
 }
 function R:Test()
-  local link = select(2, GetItemInfo(12927)) or "|cffa335ee|Hitem:12927::::::::60:::::|h[Truestrike Shoulders]|h|r"
-  local texture = GetItemIcon and GetItemIcon(12927) or nil
+  -- (dev4) GetItemInfo/GetItemIcon are only in C_Item on this client
+  local info = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  local link = info and select(2, info(12927)) or "|cffa335ee|Hitem:12927::::::::60:::::|h[Truestrike Shoulders]|h|r"
+  local icon = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+  local texture = icon and icon(12927) or nil
   local _, myClass = UnitClass("player")
   local players = { { name = me(), class = safe(myClass) } }
   for _, p in ipairs(TEST_PLAYERS) do players[#players + 1] = p end

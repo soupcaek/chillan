@@ -394,6 +394,41 @@ function AH.SaleTotal(itemID, qty, amount, commodity)
   return amount
 end
 
+-- (1.4.72) a stack sale counted "count times too big" by Chillan before 1.4.70 (97 Iron Bars as 272g):
+-- when the price per item is far above the gang price and the price divided by the count again
+-- lands near it, the count was in there twice
+function AH.FixStack(id, q, g)
+  q = tonumber(q) or 1
+  if q <= 1 or not g or g <= 0 then return g end
+  local ref = AH.GangPrice(id)
+  if (not ref or ref <= 0) and ns.Market and ns.Market.Get then local e = ns.Market:Get(id) ref = e and e.v end
+  if not ref or ref <= 0 then return g end
+  local per, twice = g / q, g / q / q
+  if per > ref * 4 and math.abs(math.log(twice / ref)) < math.abs(math.log(per / ref)) then return math.floor(g / q) end
+  return g
+end
+-- your own list of sales put right once (it is what the gang sees of you)
+function AH.RepairSales()
+  local s = AH.Stats()
+  if s.fixQ then return end
+  if not ns.db.market or not next(ns.db.market) then return end   -- needs the gang prices
+  s.fixQ = true
+  local monday = ns.MondayOf and ns.MondayOf(ns.Now()) or (ns.Now() - 7 * 86400)
+  local fixed = 0
+  for _, x in ipairs(s.sales) do
+    local g = AH.FixStack(x.id, x.q, x.g)
+    if g ~= x.g then
+      local d = x.g - g
+      x.g = g
+      s.t.g = math.max(0, s.t.g - d)
+      if x.at >= monday then s.w.g = math.max(0, s.w.g - d) end
+      fixed = fixed + 1
+    end
+  end
+  if fixed > 0 then AH.dirty = true AH.Trace("put right " .. fixed .. " stack sales counted too big") end
+end
+ns:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(20, function() pcall(AH.RepairSales) end) end)
+
 -- gold after the cut and number of sales in the last n seconds
 function AH.SoldSince(sec)
   local s = AH.Stats()
@@ -467,8 +502,13 @@ ns:On("PLAYER_LOGIN", function() C_Timer.After(45, function() AH.Stats() AH.Shar
 ---------------------------------------------------------------------------
 local post = {}
 AH.post = post
+-- (dev4) test builds say in chat what the post did, so a dead Post button can be told apart
+function AH.Trace(msg)
+  if ns.VERSION and ns.VERSION:find("dev", 1, true) then ns.Print("|cff808080Market trace: " .. msg .. "|r") end
+end
 local function postDone(good)
   if not post.waiting then return end
+  AH.Trace(good and "posted" or "not posted (no answer or an error from the auction house)")
   post.waiting, post.confirm = false, nil
   post.gen = (post.gen or 0) + 1
   if good then AH.NotePosted(post.n or 1) end
@@ -497,6 +537,10 @@ local function hookWarning()
   hooksecurefunc(d, "OnHide", function() if post.confirm then postDone(false) end end)
 end
 function AH.CanPost() return not post.waiting and ok(C_AuctionHouse.IsThrottledMessageSystemReady) and true or false end
+function AH.WhyNot()
+  if post.waiting then return "still waiting for the last post" end
+  if not ok(C_AuctionHouse.IsThrottledMessageSystemReady) then return "the auction house is busy (throttled)" end
+end
 function AH.PostWaiting() return post.waiting end
 function AH.Deposit(e, qty, duration)
   local d
@@ -512,10 +556,9 @@ function AH.Post(e, qty, price, duration, cb)
   if not AH.CanPost() then return false end
   local loc = AH.Location(e)
   if not loc then return false end
-  -- (1.4.70) the game's own sell frame may hold the same item: let go of it BEFORE posting. Clearing
-  -- it afterwards cancelled the post we had just sent, so the first click did nothing
-  local f = _G.AuctionHouseFrame
-  if f and f.ClearPostItem then pcall(f.ClearPostItem, f) end
+  -- (dev4) nothing else happens in the click any more: touching the game's own sell frame here (before
+  -- or after) spoiled the post. It is emptied when the auction house opens instead.
+  AH.Trace("post " .. (e.commodity and "commodity" or "item") .. " " .. tostring(e.itemID) .. " x" .. qty .. " @" .. price)
   local need
   if e.commodity then need = C_AuctionHouse.PostCommodity(loc, duration, qty, price)
   else need = C_AuctionHouse.PostItem(loc, duration, qty, nil, price) end
@@ -797,6 +840,11 @@ end
 -- the auction house opening and closing
 ---------------------------------------------------------------------------
 on("AUCTION_HOUSE_SHOW", function()
+  -- the game's sell frame may hold an item from last time: let it go now, outside any click
+  C_Timer.After(0.2, function()
+    local f = _G.AuctionHouseFrame
+    if f and f.ClearPostItem and not InCombatLockdown() then pcall(f.ClearPostItem, f) end
+  end)
   if not AH.Modern() then return end   -- the classic auction house: only the scan button there
   AH.open = true
   AH.Stats()

@@ -35,11 +35,31 @@ local function qhex(q)
   local c = ITEM_QUALITY_COLORS and q and ITEM_QUALITY_COLORS[q]
   return c and c.hex or "|cffe8eaed"
 end
+local askedNames = {}
 local function itemName(id)
   local okI, name, link, q, _, _, _, _, _, _, icon = pcall(C_Item.GetItemInfo, id)
   if okI and name then return name, q, icon, link end
+  -- (1.4.72) not in the game's cache yet: ask for it (the page redraws when it comes), and meanwhile
+  -- use the name the gang's scans saw, never a bare item number
+  if id and not askedNames[id] and C_Item and C_Item.RequestLoadItemDataByID then
+    askedNames[id] = true
+    pcall(C_Item.RequestLoadItemDataByID, id)
+  end
+  local known = ns.db.marketNames and ns.db.marketNames[id]
+  if known then
+    local okIcon, ic = pcall(C_Item.GetItemIconByID, id)
+    return known, nil, okIcon and ic or nil
+  end
   return nil
 end
+ns:On("GET_ITEM_INFO_RECEIVED", function(id)
+  if not askedNames[id] or W.namesRedraw then return end
+  W.namesRedraw = true
+  C_Timer.After(0.5, function()
+    W.namesRedraw = nil
+    if W.gangP and W.gangP.salesP and W.gangP.salesP:IsVisible() then W:DrawGang() end
+  end)
+end)
 local function left(secs)
   if not secs or secs <= 0 then return "" end
   if secs >= 3600 then return math.floor(secs / 3600) .. "h" end
@@ -778,7 +798,7 @@ end
 
 function W:DoPost()
   local e, price, qty, dur = self:SellValues()
-  if not e or not price then return end
+  if not e or not price then AH.Trace("Post clicked, but no item or price is picked") return end
   local s = self.sell
   local done = AH.Post(e, qty, price, dur, function(good)
     if good then
@@ -791,7 +811,7 @@ function W:DoPost()
     end
     W:DrawSell()
   end)
-  if not done then ns.Print("Market: the auction house isn't ready – try again in a moment.") end
+  if not done then ns.Print("Market: can't post yet – " .. (AH.WhyNot() or "the item isn't in your bags any more") .. ".") end
   self:PaintSellTotals()
 end
 
@@ -1478,7 +1498,20 @@ function W:GangRows(range)
       elseif range == 2 then x = (mk.wk == wk and mk.pwk == pwk and mk.pw) or (mk.wk == pwk and mk.w) or nil
       else x = mk.t end
       local nm, c = who(p)
-      out[#out + 1] = { name = nm, col = c, x = x or { g = 0, i = 0, s = 0, p = 0 }, tops = (range == 1 and mk.wk == wk) and mk.tops or {} }
+      local tops = (range == 1 and mk.wk == wk) and mk.tops or {}
+      -- (1.4.72) a friend still on an older Chillan sends stack sales counted too big: put the ones we can
+      -- see right, and take the difference off their total
+      if x and not (p.version and not ns.NewerVersion("1.4.72", p.version)) then
+        local fixedTops, cut = {}, 0
+        for _, t in ipairs(tops) do
+          local g = AH.FixStack(t.id, t.q, t.g)
+          cut = cut + (t.g - g)
+          fixedTops[#fixedTops + 1] = { id = t.id, q = t.q, g = g, at = t.at }
+        end
+        tops = fixedTops
+        if cut > 0 then x = { g = math.max(0, (x.g or 0) - cut), i = x.i, s = x.s, p = x.p } end
+      end
+      out[#out + 1] = { name = nm, col = c, x = x or { g = 0, i = 0, s = 0, p = 0 }, tops = tops }
     end
   end
   return out

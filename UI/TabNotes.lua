@@ -8,9 +8,15 @@ ns.Notes = N
 local ROW_H = 28
 
 local function today() return date("%Y-%m-%d") end
+-- (dev4) kept in ns.db.myNotes: ns.db.notes holds the gang's map notes (Extras.lua)
 function N.Data()
-  ns.db.notes = ns.db.notes or {}
-  local d = ns.db.notes
+  local old = ns.db.notes
+  if type(old) == "table" and (type(old.items) == "table" or type(old.text) == "string") and not ns.db.myNotes then
+    ns.db.myNotes = { items = old.items, text = old.text }
+  end
+  if type(old) == "table" then old.items, old.text = nil, nil end
+  ns.db.myNotes = ns.db.myNotes or {}
+  local d = ns.db.myNotes
   d.items = d.items or {}
   d.text = d.text or ""
   -- done ones from an earlier day go (the list shows "Done today")
@@ -73,6 +79,20 @@ ns:RegisterTab("notes", "Notes", "Book", function(tab)
   todo:SetPoint("RIGHT", tab, "CENTER", 30, 0)
   notes:SetPoint("TOPLEFT", todo, "TOPRIGHT", 12, 0)
   notes:SetPoint("BOTTOMRIGHT", -12, 12)
+  -- (dev4) "Pin" on each box: a copy stays on screen while the Chillan window is closed
+  local function pinButton(sec, which)
+    local b = UI.Button(sec, 56, 20, "Pin", "ghost", function(self)
+      N.SetPinned(which, not N.Pinned(which))
+      self:SetLabel(N.Pinned(which) and "Unpin" or "Pin")
+    end)
+    b:SetPoint("RIGHT", sec, "TOPRIGHT", -6, -(sec.stripH / 2))
+    b.tooltip = "Keeps this box on your screen while the Chillan window is closed. Drag it to move, the corner to resize."
+    sec.right:ClearAllPoints()
+    sec.right:SetPoint("RIGHT", b, "LEFT", -8, 0)
+    sec.pin = b
+    return b
+  end
+  local todoPin, notesPin = pinButton(todo, "todo"), pinButton(notes, "notes")
 
   -- adding
   local add
@@ -191,7 +211,7 @@ ns:RegisterTab("notes", "Notes", "Book", function(tab)
   sf:SetScrollChild(ed)
   sf:SetScript("OnSizeChanged", function(self, w) if w and w > 0 then ed:SetWidth(w) end end)
   ed:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-  ed:SetScript("OnTextChanged", function(self, user) if user then N.Data().text = self:GetText() end end)
+  ed:SetScript("OnTextChanged", function(self, user) if user then N.Data().text = self:GetText() N.UpdatePins() end end)
   -- a click anywhere in the field writes
   field:EnableMouse(true)
   field:SetScript("OnMouseDown", function() ed:SetFocus() ed:SetCursorPosition(#(ed:GetText() or "")) end)
@@ -199,6 +219,9 @@ ns:RegisterTab("notes", "Notes", "Book", function(tab)
   ed:SetScript("OnEditFocusLost", function() field:SetColors(C.field or C.input, C.border or C.inputLine) end)
 
   function tab:Refresh()
+    todoPin:SetLabel(N.Pinned("todo") and "Unpin" or "Pin")
+    notesPin:SetLabel(N.Pinned("notes") and "Unpin" or "Pin")
+    N.UpdatePins()
     local view, nOpen = N.View()
     todo.right:SetText(nOpen > 0 and (nOpen .. " left") or "")
     clear:SetShown(#view > nOpen)
@@ -208,9 +231,163 @@ ns:RegisterTab("notes", "Notes", "Book", function(tab)
   tab:HookScript("OnShow", function() tab:Refresh() end)
 end)
 
+---------------------------------------------------------------------------
+-- (dev4) pinned boxes: the to-do list or the notes on screen while the Chillan window is closed.
+-- Drag to move, the corner to resize; a click on a to-do ticks it.
+---------------------------------------------------------------------------
+N.pins = {}
+local function pinState(which)
+  local d = N.Data()
+  d.pins = d.pins or {}
+  d.pins[which] = d.pins[which] or {}
+  return d.pins[which]
+end
+function N.Pinned(which) return pinState(which).on == true end
+function N.SetPinned(which, on)
+  pinState(which).on = on or nil
+  N.UpdatePins()
+end
+local function mainOpen()
+  local W = ns.Window
+  return W and W.frame and W.frame:IsShown()
+end
+local PIN_ROW = 20
+local function buildPin(which)
+  local f = UI.OverlayPanel(UIParent, C.panel or C.card, C.border or C.line, 6)
+  f:SetFrameStrata("MEDIUM")
+  f:SetClampedToScreen(true)
+  local st = pinState(which)
+  f:SetSize(st.w or 240, st.h or (which == "todo" and 180 or 200))
+  f:SetResizable(true)
+  if f.SetResizeBounds then f:SetResizeBounds(160, 80, 600, 700) end
+  f.title = UI.Text(f, 10, "bold", C.text2)
+  f.title:SetPoint("TOPLEFT", 10, -8)
+  f.title:SetText(which == "todo" and "TO-DO" or "NOTES")
+  f.count = UI.Text(f, 10, nil, C.dim)
+  f.count:SetPoint("TOPRIGHT", -26, -8)
+  local x = UI.IconButton(f, 16, "Close", "Unpin", function()
+    N.SetPinned(which, false)
+    local W = ns.Window
+    local tab = W and W.tabs and W.tabs.notes
+    if tab and tab:IsVisible() then tab:Refresh() end
+  end)
+  x:SetPoint("TOPRIGHT", -5, -5)
+  f.body = CreateFrame("Frame", nil, f)
+  f.body:SetPoint("TOPLEFT", 10, -26)
+  f.body:SetPoint("BOTTOMRIGHT", -10, 10)
+  if which == "notes" then
+    f.text = UI.Text(f.body, 12, nil, C.text)
+    f.text:SetPoint("TOPLEFT")
+    f.text:SetPoint("BOTTOMRIGHT")
+    f.text:SetJustifyH("LEFT")
+    f.text:SetJustifyV("TOP")
+    f.text:SetWordWrap(true)
+  else
+    f.rows = {}
+  end
+  UI.Movable(f, which == "todo" and "pinTodo" or "pinNotes", function(fr)
+    fr:SetPoint("RIGHT", UIParent, "RIGHT", -40, which == "todo" and 120 or -110)
+  end)
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(14, 14)
+  grip:SetPoint("BOTTOMRIGHT", -2, 2)
+  grip:SetFrameLevel(f:GetFrameLevel() + 10)
+  grip.tex = grip:CreateTexture(nil, "OVERLAY")
+  grip.tex:SetAllPoints()
+  grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    f:StopMovingOrSizing()
+    local w, h = math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5)
+    f:SetSize(w, h)
+    st.w, st.h = w, h
+    UI.SnapFrame(f)
+    N.DrawPin(which)
+  end)
+  f:HookScript("OnSizeChanged", function() if f:IsShown() then N.DrawPin(which) end end)
+  N.pins[which] = f
+  return f
+end
+function N.DrawPin(which)
+  local f = N.pins[which]
+  if not f then return end
+  if which == "notes" then
+    local t = N.Data().text or ""
+    f.text:SetText(t ~= "" and t or ns.Colorize("Nothing written yet.", C.dim))
+    return
+  end
+  local view, nOpen = N.View()
+  f.count:SetText(nOpen > 0 and (nOpen .. " left") or "")
+  local fit = math.max(1, math.floor((f.body:GetHeight() or 100) / PIN_ROW))
+  local shown = 0
+  for _, it in ipairs(view) do
+    if not it.header and not it.done and shown < fit then
+      shown = shown + 1
+      local r = f.rows[shown]
+      if not r then
+        r = CreateFrame("Button", nil, f.body)
+        r:SetHeight(PIN_ROW)
+        r:SetPoint("TOPLEFT", 0, -(shown - 1) * PIN_ROW)
+        r:SetPoint("RIGHT")
+        r.box = UI.Panel(r, C.field or C.input, C.btnLine or C.activeLine, 3)
+        r.box:SetSize(12, 12)
+        r.box:SetPoint("LEFT", 0, 0)
+        r.text = UI.Text(r, 12, nil, C.text)
+        r.text:SetPoint("LEFT", r.box, "RIGHT", 7, 0)
+        r.text:SetPoint("RIGHT")
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r:SetScript("OnClick", function(self)
+          if self.item then
+            N.Toggle(self.item)
+            N.DrawPin("todo")
+            local W = ns.Window
+            local tab = W and W.tabs and W.tabs.notes
+            if tab and tab:IsVisible() then tab:Refresh() end
+          end
+        end)
+        f.rows[shown] = r
+      end
+      r.item = it
+      r.text:SetText(it.t)
+      r:Show()
+    end
+  end
+  for i = shown + 1, #f.rows do f.rows[i]:Hide() end
+  if shown == 0 then
+    f.count:SetText("all done")
+  end
+end
+function N.UpdatePins()
+  if not ns.db then return end
+  for _, which in ipairs({ "todo", "notes" }) do
+    local want = N.Pinned(which) and not mainOpen()
+    local f = N.pins[which]
+    if want and not f then f = buildPin(which) end
+    if f then
+      f:SetShown(want)
+      if want then N.DrawPin(which) end
+    end
+  end
+end
+-- the main window's show/hide decides whether the pins are up
+local hooked
+local function hookWindow()
+  local W = ns.Window
+  if hooked or not (W and W.frame) then return end
+  hooked = true
+  W.frame:HookScript("OnShow", N.UpdatePins)
+  W.frame:HookScript("OnHide", N.UpdatePins)
+end
+if ns.Window and ns.Window.Create then
+  hooksecurefunc(ns.Window, "Create", function() hookWindow() N.UpdatePins() end)
+end
+ns:On("PLAYER_LOGIN", function() C_Timer.After(2, function() hookWindow() N.UpdatePins() end) end)
+
 -- /chill todo <text>: add without opening the window
 function N.Slash(rest)
   if N.Add(rest) then
+    N.UpdatePins()
     local _, n = N.View()
     ns.Print("To-do added (" .. n .. " open). /chill notes opens the list.")
   else

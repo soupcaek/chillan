@@ -425,6 +425,19 @@ end
 
 -- Si fra én gang per økt hvis en venn har nyere versjon av Chillan?
 local updateNoticeShown = false
+-- (1.4.72) at every login and /reload, like other addons do: a line in chat when the gang has a newer
+-- release than you (known from what friends' Chillan said before, so nobody needs to be online)
+function Data:LoginUpdateLine()
+  if ns.VERSION:find("dev", 1, true) then return end
+  local newest = ns.NewestRelease and ns.NewestRelease()
+  if newest and ns.NewerVersion(newest, ns.VERSION) then
+    updateNoticeShown = true
+    ns.Print("|cffffd100Version " .. newest .. " is available (you have " .. ns.VERSION .. "). Update in WowUp.|r")
+  end
+end
+ns:On("PLAYER_ENTERING_WORLD", function(login, reload)
+  if login or reload then C_Timer.After(6, function() Data:LoginUpdateLine() end) end
+end)
 function Data:CheckVersion(theirVersion, pid)
   if not theirVersion or theirVersion == "" then return end
   -- (1.4.72) a test build (x.y.z-dev…) never counts as a new version for the others
