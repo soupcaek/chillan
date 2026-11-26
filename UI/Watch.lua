@@ -7,7 +7,7 @@ local W = {}
 ns.Watch = W
 
 local MAX = 4
-local ROW_H = 34
+local ROW_H = 40   -- (1.4.72) 34 left the XP line touching the next friend
 
 local function list()
   ns.db.watch = ns.db.watch or {}
@@ -131,8 +131,8 @@ local function makeRow(f, i)
   r.fact:SetPoint("RIGHT", -2, 0)
   r.fact:SetWordWrap(false)
   r.bar = UI.Track(r:CreateTexture(nil, "ARTWORK"))
-  r.bar:SetPoint("BOTTOMLEFT", 12, 3)
-  r.bar:SetPoint("BOTTOMRIGHT", 0, 3)
+  r.bar:SetPoint("BOTTOMLEFT", 12, 7)
+  r.bar:SetPoint("BOTTOMRIGHT", 0, 7)
   r.bar:SetHeight(2)
   r.bar:SetColorTexture(hex(C.active))
   r.fill = r:CreateTexture(nil, "OVERLAY")
