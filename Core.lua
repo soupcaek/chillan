@@ -505,6 +505,40 @@ function ns.Split(str, sep)
 end
 
 -- Sammenlign versjoner: returnerer true hvis a er nyere enn b
+-- (1.4.72) the newest released version anyone in the gang runs (test builds don't count)
+function ns.NewestRelease()
+  local best = not ns.VERSION:find("dev", 1, true) and ns.VERSION or nil
+  for _, p in pairs(ns.db and ns.db.people or {}) do
+    local v = p.version
+    if type(v) == "string" and v ~= "" and not v:find("dev", 1, true) and (not best or ns.NewerVersion(v, best)) then best = v end
+  end
+  return best
+end
+-- is this person's Chillan older than the newest release in the gang?
+function ns.IsOutdated(p)
+  local v = p and p.version
+  if p and p.pid == ns.pid then v = ns.VERSION end
+  if type(v) ~= "string" or v == "" or v:find("dev", 1, true) then return false end
+  local newest = ns.NewestRelease()
+  return newest ~= nil and ns.NewerVersion(newest, v)
+end
+-- /chill versions: everyone's version, the outdated ones marked
+function ns.PrintVersions()
+  local newest = ns.NewestRelease()
+  local rows = {}
+  for pid, p in pairs(ns.db.people or {}) do
+    local v = pid == ns.pid and ns.VERSION or p.version
+    local old = ns.IsOutdated(p) or (pid == ns.pid and newest and not ns.VERSION:find("dev", 1, true) and ns.NewerVersion(newest, ns.VERSION))
+    local line = ns:PersonName(p) .. "  " .. (v and ("v" .. v) or "?")
+      .. (old and " |cffF2777A(old – update in WowUp)|r" or "")
+      .. ((pid ~= ns.pid and not ns:IsOnline(p)) and " |cff808080· offline|r" or "")
+    rows[#rows + 1] = { old = old and 0 or 1, line = line }
+  end
+  table.sort(rows, function(a, b) if a.old ~= b.old then return a.old < b.old end return a.line < b.line end)
+  ns.Print("Chillan versions" .. (newest and (" – newest " .. newest) or "") .. ":")
+  for _, r in ipairs(rows) do ns.Print("  " .. r.line) end
+end
+
 function ns.NewerVersion(a, b)
   local function parts(v)
     local out = {}

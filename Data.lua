@@ -427,6 +427,8 @@ end
 local updateNoticeShown = false
 function Data:CheckVersion(theirVersion, pid)
   if not theirVersion or theirVersion == "" then return end
+  -- (1.4.72) a test build (x.y.z-dev…) never counts as a new version for the others
+  if theirVersion:find("dev", 1, true) then return end
   if ns.VERSION:find("dev", 1, true) then return end
   -- remember the newest version anyone in the gang has (shown in the main window header)
   if ns.NewerVersion(theirVersion, ns.VERSION) and (not ns.newestVersion or ns.NewerVersion(theirVersion, ns.newestVersion)) then

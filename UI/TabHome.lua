@@ -89,8 +89,11 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
       elseif L.status == "AFK" then tag = "AFK"
       elseif L.layer and ns.Layer and ns.Layer.Comparable() then tag = ns.Layer.Label(L.layer) end
       local mine = ns.Layer and ns.Layer:Current()
+      -- (1.4.72) an old Chillan shows instead (it matters more: they miss what the gang has)
+      local old = ns.IsOutdated(p)
+      if old then tag = "old v" .. tostring(p.version) end
       row.tag:SetText(tag)
-      UI.Track(row.tag):SetTextColor(hex((L.layer and mine and L.layer == mine and not L.inInst and ns.Layer and ns.Layer.Comparable()) and "9BE08A" or C.muted))
+      UI.Track(row.tag):SetTextColor(hex(old and "E0C068" or (L.layer and mine and L.layer == mine and not L.inInst and ns.Layer and ns.Layer.Comparable()) and "9BE08A" or C.muted))
       local z = L.zone or ""
       if L.sub and L.sub ~= "" and L.sub ~= z then z = z .. ", " .. L.sub end
       row.sub:SetText(z ~= "" and z or "online")

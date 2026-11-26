@@ -213,6 +213,12 @@ function PC:Fill(pid)
     for _ in pairs(p.chars or {}) do n = n + 1 end
     where = where .. "\n" .. ns.Colorize("/played " .. ns.Duration(played) .. (n > 1 and ("  ·  " .. n .. " characters") or ""), C.dim)
   end
+  -- (1.4.72) the Chillan version, marked when it's older than the gang's newest
+  local v = (p.pid == ns.pid) and ns.VERSION or p.version
+  if v then
+    where = where .. "\n" .. (ns.IsOutdated(p) and ns.Colorize("Chillan v" .. v .. "  ·  update in WowUp", "E0C068")
+      or ns.Colorize("Chillan v" .. v, C.dim))
+  end
   f.zone:SetText(where)
   place(f.zone, y)
   y = y - math.max(14, f.zone:GetStringHeight() or 14) - 10
