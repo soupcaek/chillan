@@ -79,14 +79,20 @@ end)
 -- Er denne personen i gruppa mi nå?
 function ns.InMyGroup(p)
   if not p then return false end
+  -- (1.4.75) matched on the first name ("Gumi Megpoid" is "Gumi" in the group list), the live character too
+  local norm = ns.U.NormName
+  local function firstOf(x) return norm((tostring(x or ""):match("^(%S+)")) or "") end
   local names = {}
-  for _, c in pairs(p.chars or {}) do if c.name then names[c.name] = true end end
+  for key, c in pairs(p.chars or {}) do names[firstOf((c and c.name) or key)] = true end
+  if p.live and p.live.char then names[firstOf(p.live.char)] = true end
+  if p.main then names[firstOf(p.main)] = true end
+  names[""] = nil
   local n = ns.S(GetNumGroupMembers) or 0
   if n == 0 then return false end
   local prefix = (ns.S(IsInRaid) and "raid") or "party"
   for i = 1, n do
     local name = ns.S(UnitName, prefix .. i)
-    if name and names[name] then return true end
+    if name and names[firstOf(name)] then return true end
   end
   return false
 end

@@ -62,7 +62,8 @@ function P:Update()
     -- offline friends: their last known spot, dimmed (if seen within a week)
     local showOff = not online and ns.db.settings.mapPinsOffline ~= false
       and (ns.Now() - (p.lastSeen or 0)) < 7 * 86400
-    if pid ~= ns.pid and p.main and (online or showOff) and L and L.cont and L.wx and L.wy then
+    -- (1.4.75) people in your group already have the game's own live dot: no second, older pin
+    if pid ~= ns.pid and p.main and (online or showOff) and L and L.cont and L.wx and L.wy and not (online and ns.InMyGroup(p)) then
       local ok, _, pos = pcall(C_Map.GetMapPosFromWorldPos, L.cont, CreateVector2D(L.wx, L.wy), mapID)
       if ok and pos then
         local x, y = pos:GetXY()
