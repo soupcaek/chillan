@@ -107,6 +107,9 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
   end
 
   local function dur(x) return x and ns.Duration(x) or "–" end
+  local PANEL_ORDER = { ["Leveling"] = 1, ["Time"] = 2, ["Quests and gold"] = 3, ["Deaths"] = 4, ["PvP"] = 5,
+    ["Gear and addon"] = 6, ["Dungeons and raids"] = 7, ["Professions"] = 8, ["Trophies"] = 9, ["Social"] = 10,
+    ["Other characters"] = 11 }
 
   function tab:Refresh()
     local pid = ns.Window.playerPid
@@ -178,9 +181,10 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
         sp.btn:SetScript("OnClick", button.onClick)
         sp.btn:Show()
       end
-      -- the shortest column takes the next panel
-      local k = 1
-      for i = 2, COLS do if colY[i] > colY[k] then k = i end end
+      -- (1.4.72) each panel has its own column, so nothing moves around when a number changes (the
+      -- shortest-column rule swapped panels between columns as heights changed)
+      local idx = PANEL_ORDER[title] or 1
+      local k = ((idx - 1) % COLS) + 1
       sp:ClearAllPoints()
       sp:SetWidth(colW)
       sp:SetPoint("TOPLEFT", content, "TOPLEFT", (k - 1) * (colW + GAP), colY[k])
@@ -256,7 +260,7 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
         { "Bosses killed", ns.Num(x.bosses) },
         { "Most run", most and (most .. ns.Colorize(" · " .. mostN .. "×", C.dim)) or nil },
         { "Fastest run", x.fastRun and (x.fastRun.inst .. ns.Colorize(" · " .. ns.Duration(x.fastRun.s), C.dim)) or nil },
-        { "Fastest boss", x.fastBoss and (x.fastBoss.boss .. ns.Colorize(" · " .. ns.Duration(x.fastBoss.s), C.dim)) or nil },
+        { "Fastest boss", x.fastBoss and (x.fastBoss.boss .. ns.Colorize(" · " .. string.format("%d:%02d", math.floor(x.fastBoss.s / 60), x.fastBoss.s % 60), C.dim)) or nil },
         { "Gang records", recs > 0 and ns.Colorize(recs .. " held", C.gold) or nil },
         { "Last run", x.last and (x.last.inst .. ns.Colorize(" · " .. ns.Ago(x.last.t), C.dim)) or nil },
       })

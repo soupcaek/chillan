@@ -5,8 +5,11 @@ local ADDON, ns = ...
 local T = {}
 ns.PvETally = T
 
+-- a boss "killed" in less than this was already dead or the timer missed the pull: not a record
+T.MIN_BOSS = 30
 local function db()
-  ns.db.pveTally = ns.db.pveTally or { seen = {}, p = {} }
+  -- v2: kept from 1.4.72-dev10 on (counted again from the feed: the first count kept 0 s kills)
+  if not ns.db.pveTally or ns.db.pveTally.v ~= 2 then ns.db.pveTally = { v = 2, seen = {}, p = {} } end
   return ns.db.pveTally
 end
 local function person(pid)
@@ -36,7 +39,7 @@ function T:Add(item)
     local x = person(pid)
     if k == "BOSS" then
       x.bosses = x.bosses + 1
-      if secs and secs > 0 and (not x.fastBoss or secs < x.fastBoss.s) then
+      if secs and secs >= T.MIN_BOSS and (not x.fastBoss or secs < x.fastBoss.s) then
         x.fastBoss = { s = secs, boss = tostring(item.b or "?"), inst = tostring(item.a or "") }
       end
     else
