@@ -1183,6 +1183,7 @@ end
 
 function ns.PausedLabel()
   if not ns.CommBlind() then return nil end
-  return ns.InBattleground() and "PvP mode · social paused" or "Paused in dungeon"
+  -- (1.4.73) only the gang sync pauses (the game blocks addon messages in instances); the rest works
+  return ns.InBattleground() and "PvP mode · gang sync paused" or "Dungeon · gang sync paused"
 end
 ns.PAUSED_TIP = "The game blocks addon messages inside battlegrounds and dungeons, so gang chat, online status and sharing pause here. Everything syncs again when you leave."

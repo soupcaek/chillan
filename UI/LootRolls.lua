@@ -19,7 +19,18 @@ local CHOICE_COL = { Need = NEED, Greed = GREED, Pass = PASS, Disenchant = "B9AE
 local CHOICE_ORDER = { Need = 1, Greed = 2, Disenchant = 3, Pass = 4 }
 
 local function safe(v) if v == nil or secret(v) then return nil end return v end
-local function on() return S().lootRolls ~= false end
+-- (1.4.73) the Need addon shows the same list in its own roll windows: Chillan's stays off while it's on
+local function needAddon()
+  local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+  if not loaded then return false end
+  for _, n in ipairs({ "Need", "NeedRolls" }) do
+    local ok, v = pcall(loaded, n)
+    if ok and v then return true end
+  end
+  return false
+end
+R.NeedAddon = needAddon
+local function on() return S().lootRolls ~= false and not needAddon() end
 local function itemId(link) return type(link) == "string" and link:match("item:(%d+)") or nil end
 local function me() return safe(UnitName("player")) or "?" end
 
@@ -76,7 +87,13 @@ end
 function R.Parse(text)
   if type(text) ~= "string" or secret(text) then return nil end
   -- (dev5) this client starts loot lines with "[Loot]: "
-  text = text:gsub("^%[[^%]|]+%]:%s*", "")
+  -- (1.4.73) also when the tag is coloured or a chat addon put a time in front ("|cff…[Loot]|r: ",
+  -- "12:01 [Loot]: "): everything up to the first "]: " before any item link goes
+  local cut = text:find("%]|?r?:%s")
+  local link = text:find("|H", 1, true)
+  if cut and cut < 60 and (not link or cut < link) then
+    text = text:sub(cut):gsub("^%]|?r?:%s*", "")
+  end
   if not compiled then compile() end
   for _, c in ipairs(compiled) do
     local caps = { text:match(c.p) }
@@ -305,14 +322,26 @@ function R:Place(roll)
     if x and y and roll.placed then
       f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
     else
-      f:SetPoint("TOP", UIParent, "TOP", 0, -180 - (roll.slot or 0) * 10)
+      -- (1.4.73) no roll window to sit under (another loot addon replaces it): stack the lists under
+      -- each other instead of 10 px apart on top of each other
+      local below
+      for _, o in pairs(R.rolls) do
+        if o ~= roll and o.panel and o.panel:IsShown() and o.stacked and not o.moved and (not below or o.stackN > below.stackN) then below = o end
+      end
+      roll.stacked = true
+      roll.stackN = below and (below.stackN + 1) or 1
+      if below then
+        f:SetPoint("TOP", below.panel, "BOTTOM", 0, -6)
+      else
+        f:SetPoint("TOP", UIParent, "TOP", 0, -180)
+      end
     end
   end
   roll.placed = true
 end
 
 function R:Open(id, link, seconds, players, texture)
-  if not on() then return end
+  if not on() and not R.forcing then return end
   local roll = R.rolls[id]
   if roll then return roll end
   roll = { id = id, link = link, item = itemId(link), texture = texture, startedAt = GetTime(), players = {} }
@@ -338,6 +367,15 @@ function R:Close(roll, byHand)
   -- kept open (setting or reopened): only the close button ends it
   if not byHand and (roll.keep or (S().lootRollsKeep and not roll.test)) then return end
   R.rolls[roll.id] = nil
+  -- lists stacked under this one keep their place on screen
+  if roll.panel then
+    for _, o in pairs(R.rolls) do
+      if o.panel and o.panel:GetNumPoints() > 0 and select(2, o.panel:GetPoint(1)) == roll.panel then
+        local x, y = o.panel:GetLeft(), o.panel:GetTop()
+        if x and y then o.panel:ClearAllPoints() o.panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y) end
+      end
+    end
+  end
   if roll.panel then
     roll.panel:Hide()
     roll.panel.roll = nil
@@ -449,6 +487,13 @@ ns:On("START_LOOT_ROLL", function(id, ms)
   C_Timer.After(0.05, function() R:Open(id, link, safe(ms) and ms / 1000 or nil, nil, texture) end)
 end)
 ns:On("CHAT_MSG_LOOT", function(text) if on() then R:OnLine(safe(text)) end end)
+ns:On("PLAYER_LOGIN", function()
+  C_Timer.After(14, function()
+    if S().lootRolls ~= false and needAddon() then
+      ns.Print("Loot rolls: the Need addon is on, so Chillan's roll list stays off. Turn Need off to use Chillan's (it remembers the last rolls: /chill rolls).")
+    end
+  end)
+end)
 
 ---------------------------------------------------------------------------
 -- /chill need: a test roll – made-up players pick one after another, roll, and one wins
@@ -466,10 +511,9 @@ function R:ShowPast(n)
     return
   end
   local id = h.id .. ":" .. GetTime()
-  local was = S().lootRolls
-  S().lootRolls = true
+  R.forcing = true
   local roll = R:Open(id, h.link, nil, h.players, h.texture)
-  S().lootRolls = was
+  R.forcing = nil
   if not roll then return end
   roll.keep, roll.done, roll.winner, roll.test = true, true, h.winner, true
   for i, q in ipairs(h.players) do
@@ -489,12 +533,11 @@ function R:Test()
   local _, myClass = UnitClass("player")
   local players = { { name = me(), class = safe(myClass) } }
   for _, p in ipairs(TEST_PLAYERS) do players[#players + 1] = p end
-  local was = S().lootRolls
-  S().lootRolls = true
   R.testN = (R.testN or 0) + 1
   local id = "test" .. R.testN
+  R.forcing = true
   local roll = R:Open(id, link, 30, players, texture)
-  S().lootRolls = was
+  R.forcing = nil
   if not roll then return end
   roll.test = true
   local item = link

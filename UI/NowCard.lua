@@ -99,6 +99,17 @@ function N:Create()
   f.btn.label:SetFont(ns.FONT_SEMI or ns.FONT, 11, "")
   f.btn.tooltip = "Bags, durability and food/drink for everyone in your group"
   f.btnNote = UI.Text(f, 11, nil, C.dim)
+  -- (1.4.73) the ready check is a small check mark in the title line (hover for what it does)
+  f.rc = UI.IconButton(f, 18, "Check", nil, function() ns.Extras:StartReadyCheck() end)
+  f.rc:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Ready check", 1, 1, 1)
+    GameTooltip:AddLine("Click: bags, durability and food/drink for everyone in your group.", 0.8, 0.8, 0.8, true)
+    if f.lastBoss then GameTooltip:AddLine("Last boss: " .. f.lastBoss, 0.6, 0.6, 0.65, true) end
+    GameTooltip:Show()
+  end)
+  f.rc:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.rc:Hide()
   f:SetScript("OnMouseUp", function(_, btn)
     if N.moment then N.moment = nil N:Update() return end   -- a click closes the moment
     ns.Window:Toggle("stats")
@@ -205,16 +216,14 @@ local function place(f, rows, track)
       l:Hide()
     end
   end
-  f.btn:ClearAllPoints() f.btnNote:ClearAllPoints()
+  f.btn:Hide() f.btnNote:Hide()
+  f.rc:ClearAllPoints()
   if f.showBtn then
-    f.btn:SetPoint("TOPLEFT", PAD, y - 1)
-    f.btnNote:SetPoint("LEFT", f.btn, "RIGHT", 8, 0)
-    f.btnNote:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
-    f.btnNote:SetJustifyH("LEFT")
-    f.btn:Show() f.btnNote:Show()
-    y = y - 25
+    f.rc:SetPoint("RIGHT", f, "TOPRIGHT", -PAD + 4, -(8 + 1 + f.card.stripH / 2 - 1))
+    f.head:SetPoint("RIGHT", f.rc, "LEFT", -6, 0)
+    f.rc:Show()
   else
-    f.btn:Hide() f.btnNote:Hide()
+    f.rc:Hide()
   end
   f:SetHeight(-y + 8)
 end
@@ -463,7 +472,7 @@ function N:Update()
     if #warn > 0 then rows[#rows + 1] = table.concat(warn, dim("   ·   ")) end
     if mode == "dungeon" then
       f.showBtn = true
-      f.btnNote:SetText((r and r.lastBoss) and ("Last boss: " .. r.lastBoss) or "")
+      f.lastBoss = r and r.lastBoss or nil
     end
 
   elseif mode == "bg" then
