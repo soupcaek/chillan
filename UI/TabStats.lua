@@ -1506,7 +1506,7 @@ ns:RegisterTab("stats", "Stats", "Board", function(tab)
       local e, n = ns.DiedTo:WeekTop()
       if not e or (n or 0) == 0 then return nil end
       return { title = "Enemy of the week",
-        rows = { { label = ns.Colorize(e.name, C.red), value = n .. (n == 1 and " kill" or " kills") .. " on the gang" } },
+        rows = { { label = ns.Colorize(e.name, C.red), value = n .. (n == 1 and " kill " or " kills ") .. ns.DiedTo:OnWho(e) } },
         note = "Killed " .. ns.DiedTo:Victims(e, 3) .. ((e.revenge or 0) > 0 and (" · revenge taken " .. e.revenge .. "×") or "") }
     end,
     -- Hot streak: most days in a row

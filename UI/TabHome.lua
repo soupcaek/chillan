@@ -247,7 +247,7 @@ ns:RegisterTab("home", "Home", "Friends", function(tab)
     if ns.DiedTo then e, n = ns.DiedTo:WeekTop() end
     enemy.title:SetText("Enemy of the week")
     if e and (n or 0) > 0 then
-      enemy.body:SetText(ns.Colorize(e.name, C.red) .. ns.Colorize("  " .. n .. (n == 1 and " kill" or " kills") .. " on the gang", C.muted))
+      enemy.body:SetText(ns.Colorize(e.name, C.red) .. ns.Colorize("  " .. n .. (n == 1 and " kill " or " kills ") .. ns.DiedTo:OnWho(e), C.muted))
     else
       enemy.body:SetText(ns.Colorize("Nobody has killed the gang this week.", C.dim))
     end

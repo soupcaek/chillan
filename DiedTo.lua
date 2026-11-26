@@ -97,6 +97,21 @@ function DT:WeekTop()
 end
 
 -- "Grukk 3×, Zulja" – who in the gang died to them
+-- (1.4.72) "on Olav" / "on Olav and Henrik" / "on Olav, Henrik +2": who they killed, not "the gang"
+function DT:OnWho(e)
+  local rows = {}
+  for pid, n in pairs(e and e.by or {}) do rows[#rows + 1] = { pid = pid, n = n } end
+  table.sort(rows, function(a, b) return a.n > b.n end)
+  local names = {}
+  for i = 1, math.min(2, #rows) do
+    local p = ns:GetPerson(rows[i].pid)
+    names[#names + 1] = (p and ns:PersonFirst(p)) or "?"
+  end
+  if #names == 0 then return "on the gang" end
+  if #rows == 1 then return "on " .. names[1] end
+  if #rows == 2 then return "on " .. names[1] .. " and " .. names[2] end
+  return "on " .. names[1] .. ", " .. names[2] .. " +" .. (#rows - 2)
+end
 function DT:Victims(e, max)
   local rows = {}
   for pid, n in pairs(e.by or {}) do rows[#rows + 1] = { pid = pid, n = n } end

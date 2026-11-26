@@ -530,7 +530,7 @@ function ns.PrintVersions()
   local byName = {}
   for pid, p in pairs(ns.db.people or {}) do
     local v = pid == ns.pid and ns.VERSION or p.version
-    local key = ((ns.PersonFirst and ns:PersonFirst(p)) or ns:PersonName(p) or pid):lower()
+    local key = (ns:PersonFirst(p) or pid):lower()
     local g = byName[key]
     if not g then g = { n = 0, old = 0 } byName[key] = g end
     g.n = g.n + 1
@@ -544,7 +544,8 @@ function ns.PrintVersions()
     local pid, p = g.best, g.p
     local v = g.bestV
     local old = ns.IsOutdated(p) or (pid == ns.pid and newest and not ns.VERSION:find("dev", 1, true) and ns.NewerVersion(newest, ns.VERSION))
-    local line = ns:PersonName(p) .. "  " .. (v and ("v" .. v) or "?")
+    -- (1.4.72) the person's own name ("Henrik"), the character only when no name is set
+    local line = (ns:PersonFirst(p) or "?") .. "  " .. (v and ("v" .. v) or "?")
       .. (old and " |cffF2777A(old – update in WowUp)|r" or "")
       .. ((not old and g.old > 0) and (" |cffE0C068(+" .. g.old .. " older install)|r") or "")
       .. ((pid ~= ns.pid and not ns:IsOnline(p)) and " |cff808080· offline|r" or "")
