@@ -146,12 +146,43 @@ function ns.WhereLine(p)
   return ns.Colorize(who, C.muted) .. ns.Colorize("  ·  ", C.dim) .. st .. (zone ~= "" and ns.Colorize("  ·  " .. zone, C.muted) or "")
 end
 -- the titles held this week, as gold text ("" when none)
-function ns.TitleLine(p, max)
+-- (1.4.72) a crown and "+3" (how many titles they hold); hover a TitleHit for the list
+function ns.TitleLine(p)
   if not (ns.Titles and ns.Titles.For) then return "" end
-  local tl = {}
-  for _, def in ipairs(ns.Titles:For(p.pid) or {}) do if not max or #tl < max then tl[#tl + 1] = def.name end end
-  if #tl == 0 then return "" end
-  return (ns.Titles:Badge(p.pid) or "") .. " " .. ns.Colorize(table.concat(tl, ", "), C.gold)
+  local n = #(ns.Titles:For(p.pid) or {})
+  if n == 0 then return "" end
+  return ns.UI.InlineIcon("Crown", "E0C068", 13) .. ns.Colorize(" +" .. n, C.gold)
+end
+function ns.TitleTooltip(owner, p)
+  local list = ns.Titles and ns.Titles:For(p.pid) or {}
+  if #list == 0 then return end
+  GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+  GameTooltip:AddLine("Titles this week", 1, 1, 1)
+  local cur = ns.Titles:Current()
+  for _, def in ipairs(list) do
+    local h = cur[def.key]
+    GameTooltip:AddDoubleLine(def.name, h and ns.Titles:Format(def, h.value) or "", 0.88, 0.75, 0.41, 1, 1, 1)
+    GameTooltip:AddLine(def.desc, 0.6, 0.6, 0.65, true)
+  end
+  GameTooltip:Show()
+end
+-- a FontString with the crown that shows the titles on hover: t = UI.TitleHit(parent); t:Set(p)
+function UI.TitleHit(parent)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(40, 18)
+  f.text = UI.Text(f, 13, "semi", C.gold)
+  f.text:SetPoint("LEFT")
+  f:EnableMouse(true)
+  f:SetScript("OnEnter", function(self) if self.p then ns.TitleTooltip(self, self.p) end end)
+  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  function f:Set(p)
+    self.p = p
+    local t = ns.TitleLine(p)
+    self.text:SetText(t)
+    self:SetWidth(math.max(1, math.ceil(self.text:GetStringWidth() or 0) + 2))
+    self:SetShown(t ~= "")
+  end
+  return f
 end
 -- "6d 1h" played over all characters, and how many characters
 function ns.PlayedLine(p)

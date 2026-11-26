@@ -30,8 +30,8 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
   avatar:SetPoint("TOPLEFT", back, "BOTTOMLEFT", 0, -12)
   local name = UI.Text(tab, 18, "bold", C.text)
   name:SetPoint("TOPLEFT", avatar, "TOPRIGHT", 12, -2)
-  name:SetPoint("RIGHT", -16, 0)
   name:SetWordWrap(false)
+  local crown = UI.TitleHit(tab)
   local sub = UI.Text(tab, 12, nil, C.text2)
   sub:SetPoint("BOTTOMLEFT", avatar, "BOTTOMRIGHT", 12, 3)
   sub:SetPoint("RIGHT", -16, 0)
@@ -121,8 +121,13 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
     local inner = W - 32
 
     avatar:Set(c.name, c.class, (online or me) and C.green or "4A4F55", C.window)
-    local title = ns.TitleLine(p)
-    name:SetText(ns.WhoLine(p) .. (title ~= "" and ("   " .. title) or ""))
+    name:SetText(ns.WhoLine(p))
+    name:SetWidth(math.min(inner - 60, math.ceil(name:GetStringWidth() or 100) + 4))
+    name:ClearAllPoints()
+    name:SetPoint("TOPLEFT", avatar, "TOPRIGHT", 12, -2)
+    crown:ClearAllPoints()
+    crown:SetPoint("LEFT", name, "RIGHT", 10, 0)
+    crown:Set(p)
     sub:SetText(ns.WhereLine(p))
     local target = L.char or p.main
     whisper:SetScript("OnClick", function() ns.Whisper(target) end)
@@ -290,12 +295,17 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
 
     local got, gave = St:Grats(p)
     local firsts = St:Firsts(p)
-    local loot = St:RecentLoot(p, 2)
+    -- (1.4.72) the latest epic only, as an item link (hover shows the item)
+    local epic
+    for i = #(ns.db.feed or {}), 1, -1 do
+      local it = ns.db.feed[i]
+      if it.pid == pid and it.kind == "LOOT" then epic = ns.ItemLink(tonumber(it.a)) or "an item (loading …)" break end
+    end
     section("Social", {
       { "Congrats got", tostring(got) },
       { "Congrats given", tostring(gave) },
       { "First in the gang", #firsts > 0 and table.concat(firsts, ", ") or "none yet" },
-      { "Latest epics", #loot > 0 and table.concat(loot, ", ") or "none yet" },
+      { "Latest epic", epic or "none yet" },
     })
 
     -- every character of the person, from all their installs

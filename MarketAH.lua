@@ -504,7 +504,8 @@ local post = {}
 AH.post = post
 -- (dev4) test builds say in chat what the post did, so a dead Post button can be told apart
 function AH.Trace(msg)
-  if ns.VERSION and ns.VERSION:find("dev", 1, true) then ns.Print("|cff808080Market trace: " .. msg .. "|r") end
+  -- (1.4.72) quiet: the game already says "Auction created." (/chill mktrace turns it on to hunt a problem)
+  if ns.db and ns.db.settings and ns.db.settings.mkTrace then ns.Print("|cff808080Market trace: " .. msg .. "|r") end
 end
 local function postDone(good)
   if not post.waiting then return end

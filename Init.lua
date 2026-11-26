@@ -144,6 +144,9 @@ SlashCmdList.CHILLAN = function(msg)
     if ns.Notes then ns.Notes.Slash(rest) end
   elseif cmd == "notes" then
     if ns.Notes then ns.Notes.Open() end
+  elseif cmd == "mktrace" then
+    ns.db.settings.mkTrace = not ns.db.settings.mkTrace or nil
+    ns.Print("Market trace " .. (ns.db.settings.mkTrace and "on." or "off."))
   elseif cmd == "need" or cmd == "rolls" then
     if ns.LootRolls then ns.LootRolls:Test() end
   elseif cmd == "versions" or cmd == "version" or cmd == "ver" then

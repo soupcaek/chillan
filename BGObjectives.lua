@@ -240,7 +240,7 @@ function O:ScanNodes(fresh)
   local cap = O.CAP[self.key or ""] or 60
   for _, n in pairs(self.nodes) do
     if n.atk and not n.left then
-      local over = n.since and (t - n.since) > cap + 8
+      local over = n.since and (t - n.since) >= cap
       if over then n.atk, n.since, n.over = nil, nil, t end
     end
   end
@@ -362,7 +362,7 @@ function O:Restore()
   for name, a in pairs(sv.atk or {}) do
     local n = self.nodes[name]
     -- (dev5) an attack that has run out since is not brought back
-    if a[2] and now() - a[2] > cap + 8 then n = nil end
+    if a[2] and now() - a[2] >= cap then n = nil end
     if n and not n.atk and type(n.icon) == "number" and ASSAULT[n.icon] == a[1] then n.atk, n.since = a[1], a[2] end
   end
 end
@@ -397,7 +397,7 @@ function O:Chips()
     local n = self.nodes[name]
     if n and not n.gone then
       if self.key == "AV" then
-        if n.atk then out[#out + 1] = n end
+        if n.atk and self:Left(n) ~= 0 then out[#out + 1] = n end
       elseif (n.atk or n.side or n.icon) and not O.NotABase(n.name) then
         out[#out + 1] = n
       end

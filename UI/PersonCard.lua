@@ -160,7 +160,7 @@ function PC:Fill(pid)
   -- (1.4.72) the canvas card: who (status and zone in the header only), the level bar with the last
   -- ding on its right, then one fact per row
   f.avatar:Set(c.name, c.class, online and (L.status == "AFK" and C.amber or C.green) or "4A4F55", C.card)
-  local badge = (ns.Titles and ns.Titles.Badge) and ns.Titles:Badge(pid) or ""
+  local badge = ns.TitleLine(p)
   f.name:SetText(ns.WhoLine(p) .. (badge ~= "" and ("  " .. badge) or ""))
   f.sub:SetText(ns.WhereLine(p))
   f.sub:SetWordWrap(true)
