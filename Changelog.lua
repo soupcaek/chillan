@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.75", date = "26.11", items = {
+    "Hover card: an Invite button beside Whisper (while they're online)",
+    "Gang chat: type /roll (or /roll 50, /roll 10-20) in Pulse's write box and the gang sees your roll",
+    "Watching: the + / – menu can hide the whole box; ⋯ › Show the Watching strip brings it back",
+    "Loot rolls: bigger item icons, and the winner's name in their class colour",
+    "No \"Friend nearby\" popup while you're in a group, and no map pins for people in your group (the game's own dots are live)" } },
   { v = "1.4.74", date = "26.11", items = {
     "Loot rolls rethought: one Loot rolls section grows out of the bottom of Pulse while something is rolled for (a small movable strip when Pulse is closed). One row per item with a Need/Greed/Pass bar, your pick and the time left",
     "Loot rolls now show everyone's picks: they come from the game's loot history (the chat only had your own lines)",
