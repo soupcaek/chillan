@@ -32,7 +32,7 @@ function UI.KVRows(parent)
     return r
   end
   function o:Hide()
-    for _, r in ipairs(self.pool) do r.k:Hide() r.v:Hide() r.line:Hide() end
+    for _, r in ipairs(self.pool) do r.k:Hide() r.v:Hide() r.line:Hide() if r.hit then r.hit:Hide() end end
   end
   -- lays the rows out in `cols` columns, side by side row by row; returns the height used
   function o:Draw(rows, x, y, width, cols)
@@ -60,6 +60,27 @@ function UI.KVRows(parent)
       groupH = math.max(groupH, h)
       r.cx = cx
       r.k:Show() r.v:Show()
+      -- (1.4.72) an item link in a value: hover shows the item
+      if row.link then
+        if not r.hit then
+          r.hit = CreateFrame("Frame", nil, parent)
+          r.hit:EnableMouse(true)
+          r.hit:SetScript("OnEnter", function(self)
+            if not self.link then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
+            GameTooltip:Show()
+          end)
+          r.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        end
+        r.hit.link = row.link
+        r.hit:ClearAllPoints()
+        r.hit:SetPoint("TOPRIGHT", r.v, "TOPRIGHT")
+        r.hit:SetSize(math.min(r.v:GetWidth(), math.ceil(r.v:GetStringWidth() or 60) + 2), math.max(14, r.v:GetStringHeight() or 14))
+        r.hit:Show()
+      elseif r.hit then
+        r.hit:Hide()
+      end
       if c == cols or i == #list then
         -- the line under the row, at the taller cell of the pair
         for j = i - c + 1, i do

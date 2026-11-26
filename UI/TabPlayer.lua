@@ -245,6 +245,23 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
       { "Killed by most", foe and (ns.Colorize(foe.name, C.red) .. " · " .. foeN .. "×") or nil },
     })
 
+    -- (1.4.72) dungeons and raids, counted from the gang's run and boss posts
+    local x = ns.PvETally and ns.PvETally:For(pid)
+    if x and (x.runs + x.raids + x.bosses) > 0 then
+      local most, mostN = ns.PvETally:MostRun(x)
+      local recs = ns.PvETally:Records(pid)
+      section("Dungeons and raids", {
+        { "Dungeons run", ns.Num(x.runs) },
+        { "Raids", x.raids > 0 and ns.Num(x.raids) or nil },
+        { "Bosses killed", ns.Num(x.bosses) },
+        { "Most run", most and (most .. ns.Colorize(" · " .. mostN .. "×", C.dim)) or nil },
+        { "Fastest run", x.fastRun and (x.fastRun.inst .. ns.Colorize(" · " .. ns.Duration(x.fastRun.s), C.dim)) or nil },
+        { "Fastest boss", x.fastBoss and (x.fastBoss.boss .. ns.Colorize(" · " .. ns.Duration(x.fastBoss.s), C.dim)) or nil },
+        { "Gang records", recs > 0 and ns.Colorize(recs .. " held", C.gold) or nil },
+        { "Last run", x.last and (x.last.inst .. ns.Colorize(" · " .. ns.Ago(x.last.t), C.dim)) or nil },
+      })
+    end
+
     local cmp = (not me) and ns.Gear and ns.Gear:Compare(p)
     local vs
     if cmp and cmp.avg then
@@ -295,17 +312,20 @@ ns:RegisterTab("player", "Player", "Friends", function(tab)
 
     local got, gave = St:Grats(p)
     local firsts = St:Firsts(p)
-    -- (1.4.72) the latest epic only, as an item link (hover shows the item)
+    -- (1.4.72) the latest epic only (quality 4 or better), as an item link you can hover
     local epic
     for i = #(ns.db.feed or {}), 1, -1 do
       local it = ns.db.feed[i]
-      if it.pid == pid and it.kind == "LOOT" then epic = ns.ItemLink(tonumber(it.a)) or "an item (loading …)" break end
+      if it.pid == pid and it.kind == "LOOT" and (tonumber(it.b) or 0) >= 4 then
+        epic = ns.ItemLink(tonumber(it.a)) or "an epic (loading …)"
+        break
+      end
     end
     section("Social", {
       { "Congrats got", tostring(got) },
       { "Congrats given", tostring(gave) },
       { "First in the gang", #firsts > 0 and table.concat(firsts, ", ") or "none yet" },
-      { "Latest epic", epic or "none yet" },
+      { "Latest epic", epic or "–", link = epic and epic:find("|Hitem:", 1, true) and epic or nil },
     })
 
     -- every character of the person, from all their installs

@@ -25,6 +25,7 @@ Market.lua
 MarketAH.lua
 Disenchant.lua
 Data.lua
+PvETally.lua
 Sync.lua
 Quests.lua
 Titles.lua

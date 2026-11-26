@@ -6,6 +6,7 @@ ns.CHANGELOG = {
     "New Notes tab: your own to-do list and notepad (private, never sent). Pin either box to your screen. /chill todo <text> adds one",
     "Loot rolls: under the roll window, who picked Need, Greed or Pass, then the rolls and the winner. Scrolls in big groups, can be dragged. /chill need shows a test roll",
     "New player cards: the Home hover card, the Pulse/chat hover card and the Player page are tidier, one fact per row. Titles show as a crown and +N (hover to see them)",
+    "Player page: a Dungeons and raids panel (runs, bosses killed, most run, fastest run and boss kill, gang records held), and Latest epic is a real epic you can hover",
     "Home › This week: your week as a list, Your place in the gang, Next ding, and Enemy of the week says who they killed",
     "Version check: an old Chillan shows on Home and on the player card, /chill versions lists everyone, and you get a line at login when a newer version is out",
     "Market: Post always works now (it could turn itself off without showing it). Stack sales are no longer counted too big, and item names show instead of numbers",

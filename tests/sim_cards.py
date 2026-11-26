@@ -41,7 +41,17 @@ P.e1 = { pid = 'e1', version = '0.30.7', alias = 'Eirik', main = 'Yung-Realm', l
   stats = { wk = ADDON_NS.WeekKey(), wQuests = 146, wKills = 44, wDeaths = 35, wGold = 99999, tGold = 4693800, tQuests = 388 },
   live = { zone = 'Blackrock Depths' }, s3 = { xp = 103695, xpMax = 167100, money = 2821400, ilvl = 48, dura = 85, streak = 4, today = 11580 } }
 """)
+L.execute("""
+local D = ADDON_NS.Data
+D:ApplyEvent('r1', 'e1', 'Yung-Realm', 'DUNGEON', ADDON_NS.Now() - 3600, 'Blackrock Depths', '5400', '2', '12|e1')
+D:ApplyEvent('r2', 'e1', 'Yung-Realm', 'DUNGEON', ADDON_NS.Now() - 600, 'Blackrock Depths', '4800', '1', '12|e1')
+D:ApplyEvent('b1', 'z9', 'Z-Realm', 'BOSS', ADDON_NS.Now() - 500, 'Blackrock Depths', 'Lord Roccor', '42', '0:1:2:e1')
+D:ApplyEvent('l1', 'e1', 'Yung-Realm', 'LOOT', ADDON_NS.Now() - 100, '12345', '3')
+""")
 p = L.eval("ADDON_NS.db.people.e1")
+x = L.eval("ADDON_NS.PvETally:For('e1')")
+check("tally: 2 runs, 1 boss (credited from someone else's post)", x and x.runs == 2 and x.bosses == 1)
+check("tally: fastest boss Roccor 42 s", x.fastBoss.boss == "Lord Roccor" and x.fastBoss.s == 42)
 check("week gold hidden for an old version", "needs update" in str(L.eval("ADDON_NS.WeekGoldLine(ADDON_NS.db.people.e1)")))
 check("version line old", "old" in str(L.eval("ADDON_NS.VersionLine(ADDON_NS.db.people.e1)")))
 check("played line", "chars" in str(L.eval("ADDON_NS.PlayedLine(ADDON_NS.db.people.e1)")))

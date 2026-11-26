@@ -609,6 +609,8 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
   if ns.db.foldedIds and ns.db.foldedIds[id] then return end
   local item = { id = id, pid = pid, char = char, kind = kind, t = t, a = a, b = b, c = c, d = d }
   local p = ns:GetPerson(pid, true)
+  -- (1.4.72) dungeons, raids and bosses per person, for the Player page
+  if ns.PvETally and (kind == "DUNGEON" or kind == "RAID" or kind == "BOSS") then pcall(ns.PvETally.Add, ns.PvETally, item) end
   if not p.main then
     p.main = char
     p.chars[char] = p.chars[char] or { name = ns.ShortName(char) }
