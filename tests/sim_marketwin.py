@@ -191,3 +191,9 @@ nY = LA.eval('(function() local n = 0 for _, t in ipairs(ADDON_NS.MarketWin.buyP
 nX = LA.eval('(function() local n = 0 for _, t in ipairs(ADDON_NS.MarketWin.buyP.chart.xLabels) do if t:IsShown() then n = n + 1 end end return n end)()')
 print("axes:", nY, "price labels,", nX, "day labels")
 assert nY >= 3 and nX >= 4
+# (1.4.77) a search's cheapest price is today's point in the graph
+LA.execute('ADDON_NS.Market:Set(9999, 47000, NOW - 7200, "x")')
+LA.execute('ADDON_NS.Market:Set(9999, 41000, NOW + 100, "me")')
+pts = LA.eval('#ADDON_NS.Market.History(9999, 14)')
+print("today's point after a search:", LA.eval('ADDON_NS.Market.History(9999, 14)[%d].v' % pts))
+assert LA.eval('ADDON_NS.Market.History(9999, 14)[%d].v' % pts) == 41000

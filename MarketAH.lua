@@ -207,6 +207,10 @@ local function finish(state, rows)
   cache[a.key] = { rows = rows or {}, at = now(), state = state, commodity = a.commodity, itemID = a.itemID, itemKey = a.itemKey }
   local other = AH.Cheapest(a.key)
   if other then AH.CheckAlert(a.itemID, other) end
+  -- (1.4.77) what you just looked up is today's price: the graph's last point moves with it
+  if state == "listed" and other and other > 0 and a.itemID and ns.Market and ns.Market.Set then
+    pcall(ns.Market.Set, ns.Market, a.itemID, math.floor(other), ns.Now(), ns.pid)
+  end
   changed("listing")
   for _, cb in ipairs(a.cbs or {}) do pcall(cb, a.key, cache[a.key]) end
   C_Timer.After(0.1, pump)
