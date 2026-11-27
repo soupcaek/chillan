@@ -23,6 +23,7 @@ DiedTo.lua
 PlayerHistory.lua
 Market.lua
 MarketAH.lua
+ItemCount.lua
 Disenchant.lua
 Data.lua
 PvETally.lua

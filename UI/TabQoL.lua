@@ -71,6 +71,7 @@ local CARDS = {
   { col = 1, title = "Interface", icon = "Eye", desc = "Additional information on screen", items = {
     { "Mark unusable items", "qolTint", "Tints bag items you cannot use (level, class, skill or already learned) red." },
     { "Flight timer", "qolFlightTimer", "Shows a bar with remaining flight time. Each route is learned the first time you fly it. Drag the bar to move it." },
+    { "How many you have", "itemCount", "Item tooltips say how many you have: Bags 12 · Bank 40 = 52. The bank is remembered each time you open it." },
   } },
 }
 

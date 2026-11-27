@@ -394,6 +394,7 @@ ns:RegisterTab("settings", "Settings", "Gear", function(tab)
     { "Market on (prices in tooltips)", "market", function(v) if v and ns.Market then ns.Market:HookTooltips() end end, "The whole Chillan? Market: scanning, tooltip lines and sharing." },
     { "Market window beside the auction house", "mkWindow", nil, "Sell, Buy, My auctions, Item Tracker and Gang, beside the auction house." },
     { "Share prices with the gang", "marketShare", nil, "After you scan, the prices that changed go to the gang quietly; friends logging in get the newest ones." },
+    { "How many you have (in tooltips)", "itemCount", nil, "Item tooltips say how many you have: Bags 12 · Bank 40 = 52. Works with the Market off too." },
   }), true)
   panel(gMarket, "More", function(b)
     hintText(b, "Tooltip lines, disenchanting and price sharing details are on the Market page.")
