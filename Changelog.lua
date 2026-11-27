@@ -2,6 +2,17 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.76", date = "27.11", items = {
+    "Dungeon card: a boss list that rolls along with the run: what's dead folds into one line, the next boss is lit with the gang's best, two after it, then +N more",
+    "Strat, SM, DM and BRS start with their sides and pick one at the first boss (Omokk = LBRS, Emberseer = UBRS, Gyth + Rend = a Rend run). BRD offers Arena, Arena · Anger · Golem, Emperor run and Full; Maraudon Purple, Orange, Inner and Full",
+    "The Ring of Law counts as one boss and chests aren't bosses: full BRD is 20",
+    "Pull timer: the leader or tank clicks Pull (or /chill pull 8) and the group sees the countdown",
+    "Loot so far under the boss list: rare and epic drops for the group and your take; hover for who got what",
+    "Gang feed: \"dungeon only\" in its title while you're inside",
+    "Run lines name the side (UBRS, Strat UD), the last boss time shows the gang's best, and only whole runs can be a gang record",
+    "A priest's Spirit of Redemption counts as one death",
+    "Item tooltips: in bags, in bank and the total (Tools › Interface)",
+    "Market price graph: prices on the left, dates along the bottom, a dot per day and hover for the date, price and change" } },
   { v = "1.4.75", date = "26.11", items = {
     "Hover card: an Invite button beside Whisper (while they're online)",
     "Gang chat: type /roll (or /roll 50, /roll 10-20) in Pulse's write box and the gang sees your roll",
