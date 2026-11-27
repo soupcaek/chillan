@@ -272,26 +272,54 @@ local function pill(p, text, color)
 end
 
 -- a price graph: a line over the last days, with low / high / now under it
+-- (1.4.76) axis helpers
+local M_ = {}
+ns.MarketAxis = M_
+function M_.NiceStep(span, n)
+  local raw = span / (n or 4)
+  local mag = 10 ^ math.floor(math.log10(math.max(raw, 1)))
+  for _, m in ipairs({ 1, 2, 2.5, 5, 10 }) do
+    if raw <= m * mag then return m * mag end
+  end
+  return 10 * mag
+end
+-- a short price for the axis: 600g · 1g 20s · 25s · 50c (silver and copper left off from 100g up)
+function M_.AxisCoins(v)
+  v = math.floor(v + 0.5)
+  local g, sv, cv = math.floor(v / 10000), math.floor(v / 100) % 100, v % 100
+  local G, S, Cc = "|cffE8C75Ag|r", "|cffC9CED6s|r", "|cffC9875Ac|r"
+  if g >= 100 or (g > 0 and sv == 0) then return g .. G end
+  if g > 0 then return g .. G .. " " .. sv .. S end
+  if sv > 0 then return sv .. S .. (cv > 0 and (" " .. cv .. Cc) or "") end
+  return cv .. Cc
+end
+
 local function makeChart(parent)
   local c = CreateFrame("Frame", nil, parent)
+  -- (1.4.76) axes: the price on the left (round steps sized to the item), days along the bottom
+  local AXIS_W = 50
   c.plot = CreateFrame("Frame", nil, c)
-  c.plot:SetPoint("TOPLEFT", 0, -20)
-  c.plot:SetPoint("BOTTOMRIGHT", 0, 16)
+  c.plot:SetPoint("TOPLEFT", AXIS_W, -20)
+  c.plot:SetPoint("BOTTOMRIGHT", -4, 32)
+  c.axisL = solid(c, "3A404A", "BORDER")
+  c.axisL:SetWidth(1)
+  c.axisL:SetPoint("TOPLEFT", c.plot, "TOPLEFT", 0, 0)
+  c.axisL:SetPoint("BOTTOMLEFT", c.plot, "BOTTOMLEFT", 0, 0)
+  c.axisB = solid(c, "3A404A", "BORDER")
+  c.axisB:SetHeight(1)
+  c.axisB:SetPoint("BOTTOMLEFT", c.plot, "BOTTOMLEFT", 0, 0)
+  c.axisB:SetPoint("BOTTOMRIGHT", c.plot, "BOTTOMRIGHT", 0, 0)
+  c.yLabels, c.xLabels = {}, {}
   c.title = UI.Text(c, 12, "semi", C.text)
   c.title:SetPoint("TOPLEFT", 0, 0)
   c.delta = UI.Text(c, 12, "semi", C.green)
   c.delta:SetPoint("TOPRIGHT", 0, 0)
   c.l1 = UI.Text(c, 10, nil, C.dim) c.l1:SetPoint("BOTTOMLEFT", 0, 0)
-  c.l2 = UI.Text(c, 10, nil, C.dim) c.l2:SetPoint("BOTTOM", 0, 0)
+  c.l2 = UI.Text(c, 10, nil, C.dim) c.l2:SetPoint("BOTTOMLEFT", 0, 0)
   c.l3 = UI.Text(c, 10, nil, C.dim) c.l3:SetPoint("BOTTOMRIGHT", 0, 0)
   c.empty = UI.Text(c.plot, 11, nil, C.dim)
   c.empty:SetPoint("CENTER")
   c.grid = {}
-  for i = 1, 3 do
-    local g = solid(c.plot, "2E333A", "BORDER")
-    g:SetHeight(1)
-    c.grid[i] = g
-  end
   c.lines, c.dot = {}, solid(c.plot, ACCc(), "OVERLAY")
   c.dot:SetSize(6, 6)
   -- (1.4.76) a dot per day, and hover: a guide at the nearest day with its date, price and change
@@ -359,11 +387,10 @@ local function makeChart(parent)
     self.dot:Hide()
     self.pts, self.pos, self.days, self.hotI = pts, {}, days, nil
     local w, h = self.plot:GetWidth() or 0, self.plot:GetHeight() or 0
-    for i, g in ipairs(self.grid) do
-      g:ClearAllPoints()
-      g:SetPoint("TOPLEFT", 0, -h * i / 4) g:SetPoint("TOPRIGHT", 0, -h * i / 4)
-    end
-    self.l1:SetText(days .. " days ago")
+    for _, g in ipairs(self.grid) do g:Hide() end
+    for _, t in ipairs(self.yLabels) do t:Hide() end
+    for _, t in ipairs(self.xLabels) do t:Hide() end
+    self.l1:SetText("")
     if #pts < 2 then
       self.empty:SetText(#pts == 1 and "One price so far: the graph grows a point a day." or "No history yet: Chillan keeps one price a day from now on.")
       self.delta:SetText("")
@@ -373,12 +400,47 @@ local function makeChart(parent)
     self.empty:SetText("")
     local lo, hi = math.huge, 0
     for _, p in ipairs(pts) do lo, hi = math.min(lo, p.v), math.max(hi, p.v) end
-    local span = math.max(1, hi - lo)
+    -- the price axis: about 4 lines in round steps (1, 2, 2.5, 5 × 10^n copper) around low–high
+    local step = M_.NiceStep(math.max(1, hi - lo))
+    local a, b = math.floor(lo / step) * step, math.ceil(hi / step) * step
+    if b <= a then b = a + step end
+    local span = b - a
     local d0 = math.floor(ns.Now() / 86400) - days + 1
     local function xy(p)
       local x = (p.day - d0) / math.max(1, days - 1) * (w - 6) + 3
-      local y = (p.v - lo) / span * (h - 10) + 5
+      local y = (p.v - a) / span * (h - 6) + 3
       return x, y
+    end
+    local n = 0
+    for v = a, b + 0.5, step do
+      n = n + 1
+      local y = (v - a) / span * (h - 6) + 3
+      local g = self.grid[n]
+      if not g then g = solid(self.plot, "2E333A", "BACKGROUND") g:SetHeight(1) self.grid[n] = g end
+      g:ClearAllPoints()
+      g:SetPoint("BOTTOMLEFT", self.plot, "BOTTOMLEFT", 0, y)
+      g:SetPoint("BOTTOMRIGHT", self.plot, "BOTTOMRIGHT", 0, y)
+      g:Show()
+      local t = self.yLabels[n]
+      if not t then t = UI.Text(self, 10, nil, C.dim) t:SetJustifyH("RIGHT") self.yLabels[n] = t end
+      t:ClearAllPoints()
+      t:SetPoint("RIGHT", self.plot, "BOTTOMLEFT", -5, y)
+      t:SetText(M_.AxisCoins(v))
+      t:Show()
+    end
+    -- the days: every third from today back, "today" on the right
+    local today = math.floor(ns.Now() / 86400)
+    local k = 0
+    for day = today, d0, -3 do
+      k = k + 1
+      local t = self.xLabels[k]
+      if not t then t = UI.Text(self, 10, nil, C.dim) self.xLabels[k] = t end
+      local x = (day - d0) / math.max(1, days - 1) * (w - 6) + 3
+      t:ClearAllPoints()
+      t:SetPoint("TOP", self.plot, "BOTTOMLEFT", x, -4)
+      t:SetText(day == today and "today" or date("%d.%m", day * 86400 + 43200))
+      t:SetTextColor(hex(day == today and C.muted or C.dim))
+      t:Show()
     end
     for i = 2, #pts do
       local l = self.lines[i - 1]

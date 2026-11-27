@@ -186,3 +186,8 @@ assert LA.eval('ADDON_NS.MarketWin.buyP.sel.itemID') == 9999 and LA.eval('ADDON_
 LA.execute('ADDON_NS.AH.ShopAdd(9999); ADDON_NS.MarketWin.shopP.selId = 9999; ADDON_NS.MarketWin:Show(4)')
 print("wishlist graph:", LA.eval('ADDON_NS.MarketWin.shopP.graphP.title:GetText()'), "|", LA.eval('ADDON_NS.MarketWin.shopP.side[3]:GetText()'))
 errors(A, "A-end")
+# (1.4.76) the graph's axes: price labels and day labels drawn
+nY = LA.eval('(function() local n = 0 for _, t in ipairs(ADDON_NS.MarketWin.buyP.chart.yLabels) do if t:IsShown() then n = n + 1 end end return n end)()')
+nX = LA.eval('(function() local n = 0 for _, t in ipairs(ADDON_NS.MarketWin.buyP.chart.xLabels) do if t:IsShown() then n = n + 1 end end return n end)()')
+print("axes:", nY, "price labels,", nX, "day labels")
+assert nY >= 3 and nX >= 4

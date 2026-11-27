@@ -536,7 +536,8 @@ function N:DungeonRows(f, r, pr, rows)
       local rec = recFor(b.name)
       if i == 1 then
         local who = holder(rec)
-        data[#data + 1] = { mark = ns.Colorize("▸", C.amber), lit = true,
+        -- (the game's font has no ▸: the Target icon marks the next boss)
+        data[#data + 1] = { mark = UI.InlineIcon("Target", C.amber, 11), lit = true,
           name = ns.Extras.inEncounter and ns.Colorize("Boss fight", C.amber) or ns.Colorize(b.name, C.text),
           right = rec and (dim("best " .. mmss(rec.s)) .. (who and dim(" · " .. who) or "")) or "" }
       else
