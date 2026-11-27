@@ -184,6 +184,35 @@ function N:Create()
   f.lootHit:SetScript("OnEnter", function(self) N:LootTooltip(self) end)
   f.lootHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
   f.lootHit:Hide()
+  -- (1.4.77) one icon per rare/epic drop: hover for the item itself and who got it
+  f.lootIcons = {}
+  for i = 1, 6 do
+    local b = CreateFrame("Button", nil, f)
+    b:SetSize(20, 20)
+    b.tex = b:CreateTexture(nil, "ARTWORK")
+    b.tex:SetAllPoints()
+    b.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.edge = b:CreateTexture(nil, "BACKGROUND")
+    b.edge:SetPoint("TOPLEFT", -1, 1)
+    b.edge:SetPoint("BOTTOMRIGHT", 1, -1)
+    b:SetScript("OnEnter", function(self)
+      local d = self.drop
+      if not d then return end
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      pcall(GameTooltip.SetHyperlink, GameTooltip, d.link)
+      GameTooltip:AddLine(" ")
+      GameTooltip:AddDoubleLine("Looted by", (d.who or "?") .. (N.HowWon(d) and (" · " .. N.HowWon(d)) or ""), 0.6, 0.63, 0.66, 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(self)
+      if self.drop and IsModifiedClick and IsModifiedClick() and HandleModifiedItemClick then HandleModifiedItemClick(self.drop.link) end
+    end)
+    b:Hide()
+    f.lootIcons[i] = b
+  end
+  f.lootMore = UI.Text(f, 10, nil, C.dim)
+  f.lootMore:Hide()
   f:SetScript("OnMouseUp", function(_, btn)
     if N.moment then N.moment = nil N:Update() return end   -- a click closes the moment
     ns.Window:Toggle("stats")
@@ -342,11 +371,42 @@ local function place(f, rows, track)
       l:SetText(rows[i])
       l:Show()
       if f.lootRow == i then
+        y = y - 2
+        l:ClearAllPoints()
+        l:SetPoint("TOPLEFT", PAD, y - 4)
         f.lootHit:ClearAllPoints()
         f.lootHit:SetPoint("TOPLEFT", PAD, y + 2)
         f.lootHit:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
-        f.lootHit:SetHeight(18)
+        f.lootHit:SetHeight(24)
         f.lootHit:Show()
+        local x = PAD + math.floor((l:GetStringWidth() or 30) + 6)
+        for k, b in ipairs(f.lootIcons) do
+          local d = f.lootDrops and f.lootDrops[k]
+          if d then
+            b.drop = d
+            local id = tonumber(tostring(d.link):match("item:(%d+)"))
+            b.tex:SetTexture((id and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or 134400)
+            local q = ns.Pulse.LinkQuality(d.link)
+            b.edge:SetColorTexture(hex(q >= 4 and "A335EE" or "0070DD"))
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+            b:SetFrameLevel(f.lootHit:GetFrameLevel() + 2)
+            b:Show()
+            x = x + 23
+          else
+            b.drop = nil
+            b:Hide()
+          end
+        end
+        if f.lootExtra and f.lootExtra > 0 then
+          f.lootMore:ClearAllPoints()
+          f.lootMore:SetPoint("LEFT", f, "TOPLEFT", x + 2, y - 10)
+          f.lootMore:SetText("+" .. f.lootExtra)
+          f.lootMore:Show()
+        else
+          f.lootMore:Hide()
+        end
+        y = y - 6
       end
       y = y - 17
     else
@@ -354,7 +414,11 @@ local function place(f, rows, track)
     end
   end
   f.btn:Hide() f.btnNote:Hide()
-  if not f.lootRow then f.lootHit:Hide() end
+  if not f.lootRow then
+    f.lootHit:Hide()
+    for _, b in ipairs(f.lootIcons) do b:Hide() end
+    f.lootMore:Hide()
+  end
   f.rc:ClearAllPoints()
   f.baron:ClearAllPoints()
   local headRight = nil
@@ -570,13 +634,28 @@ function N:DungeonRows(f, r, pr, rows)
   end
   local take = pr and ns.Pulse:LootValue(pr) or 0
   if ns.db.settings.dgLoot ~= false and (#drops > 0 or take > 0) then
-    rows[#rows + 1] = dim("Loot: ") .. table.concat(icons, " ") .. (#drops > N.MAX_LOOT and dim("  +" .. (#drops - N.MAX_LOOT)) or "")
-      .. (#drops == 0 and dim("nothing rare yet") or "")
+    f.lootDrops = {}
+    for i = #drops, math.max(1, #drops - N.MAX_LOOT + 1), -1 do f.lootDrops[#f.lootDrops + 1] = drops[i] end
+    f.lootExtra = math.max(0, #drops - N.MAX_LOOT)
+    rows[#rows + 1] = dim("Loot:") .. (#drops == 0 and dim(" nothing rare yet") or "")
     f.rowsRight[#rows] = take > 0 and (dim("your take ") .. goldText(take)) or ""
     f.lootRow = #rows
   end
   f.lootLine = table.concat(icons, "")
   return rows
+end
+
+-- "Need 87" from the loot rolls, for a drop
+function N.HowWon(d)
+  local R = ns.LootRolls
+  local id = tostring(d and d.link or ""):match("item:(%d+)")
+  for _, h in ipairs(R and R.history or {}) do
+    if h.item == id and h.winner then
+      for _, p in ipairs(h.players or {}) do
+        if p.won and p.choice then return p.choice .. (p.roll and (" " .. p.roll) or "") end
+      end
+    end
+  end
 end
 
 -- hover the loot line: each rare/epic drop, who got it and how (from the loot rolls)
@@ -627,6 +706,7 @@ function N:Update()
   f.meter.pct, f.showBtn = nil, false
   f.trackFull, f.rowsRight, f.baronText = nil, nil, nil
   f.doorData, f.bossData, f.lootRow, f.pullText, f.pullLive = nil, nil, nil, nil, nil
+  f.lootDrops, f.lootExtra = nil, nil
   f.head:SetText("") f.big:SetText("") f.bigSub:SetText("") f.right:SetText("")
   f.head:SetTextColor(hex(C.text2))
   local dg = P:Danger()
@@ -848,9 +928,6 @@ function N:Tooltip(owner)
   local mode = P:Mode()
   GameTooltip:AddLine(P.MODES[mode] .. (mode ~= "world" and (" · " .. P:Place()) or ""), 1, 1, 1)
   if mode == "dungeon" or mode == "raid" then
-    GameTooltip:AddLine("Next boss, the boss track (green = killed, bright = next – hover it for the list), deaths and wipes", 0.6, 0.63, 0.66, true)
-  end
-  if mode == "dungeon" or mode == "raid" then
     local r, pr = P:Run()
     if pr and #pr.items > 0 then
       GameTooltip:AddLine("Loot this run", 0.6, 0.63, 0.66)
@@ -884,7 +961,9 @@ function N:Tooltip(owner)
     if wk then GameTooltip:AddDoubleLine("This week", ns.Num(wk) .. " honor", 0.6, 0.63, 0.66, 1, 1, 1) end
     if rank then GameTooltip:AddDoubleLine("Rank", rank .. (prog and (" " .. prog .. " %") or ""), 0.6, 0.63, 0.66, 1, 1, 1) end
   end
-  GameTooltip:AddLine(N.moment and "Click: close" or "Click: the Stats page", 0.52, 0.55, 0.57)
+  if mode ~= "dungeon" and mode ~= "raid" then
+    GameTooltip:AddLine(N.moment and "Click: close" or "Click: the Stats page", 0.52, 0.55, 0.57)
+  end
   GameTooltip:Show()
 end
 
