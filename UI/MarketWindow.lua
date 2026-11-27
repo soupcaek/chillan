@@ -300,15 +300,11 @@ local function makeChart(parent)
   local AXIS_W = 50
   c.plot = CreateFrame("Frame", nil, c)
   c.plot:SetPoint("TOPLEFT", AXIS_W, -20)
-  c.plot:SetPoint("BOTTOMRIGHT", -4, 32)
+  c.plot:SetPoint("BOTTOMRIGHT", -4, 16)
   c.axisL = solid(c, "3A404A", "BORDER")
   c.axisL:SetWidth(1)
   c.axisL:SetPoint("TOPLEFT", c.plot, "TOPLEFT", 0, 0)
   c.axisL:SetPoint("BOTTOMLEFT", c.plot, "BOTTOMLEFT", 0, 0)
-  c.axisB = solid(c, "3A404A", "BORDER")
-  c.axisB:SetHeight(1)
-  c.axisB:SetPoint("BOTTOMLEFT", c.plot, "BOTTOMLEFT", 0, 0)
-  c.axisB:SetPoint("BOTTOMRIGHT", c.plot, "BOTTOMRIGHT", 0, 0)
   c.yLabels, c.xLabels = {}, {}
   c.title = UI.Text(c, 12, "semi", C.text)
   c.title:SetPoint("TOPLEFT", 0, 0)
@@ -408,13 +404,13 @@ local function makeChart(parent)
     local d0 = math.floor(ns.Now() / 86400) - days + 1
     local function xy(p)
       local x = (p.day - d0) / math.max(1, days - 1) * (w - 6) + 3
-      local y = (p.v - a) / span * (h - 6) + 3
+      local y = (p.v - a) / span * (h - 4)
       return x, y
     end
     local n = 0
     for v = a, b + 0.5, step do
       n = n + 1
-      local y = (v - a) / span * (h - 6) + 3
+      local y = (v - a) / span * (h - 4)
       local g = self.grid[n]
       if not g then g = solid(self.plot, "2E333A", "BACKGROUND") g:SetHeight(1) self.grid[n] = g end
       g:ClearAllPoints()
@@ -477,10 +473,9 @@ local function makeChart(parent)
     self.dot:Show()
     local first, last = pts[1].v, pts[#pts].v
     local pct = first > 0 and math.floor((last - first) / first * 100 + 0.5) or 0
-    self.delta:SetText((pct > 0 and "+" or pct < 0 and "−" or "") .. math.abs(pct) .. " %")
+    self.delta:SetText(dim("now ") .. coins(last) .. dim("  ·  ") .. ns.Colorize((pct > 0 and "+" or pct < 0 and "−" or "") .. math.abs(pct) .. " %", pct < 0 and C.green or pct > 0 and C.red or C.muted))
     self.delta:SetTextColor(hex(pct < 0 and C.green or pct > 0 and C.red or C.muted))
-    self.l2:SetText("low " .. coins(lo) .. dim(" · high ") .. coins(hi))
-    self.l3:SetText("now " .. coins(last))
+    self.l2:SetText("") self.l3:SetText("")
   end
   return c
 end
