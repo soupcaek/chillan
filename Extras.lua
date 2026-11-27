@@ -186,7 +186,7 @@ local function finishRun()
       local _, total = ns.Bosses:Count(r.name, r.killed)
       ns.Tracker:Event("RAID", r.name, math.floor(dur), r.wipes or 0, r.bosses .. "/" .. (total or "?") .. "|" .. #r.members)
     else
-      ns.Tracker:Event("DUNGEON", r.name, math.floor(dur), r.deaths, r.bosses .. "|" .. table.concat(r.members, ","))
+      ns.Tracker:Event("DUNGEON", ns.Bosses:RunName(r.name, r.killed), math.floor(dur), r.deaths, r.bosses .. "|" .. table.concat(r.members, ","))
     end
   end
 end
@@ -399,7 +399,7 @@ ns:On("ENCOUNTER_END", function(id, name, _, _, success)
           if r.raid then
             ns.Tracker:Event("RAID", r.name, dur, r.wipes or 0, r.bosses .. "/" .. (total or "?") .. "|" .. #members)
           else
-            ns.Tracker:Event("DUNGEON", r.name, dur, r.deaths, r.bosses .. "|" .. table.concat(members, ","))
+            ns.Tracker:Event("DUNGEON", ns.Bosses:RunName(r.name, r.killed), dur, r.deaths, r.bosses .. "|" .. table.concat(members, ","))
           end
         end)
       end
@@ -566,3 +566,46 @@ function X:Start()
   C_Timer.NewTicker(60, function() X:Radar() end)
   C_Timer.NewTicker(600, function() X:ExpireNotes() end)
 end
+
+---------------------------------------------------------------------------
+-- (1.4.76) pull timer: the leader or the tank starts "Pull in 5" for the whole group.
+-- The game's own countdown when the client has it (everyone sees that, Chillan or not), plus a chip
+-- on Pulse for everyone with Chillan (sent to the group; addon messages work in dungeons).
+---------------------------------------------------------------------------
+local function grouped() return (ns.S(GetNumGroupMembers) or 0) > 0 end
+local function leadOrTank(unitOrName)
+  local okL, lead = pcall(UnitIsGroupLeader, unitOrName)
+  if okL and lead == true then return true end
+  local okR, role = pcall(UnitGroupRolesAssigned, unitOrName)
+  return okR and role == "TANK"
+end
+function X.CanPull() return not grouped() or leadOrTank("player") end
+function X:ShowPull(secs, who)
+  self.pullEnds, self.pullBy = GetTime() + secs, who
+  if self.pullTicker then self.pullTicker:Cancel() end
+  self.pullTicker = C_Timer.NewTicker(0.2, function()
+    if ns.NowCard and ns.NowCard.PullTick then ns.NowCard:PullTick() end
+    if GetTime() > (X.pullEnds or 0) + 2 and X.pullTicker then
+      X.pullTicker:Cancel() X.pullEnds = nil X.pullTicker = nil ns:Fire("PULSE")
+    end
+  end)
+  ns:Fire("PULSE")
+end
+function X:Pull(arg)
+  local secs = math.max(3, math.min(15, tonumber(arg) or 5))
+  if not X.CanPull() then ns.Print("Pull timer: only the group leader or the tank can start it.") return end
+  if C_PartyInfo and C_PartyInfo.DoCountdown and grouped() then pcall(C_PartyInfo.DoCountdown, secs) end
+  self:ShowPull(secs, ns.pid)
+  if grouped() then
+    local scope = (IsInRaid and IsInRaid()) and "RAID" or "PARTY"
+    if IsInGroup and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and not (IsInGroup(LE_PARTY_CATEGORY_HOME)) then scope = "INSTANCE_CHAT" end
+    Comm:SendScope(Comm:Build("PL", secs, ns.pid), scope, 0)
+  end
+end
+Comm:Handle("PL", function(f, sender)
+  local secs, pid = tonumber(f[1]), f[2]
+  if not secs or pid == ns.pid then return end
+  local name = type(sender) == "string" and (Ambiguate and Ambiguate(sender, "none") or sender:match("^[^-]+")) or nil
+  if not name or not leadOrTank(name) then return end
+  X:ShowPull(math.max(3, math.min(15, secs)), pid)
+end)

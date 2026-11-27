@@ -121,6 +121,69 @@ function N:Create()
   end)
   f.rc:SetScript("OnLeave", function() GameTooltip:Hide() end)
   f.rc:Hide()
+  -- (1.4.76) the rolling boss list: done ones fold away, the next is lit, two after it
+  f.brows = {}
+  for i = 1, 6 do
+    local r = {}
+    r.bg = UI.Track(f:CreateTexture(nil, "BACKGROUND", nil, 4))
+    r.bg:SetColorTexture(hex(C.amber))
+    r.bg:SetAlpha(0.09)
+    r.mark = UI.Text(f, 11, "semi", C.dim)
+    r.mark:SetWidth(12)
+    r.name = UI.Text(f, 11, nil, C.text2)
+    r.name:SetWordWrap(false)
+    r.name:SetJustifyH("LEFT")
+    r.right = UI.Text(f, 10, nil, C.dim)
+    r.right:SetJustifyH("RIGHT")
+    r.right:SetWordWrap(false)
+    f.brows[i] = r
+  end
+  -- (1.4.76) the choices at the door (the sides of Strat, the usual BRD runs …)
+  f.doors = {}
+  for i = 1, 4 do
+    local d = CreateFrame("Frame", nil, f)
+    d.edge = UI.Track(d:CreateTexture(nil, "BACKGROUND", nil, 3))
+    d.edge:SetAllPoints()
+    d.edge:SetColorTexture(hex(C.active))
+    d.fill = UI.Track(d:CreateTexture(nil, "BACKGROUND", nil, 4))
+    d.fill:SetPoint("TOPLEFT", 1, -1)
+    d.fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    d.fill:SetColorTexture(hex(C.window))
+    d.t = UI.Text(d, 11, "semi", C.text)
+    d.t:SetPoint("TOPLEFT", 7, -5)
+    d.t:SetPoint("RIGHT", d, "RIGHT", -6, 0)
+    d.t:SetWordWrap(false)
+    d.s = UI.Text(d, 10, nil, C.dim)
+    d.s:SetPoint("TOPLEFT", 7, -19)
+    d.s:SetPoint("RIGHT", d, "RIGHT", -6, 0)
+    d.s:SetWordWrap(false)
+    d:SetHeight(34)
+    d:Hide()
+    f.doors[i] = d
+  end
+  -- (1.4.76) the pull timer in the title: "Pull" to start it (leader/tank), "Pull in 4" while it runs
+  f.pull = CreateFrame("Button", nil, f)
+  f.pull:SetSize(54, 16)
+  f.pull.bg = UI.Track(f.pull:CreateTexture(nil, "BACKGROUND"))
+  f.pull.bg:SetAllPoints()
+  f.pull.bg:SetColorTexture(hex(C.amber))
+  f.pull.t = UI.Text(f.pull, 10, "semi", C.amber)
+  f.pull.t:SetPoint("CENTER")
+  f.pull:SetScript("OnClick", function() if not ns.Extras.pullEnds then ns.Extras:Pull(5) end end)
+  f.pull:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Pull timer", 1, 1, 1)
+    GameTooltip:AddLine("Click (or /chill pull 8): a countdown for the whole group. Leader or tank.", 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  f.pull:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.pull:Hide()
+  -- (1.4.76) loot so far: hover for who got what
+  f.lootHit = CreateFrame("Frame", nil, f)
+  f.lootHit:EnableMouse(true)
+  f.lootHit:SetScript("OnEnter", function(self) N:LootTooltip(self) end)
+  f.lootHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.lootHit:Hide()
   f:SetScript("OnMouseUp", function(_, btn)
     if N.moment then N.moment = nil N:Update() return end   -- a click closes the moment
     ns.Window:Toggle("stats")
@@ -214,6 +277,46 @@ local function place(f, rows, track)
     f.track:SetPoint("TOPLEFT", PAD, y - 2)
     y = y - 16
   elseif track then trackW = drawTrack(f, track, math.floor((width - 2 * PAD) * 0.45)) else drawTrack(f, nil) end
+  -- (1.4.76) the choices at the door, two to a row
+  for _, d in ipairs(f.doors) do d:Hide() end
+  if f.doorData then
+    local colW = math.floor((width - 2 * PAD - 6) / 2)
+    for i, c in ipairs(f.doorData) do
+      local d = f.doors[i]
+      if not d then break end
+      d:ClearAllPoints()
+      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+      d:SetPoint("TOPLEFT", PAD + col * (colW + 6), y - row * 40)
+      d:SetWidth(colW)
+      d.t:SetText(c.name)
+      d.s:SetText(c.sub or "")
+      d:Show()
+    end
+    y = y - math.ceil(#f.doorData / 2) * 40 - 2
+  end
+  -- (1.4.76) the rolling boss list
+  for _, r in ipairs(f.brows) do r.bg:Hide() r.mark:Hide() r.name:Hide() r.right:Hide() end
+  for i, b in ipairs(f.bossData or {}) do
+    local r = f.brows[i]
+    if not r then break end
+    r.mark:ClearAllPoints() r.name:ClearAllPoints() r.right:ClearAllPoints() r.bg:ClearAllPoints()
+    r.mark:SetPoint("TOPLEFT", PAD + 4, y - 2)
+    r.right:SetPoint("TOPRIGHT", -PAD - 4, y - 2)
+    r.name:SetPoint("TOPLEFT", PAD + 20, y - 2)
+    r.name:SetPoint("RIGHT", r.right, "LEFT", -8, 0)
+    r.mark:SetText(b.mark or "")
+    r.name:SetText(b.name or "")
+    r.right:SetText(b.right or "")
+    r.mark:Show() r.name:Show() r.right:Show()
+    if b.lit then
+      r.bg:SetPoint("TOPLEFT", PAD, y)
+      r.bg:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
+      r.bg:SetHeight(17)
+      r.bg:Show()
+    end
+    y = y - 18
+  end
+  if f.bossData and #f.bossData > 0 then y = y - 3 end
   local rightT = f.rowsRight or {}
   for i, l in ipairs(f.lines) do
     l:ClearAllPoints()
@@ -238,12 +341,20 @@ local function place(f, rows, track)
       end
       l:SetText(rows[i])
       l:Show()
+      if f.lootRow == i then
+        f.lootHit:ClearAllPoints()
+        f.lootHit:SetPoint("TOPLEFT", PAD, y + 2)
+        f.lootHit:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
+        f.lootHit:SetHeight(18)
+        f.lootHit:Show()
+      end
       y = y - 17
     else
       l:Hide()
     end
   end
   f.btn:Hide() f.btnNote:Hide()
+  if not f.lootRow then f.lootHit:Hide() end
   f.rc:ClearAllPoints()
   f.baron:ClearAllPoints()
   local headRight = nil
@@ -262,6 +373,19 @@ local function place(f, rows, track)
     f.baron:Show()
   else
     f.baron:Hide()
+  end
+  -- (1.4.76) the pull chip
+  f.pull:ClearAllPoints()
+  if f.pullText then
+    f.pull.t:SetText(f.pullText)
+    f.pull:SetWidth(math.max(34, (f.pull.t:GetStringWidth() or 30) + 12))
+    f.pull.bg:SetAlpha(f.pullLive and 0.22 or 0.08)
+    if headRight then f.pull:SetPoint("RIGHT", headRight, "LEFT", -6, 0)
+    else f.pull:SetPoint("RIGHT", f, "TOPRIGHT", -PAD, -(8 + 1 + f.card.stripH / 2 - 1)) end
+    headRight = f.pull
+    f.pull:Show()
+  else
+    f.pull:Hide()
   end
   if headRight then f.head:SetPoint("RIGHT", headRight, "LEFT", -6, 0) end
   f:SetHeight(-y + 8)
@@ -353,6 +477,146 @@ local function hasFlask()
   return false
 end
 
+---------------------------------------------------------------------------
+-- (1.4.76) the dungeon card: the choices at the door, or a boss list that rolls along with the run
+---------------------------------------------------------------------------
+local function holder(rec)
+  local p = rec and rec.pid and ns:GetPerson(rec.pid)
+  return p and ns:PersonFirst(p) or nil
+end
+local function vsRec(secs, rec)
+  if not (secs and rec and rec.s) then return "" end
+  local d = secs - rec.s
+  return "  " .. (d <= 0 and ns.Colorize("−" .. mmss(-d), C.green) or ns.Colorize("+" .. mmss(d), C.red))
+end
+N.MAX_LOOT = 6
+function N:DungeonRows(f, r, pr, rows)
+  local B = ns.Bosses
+  local list, wing, _, doors = B:For(r.name, r.killed, true)
+  local n = 0
+  for _, b in ipairs(list) do if b.killed then n = n + 1 end end
+  f.head:SetText((r.name .. (wing and (" · " .. wing) or "")):upper())
+  -- at the door: the sides or the usual runs, each with its size and the gang's best
+  if doors and n == 0 then
+    f.doorData = {}
+    local isRun = B.RoutesFor(r.name) ~= nil
+    for _, d in ipairs(doors) do
+      local cnt = 0
+      for _, x in ipairs(d.list or {}) do if tostring(x):sub(1, 1) ~= "?" then cnt = cnt + 1 end end
+      local best = ns.Extras:BestFor(r.name .. " · " .. d.name, "DUNGEON")
+      local sub = d.open and "ends at the Emperor" or ns.Plural(cnt, "boss", "bosses")
+      if best then sub = sub .. " · best " .. ns.Duration(best) end
+      f.doorData[#f.doorData + 1] = { name = d.name, sub = sub }
+    end
+    rows[#rows + 1] = dim(isRun and "Which run? It settles at the first kills." or "Which side? The list fills in at the first boss.")
+    return rows
+  end
+  -- the rolling list
+  local done, left = {}, {}
+  for _, b in ipairs(list) do
+    if b.killed then done[#done + 1] = b elseif not b.opt then left[#left + 1] = b end
+  end
+  table.sort(done, function(a, b) return (a.secs or 0) < (b.secs or 0) end)
+  local data = {}
+  local function recFor(name) return B:BossRecord(r.name, name) end
+  if #done == 1 then
+    local b = done[1]
+    data[#data + 1] = { mark = ns.Colorize("✓", C.green), name = b.name,
+      right = b.as and ns.Colorize(b.as, C.green) or (b.secs and (ns.Colorize(mmss(b.secs), C.green) .. vsRec(b.secs, recFor(b.name))) or "") }
+  elseif #done > 1 then
+    local last = done[#done]
+    data[#data + 1] = { mark = ns.Colorize("✓", C.green), name = ns.Colorize(#done .. " down", C.green) .. dim("  · last ") .. last.name,
+      right = last.secs and (mmss(last.secs) .. vsRec(last.secs, recFor(last.name))) or "" }
+  end
+  if #left == 0 then
+    data[#data + 1] = { mark = ns.Colorize("✓", C.green), name = ns.Colorize(n > 0 and "All bosses down" or "No boss yet", n > 0 and C.green or C.dim) }
+  else
+    for i = 1, math.min(3, #left) do
+      local b = left[i]
+      local rec = recFor(b.name)
+      if i == 1 then
+        local who = holder(rec)
+        data[#data + 1] = { mark = ns.Colorize("▸", C.amber), lit = true,
+          name = ns.Extras.inEncounter and ns.Colorize("Boss fight", C.amber) or ns.Colorize(b.name, C.text),
+          right = rec and (dim("best " .. mmss(rec.s)) .. (who and dim(" · " .. who) or "")) or "" }
+      else
+        data[#data + 1] = { mark = dim("○"), name = ns.Colorize(b.name, C.muted), right = rec and dim(mmss(rec.s)) or "" }
+      end
+    end
+    if #left > 3 then
+      local lastName = left[#left].name
+      data[#data + 1] = { mark = "", name = dim("+" .. (#left - 3) .. " more · " .. lastName .. " at the end") }
+    end
+  end
+  f.bossData = data
+  -- deaths and the pace against the gang's best of this side or run
+  rows[#rows + 1] = ns.Colorize(ns.Plural(r.deaths or 0, "death") .. " · " .. ns.Plural(r.wipes or 0, "wipe"), C.muted)
+  local _, total = B:Count(r.name, r.killed)
+  local best = (wing and ns.Extras:BestFor(r.name .. " · " .. wing, "DUNGEON")) or ns.Extras:BestFor(r.name, "DUNGEON")
+  if best and total and total > 0 and n > 0 then
+    local diff = math.floor(best * n / total - (ns.Now() - r.start))
+    f.rowsRight[#rows] = (diff >= 0 and ns.Colorize("−" .. ns.Duration(diff), C.green) or ns.Colorize("+" .. ns.Duration(-diff), C.amber)) .. dim(" vs best " .. ns.Duration(best))
+  elseif best then
+    f.rowsRight[#rows] = dim("best " .. ns.Duration(best))
+  end
+  -- loot so far: rare and epic drops for the group (6, then +N), your take on the right
+  local drops = pr and pr.drops or {}
+  local icons = {}
+  for i = #drops, math.max(1, #drops - N.MAX_LOOT + 1), -1 do
+    local id = tonumber(tostring(drops[i].link):match("item:(%d+)"))
+    local tex = id and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+    icons[#icons + 1] = "|T" .. tostring(tex or 134400) .. ":16:16:0:0:64:64:5:59:5:59|t"
+  end
+  local take = pr and ns.Pulse:LootValue(pr) or 0
+  if ns.db.settings.dgLoot ~= false and (#drops > 0 or take > 0) then
+    rows[#rows + 1] = dim("Loot so far  ") .. table.concat(icons, " ") .. (#drops > N.MAX_LOOT and dim("  +" .. (#drops - N.MAX_LOOT)) or "")
+      .. (#drops == 0 and dim("nothing rare yet") or "")
+    f.rowsRight[#rows] = take > 0 and (dim("your take ") .. goldText(take)) or ""
+    f.lootRow = #rows
+  end
+  f.lootLine = table.concat(icons, "")
+  return rows
+end
+
+-- hover the loot line: each rare/epic drop, who got it and how (from the loot rolls)
+function N:LootTooltip(owner)
+  local _, pr = ns.Pulse:Run()
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:AddLine("Loot so far", 1, 1, 1)
+  local drops = pr and pr.drops or {}
+  if #drops == 0 then GameTooltip:AddLine("No rare or epic drop yet.", 0.7, 0.7, 0.7) end
+  for i = #drops, 1, -1 do
+    local d = drops[i]
+    local how
+    local R = ns.LootRolls
+    local id = tostring(d.link):match("item:(%d+)")
+    for _, h in ipairs(R and R.history or {}) do
+      if h.item == id and h.winner then
+        for _, p in ipairs(h.players or {}) do
+          if p.won then how = (p.choice or "") .. (p.roll and (" " .. p.roll) or "") end
+        end
+      end
+    end
+    GameTooltip:AddDoubleLine(d.link, (d.who or "?") .. (how and how ~= "" and (" · " .. how) or ""), 1, 1, 1, 0.75, 0.75, 0.75)
+  end
+  local take = pr and ns.Pulse:LootValue(pr) or 0
+  if take > 0 then GameTooltip:AddLine(" ") GameTooltip:AddDoubleLine("Your take", goldText(take), 0.7, 0.7, 0.7, 1, 1, 1) end
+  GameTooltip:AddLine("Coins you looted + what your items sell for (market price when it has one).", 0.55, 0.55, 0.6, true)
+  GameTooltip:Show()
+end
+
+-- the pull chip's countdown (Extras ticks this while a pull runs)
+function N:PullTick()
+  local f = self.frame
+  if not f or not f:IsShown() then return end
+  local X = ns.Extras
+  if X.pullEnds then
+    local left = X.pullEnds - GetTime()
+    f.pull.t:SetText(left > 0.05 and ("Pull in " .. math.ceil(left)) or "Pull!")
+    f.pull.bg:SetAlpha(0.22)
+  end
+end
+
 function N:Update()
   local f = self.frame
   if not f or not f:IsShown() then return end
@@ -361,6 +625,7 @@ function N:Update()
   local rows, track = {}, nil
   f.meter.pct, f.showBtn = nil, false
   f.trackFull, f.rowsRight, f.baronText = nil, nil, nil
+  f.doorData, f.bossData, f.lootRow, f.pullText, f.pullLive = nil, nil, nil, nil, nil
   f.head:SetText("") f.big:SetText("") f.bigSub:SetText("") f.right:SetText("")
   f.head:SetTextColor(hex(C.text2))
   local dg = P:Danger()
@@ -447,6 +712,14 @@ function N:Update()
       f.rowsRight = {}
       local _, wing = ns.Bosses:For(r.name, r.killed, true)
       f.head:SetText((r.name .. (wing and (" · " .. wing) or "")):upper())
+      -- (1.4.76) the pull timer: running → "Pull in 4", idle → "Pull" for the leader or the tank in a group
+      local X = ns.Extras
+      if X.pullEnds and GetTime() < X.pullEnds + 2 then
+        local left = X.pullEnds - GetTime()
+        f.pullText, f.pullLive = (left > 0.05 and ("Pull in " .. math.ceil(left)) or "Pull!"), true
+      elseif ns.db.settings.dgPull ~= false and (ns.S(GetNumGroupMembers) or 0) > 0 and X.CanPull and X.CanPull() and not ns.Extras.inEncounter then
+        f.pullText = "Pull"
+      end
       if r.baronEnds then
         local left = r.baronEnds - ns.Now()
         if left > 0 and not (r.killed and r.killed["Baron Rivendare"]) then
@@ -454,34 +727,8 @@ function N:Update()
         end
       end
       if mode == "dungeon" then
-        if ns.Extras.inEncounter then
-          rows[#rows + 1] = ns.Colorize("Boss fight", C.amber)
-        elseif nextB then
-          rows[#rows + 1] = dim("Next  ") .. ns.Colorize(nextB, C.text)
-        else
-          rows[#rows + 1] = n > 0 and ns.Colorize("All bosses down", C.green) or dim("No boss yet")
-        end
-        local best = ns.Extras:BestFor(r.name, "DUNGEON")
-        if best and total and total > 0 and n > 0 then
-          local diff = math.floor(best * n / total - (ns.Now() - r.start))
-          f.rowsRight[#rows] = (diff >= 0 and ns.Colorize("−" .. ns.Duration(diff), C.green) or ns.Colorize("+" .. ns.Duration(-diff), C.amber)) .. dim(" vs best " .. ns.Duration(best))
-        elseif best then
-          f.rowsRight[#rows] = dim("best " .. ns.Duration(best))
-        end
-        rows[#rows + 1] = ns.Colorize(ns.Plural(r.deaths or 0, "death") .. " · " .. ns.Plural(r.wipes or 0, "wipe"), C.muted)
-        local lb = r.lastBoss
-        local secs = lb and r.killed and tonumber(r.killed[lb])
-        if lb and secs then
-          local rec = ns.Bosses:BossRecord(r.name, lb)
-          local tt = string.format("%d:%02d", math.floor(secs / 60), secs % 60)
-          local vs = ""
-          if rec and rec.s then
-            local d = secs - rec.s
-            vs = "  " .. (d <= 0 and ns.Colorize("−" .. string.format("%d:%02d", math.floor(-d / 60), -d % 60), C.green)
-              or ns.Colorize("+" .. string.format("%d:%02d", math.floor(d / 60), d % 60), C.red))
-          end
-          f.rowsRight[#rows] = dim("last: ") .. ns.Colorize(lb, C.text2) .. " " .. tt .. vs
-        end
+        rows = N:DungeonRows(f, r, pr, rows)
+        if f.doorData then track = nil end
       elseif ns.Extras.inEncounter then
         rows[#rows + 1] = ns.Colorize("Boss fight", C.amber) .. dim("  · gang news waits until it's dead")
       elseif nextB then
@@ -511,20 +758,7 @@ function N:Update()
       end
     end
     if mode == "dungeon" then
-      local q = { [2] = "1EFF00", [3] = "0070DD", [4] = "A335EE", [5] = "FF8000" }
-      local pips, k = {}, 0
-      for _, link in ipairs(pr and pr.items or {}) do
-        local qq = P.LinkQuality(link)
-        if q[qq] and k < 8 then
-          k = k + 1
-          local rr, gg, bb = hex(q[qq])
-          pips[#pips + 1] = string.format("|T%sCircle:9:9:0:0:64:64:0:64:0:64:%d:%d:%d|t", ns.TEX, rr * 255, gg * 255, bb * 255)
-        end
-      end
-      if k > 0 or (pr and pr.grey > 0) then
-        -- (1.4.73) the loot is in the boss track's hover now (the card stays two lines)
-        f.lootLine = table.concat(pips, "") .. ((pr and pr.grey > 0) and ("  +" .. pr.grey .. " grey") or "")
-      end
+      -- (1.4.76) the loot line is built in N:DungeonRows
     else
       -- your own raid prep
       local prep = {}

@@ -337,7 +337,9 @@ function T:BossList(owner)
     -- a dungeon with wings and no kill yet: list each wing
     for _, wg in ipairs(wings) do
       i = i + 1 row(i, wg.name, false, nil, C.accent)
-      for _, b in ipairs(wg.list) do i = i + 1 row(i, "  " .. (b:match("^[^|]+")), false) end
+      for _, b in ipairs(wg.list or {}) do
+        if b:sub(1, 1) ~= "?" then i = i + 1 row(i, "  " .. (b:match("^[^|]+")), false) end
+      end
     end
   else
     local nextShown = false

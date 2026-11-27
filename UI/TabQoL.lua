@@ -57,6 +57,11 @@ local CARDS = {
       { "Keep finished rows", "lootRollsKeep", "A finished row stays until you close it with the ✕." },
     } },
   } },
+  -- (1.4.76) the dungeon card under Pulse
+  { col = 2, title = "Dungeons", icon = "Skull", desc = "/chill pull 8 starts a pull timer", items = {
+    { "Pull timer", "dgPull", "A Pull chip on the dungeon card for the leader or the tank, and the countdown for everyone with Chillan." },
+    { "Loot so far", "dgLoot", "Rare and epic drops this run under the boss list, and your take. Hover for who got what." },
+  } },
   { col = 2, title = "Market", icon = "Board", desc = "Prices, the auction house window and the gang's prices", items = {
     { "Market on", "market", "Prices in tooltips, scanning at the auction house and the gang's prices.", subs = {
       { "Window beside the auction house", "mkWindow", "Sell, Buy, My auctions, Item Tracker and Gang open beside the auction house." },

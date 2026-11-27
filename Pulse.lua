@@ -271,9 +271,32 @@ ns:On("CHAT_MSG_LOOT", function(msg)
   if not lootPatterns then buildLoot() end
   local link
   for _, pat in ipairs(lootPatterns) do link = msg:match(pat) if link then break end end
-  if not link then return end
   local _, pr = P:Run()
   if not pr then return end
+  -- (1.4.76) loot so far: rare and epic drops for the whole group (yours and "X receives loot")
+  local who = link and ns.S(UnitName, "player") or nil
+  local dropLink = link
+  if not dropLink then
+    if not P.otherLoot then
+      P.otherLoot = {}
+      for _, fmt in ipairs({ LOOT_ITEM_MULTIPLE or "%s receives loot: %sx%d.", LOOT_ITEM or "%s receives loot: %s." }) do
+        local f = fmt:gsub("%%s", "@S@"):gsub("%%d", "@D@")
+        f = f:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+        f = f:gsub("@S@", "(.+)"):gsub("@D@", "%%d+")
+        P.otherLoot[#P.otherLoot + 1] = "^" .. f
+      end
+    end
+    for _, pat in ipairs(P.otherLoot) do
+      local w, l = msg:match(pat)
+      if w and l then who, dropLink = w, l break end
+    end
+  end
+  if dropLink and P.LinkQuality(dropLink) >= 3 then
+    pr.drops = pr.drops or {}
+    pr.drops[#pr.drops + 1] = { link = dropLink, who = who, t = ns.Now() }
+    while #pr.drops > 40 do table.remove(pr.drops, 1) end
+  end
+  if not link then ns:Fire("PULSE") return end
   if P.LinkQuality(link) == 0 then
     pr.grey = pr.grey + 1
     pr.greyValue = (pr.greyValue or 0) + P.ItemValue(link)

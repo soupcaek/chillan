@@ -17,8 +17,19 @@ local function stamp(t)
   return ns.Colorize(date("%H:%M", t or time()), "6E747B") .. "  "
 end
 
-local function visible(kind)
+-- (1.4.76) "dungeon only": inside a dungeon or raid, gang chat and what your own group does
+local function hereOnly()
+  if not ns.db.settings.feedHere then return false end
+  local m = ns.Pulse and ns.Pulse.Mode and ns.Pulse:Mode()
+  return m == "dungeon" or m == "raid"
+end
+local function visible(kind, e)
   if kind == "sep" then return true end
+  if e and kind ~= "chat" and hereOnly() then
+    local pid = e.pid or (e.item and e.item.pid)
+    if not pid then return false end
+    if pid ~= ns.pid and not ns.InMyGroup(ns:GetPerson(pid)) then return false end
+  end
   local f = ns.db.settings.evFilter or "all"
   if f == "all" then return kind ~= "chat" or ns.db.settings.feedChat end
   if f == "ev" then return kind == "ev" or kind == "rx" end
@@ -81,7 +92,7 @@ local function burstText(e)
 end
 E.BurstText = burstText
 
-function E:Add(kind, text, t, item)
+function E:Add(kind, text, t, item, pid)
   -- (1.4.3) the ding takes the place of "is 2 % from level X"
   if kind == "ev" and item and item.kind == "DING" then
     for i = #self.entries, 1, -1 do
@@ -147,10 +158,10 @@ function E:Add(kind, text, t, item)
       end
     end
   end
-  local e = { kind = kind, base = text, t = t or time(), item = item }
+  local e = { kind = kind, base = text, t = t or time(), item = item, pid = pid }
   e.text = render(e)
   ns.PushCapped(self.entries, e, MAX_KEEP)
-  if self.msg and visible(kind) then
+  if self.msg and visible(kind, e) then
     self.msg:AddMessage(e.text, e)
     if ns.db.settings.evMin and kind ~= "sep" then
       self.missed = (self.missed or 0) + 1
@@ -186,7 +197,7 @@ function E:Redraw()
   self.msg:Clear()
   for _, e in ipairs(self.entries) do
     if e.base then e.text = render(e) end
-    if visible(e.kind) then self.msg:AddMessage(e.text, e) end
+    if visible(e.kind, e) then self.msg:AddMessage(e.text, e) end
   end
   if off > 0 and self.msg.SetScrollOffset then pcall(self.msg.SetScrollOffset, self.msg, off) end
   for key, btn in pairs(self.filterBtns or {}) do
@@ -641,6 +652,25 @@ function E:FeedCard(on)
     c:SetPoint("BOTTOMRIGHT", self.input, "TOPRIGHT", 14, 6)
     c.shouldShow = function() return f.noMove and not (ns.BGPanel and ns.BGPanel.on) and not ns.db.settings.evMin end
     self.feedCard = c
+    -- (1.4.76) "all ▾" / "dungeon only ▾" on the right of the title, inside a dungeon or raid
+    local sw = CreateFrame("Button", nil, f)
+    sw:SetSize(96, 16)
+    sw:SetPoint("RIGHT", f, "TOPRIGHT", -20, -(8 + 1 + (c.stripH or 22) / 2 - 1))
+    sw.t = UI.Text(sw, 10, nil, C.dim)
+    sw.t:SetPoint("RIGHT")
+    sw:SetScript("OnClick", function()
+      ns.db.settings.feedHere = not ns.db.settings.feedHere or nil
+      E:Redraw() E:HereSwitch()
+    end)
+    sw:SetScript("OnEnter", function(b)
+      b.t:SetTextColor(hex(C.text))
+      GameTooltip:SetOwner(b, "ANCHOR_BOTTOM")
+      GameTooltip:AddLine("Dungeon only", 1, 1, 1)
+      GameTooltip:AddLine("While you're inside: gang chat and what your own group does. Everything else waits until you click back.", 0.8, 0.8, 0.8, true)
+      GameTooltip:Show()
+    end)
+    sw:SetScript("OnLeave", function(b) b.t:SetTextColor(hex(C.dim)) GameTooltip:Hide() end)
+    self.hereBtn = sw
   end
   local c = self.feedCard
   self.msg:ClearAllPoints()
@@ -653,6 +683,18 @@ function E:FeedCard(on)
     self.msg:SetPoint("BOTTOMRIGHT", self.input, "TOPRIGHT", 12, 6)
   end
   if c then c:SetShown(on and f:IsShown() and not (ns.BGPanel and ns.BGPanel.on) and not ns.db.settings.evMin) end
+  self.feedCardOn = on
+  self:HereSwitch()
+end
+
+-- the switch shows only on the feed card, inside a dungeon or raid
+function E:HereSwitch()
+  local b = self.hereBtn
+  if not b then return end
+  local m = ns.Pulse and ns.Pulse.Mode and ns.Pulse:Mode()
+  local inside = m == "dungeon" or m == "raid"
+  b.t:SetText(ns.db.settings.feedHere and "dungeon only ▾" or "all ▾")
+  b:SetShown(self.feedCardOn and inside and self.frame:IsShown() and not ns.db.settings.evMin and true or false)
 end
 
 function E:UpdateCount()
@@ -746,7 +788,7 @@ function E:Init()
   end)
   ns:Listen("CHAT", function(item)
     if (ns.Now() - (item.t or 0)) > 120 then return end
-    E:Add("chat", chatText(item), item.t)
+    E:Add("chat", chatText(item), item.t, nil, item.pid)
     local last = E.entries[#E.entries]
     if last and last.kind == "chat" then last.chatItem = item end
   end)
@@ -754,3 +796,10 @@ function E:Init()
   ns:Listen("CODE_CHANGED", function() E:Apply() end)
   C_Timer.NewTicker(10, function() E:UpdateCount() end)
 end
+
+-- (1.4.76) going in or out of a dungeon: the "dungeon only" switch and filter follow
+ns:On("PLAYER_ENTERING_WORLD", function()
+  C_Timer.After(1.5, function()
+    if ns.EventWindow and ns.EventWindow.msg then ns.EventWindow:HereSwitch() ns.EventWindow:Redraw() end
+  end)
+end)

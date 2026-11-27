@@ -151,6 +151,8 @@ SlashCmdList.CHILLAN = function(msg)
     if ns.LootRolls then ns.LootRolls:ShowPast(rest) end
   elseif cmd == "need" then
     if ns.LootRolls then ns.LootRolls:Test() end
+  elseif cmd == "pull" then
+    if ns.Extras.Pull then ns.Extras:Pull(rest) end
   elseif cmd == "versions" or cmd == "version" or cmd == "ver" then
     ns.PrintVersions()
   elseif cmd == "selftest" or cmd == "test" then

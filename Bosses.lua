@@ -106,6 +106,62 @@ for _, e in ipairs(ns.BOSS_DATA or {}) do
   DATA[bareKey(e.name)] = conv
   if e.inst then BY_INST[e.inst] = conv end
 end
+-- (1.4.76) what the journal lists but isn't one boss each:
+--  · the Ring of Law: six possible arena bosses, one shows up → one entry ("Ring of Law", any of the six)
+--  · chests (Secret Safe, Gordok Tribute) are optional; the Chest of the Seven stands for The Seven
+local ARENA = { "Anub'shiah", "Eviscerator", "Gorosh the Dervish", "Grizzle", "Hedrum the Creeper", "Ok'thor the Breaker" }
+local RING = "Ring of Law|" .. table.concat(ARENA, "|")
+local function fixList(list)
+  if type(list) ~= "table" then return end
+  local out, ringAt = {}, nil
+  for _, name in ipairs(list) do
+    local bareName = tostring(name):gsub("^%?", "")
+    local isArena = false
+    for _, a in ipairs(ARENA) do if bareName == a then isArena = true end end
+    if isArena then
+      if not ringAt then out[#out + 1] = RING ringAt = #out end
+    elseif bareName == "Chest of The Seven" or bareName == "Chest of the Seven" then
+      out[#out + 1] = "The Seven|" .. bareName
+    elseif bareName:find("Safe$") or bareName:find("Tribute$") or bareName:find("^Chest") then
+      out[#out + 1] = "?" .. bareName
+    else
+      out[#out + 1] = name
+    end
+  end
+  for i = #list, 1, -1 do list[i] = nil end
+  for i, v in ipairs(out) do list[i] = v end
+end
+B.FixList = fixList
+for _, conv in pairs(DATA) do
+  if conv.wings then for _, w in ipairs(conv.wings) do fixList(w.list) end else fixList(conv) end
+end
+for _, conv in pairs(LIST) do
+  if conv.wings then for _, w in ipairs(conv.wings) do fixList(w.list) end else fixList(conv) end
+end
+
+-- (1.4.76) dungeons where part runs are normal: the usual runs, picked by what's been killed.
+-- A run with a list is a fixed run; full = the whole dungeon (what's left when no fixed run fits).
+-- door = only shown as a choice at the door (it has no fixed list: "Emperor run" ends at the Emperor).
+local ROUTES = {
+  blackrockdepths = {
+    { name = "Arena", list = { RING } },
+    { name = "Arena · Anger · Golem", list = { RING, "General Angerforge", "Golem Lord Argelmach" } },
+    { name = "Emperor run", door = true, ends = "Emperor Dagran Thaurissan" },
+    { name = "Full run", full = true, open = "Open run" },
+  },
+  maraudon = {
+    { name = "Purple", list = { "Tinkerer Gizlock", "Lord Vyletongue", "Celebras the Cursed" } },
+    { name = "Orange", list = { "Noxxion", "Razorlash", "Celebras the Cursed" } },
+    { name = "Inner · Princess", list = { "Landslide", "Rotgrip", "Princess Theradras" } },
+    { name = "Full", full = true },
+  },
+}
+B.ROUTES = ROUTES
+function B.RoutesFor(instance)
+  local k = bareKey(instance)
+  for key, r in pairs(ROUTES) do if k:sub(1, #key) == key then return r end end
+end
+
 -- the boss's name as the journal writes it, from the game's encounter ID
 function B.EncounterName(id) return BY_ENC[tonumber(id) or -1] end
 function B.Entry(instance, instID)
@@ -196,7 +252,7 @@ end
 function B:For(instance, killed, here)
   killed = killed or {}
   local entry = B.Entry(instance, here and B.curInstID or nil)
-  local base, wingName
+  local base, wingName, doors
   -- the journal only for instances our list doesn't know (its names may be from a later version of the game)
   local ej = here and not entry and fromJournal()
   if ej then
@@ -214,12 +270,46 @@ function B:For(instance, killed, here)
     if wi then base, wingName = entry.wings[wi].list, entry.wings[wi].name end
   elseif entry then
     base = entry
+    -- (1.4.76) BRD and Maraudon: the run that fits what's been killed (checked again at every kill)
+    local routes = B.RoutesFor(instance)
+    if routes then
+      local kills = {}
+      for k in pairs(killed) do
+        for _, b in ipairs(entry) do if not optional(b) and B.Same(b, k) then kills[#kills + 1] = k break end end
+      end
+      if #kills == 0 then
+        base = nil   -- no list at the door: "? / ?" until the first kill
+        doors = {}
+        for _, rt in ipairs(routes) do
+          doors[#doors + 1] = { name = rt.name, list = rt.list or (rt.ends and { rt.ends }) or entry, open = rt.ends and true or nil }
+        end
+      else
+        local pick
+        for _, rt in ipairs(routes) do
+          if rt.list then
+            local all = true
+            for _, k in ipairs(kills) do
+              local hit = false
+              for _, b in ipairs(rt.list) do if B.Same(b, k) then hit = true end end
+              if not hit then all = false end
+            end
+            if all and (not pick or #rt.list < #pick.list) then pick = rt end
+          end
+        end
+        if pick then base, wingName = pick.list, pick.name
+        else
+          for _, rt in ipairs(routes) do if rt.full then wingName = rt.open or rt.name end end
+        end
+      end
+    end
   end
   local out, used = {}, {}
   for _, b in ipairs(base or {}) do
     local hit
     for k, v in pairs(killed) do if not used[k] and B.Same(b, k) then hit = k used[k] = v end end
-    out[#out + 1] = { name = show(b), killed = hit ~= nil, secs = hit and type(killed[hit]) == "number" and killed[hit] or nil, opt = optional(b) }
+    -- (as = the name it died under: which arena boss the Ring of Law gave you)
+    out[#out + 1] = { name = show(b), killed = hit ~= nil, secs = hit and type(killed[hit]) == "number" and killed[hit] or nil, opt = optional(b),
+      as = (hit and hit ~= show(b)) and hit or nil, key = b }
   end
   -- bosses the list doesn't know: the gang has killed them here (or you just did)
   local function add(name, v)
@@ -232,7 +322,22 @@ function B:For(instance, killed, here)
   end
   -- known: the list is complete (journal or our table), or we've seen this many before
   local known = base ~= nil
-  return out, wingName, known, (entry and entry.wings and not wingName) and entry.wings or nil
+  -- the choices at the door: the sides (no kill yet) or the usual runs
+  if not doors and entry and entry.wings and not wingName then
+    doors = {}
+    for _, w in ipairs(entry.wings) do doors[#doors + 1] = { name = w.name, list = w.list } end
+  end
+  return out, wingName, known, doors
+end
+
+-- (1.4.76) the name a finished run is posted under: "Stratholme · Service Entrance", "Blackrock Depths · Arena".
+-- Records, firsts and the best time at the door are per side or per run that way.
+function B:RunName(instance, killed)
+  if type(instance) ~= "string" then return instance end
+  if wingHint(instance) then return instance end
+  local _, wing = self:For(instance, killed or {}, false)
+  if wing and not instance:find(wing, 1, true) then return instance .. " · " .. wing end
+  return instance
 end
 
 -- "3 / 8" for the box (or "3 / ?" when we don't know how many there are)
