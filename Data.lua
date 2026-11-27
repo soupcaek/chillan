@@ -643,7 +643,7 @@ function Data:ApplyEvent(id, pid, char, kind, t, a, b, c, d)
     if a and a ~= "" then item.first = setFirst("DG:" .. a, pid, char, t) end
     -- (1.4.15) a gang record for the run?
     if ns.Bosses then
-      local ok, was = pcall(ns.Bosses.NoteRun, ns.Bosses, a, b, pid, t)
+      local ok, was = pcall(ns.Bosses.NoteRun, ns.Bosses, a, b, pid, t, tostring(d or ""):match("^(%d+)"))
       if ok and was then item.rec = was end
     end
   elseif kind == "BOSS" then

@@ -157,6 +157,13 @@ local ROUTES = {
   },
 }
 B.ROUTES = ROUTES
+-- (1.4.76) usual runs inside one side: a UBRS Rend run is Gyth and Rend (Emberseer for the door)
+local SIDE_ROUTES = {
+  blackrockspire = { Upper = {
+    { name = "Rend run", list = { "Pyroguard Emberseer", "Gyth", "Warchief Rend Blackhand" }, needs = { "Gyth", "Warchief Rend Blackhand" } },
+  } },
+}
+B.SIDE_ROUTES = SIDE_ROUTES
 function B.RoutesFor(instance)
   local k = bareKey(instance)
   for key, r in pairs(ROUTES) do if k:sub(1, #key) == key then return r end end
@@ -268,6 +275,34 @@ function B:For(instance, killed, here)
       end
     end
     if wi then base, wingName = entry.wings[wi].list, entry.wings[wi].name end
+    -- (1.4.76) a usual run inside the side (UBRS Rend run): named in the run's name, or what's been killed
+    local srs
+    if wingName then
+      local k = bareKey(instance)
+      for key, t in pairs(SIDE_ROUTES) do if k:sub(1, #key) == key then srs = t[wingName] end end
+    end
+    if srs then
+      local pick
+      for _, rt in ipairs(srs) do if tostring(instance):find(rt.name, 1, true) then pick = rt end end
+      if not pick then
+        for _, rt in ipairs(srs) do
+          local fits, point, any = true, false, false
+          for kname in pairs(killed) do
+            local inSide = false
+            for _, b in ipairs(base) do if not optional(b) and B.Same(b, kname) then inSide = true end end
+            if inSide then
+              any = true
+              local hit = false
+              for _, b in ipairs(rt.list) do if B.Same(b, kname) then hit = true end end
+              if not hit then fits = false end
+              for _, b in ipairs(rt.needs or rt.list) do if B.Same(b, kname) then point = true end end
+            end
+          end
+          if any and fits and point and (not pick or #rt.list < #pick.list) then pick = rt end
+        end
+      end
+      if pick then base, wingName = pick.list, wingName .. " · " .. pick.name end
+    end
   elseif entry then
     base = entry
     -- (1.4.76) BRD and Maraudon: the run that fits what's been killed (checked again at every kill)
@@ -361,14 +396,30 @@ end
 -- (1.4.15) gang records: the fastest kill of each boss and the fastest run of each dungeon, by anyone
 -- in the gang. Built from the boss and run lines in the feed (yours and everyone's), kept for good.
 ---------------------------------------------------------------------------
-local function recKey(instance) return bareKey(instance) end
+-- (1.4.76) "Blackrock Spire · Upper" → "Blackrock Spire", "Upper"
+function B.Split(name)
+  name = tostring(name or "")
+  local base, side = name:match("^(.-)%s+·%s+(.+)$")
+  return base or name, side
+end
+-- boss records per dungeon (a boss is the same on every side); run records per side or run
+local function recKey(instance) return bareKey((B.Split(instance))) end
+local function runKey(instance) return bareKey(instance) end
+-- (1.4.76) a whole run of its side or route? Only those can be a run record or "best" at the door.
+-- A name without its side (Strat, BRS, BRD …) has no total, so it never counts.
+function B:IsComplete(name, bosses)
+  bosses = tonumber(bosses)
+  if not bosses then return false end
+  local _, total = self:Count(name, {})
+  return total ~= nil and total > 0 and bosses >= total
+end
 function B:BossRecord(instance, boss)
   local t = ns.db.bossRec and ns.db.bossRec[recKey(instance)]
   if not t then return nil end
   for name, r in pairs(t) do if B.Same(name, boss) then return r end end
 end
 function B:RunRecord(instance)
-  return ns.db.runRec and ns.db.runRec[recKey(instance)]
+  return ns.db.runRec and ns.db.runRec[runKey(instance)]
 end
 -- a kill: returns the old record's time if this beat it (nil if not, or if there was none)
 function B:NoteKill(instance, boss, secs, pid, t)
@@ -384,13 +435,25 @@ function B:NoteKill(instance, boss, secs, pid, t)
   ns.db.bossRec[k][name] = { s = secs, pid = pid, t = t }
   return cur and cur.s or nil
 end
-function B:NoteRun(instance, dur, pid, t)
+function B:NoteRun(instance, dur, pid, t, bosses)
   dur = tonumber(dur)
   if not dur or dur < 120 then return nil end
+  -- (1.4.76) only a whole run of its side or route: 2 bosses in 37m is no record over 7 in 42m
+  if not self:IsComplete(instance, bosses) then return nil end
   ns.db.runRec = ns.db.runRec or {}
-  local k = recKey(instance)
+  local k = runKey(instance)
   local cur = ns.db.runRec[k]
   if cur and dur >= cur.s then return nil end
   ns.db.runRec[k] = { s = dur, pid = pid, t = t }
   return cur and cur.s or nil
 end
+
+-- (1.4.76) run records from before sides and whole runs counted: the ones for dungeons with sides or
+-- usual runs can't be trusted (a part run could beat a whole one), so they go once
+ns:On("PLAYER_LOGIN", function()
+  if not ns.db or ns.db.runRec76 then return end
+  ns.db.runRec76 = true
+  for _, k in ipairs({ "blackrockspire", "stratholme", "diremaul", "scarletmonastery", "blackrockdepths", "maraudon" }) do
+    if ns.db.runRec then ns.db.runRec[k] = nil end
+  end
+end)

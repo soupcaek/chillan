@@ -36,6 +36,14 @@ LA.execute('ADDON_NS.NowCard:Update()')
 check("pull chip gone after", not LA.eval(f + '.pull:IsShown()'))
 # the posted run name carries the side
 check("run name " + str(LA.eval('ADDON_NS.Bosses:RunName("Stratholme", { ["Baroness Anastari"] = 200 })')), LA.eval('ADDON_NS.Bosses:RunName("Stratholme", { ["Baroness Anastari"] = 200 })') == "Stratholme · Service Entrance")
+# a priest's Spirit of Redemption: dead, angel for 15 s, dead again = one death
+d0 = LA.eval('ADDON_NS.Extras:Current() and ADDON_NS.Extras:Current().deaths or -1') if LA.eval('ADDON_NS.Extras.Current ~= nil') else None
+LA.execute('UnitIsDeadOrGhost = function(u) return u == "party1" end; UnitName = (function(o) return function(u) if u == "party1" then return "Kenny" end return o(u) end end)(UnitName); GetNumGroupMembers = function() return 2 end'); run(2)
+LA.execute('UnitIsDeadOrGhost = function() return false end'); run(15)
+LA.execute('UnitIsDeadOrGhost = function(u) return u == "party1" end'); run(2)
+LA.execute('UnitIsDeadOrGhost = function() return false end'); run(1)
+kd = LA.eval('(function() local r = ADDON_NS.Extras:RunSummary() return r and r.deaths end)()')
+check("priest angel: one death, not two (" + str(kd) + ")", kd == 1)
 # feed filter: dungeon only hides events from people outside the group, keeps chat
 LA.execute('ADDON_NS.db.settings.feedHere = true; ADDON_NS.EventWindow:Redraw(); ADDON_NS.EventWindow:HereSwitch()')
 LA.execute('ADDON_NS.db.settings.feedHere = nil; ADDON_NS.EventWindow:Redraw()')

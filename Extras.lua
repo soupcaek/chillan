@@ -128,7 +128,9 @@ function X:BestFor(name, kind)
   for _, it in ipairs(ns.db.feed or {}) do
     if it.kind == (kind or "DUNGEON") and it.a == name then
       local d = tonumber(it.b)
-      if d and d > 0 and (not best or d < best) then best = d end
+      -- (1.4.76) whole runs only
+      local whole = (kind or "DUNGEON") ~= "DUNGEON" or ns.Bosses:IsComplete(name, tostring(it.d or ""):match("^(%d+)"))
+      if whole and d and d > 0 and (not best or d < best) then best = d end
     end
   end
   return best
@@ -307,8 +309,13 @@ local function groupUnits()
   end
   return units
 end
+-- (1.4.76) one death per person per 30 s: a priest's Spirit of Redemption is "dead", then an angel
+-- for 15 s, then dead again – that's one death
+local lastDeathOf = {}
 local function countDeath(name)
   if not run then return end
+  if lastDeathOf[name] and GetTime() - lastDeathOf[name] < 30 then return end
+  lastDeathOf[name] = GetTime()
   run.deaths = (run.deaths or 0) + 1
   run.deathsBy[name] = (run.deathsBy[name] or 0) + 1
   if run.pullAt then run.fightDeaths = (run.fightDeaths or 0) + 1 end
@@ -325,7 +332,7 @@ C_Timer.NewTicker(1, function()
       now[name] = true
       if not deadNow[name] then
         if u == "player" then
-          if GetTime() - lastOwnDeath > 5 then countDeath(name) end
+          countDeath(name)
           lastOwnDeath = GetTime()
         else
           countDeath(name)

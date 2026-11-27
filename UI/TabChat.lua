@@ -34,8 +34,28 @@ function ns.ShortDungeonPlain(name)
   name = tostring(name or "?")
   return SHORT[name] or name
 end
+-- (1.4.76) the side or run in the short name: UBRS, Strat UD, DM North, BRD Arena, Mara Orange
+local SIDE = {
+  ["Blackrock Spire"] = { Lower = "LBRS", Upper = "UBRS" },
+  Stratholme = { ["Main Gate"] = "Strat Live", ["Service Entrance"] = "Strat UD" },
+}
+function ns.RunLabel(name, killed)
+  local base, side = ns.Bosses.Split(name)
+  if not side and killed and next(killed) then
+    local _, wing = ns.Bosses:For(base, killed, false)
+    side = wing
+  end
+  if not side then return ns.ShortDungeon(base) end
+  -- "Upper · Rend run" → "UBRS Rend"
+  local main, sub = side:match("^(.-) · (.+)$")
+  main = main or side
+  local short = (SIDE[base] and SIDE[base][main]) or ((SHORT[base] or base) .. " " .. main)
+  if sub then short = short .. " " .. sub:gsub(" run$", "") end
+  return "|Hchillantip:" .. base .. "|h" .. short .. "|h"
+end
 function ns.ShortDungeon(name)
   name = tostring(name or "?")
+  if name:find(" · ", 1, true) then return ns.RunLabel(name) end
   local short = SHORT[name]
   if not short then
     local base, wing = name:match("^(.-)%s*[%-–:]%s*(.+)$")
@@ -132,7 +152,7 @@ ns.FEED_GROUP_GAP = GROUP_GAP
 function ns.FeedGroupKey(it)
   if type(it) ~= "table" then return nil end
   local k = it.kind
-  if k == "BOSS" or k == "DUNGEON" or k == "RAID" then return "RUN:" .. tostring(it.pid) .. ":" .. tostring(it.a), "RUN" end
+  if k == "BOSS" or k == "DUNGEON" or k == "RAID" then return "RUN:" .. tostring(it.pid) .. ":" .. tostring((ns.Bosses.Split(it.a))), "RUN" end
   if k == "KILL" then return "KILL:" .. tostring(it.pid), "KILL" end
   if k == "FLAG" or k == "BGREV" then return "BG:" .. tostring(it.b or ""), "BG" end
   if k == "BGEND" and it.a ~= "streak" then return "BG:" .. tostring(it.a or ""), "BG" end
@@ -213,7 +233,9 @@ function ns.FeedGroupLine(g, kind)
   end
   if kind == "RUN" then
     if last.kind == "DUNGEON" or last.kind == "RAID" then
-      local line = ns.FeedShort(last)
+      local killed = {}
+      for _, x in ipairs(g) do if x.kind == "BOSS" then killed[tostring(x.b)] = true end end
+      local line = ns.FeedShort(setmetatable({ label = ns.RunLabel(last.a, killed) }, { __index = last }))
       if last.rec then line = line .. ns.Colorize(" · gang record! (was " .. ns.Duration(last.rec) .. ")", C.gold) end
       return line
     end
@@ -228,7 +250,15 @@ function ns.FeedGroupLine(g, kind)
     local n, total = ns.Bosses:Count(last.a, killed)
     local secs = lastBoss and tonumber(lastBoss.c)
     local t = (secs and secs > 0) and string.format(" %d:%02d", math.floor(secs / 60), secs % 60) or ""
-    return I("Shield", "8FB8E8") .. names(pids) .. ns.Colorize(" · ", C.dim) .. ns.Colorize(ns.ShortDungeon(last.a) .. " ", C.text)
+    -- (1.4.76) not a record: how far off the gang's best it was
+    if lastBoss and not lastBoss.rec and secs and secs > 0 then
+      local rec = ns.Bosses:BossRecord(last.a, lastBoss.b)
+      if rec and rec.s and rec.s < secs then
+        local p = rec.pid and ns:GetPerson(rec.pid)
+        t = t .. ns.Colorize(string.format(" (best %d:%02d%s)", math.floor(rec.s / 60), rec.s % 60, p and (" " .. ns:PersonFirst(p)) or ""), C.dim)
+      end
+    end
+    return I("Shield", "8FB8E8") .. names(pids) .. ns.Colorize(" · ", C.dim) .. ns.Colorize(ns.RunLabel(last.a, killed) .. " ", C.text)
       .. ns.Colorize(n .. " / " .. (total or "?") .. " bosses", C.text)
       .. (lastBoss and ns.Colorize(" · last " .. tostring(lastBoss.b) .. t, C.text2) or "")
       .. ((lastBoss and lastBoss.rec) and ns.Colorize(string.format(" · gang record! (was %d:%02d)", math.floor(lastBoss.rec / 60), lastBoss.rec % 60), C.gold) or "")
@@ -421,7 +451,7 @@ function ns.FeedShort(it)
   if it.kind == "DUNGEON" then
     local bosses = tonumber(((it.d or ""):match("^(%d+)")))
     local deaths = tonumber(it.c) or 0
-    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" ran " .. ns.ShortDungeon(it.a) .. " · " .. ns.Duration(tonumber(it.b) or 0)
+    return I("Shield", "8FB8E8") .. who .. ns.Colorize(" ran " .. (it.label or ns.ShortDungeon(it.a)) .. " · " .. ns.Duration(tonumber(it.b) or 0)
       .. (bosses and (" · " .. bosses .. " boss" .. (bosses == 1 and "" or "es")) or "")
       .. (deaths > 0 and (" · " .. deaths .. " death" .. (deaths == 1 and "" or "s")) or ""), C.text2)
   end
