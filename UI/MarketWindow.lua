@@ -294,9 +294,70 @@ local function makeChart(parent)
   end
   c.lines, c.dot = {}, solid(c.plot, ACCc(), "OVERLAY")
   c.dot:SetSize(6, 6)
+  -- (1.4.76) a dot per day, and hover: a guide at the nearest day with its date, price and change
+  c.dots = {}
+  c.guide = solid(c.plot, "5A6070", "ARTWORK")
+  c.guide:SetWidth(1)
+  c.guide:Hide()
+  c.hot = solid(c.plot, "FFFFFF", "OVERLAY")
+  c.hot:SetSize(8, 8)
+  c.hot:Hide()
+  c.plot:EnableMouse(true)
+  local function nearest(self)
+    local pos = self.pos
+    if not pos or #pos == 0 then return nil end
+    local mx = GetCursorPosition() / (self.plot:GetEffectiveScale() or 1) - (self.plot:GetLeft() or 0)
+    local best, bd
+    for i, q in ipairs(pos) do
+      local d = math.abs(q.x - mx)
+      if not bd or d < bd then best, bd = i, d end
+    end
+    return best
+  end
+  local function showPoint(self, i)
+    if self.hotI == i then return end
+    self.hotI = i
+    local q, p = self.pos[i], self.pts[i]
+    self.guide:ClearAllPoints()
+    self.guide:SetPoint("TOP", self.plot, "TOPLEFT", q.x, 0)
+    self.guide:SetPoint("BOTTOM", self.plot, "BOTTOMLEFT", q.x, 0)
+    self.guide:Show()
+    self.hot:ClearAllPoints()
+    self.hot:SetPoint("CENTER", self.plot, "BOTTOMLEFT", q.x, q.y)
+    self.hot:Show()
+    GameTooltip:SetOwner(self.plot, "ANCHOR_CURSOR")
+    local ago = math.floor(ns.Now() / 86400) - p.day
+    GameTooltip:AddLine(date("%a %d.%m", p.day * 86400 + 43200) .. (ago == 0 and "  · today" or ago == 1 and "  · yesterday" or ("  · " .. ago .. " days ago")), 1, 1, 1)
+    GameTooltip:AddLine(coins(p.v))
+    local prev = self.pts[i - 1]
+    if prev and prev.v > 0 then
+      local pct = math.floor((p.v - prev.v) / prev.v * 100 + 0.5)
+      local col = pct < 0 and C.green or pct > 0 and C.red or C.muted
+      GameTooltip:AddLine(ns.Colorize((pct > 0 and "+" or pct < 0 and "−" or "") .. math.abs(pct) .. " % vs " .. (p.day - prev.day == 1 and "the day before" or (p.day - prev.day) .. " days before"), col))
+    end
+    local lo, hi = self.lo, self.hi
+    if lo and hi and hi > lo then
+      if p.v == lo then GameTooltip:AddLine(ns.Colorize("Lowest in " .. self.days .. " days", C.green))
+      elseif p.v == hi then GameTooltip:AddLine(ns.Colorize("Highest in " .. self.days .. " days", C.red)) end
+    end
+    GameTooltip:Show()
+  end
+  c.plot:SetScript("OnEnter", function() c.hotI = nil end)
+  c.plot:SetScript("OnUpdate", function()
+    if not c.plot:IsMouseOver() then return end
+    local i = nearest(c)
+    if i then showPoint(c, i) end
+  end)
+  c.plot:SetScript("OnLeave", function()
+    c.hotI = nil
+    c.guide:Hide() c.hot:Hide()
+    GameTooltip:Hide()
+  end)
   function c:SetData(pts, days)
     for _, l in ipairs(self.lines) do l:Hide() end
+    for _, d in ipairs(self.dots) do d:Hide() end
     self.dot:Hide()
+    self.pts, self.pos, self.days, self.hotI = pts, {}, days, nil
     local w, h = self.plot:GetWidth() or 0, self.plot:GetHeight() or 0
     for i, g in ipairs(self.grid) do
       g:ClearAllPoints()
@@ -332,6 +393,21 @@ local function makeChart(parent)
       l:SetStartPoint("BOTTOMLEFT", self.plot, x1, y1)
       l:SetEndPoint("BOTTOMLEFT", self.plot, x2, y2)
       l:Show()
+    end
+    -- a small dot on every day with a price
+    self.lo, self.hi = lo, hi
+    for i, p in ipairs(pts) do
+      local x, y = xy(p)
+      self.pos[i] = { x = x, y = y }
+      local d = self.dots[i]
+      if not d then
+        d = solid(self.plot, ACCc(), "OVERLAY")
+        d:SetSize(4, 4)
+        self.dots[i] = d
+      end
+      d:ClearAllPoints()
+      d:SetPoint("CENTER", self.plot, "BOTTOMLEFT", x, y)
+      d:Show()
     end
     local lx, ly = xy(pts[#pts])
     self.dot:ClearAllPoints()
