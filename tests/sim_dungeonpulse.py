@@ -27,6 +27,13 @@ LA.execute('ADDON_NS.NowCard:Update()')
 lr = LA.eval(f + '.lootRow')
 check("loot so far: only the epic " + str(clean(f + '.lines[%d]:GetText()' % (lr or 1))), lr and clean(f + '.lines[%d]:GetText()' % lr).count("#") == 1)
 LA.execute('ADDON_NS.NowCard:LootTooltip(UIParent)')
+# (1.4.77) this client's links carry the quality as |cnIQ3: – a blue you loot yourself counts
+LA.execute('FIRE("CHAT_MSG_LOOT", "You receive loot: |cnIQ3:|Hitem:12936::::::::60:::::|h[Bracers of Valor]|h|r.")')
+check("cnIQ3 link is rare", LA.eval('ADDON_NS.Pulse.LinkQuality("|cnIQ3:|Hitem:12936|h[x]|h|r")') == 3)
+LA.execute('ADDON_NS.NowCard:Update()')
+lr = LA.eval(f + '.lootRow')
+txt = clean(f + '.lines[%d]:GetText()' % lr)
+check("loot line counts it, short label: " + str(txt), txt.startswith("Loot: ") and txt.count("#") == 2)
 # pull timer solo (allowed), chip counts down
 LA.execute('ADDON_NS.Extras:Pull("5")'); run(1)
 LA.execute('ADDON_NS.NowCard:Update()')

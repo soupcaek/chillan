@@ -183,9 +183,24 @@ local function buildLoot()
 end
 -- item quality from the link's colour
 local QCOL = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2, ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
+-- (1.4.77) this client writes the quality straight into the link ("|cnIQ3:…"); older links have the
+-- colour ("|cff0070dd…"); else ask the game
 function P.LinkQuality(link)
-  local hexc = type(link) == "string" and link:match("|c%x%x(%x%x%x%x%x%x)")
-  return hexc and QCOL[hexc:lower()] or 1
+  if type(link) ~= "string" then return 1 end
+  local q = link:match("|cnIQ(%d+):")
+  if q then return tonumber(q) end
+  local hexc = link:match("|c%x%x(%x%x%x%x%x%x)")
+  if hexc and QCOL[hexc:lower()] then return QCOL[hexc:lower()] end
+  local id = tonumber(link:match("item:(%d+)"))
+  if id then
+    local f = C_Item and C_Item.GetItemQualityByID
+    local ok, v = pcall(f or function() end, id)
+    if ok and type(v) == "number" then return v end
+    local info = C_Item and C_Item.GetItemInfo or GetItemInfo
+    local ok2, _, _, v2 = pcall(info or function() end, id)
+    if ok2 and type(v2) == "number" then return v2 end
+  end
+  return 1
 end
 -- (1.4.0) what the loot is worth: the Market price (or what a vendor pays) plus the gold looted
 local function itemId(link) return tonumber(tostring(link or ""):match("item:(%d+)")) end

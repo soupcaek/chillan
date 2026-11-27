@@ -570,7 +570,7 @@ function N:DungeonRows(f, r, pr, rows)
   end
   local take = pr and ns.Pulse:LootValue(pr) or 0
   if ns.db.settings.dgLoot ~= false and (#drops > 0 or take > 0) then
-    rows[#rows + 1] = dim("Loot so far  ") .. table.concat(icons, " ") .. (#drops > N.MAX_LOOT and dim("  +" .. (#drops - N.MAX_LOOT)) or "")
+    rows[#rows + 1] = dim("Loot: ") .. table.concat(icons, " ") .. (#drops > N.MAX_LOOT and dim("  +" .. (#drops - N.MAX_LOOT)) or "")
       .. (#drops == 0 and dim("nothing rare yet") or "")
     f.rowsRight[#rows] = take > 0 and (dim("your take ") .. goldText(take)) or ""
     f.lootRow = #rows
