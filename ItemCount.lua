@@ -1,4 +1,4 @@
--- Chillan? – (1.4.76) how many you have: hover an item for "Bags 12 · Bank 40 = 52".
+-- Chillan? – (1.4.76) how many you have: hover an item for In bags 12 / In bank 40 / Total 52.
 -- The bank is remembered each time you open it, so the count is right anywhere.
 -- A setting of its own (Tools › Interface, on by default), works with the Market off too.
 local ADDON, ns = ...
@@ -55,8 +55,10 @@ local function addLine(tt, id)
   if not on() or not tt or not tt.AddDoubleLine then return end
   local bags, bank, total = IC.For(id)
   if total <= 0 then return end
-  local right = "Bags " .. bags .. (bank > 0 and (" · Bank " .. bank) or "") .. (bank > 0 and bags > 0 and (" = " .. total) or "")
-  tt:AddDoubleLine("You have", right, 0.75, 0.78, 0.82, 1, 1, 1)
+  -- one line each: In bags · In bank · Total (only when it's in both)
+  if bags > 0 then tt:AddDoubleLine("In bags", tostring(bags), 0.75, 0.78, 0.82, 1, 1, 1) end
+  if bank > 0 then tt:AddDoubleLine("In bank", tostring(bank), 0.75, 0.78, 0.82, 1, 1, 1) end
+  if bags > 0 and bank > 0 then tt:AddDoubleLine("Total", tostring(total), 0.75, 0.78, 0.82, 1, 0.82, 0.3) end
   if tt.Show then tt:Show() end
 end
 IC.AddLine = addLine
