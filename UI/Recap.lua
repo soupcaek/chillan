@@ -271,6 +271,12 @@ function R:Open(id)
   for i, c in ipairs(f.cells) do
     local cell = recap.nums[i]
     c.v:SetText(cell and cell[1] or "")
+    -- (1.4.77) a long number ("+70g 08s") steps the font down until it fits its tile
+    local room = (c.tile:GetWidth() or 90) - 16
+    for size = 18, 11, -1 do
+      c.v:SetFont(ns.FONT_SEMI, size, "")
+      if (c.v:GetStringWidth() or 0) <= room then break end
+    end
     c.k:SetText(cell and cell[2] or "")
     c.v:SetTextColor(hex((cell and cell[3]) or C.text))
     c.tile:SetShown(cell ~= nil)
@@ -364,6 +370,12 @@ end
 -- recap builders
 ---------------------------------------------------------------------------
 local function money(c) return ns.Money(c or 0) end
+-- (1.4.77) in a tile: whole gold from 10g up ("+70g"), the full amount below that
+local function tileMoney(c)
+  c = c or 0
+  if math.abs(c) >= 100000 then return ns.Num(math.floor(c / 10000)) .. "g" end
+  return ns.Money(c)
+end
 local function secs(n)
   n = math.floor(n or 0)
   if n < 60 then return n .. "s" end
@@ -401,7 +413,7 @@ function R.Session(sum, previous)
   -- candidates in order of what's most fun for this character; zeros are skipped
   local cands = at60 and {
     { repTotal, function() return "+" .. ns.Num(repTotal), "reputation" end },
-    { earned, function() return "+" .. money(earned), "gold earned" end },
+    { earned, function() return "+" .. tileMoney(earned), "gold earned" end },
     { honor, function() return ns.Num(honor), "honor" end },
     { hk, function() return tostring(hk), "honorable kills" end },
     { s.bosses or 0, function() return tostring(s.bosses), "bosses" end },
@@ -412,7 +424,7 @@ function R.Session(sum, previous)
     { xp, function() return ns.Num(xp), "XP" end },
     { sum.levels or 0, function() return "+" .. sum.levels, sum.levels == 1 and "level" or "levels" end },
     { s.quests or sum.quests or 0, function() return tostring(s.quests or sum.quests), "quests" end },
-    { earned, function() return "+" .. money(earned), "gold earned" end },
+    { earned, function() return "+" .. tileMoney(earned), "gold earned" end },
     { s.mobs or 0, function() return ns.Num(s.mobs), "mobs killed" end },
     { g.n or 0, function() return tostring(g.n), "gathered" end },
     { repTotal, function() return "+" .. ns.Num(repTotal), "reputation" end },
