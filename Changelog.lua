@@ -2,6 +2,14 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.78", date = "28.11", items = {
+    "Market tab rethought: Search (price card with the graph, vendor price, how many you have, ★ track), Item Tracker anywhere, My bags (where each item pays most), Gang boards and Disenchantry; sortable columns; switches behind Market settings",
+    "Item Tracker alerts also fire away from the auction house when a gang price is under them: a chat line and a ping on Pulse",
+    "Fix: closing Chillan with Escape in combat gave an error (the Disenchant button moved out of the window)",
+    "Run lines: your own dungeon no longer decides other members' boss counts (Alcaz 1 / ?)",
+    "Player history: \"grouped with them\" only on someone of the same class and faction",
+    "Cunt List: the right-click entry also shows when the game hides the name in dungeons",
+    "Price answers name the scanner by alias; no chat line when the auction house is busy" } },
   { v = "1.4.77", date = "28.11", items = {
     "Fix: dying to a fall or drowning gave an error and no death line",
     "Dungeon card: rare and epic drops now count on this client (Loot: line); bigger icons, hover one for the item and who got it",
