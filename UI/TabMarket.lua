@@ -284,22 +284,40 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
       b:SetPoint("RIGHT", pc, "TOPRIGHT", -8 - (3 - i) * 44, -(1 + pc.stripH / 2))
       pc.rb[i] = b
     end
+    -- (1.4.79) the graph across the whole card on top, the facts in two columns under it
     pc.chart = W().MakeChart and W().MakeChart(pc.body)
+    pc.facts = CreateFrame("Frame", nil, pc.body)
+    pc.facts:SetPoint("BOTTOMLEFT", 0, 34)
+    pc.facts:SetPoint("BOTTOMRIGHT", 0, 34)
+    pc.facts:SetHeight(62)
+    local sep = UI.Track(pc.facts:CreateTexture(nil, "ARTWORK"))
+    sep:SetColorTexture(hex(C.line))
+    sep:SetHeight(1)
+    sep:SetPoint("TOPLEFT", 0, 4) sep:SetPoint("TOPRIGHT", 0, 4)
     if pc.chart then
       pc.chart:SetPoint("TOPLEFT", 0, 0)
-      pc.chart:SetPoint("BOTTOMRIGHT", pc.body, "BOTTOMRIGHT", -230, 34)
+      pc.chart:SetPoint("BOTTOMRIGHT", pc.facts, "TOPRIGHT", 0, 10)
     end
     pc.kv = {}
-    for i, k in ipairs({ "Average", "Vendor pays", "You have", "Scanned by", "Alert under" }) do
-      local l = UI.Text(pc.body, 11, nil, C.dim)
-      l:SetPoint("TOPRIGHT", pc.body, "TOPRIGHT", -120, -(i - 1) * 20)
-      l:SetWidth(100)
-      l:SetJustifyH("LEFT")
+    for i, k in ipairs({ "Average", "Vendor pays", "You have", "Scanned by", "Alert under", "" }) do
+      local col, rowN = (i - 1) % 2, math.floor((i - 1) / 2)
+      local cell = CreateFrame("Frame", nil, pc.facts)
+      cell:SetHeight(18)
+      cell:ClearAllPoints()
+      if col == 0 then
+        cell:SetPoint("TOPLEFT", pc.facts, "TOPLEFT", 0, -6 - rowN * 19)
+        cell:SetPoint("RIGHT", pc.facts, "CENTER", -12, 0)
+      else
+        cell:SetPoint("TOPLEFT", pc.facts, "TOP", 12, -6 - rowN * 19)
+        cell:SetPoint("RIGHT", pc.facts, "RIGHT", 0, 0)
+      end
+      local l = UI.Text(cell, 11, nil, C.dim)
+      l:SetPoint("LEFT")
       l:SetText(k)
-      local v = UI.Text(pc.body, 11, nil, C.text)
-      v:SetPoint("TOPRIGHT", pc.body, "TOPRIGHT", 0, -(i - 1) * 20)
+      local v = UI.Text(cell, 11, nil, C.text)
+      v:SetPoint("RIGHT")
       v:SetJustifyH("RIGHT")
-      v:SetWidth(118)
+      v:SetPoint("LEFT", l, "RIGHT", 8, 0)
       v:SetWordWrap(false)
       pc.kv[i] = v
       pc.kv[k] = l
