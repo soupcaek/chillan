@@ -310,7 +310,8 @@ end
 -- returns { cat = "PLAYER"/"FALL"/.../"MOB"/family key, killer = name, extra = "Night Elf Rogue" } or nil
 function D:Killer(given)
   local l = given or last
-  if not l or GetTime() - l.at > 8 then
+  -- (1.4.77) what's handed in (the death recap, the target) has no time: only the last combat-log hit can be too old
+  if not l or (not given and GetTime() - (l.at or 0) > 8) then
     -- fallback: a hostile target that was attacking me
     local t = ns.S(UnitName, "target")
     if t and ns.S(UnitCanAttack, "player", "target") and ns.S(UnitIsUnit, "targettarget", "player") then
