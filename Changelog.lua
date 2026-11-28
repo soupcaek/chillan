@@ -2,6 +2,10 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.79", date = "28.11", items = {
+    "Market: a sale while you're away from the auction house counts right away (from the price you listed it at); your auctions are remembered between sessions",
+    "Market price card: the graph across the top, the facts in two columns under it",
+    "Layer hop: LayerSwap users get an answer even when you don't host (off, busy or same layer); hosting pauses in a battleground queue; General and Trade keep their chat numbers" } },
   { v = "1.4.78", date = "28.11", items = {
     "Market tab rethought: Search (price card with the graph, vendor price, how many you have, ★ track), Item Tracker anywhere, My bags (where each item pays most), Gang boards and Disenchantry; sortable columns; switches behind Market settings",
     "Item Tracker alerts also fire away from the auction house when a gang price is under them: a chat line and a ping on Pulse",
