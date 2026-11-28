@@ -1032,6 +1032,18 @@ function M:StatusText()
     .. (M.Pending() > 0 and (" · still sending " .. ns.Num(M.Pending()) .. " prices") or "")
 end
 
+-- (1.4.78) the same, one fact per line: { label, value }
+function M:StatusLines()
+  local newest = self:Latest()
+  local out = { { "Prices", ns.Num(self:Count()) .. (newest > 0 and (" · newest " .. ns.Ago(newest)) or "") } }
+  if M.gangScanBy then
+    out[#out + 1] = { "Last scan", M.gangScanBy .. " · " .. ns.Ago(M.gangScanAt) .. (M.gangScanN and (" · " .. ns.Num(M.gangScanN)) or "") }
+  end
+  if M.heardFrom then out[#out + 1] = { "Received from", M.heardFrom .. " · " .. ns.Ago(M.heardAt) } end
+  if M.Pending() > 0 then out[#out + 1] = { "Sending", ns.Num(M.Pending()) .. " prices" } end
+  return out
+end
+
 -- /chill selftest: what this auction house lets us do
 function M:SelfTest()
   return (modern() and "modern (full scan via ReplicateItems)" or classic() and "classic (list queries)" or "none")

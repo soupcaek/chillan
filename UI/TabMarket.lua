@@ -30,12 +30,24 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   end
 
   local mp = UI.Section(left, "Market", true)
-  local status = UI.Text(mp.body, 12, nil, C.text2)
-  status:SetPoint("TOPLEFT") status:SetPoint("RIGHT")
-  status:SetJustifyH("LEFT")
-  status:SetWordWrap(true)
+  -- (1.4.78) one fact per line: label left, value right (it ran over the line under it)
+  local stL, stR = {}, {}
+  for i = 1, 4 do
+    stL[i] = UI.Text(mp.body, 11, nil, C.dim)
+    stL[i]:SetPoint("TOPLEFT", 0, -(i - 1) * 17)
+    stR[i] = UI.Text(mp.body, 11, nil, C.text2)
+    stR[i]:SetPoint("TOPRIGHT", 0, -(i - 1) * 17)
+    stR[i]:SetJustifyH("RIGHT")
+    stR[i]:SetPoint("LEFT", stL[i], "RIGHT", 8, 0)
+  end
+  local status = { SetText = function(_, lines)
+    for i = 1, 4 do
+      local l = lines and lines[i]
+      stL[i]:SetText(l and l[1] or "") stR[i]:SetText(l and l[2] or "")
+    end
+  end }
   local how = UI.Text(mp.body, 11, nil, C.dim)
-  how:SetPoint("TOPLEFT", 0, -36) how:SetPoint("RIGHT")
+  how:SetPoint("TOPLEFT", 0, -72) how:SetPoint("RIGHT")
   how:SetJustifyH("LEFT")
   how:SetWordWrap(false)
   how:SetText("Scan from the auction house · every 15 minutes")
@@ -44,9 +56,9 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     ns.Comm:Broadcast(ns.Comm:Build("MQ", 0), 2)
     ns.Print("Market: asked the gang for their prices – they arrive over the next few minutes.")
   end)
-  sync:SetPoint("TOPLEFT", 0, -56)
+  sync:SetPoint("TOPLEFT", 0, -92)
   sync.tooltip = "Fetch newer prices from other gang members"
-  stack(mp, 84)
+  stack(mp, 120)
 
   local checks = {}
   local function rowsPanel(title, defs)
@@ -222,7 +234,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   function tab:Refresh()
     for _, cb in ipairs(checks) do cb:Refresh() end
     local M = ns.Market
-    status:SetText(M and (M:StatusText() .. (M.gangScanBy and (" · " .. M.gangScanBy .. " scanned " .. ns.Ago(M.gangScanAt)) or "")) or "")
+    status:SetText(M and M:StatusLines() or nil)
     list:SetData(bagItems())
     if ns.Disenchant.RefreshButtons then ns.Disenchant.RefreshButtons() end
   end
