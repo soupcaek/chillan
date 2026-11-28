@@ -46,6 +46,15 @@ local function listed()
   end
   return false
 end
+-- (1.4.79) queued for a battleground (or its window is up): a guest's group would pull us out of the queue
+local function bgQueued()
+  if not GetBattlefieldStatus then return false end
+  for i = 1, (GetMaxBattlefieldID and GetMaxBattlefieldID() or 3) do
+    local ok, st = pcall(GetBattlefieldStatus, i)
+    if ok and not secret(st) and (st == "queued" or st == "confirm") then return true end
+  end
+  return false
+end
 -- the game counts down to a world refresh: a guest let in now would go with us when it hits
 L.evictAt = nil
 local function refreshing()
@@ -73,6 +82,7 @@ function L.PauseWhy()
   if inCombat() then return "in combat" end
   if ns.S(UnitIsDeadOrGhost, "player") then return "dead" end
   if listed() then return "in the group finder" end
+  if bgQueued() then return "queued for a battleground" end
   if refreshing() then return "a world refresh is counting down" end
 end
 local function canHelp() return L.PauseWhy() == nil end
@@ -820,6 +830,7 @@ end
 
 -- hosts whose group didn't move us: never re-asked blind for 10 min while we're on that layer
 L.notMoved = {}
+L.lsAnswered = {}
 function L.NotMovedLately(name)
   local e = L.notMoved[norm(name)]
   if not e then return false end
@@ -908,19 +919,38 @@ function L.HostStranger(sender, via)
 end
 
 local function onLayerSwap(text, sender)
-  if not S().layerStrangers or type(text) ~= "string" or secret(text) then return end
+  if type(text) ~= "string" or secret(text) then return end
   if not text:find("inv layer", 1, true) then return end
   local body = text:match("<LS([^<>]*)>")
   if not body then return end
   local mine = ns.Layer and ns.Layer:Current()
-  if not mine or not canHelp() or ns.Layer.transferAt and GetTime() - ns.Layer.transferAt < 10 then return end
+  if not mine or ns.Layer.transferAt and GetTime() - ns.Layer.transferAt < 10 then return end
   local zone = tonumber(body:match("^%s*(%d+)%s") or body:match("^%s*(%d+)%s*$") or "")
   local myMap = zoneMap()
   if not zone or not myMap or zone ~= myMap then return end
+  -- (1.4.79) LayerSwap's own answers when we don't host, so their window shows us as off or busy
+  -- instead of "not updated": o = hosting off, p = busy now, s = not this one, and "same" when they
+  -- stand on our layer already. One answer per player a minute.
+  local function answer(flag)
+    local key = norm(sender)
+    if L.lsAnswered[key] and GetTime() - L.lsAnswered[key] < 60 then return end
+    L.lsAnswered[key] = GetTime()
+    pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, "heard " .. sender .. "|" .. mine .. "-0|" .. tostring(myMap) .. "|" .. flag, "WHISPER", sender)
+  end
   local want = body:match("want%s+(%d+)%-%d+")
-  if want and want ~= mine then return end
-  for id in body:gmatch("not%s+(%d+)%-%d+") do if id == mine then return end end
-  if not L.HostStranger(sender, "LayerSwap") then return end
+  if want and want ~= mine then return answer("s") end
+  local first = true
+  for id in body:gmatch("not%s+(%d+)%-%d+") do
+    if id == mine then
+      if first then pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX, "same", "WHISPER", sender) end
+      return answer("s")
+    end
+    first = false
+  end
+  if not S().layerStrangers then return answer("o") end
+  if not canHelp() then return answer("p") end
+  local ok, why = L.HostStranger(sender, "LayerSwap")
+  if not ok then return answer(why == "off" and "o" or "p") end
   -- tell their LayerSwap we heard it (it then leaves our group by itself once moved); the invite follows
   pcall(C_ChatInfo.SendAddonMessage, LS_PREFIX,
     "heard " .. sender .. "|" .. mine .. "-0|" .. tostring(myMap) .. "|h", "WHISPER", sender)

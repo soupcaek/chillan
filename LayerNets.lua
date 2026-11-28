@@ -152,15 +152,36 @@ local function join(owner, name, pw)
     local id = channelId(name)
     if not id then return end
     hideChannel(name)
-    -- the first slots belong to General, Trade & co.: a hidden channel that got one waits and rejoins
-    if id <= 4 and not N.relocated then
-      N.relocated = true
-      pcall(LeaveChannelByName, name)
-      C_Timer.After(30, function() join(owner, name, pw) end)
-    end
   end)
   return true
 end
+
+-- (1.4.79) your channels keep their numbers: when one of yours (General, Trade, a custom one) joins
+-- and the game gives it a higher number because one of our hidden channels sits lower, the two swap
+-- places. Our gang channel counts as ours too.
+function N.Ours(base)
+  if type(base) ~= "string" then return false end
+  local low = base:lower()
+  for name in pairs(N.channels) do if name:lower() == low then return true end end
+  local gang = ns.Comm and ns.Comm.ChannelName and ns.Comm:ChannelName()
+  return gang ~= nil and gang:lower() == low
+end
+local function ourIds()
+  local out = {}
+  for name in pairs(N.channels) do local id = channelId(name) if id then out[#out + 1] = id end end
+  local gang = ns.Comm and ns.Comm.ChannelName and ns.Comm:ChannelName()
+  local gid = gang and channelId(gang)
+  if gid then out[#out + 1] = gid end
+  return out
+end
+ns:On("CHAT_MSG_CHANNEL_NOTICE", function(kind, _, _, _, _, _, _, index, base)
+  if secret(kind) or secret(index) or secret(base) then return end
+  if (kind ~= "YOU_JOINED" and kind ~= "YOU_CHANGED") or type(index) ~= "number" or N.Ours(base) then return end
+  if not (C_ChatInfo and C_ChatInfo.SwapChatChannelsByChannelIndex) or locked() then return end
+  local lowest
+  for _, id in ipairs(ourIds()) do if id < index and (not lowest or id < lowest) then lowest = id end end
+  if lowest then pcall(C_ChatInfo.SwapChatChannelsByChannelIndex, lowest, index) end
+end)
 local function leaveOwned(owner, keep)
   for name, by in pairs(N.channels) do
     if by == owner and not (keep and keep[name]) then
