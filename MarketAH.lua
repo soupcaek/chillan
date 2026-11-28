@@ -692,7 +692,36 @@ on("OWNED_AUCTIONS_UPDATED", function()
     end
   end
   AH.owned = list
+  -- (1.4.79) kept between sessions, so a sale while you're away can still be matched to its price
+  local keep = {}
+  for _, x in ipairs(list) do
+    keep[#keep + 1] = { auctionID = x.auctionID, itemID = x.itemID, qty = x.qty, price = x.price,
+      commodity = x.commodity, name = x.name, sold = x.sold, at = ns.Now() }
+  end
+  ns.db.mkOwned = keep
   changed("owned")
+end)
+
+-- (1.4.79) "A buyer has been found for your auction of X": counted right away, wherever you are, from
+-- the price you listed it at (your auctions as last seen at the auction house). A stack of trade goods
+-- can sell in parts, so those still wait for the auction house to say how many went.
+local soldPat
+on("CHAT_MSG_SYSTEM", function(msg)
+  if type(msg) ~= "string" or ns.isSecret(msg) then return end
+  if not soldPat then
+    local fmt = ERR_AUCTION_SOLD_S or "A buyer has been found for your auction of %s."
+    soldPat = "^" .. fmt:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%%%s", "(.+)") .. "$"
+  end
+  local name = msg:match(soldPat)
+  if not name then return end
+  name = name:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h%[?(.-)%]?|h", "%1")
+  for _, x in ipairs(ns.db.mkOwned or {}) do
+    if not x.sold and not x.commodity and x.name == name and x.price and x.auctionID then
+      x.sold = true
+      if AH.NoteSale(x.auctionID, x.itemID, x.qty, AH.SaleTotal(x.itemID, x.qty, x.price, false)) then changed("sale") end
+      return
+    end
+  end
 end)
 -- "lowest", "undercut", "sold", "checking", "noanswer"; and by how much
 function AH.Status(x)
