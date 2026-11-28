@@ -370,12 +370,21 @@ end
 if Menu and Menu.ModifyMenu then
   local me = ns.S(UnitName, "player")
   for _, tag in ipairs({ "MENU_UNIT_PLAYER", "MENU_UNIT_TARGET", "MENU_UNIT_FOCUS", "MENU_UNIT_PARTY",
-    "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_FRIEND", "MENU_UNIT_CHAT_ROSTER", "MENU_UNIT_ENEMY_PLAYER",
-    "MENU_UNIT_COMMUNITIES_GUILD_MEMBER", "MENU_UNIT_COMMUNITIES_MEMBER" }) do
+    "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_RAID", "MENU_UNIT_FRIEND", "MENU_UNIT_BN_FRIEND", "MENU_UNIT_CHAT_ROSTER",
+    "MENU_UNIT_ENEMY_PLAYER", "MENU_UNIT_OTHERPLAYER", "MENU_UNIT_GUILD", "MENU_UNIT_ARENAENEMY",
+    "MENU_UNIT_COMMUNITIES_GUILD_MEMBER", "MENU_UNIT_COMMUNITIES_MEMBER", "MENU_UNIT_COMMUNITIES_WOW_MEMBER" }) do
     pcall(Menu.ModifyMenu, tag, function(owner, root, ctx)
-      if type(ctx) == "table" and ctx.unit and not ns.S(UnitIsPlayer, ctx.unit) then return end   -- NPCs: no
+      if type(ctx) == "table" and ctx.unit and ns.S(UnitIsPlayer, ctx.unit) == false then return end   -- NPCs: no
+      if type(ctx) == "table" and ctx.unit and ns.S(UnitIsUnit, ctx.unit, "player") then return end   -- yourself: no
       local name = menuName(ctx)
-      if not name or keyOf(name) == keyOf(me or UnitName("player")) then return end
+      -- (1.4.78) in dungeons the game hides other players' names from addons: the button stays,
+      -- and asks for the name instead
+      if not name then
+        root:CreateDivider()
+        root:CreateButton("|cffF2777AAdd to the Cunt List|r", function() CL:AskAddByName() end)
+        return
+      end
+      if keyOf(name) == keyOf(me or UnitName("player")) then return end
       local listed = CL:Get(name)
       root:CreateDivider()
       root:CreateButton(listed and "|cffF2777ACunt List: add a note|r" or "|cffF2777AAdd to the Cunt List|r", function()
