@@ -937,8 +937,9 @@ function W:DoPost()
   if not e or not price then AH.Trace("Post clicked, but no item or price is picked") return end
   local s = self.sell
   if not AH.CanPost() then
-    ns.Print("Market: " .. (AH.WhyNot() or "the auction house isn't ready") .. " – click Post again in a moment.")
-    self:PaintSellTotals()
+    -- (1.4.78) no chat line: the button itself says "Busy …" for a moment, then Post again
+    s.postBtn:SetLabel(AH.PostWaiting() and "Posting …" or "Busy …")
+    C_Timer.After(1.2, function() if W.sell then W:PaintSellTotals() end end)
     return
   end
   local done = AH.Post(e, qty, price, dur, function(good)
