@@ -1163,7 +1163,7 @@ function M:PostPrice(q, auto, tries, checked)
   for _, h in ipairs(hits) do
     -- fields joined with "^" ("~" separates the message's own fields)
     parts[#parts + 1] = h.id .. "^" .. h.v .. "^" .. math.max(0, math.floor((ns.Now() - (h.t or ns.Now())) / 60)) .. "^"
-      .. clean((h.by == ns.pid and ns.ShortName(ns.Comm:MyFull())) or byName(h.by) or ""):sub(1, 14) .. "^" .. clean(h.name):sub(1, 30)
+      .. clean((h.by == ns.pid and ((ns.db.alias and ns.db.alias ~= "" and ns.db.alias) or ns.ShortName(ns.Comm:MyFull()))) or byName(h.by) or ""):sub(1, 14) .. "^" .. clean(h.name):sub(1, 30)
   end
   ns.Tracker:Event("PRICE", clean(q):sub(1, 40), total, auto and "1" or "", table.concat(parts, ";"))
   if #hits == 0 then

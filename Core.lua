@@ -917,6 +917,20 @@ function ns:PersonAlias(p)
   return (p.alias and p.alias ~= "") and p.alias or nil
 end
 
+-- (1.4.78) the person behind a character name ("Helse", "Helse Prest", "Helse-Realm"), or nil
+function ns:PersonByChar(name)
+  if type(name) ~= "string" or name == "" then return nil end
+  local want = ns.U.NormName((name:gsub("%-.*$", ""):match("^(%S+)")) or "")
+  if want == "" then return nil end
+  for pid, p in pairs(ns.db.people or {}) do
+    for key, c in pairs(p.chars or {}) do
+      local cn = (c and c.name) or key
+      local first = ns.U.NormName((tostring(cn):gsub("%-.*$", ""):match("^(%S+)")) or "")
+      if first == want then return p, pid end
+    end
+  end
+end
+
 -- Kort navn til hendelsesfeeden: IRL-navnet i klassefarge (eller karakternavnet)
 function ns:ShortWho(p, char)
   local c = (char and p and p.chars and p.chars[char]) or ns:PersonChar(p) or {}

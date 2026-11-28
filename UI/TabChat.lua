@@ -95,8 +95,15 @@ function ns.SceneLine(it, who)
         ns.pendingItemLines[r.id] = true
         if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, r.id) end
       end
+      -- (1.4.78) who scanned it, by their alias when the gang knows the character
+      local by = r.by
+      if by and by ~= "" and by ~= "you" then
+        local p = ns:PersonByChar(by)
+        local alias = p and ns:PersonAlias(p)
+        if alias then by = alias end
+      end
       bits[#bits + 1] = name .. " " .. ns.Colorize(coins(r.v), C.text)
-        .. ns.Colorize(" (" .. ns.Ago((it.t or ns.Now()) - r.ago) .. ((r.by and r.by ~= "") and (", " .. r.by) or "") .. ")", C.dim)
+        .. ns.Colorize(" (" .. ns.Ago((it.t or ns.Now()) - r.ago) .. ((by and by ~= "") and (", " .. by) or "") .. ")", C.dim)
     end
     local more = (tonumber(it.b) or 0) - #res
     return "Diamond", "E0C068", head .. table.concat(bits, ns.Colorize(" · ", C.dim))
