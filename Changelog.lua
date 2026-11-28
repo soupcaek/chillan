@@ -2,6 +2,12 @@
 local ADDON, ns = ...
 
 ns.CHANGELOG = {
+  { v = "1.4.77", date = "28.11", items = {
+    "Fix: dying to a fall or drowning gave an error and no death line",
+    "Dungeon card: rare and epic drops now count on this client (Loot: line); bigger icons, hover one for the item and who got it",
+    "Dungeon card tooltip: just the dungeon, the loot and the deaths",
+    "Market graph: what you look up becomes today's price at once; one line at the bottom; \"now\" beside the change",
+    "Session recap: gold fits its box" } },
   { v = "1.4.76", date = "27.11", items = {
     "Dungeon card: a boss list that rolls along with the run: what's dead folds into one line, the next boss is lit with the gang's best, two after it, then +N more",
     "Strat, SM, DM and BRS start with their sides and pick one at the first boss (Omokk = LBRS, Emberseer = UBRS, Gyth + Rend = a Rend run). BRD offers Arena, Arena · Anger · Golem, Emperor run and Full; Maraudon Purple, Orange, Inner and Full",
