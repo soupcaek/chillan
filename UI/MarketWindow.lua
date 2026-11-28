@@ -1357,6 +1357,8 @@ local function pctText(p)
   return ns.Colorize((p > 0 and "+" or p < 0 and "−" or "") .. math.abs(p) .. " %", p < 0 and C.green or p > 0 and C.red or C.muted)
 end
 
+W.ItemName, W.Change, W.PctText = itemName, change, pctText
+
 function W:BuildShop(p)
   local s = {}
   self.shopP = s

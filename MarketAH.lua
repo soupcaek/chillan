@@ -812,7 +812,8 @@ function AH.SetAlert(id, alert)
   changed("shop")
 end
 -- a price seen for a tracked item: under its alert, say so (once per half hour, or when cheaper still)
-function AH.CheckAlert(id, price)
+-- by = who scanned the price (a gang price, away from the auction house): then Pulse pings too
+function AH.CheckAlert(id, price, by)
   if not (id and price and ns.db and ns.db.mkAH) then return end
   for _, s in ipairs(ns.db.mkAH.shop or {}) do
     if s.id == id and s.alert and price <= s.alert then
@@ -821,13 +822,35 @@ function AH.CheckAlert(id, price)
       s.alertAt, s.alertPrice = t, price
       local okI, name, link = pcall(C_Item.GetItemInfo, id)
       local m = ns.Market and ns.Market.Coins or tostring
-      ns.Print("Item Tracker: " .. ((okI and (link or name)) or ("item " .. id)) .. " is " .. m(price) .. ", under your alert of " .. m(s.alert) .. ".")
+      local who = by and ns.Market and ns.Market.ByName and ns.Market.ByName(by)
+      ns.Print("Item Tracker: " .. ((okI and (link or name)) or ("item " .. id)) .. " is " .. m(price) .. ", under your alert of " .. m(s.alert) .. "."
+        .. (who and who ~= "you" and (" (" .. who .. "'s scan)") or ""))
       if ns.Sound then ns.Sound("notify") end
+      -- (1.4.78) away from the auction house: a ping on Pulse as well
+      if not AH.open and ns.Overlays and ns.Overlays.Toast then
+        pcall(ns.Overlays.Toast, ns.Overlays, { kind = "info", title = "Item Tracker: " .. ((okI and name) or ("item " .. id)),
+          text = m(price) .. ", under your alert of " .. m(s.alert) .. (who and who ~= "you" and (" · " .. who .. "'s scan") or "") })
+      end
       changed("alert")
       return
     end
   end
 end
+
+-- (1.4.78) new gang prices (a scan, a share) checked against the tracker's alerts, wherever you are
+local alertTimer = false
+ns:Listen("MARKET", function()
+  if alertTimer or not (ns.db and ns.db.mkAH and ns.db.mkAH.shop and #ns.db.mkAH.shop > 0) then return end
+  alertTimer = true
+  C_Timer.After(3, function()
+    alertTimer = false
+    for _, s in ipairs(ns.db.mkAH.shop) do
+      local e = s.alert and ns.Market and ns.Market:Get(s.id)
+      -- only a fresh price (from the last 2 hours) can ping
+      if e and e.v <= s.alert and ns.Now() - (e.t or 0) < 7200 then AH.CheckAlert(s.id, e.v, e.by) end
+    end
+  end)
+end)
 function AH.ShopRemove(id)
   local l = db().shop
   for i = #l, 1, -1 do if l[i].id == id then table.remove(l, i) end end
