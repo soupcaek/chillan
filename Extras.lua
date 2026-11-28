@@ -199,6 +199,7 @@ local function onWorld()
     local name = ns.S(GetInstanceInfo)
     local instID = select(8, ns.S(GetInstanceInfo))
     ns.Bosses.curInstID = (type(instID) == "number" and not ns.isSecret(instID)) and instID or nil
+    ns.Bosses.curInstName = (type(name) == "string" and not ns.isSecret(name)) and name or nil
     if name and (not run or run.name ~= name) then
       finishRun()
       -- after /reload inside the same dungeon: carry on with the saved run (time, bosses, deaths)

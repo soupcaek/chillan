@@ -258,7 +258,10 @@ end
 -- killed = { [name] = secs or true } from the run.
 function B:For(instance, killed, here)
   killed = killed or {}
-  local entry = B.Entry(instance, here and B.curInstID or nil)
+  -- (1.4.78) the instance you're in only decides for that dungeon's own name: another member's
+  -- Alcaz Prison line isn't looked up in your LBRS
+  local mine = here and B.curInstID and B.curInstName and bareKey((B.Split(instance))) == bareKey(B.curInstName)
+  local entry = B.Entry(instance, mine and B.curInstID or nil)
   local base, wingName, doors
   -- the journal only for instances our list doesn't know (its names may be from a later version of the game)
   local ej = here and not entry and fromJournal()

@@ -71,6 +71,12 @@ check("Rend run 3/3 counts", L.eval('ADDON_NS.Bosses:IsComplete("Blackrock Spire
 k1 = L.eval('ADDON_NS.FeedGroupKey({ kind = "BOSS", pid = "k", a = "Blackrock Spire" })')
 k2 = L.eval('ADDON_NS.FeedGroupKey({ kind = "DUNGEON", pid = "k", a = "Blackrock Spire · Upper · Rend run" })')
 check("same group key", k1 == k2)
+# (1.4.78) standing in LBRS doesn't change someone else's Alcaz Prison line
+L.execute('ADDON_NS.Bosses.curInstID = 229; ADDON_NS.Bosses.curInstName = "Blackrock Spire"')
+n2, t2 = L.eval('ADDON_NS.Bosses:Count("Alcaz Prison", { ["Overseer Wrex"] = 15 })')[:2] if False else (None, None)
+cnt = L.eval('(function() local n, t = ADDON_NS.Bosses:Count("Alcaz Prison", { ["Overseer Wrex"] = 15 }) return tostring(n) .. "/" .. tostring(t) end)()')
+check("Alcaz from inside LBRS: " + str(cnt), cnt == "1/5")
+L.execute('ADDON_NS.Bosses.curInstID = nil; ADDON_NS.Bosses.curInstName = nil')
 errs = [e for e in G.ERRORS.values()]
 check("no Lua errors " + str(errs[:2]), not errs)
 print("PASS" if not fails else "FAILED %s" % fails)
