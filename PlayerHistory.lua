@@ -39,14 +39,16 @@ local function isGang(name)
 end
 
 -- grouped with: one record per person and place (the newest kept), up to 5 per person
-function PH:NoteGroup(name, pid, place, t)
+-- (1.4.78) the game gives addons only the first name ("Jack" for Jack Haha), so a record also keeps
+-- the class and faction: another Jack doesn't get this Jack's history
+function PH:NoteGroup(name, pid, place, t, class, faction)
   local e = entry(name)
   if not e then return end
   e.g = e.g or {}
   for i = #e.g, 1, -1 do
-    if e.g[i].place == place and e.g[i].pid == pid then table.remove(e.g, i) end
+    if e.g[i].place == place and e.g[i].pid == pid and e.g[i].class == class then table.remove(e.g, i) end
   end
-  e.g[#e.g + 1] = { pid = pid, place = place, t = t }
+  e.g[#e.g + 1] = { pid = pid, place = place, t = t, class = class, faction = faction }
   table.sort(e.g, function(a, b) return (a.t or 0) < (b.t or 0) end)
   while #e.g > 5 do table.remove(e.g, 1) end
   e.last = math.max(e.last or 0, t or 0)
@@ -99,8 +101,12 @@ C_Timer.NewTicker(30, function()
       together[k] = together[k] or clock
       if clock - together[k] >= TOGETHER and not recorded[k] then
         recorded[k] = true
-        PH:NoteGroup(name, ns.pid, here, now)
-        outbox[#outbox + 1] = ns.ShortName(name)
+        local _, cls = UnitClass(unit)
+        cls = (type(cls) == "string" and not secret(cls)) and cls or nil
+        local fac = ns.S(UnitFactionGroup, unit)
+        fac = (type(fac) == "string" and not secret(fac)) and fac or nil
+        PH:NoteGroup(name, ns.pid, here, now, cls, fac)
+        outbox[#outbox + 1] = ns.ShortName(name) .. (cls and ("~" .. cls .. "~" .. (fac or "")) or "")
       end
     end
   end
@@ -118,8 +124,12 @@ Comm:Handle("PH", function(f, sender)
   local pid, where, names = f[1], f[2], f[3]
   if not pid or not names then return end
   local now = ns.Now()
-  for name in tostring(names):gmatch("[^,]+") do
-    if not isGang(name) then PH:NoteGroup(name, pid, where or "?", now) end
+  for part in tostring(names):gmatch("[^,]+") do
+    -- "Jack~PRIEST~Horde" (1.4.78) or just "Jack" from older versions
+    local name, cls, fac = part:match("^([^~]+)~?([^~]*)~?([^~]*)$")
+    if name and not isGang(name) then
+      PH:NoteGroup(name, pid, where or "?", now, cls ~= "" and cls or nil, fac ~= "" and fac or nil)
+    end
   end
 end)
 
@@ -132,15 +142,25 @@ local function who(pid)
   return p and ns:PersonFirst(p) or "Someone in the gang"
 end
 
-function PH:Lines(name)
+function PH:Lines(name, class, faction)
   local k = keyOf(name)
   if not k or isGang(name) then return {} end
   local out = {}
   local e = db()[k]
-  if e and e.g and #e.g > 0 then
-    local g = e.g[#e.g]
+  -- only records that can be this person: same class and faction when known; you can't group with
+  -- the other faction, so a record without them only fits someone of your own faction
+  local mine = ns.S(UnitFactionGroup, "player")
+  local fits = {}
+  for _, g in ipairs(e and e.g or {}) do
+    local ok = true
+    if class and g.class and g.class ~= class then ok = false end
+    if faction and (g.faction or mine) and faction ~= (g.faction or mine) then ok = false end
+    if ok then fits[#fits + 1] = g end
+  end
+  if #fits > 0 then
+    local g = fits[#fits]
     out[#out + 1] = who(g.pid) .. " grouped with them in " .. tostring(g.place) .. " · " .. ns.Ago(g.t)
-      .. (#e.g > 1 and (" (+" .. (#e.g - 1) .. ")") or "")
+      .. (#fits > 1 and (" (+" .. (#fits - 1) .. ")") or "")
   end
   local dt = ns.db.diedTo and ns.db.diedTo[k]
   if dt and (dt.n or 0) > 0 then
@@ -158,7 +178,9 @@ local function onUnitTooltip(tt)
   if not ok or not unit or secret(unit) or not ns.S(UnitIsPlayer, unit) then return end
   local name = ns.S(UnitName, unit)
   if type(name) ~= "string" or secret(name) then return end
-  local lines = PH:Lines(name)
+  local _, cls = UnitClass(unit)
+  local fac = ns.S(UnitFactionGroup, unit)
+  local lines = PH:Lines(name, (type(cls) == "string" and not secret(cls)) and cls or nil, (type(fac) == "string" and not secret(fac)) and fac or nil)
   if #lines == 0 then return end
   for i, l in ipairs(lines) do
     tt:AddLine((i == 1 and "|cffC69B6DChillan?|r " or "") .. l, 0.85, 0.75, 0.55, true)
