@@ -33,6 +33,10 @@ L.execute('local t = %s; t.results:SetData(ADDON_NS.Market:Search("runecloth", 4
 check("search finds Runecloth", L.eval('#(ADDON_NS.Market:Search("runecloth", 40))') >= 1)
 rows, total = L.eval('%s.BagRows()' % T)
 check("my bags: Lionheart Helm first, worth > 0 (total %s)" % total, total and total > 0 and rows[1].id == 12640 and rows[1].how == "Auction")
+# sorting: Total is the default (biggest first); by name puts Lionheart Helm before Runecloth
+L.execute('local t = %s; t.sort3.col, t.sort3.desc = 1, false; t.sub = 3; t:Refresh()' % T)
+check("sort by name doesn't error", not [e for e in G.ERRORS.values()])
+L.execute('local t = %s; t.sort3.col, t.sort3.desc = 4, true; t:Refresh()' % T)
 # tracker + alert away from the auction house: chat + Pulse ping
 L.execute('ADDON_NS.AH.ShopAdd(12640, 6000000)')
 L.execute('%s.sub = 2; %s:Refresh()' % (T, T))

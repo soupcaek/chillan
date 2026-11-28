@@ -37,7 +37,16 @@ end
 local function makeRow(list, cols)
   local r = CreateFrame("Button", nil, list)
   r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  r.bg = UI.Track(r:CreateTexture(nil, "BACKGROUND"))
+  -- (1.4.78) every other row a shade lighter, a thin line between rows; r.bg is the selection
+  r.stripe = r:CreateTexture(nil, "BACKGROUND", nil, 1)
+  r.stripe:SetAllPoints()
+  r.stripe:SetColorTexture(1, 1, 1, 0.035)
+  r.sepl = UI.Track(r:CreateTexture(nil, "BORDER"))
+  r.sepl:SetColorTexture(hex(C.line))
+  r.sepl:SetAlpha(0.6)
+  r.sepl:SetHeight(1)
+  r.sepl:SetPoint("BOTTOMLEFT", 0, -1) r.sepl:SetPoint("BOTTOMRIGHT", 0, -1)
+  r.bg = UI.Track(r:CreateTexture(nil, "BACKGROUND", nil, 2))
   r.bg:SetAllPoints()
   r.bg:SetColorTexture(1, 1, 1, 0.03)
   r.icon = r:CreateTexture(nil, "ARTWORK")
@@ -68,24 +77,80 @@ local function makeRow(list, cols)
   r:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return r
 end
-local function header(parent, cols, ...)
+local function stripe(r, idx) r.stripe:SetShown(idx % 2 == 0) end
+
+-- (1.4.78) the column titles: readable, clickable to sort (again: the other way), a line under them.
+-- st = { col = n, desc = bool } is changed in place; onSort() redraws
+local function header(parent, cols, labels, st, onSort)
   local h = CreateFrame("Frame", nil, parent)
-  h:SetHeight(16)
-  local labels = { ... }
-  local first = UI.Text(h, 10, nil, C.dim)
-  first:SetPoint("LEFT", 30, 0)
-  first:SetText(labels[1] or "")
+  h:SetHeight(22)
+  local ul = UI.Track(h:CreateTexture(nil, "ARTWORK"))
+  ul:SetColorTexture(hex(C.line))
+  ul:SetHeight(1)
+  ul:SetPoint("BOTTOMLEFT") ul:SetPoint("BOTTOMRIGHT")
+  h.btns = {}
+  local function mk(i, w, anchorRight, x)
+    local b = CreateFrame("Button", nil, h)
+    b:SetHeight(20)
+    b.t = UI.Text(b, 11, "semi", C.muted)
+    b.t:SetText(labels[i] or "")
+    b.arrow = b:CreateTexture(nil, "OVERLAY")
+    b.arrow:SetSize(10, 10)
+    b.arrow:SetTexture(ns.TEX .. "IconUp")
+    b.arrow:Hide()
+    if anchorRight then
+      b:SetPoint("RIGHT", x, 1)
+      b:SetWidth(w)
+      b.t:SetPoint("RIGHT", 0, 0)
+      b.arrow:SetPoint("RIGHT", b.t, "LEFT", -3, 0)
+    else
+      b:SetPoint("LEFT", 30, 1)
+      b:SetWidth(140)
+      b.t:SetPoint("LEFT", 0, 0)
+      b.arrow:SetPoint("LEFT", b.t, "RIGHT", 3, 0)
+    end
+    b:SetScript("OnClick", function()
+      if st.col == i then st.desc = not st.desc else st.col, st.desc = i, i ~= 1 end
+      h:Paint()
+      if onSort then onSort() end
+    end)
+    b:SetScript("OnEnter", function(self) self.t:SetTextColor(hex(C.text)) end)
+    b:SetScript("OnLeave", function() h:Paint() end)
+    h.btns[i] = b
+  end
+  mk(1)
   local x = -6
   for i = #cols, 1, -1 do
-    local t = UI.Text(h, 10, nil, C.dim)
-    t:SetPoint("RIGHT", x, 0)
-    t:SetWidth(cols[i])
-    t:SetJustifyH("RIGHT")
-    t:SetText(labels[i + 1] or "")
+    mk(i + 1, cols[i], true, x)
     x = x - cols[i] - 10
   end
+  function h:Paint()
+    for i, b in ipairs(self.btns) do
+      local on = st.col == i
+      b.t:SetTextColor(hex(on and C.text or C.muted))
+      b.arrow:SetShown(on)
+      UI.Track(b.arrow):SetVertexColor(hex(C.accent))
+      if st.desc then b.arrow:SetTexCoord(0, 1, 1, 0) else b.arrow:SetTexCoord(0, 1, 0, 1) end
+    end
+  end
+  h:Paint()
   return h
 end
+-- sort a list by its header: getters[i](item) gives the value for column i (1 = the name)
+local function sortBy(data, getters, st)
+  if not st.col or not getters[st.col] then return data end
+  local g, desc = getters[st.col], st.desc
+  table.sort(data, function(a, b)
+    local va, vb = g(a), g(b)
+    if va == nil and vb == nil then return false end
+    if va == nil then return false end
+    if vb == nil then return true end
+    if va == vb then return false end
+    if desc then return va > vb else return va < vb end
+  end)
+  return data
+end
+local function nameKey(id) return tostring(itemName(id) or ""):lower() end
 
 ns:RegisterTab("market", "Market", "Star", function(tab)
   local S = function() return ns.db.settings end
@@ -302,7 +367,8 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   local card1 = priceCard(p1, true)
   card1:SetPoint("TOPLEFT", sl, "TOPRIGHT", 10, 0)
   card1:SetPoint("BOTTOMRIGHT", p1, "BOTTOMRIGHT", 0, 0)
-  local cols1 = { 84, 56, 40 }
+  local cols1 = { 110, 64, 48 }
+  tab.sort1 = { }
   local box
   local results = UI.List(sl.body, 24, 2, function(list)
     local r = makeRow(list, cols1)
@@ -318,8 +384,9 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
       tab.results:Render()
     end)
     return r
-  end, function(r, h)
+  end, function(r, h, idx)
     r.id = h.id
+    stripe(r, idx)
     local name, q, icon = itemName(h.id)
     r.icon:SetTexture(icon or 134400)
     r.name:SetText(qhex(q) .. (name or h.name or ("item " .. h.id)) .. "|r")
@@ -330,7 +397,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
     r.bg:SetAlpha(tab.selSearch == h.id and 0.12 or 0)
   end)
   tab.results = results
-  local h1 = header(sl.body, cols1, "Item", "Price", "14 days", "Seen")
+  local h1 = header(sl.body, cols1, { "Item", "Price", "14 days", "Seen" }, tab.sort1, function() tab:Search() end)
   box = UI.EditBox(sl.body, 260, 28, "Item name, e.g. long elegant feather", function(e) e:ClearFocus() tab:Search() end)
   box:SetPoint("TOPLEFT", 0, 0)
   box:SetPoint("RIGHT", sl.body, "RIGHT", 0, 0)
@@ -344,6 +411,8 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   function tab:Search()
     local q = box:GetText()
     local hits, total, unnamed = M:Search(q, 40)
+    sortBy(hits, { function(h) return nameKey(h.id) end, function(h) return h.v end,
+      function(h) return change(M.History(h.id, 14)) end, function(h) return -(h.t or 0) end }, tab.sort1)
     results:SetData(hits)
     if #q >= 2 and (unnamed or 0) > 0 and #hits < 10 then
       more:SetText("Loading item names for " .. ns.Num(unnamed) .. " prices …")
@@ -385,8 +454,9 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
       if add.edit:HasFocus() and type(link) == "string" then add:SetText(link) end
     end)
   end
-  local cols2 = { 84, 56, 96 }
-  local h2 = header(tl.body, cols2, "Item", "Now", "14 days", "Alert")
+  local cols2 = { 120, 64, 110 }
+  tab.sort2 = { }
+  local h2 = header(tl.body, cols2, { "Item", "Now", "14 days", "Alert" }, tab.sort2, function() tab:Refresh() end)
   h2:SetPoint("TOPLEFT", add, "BOTTOMLEFT", 0, -8) h2:SetPoint("RIGHT", tl.body, "RIGHT", 0, 0)
   local tracker = UI.List(tl.body, 24, 2, function(list)
     local r = makeRow(list, cols2)
@@ -410,8 +480,9 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
       tab:Refresh()
     end)
     return r
-  end, function(r, it)
+  end, function(r, it, idx)
     r.id, r.it = it.id, it
+    stripe(r, idx)
     local name, q, icon = itemName(it.id)
     r.icon:SetTexture(icon or 134400)
     r.name:SetText(qhex(q) .. (name or ("item " .. it.id)) .. "|r")
@@ -449,12 +520,14 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   local bl = UI.Section(p3, "My bags")
   bl:SetPoint("TOPLEFT") bl:SetPoint("BOTTOMRIGHT")
   UI.InfoTip(bl, bl.title, "My bags", "Every item in your bags with its best price: the auction house (gang price after the 5 % cut, not for soulbound items), a vendor, or disenchanting it (the mats at gang prices).")
-  local cols3 = { 70, 90, 90 }
-  local h3 = header(bl.body, cols3, "Item", "Best", "Each", "Worth")
+  local cols3 = { 80, 110, 110 }
+  tab.sort3 = { col = 4, desc = true }
+  local h3 = header(bl.body, cols3, { "Item", "Best", "Each", "Total" }, tab.sort3, function() tab:Refresh() end)
   h3:SetPoint("TOPLEFT") h3:SetPoint("TOPRIGHT")
   local BEST_COL = { Auction = "8FB8E8", Vendor = "E0B04F", Disenchant = "B9AEDB" }
-  local bags = UI.List(bl.body, 24, 2, function(list) return makeRow(list, cols3) end, function(r, it)
+  local bags = UI.List(bl.body, 24, 2, function(list) return makeRow(list, cols3) end, function(r, it, idx)
     r.id = it.id
+    stripe(r, idx)
     local name, q, icon = itemName(it.id)
     r.icon:SetTexture(icon or 134400)
     r.name:SetText(qhex(q) .. (name or ("item " .. it.id)) .. "|r" .. (it.n > 1 and dim("  ×" .. it.n) or ""))
@@ -470,7 +543,7 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   btotal:SetPoint("BOTTOMRIGHT", -6, 4)
   local bnote = UI.Text(bl.body, 11, nil, C.dim)
   bnote:SetPoint("BOTTOMLEFT", 2, 4)
-  bnote:SetText("Bags worth")
+  bnote:SetText("Bags total")
   function tab.BagRows()
     local byId, out, total = {}, {}, 0
     if not (C_Container and C_Container.GetContainerNumSlots) then return out, 0 end
@@ -566,8 +639,10 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
   delist:SetPoint("TOPLEFT", 0, 0)
   delist:SetPoint("BOTTOMRIGHT", dp.body, "BOTTOMRIGHT", 6, 0)
   delist.emptyText = "No green, blue or purple gear in your bags right now."
-  local deBtn = ns.Disenchant:MakeButton(dp, 150, 20, false)
-  deBtn:SetPoint("RIGHT", dp, "TOPRIGHT", -8, -(1 + dp.stripH / 2))
+  -- (1.4.78) no Disenchant button here: a secure button inside the main window makes the whole window
+  -- protected, so the game refuses to close it in combat (Escape gave ADDON_ACTION_BLOCKED). The
+  -- button under your bags does the same.
+  dp.right:SetText("Disenchant: the button under your bags")
 
   ---------------------------------------------------------------------------
   function tab:Refresh()
@@ -592,10 +667,16 @@ ns:RegisterTab("market", "Market", "Star", function(tab)
       for _, it in ipairs(l) do local e = M:Get(it.id) if it.alert and e and e.v <= it.alert then under = under + 1 end end
       tl.right:SetText(#l .. (#l == 1 and " item" or " items") .. (under > 0 and (" · " .. under .. " under your alert") or ""))
       if not tab.selTrack and l[1] then tab.selTrack = l[1].id end
-      tracker:SetData(l)
+      local sorted = {}
+      for _, it in ipairs(l) do sorted[#sorted + 1] = it end
+      sortBy(sorted, { function(it) return nameKey(it.id) end, function(it) local e = M:Get(it.id) return e and e.v end,
+        function(it) return change(M.History(it.id, 14)) end, function(it) return it.alert end }, tab.sort2)
+      tracker:SetData(sorted)
       card2:Draw(tab.selTrack)
     elseif i == 3 then
       local rows, total = tab.BagRows()
+      sortBy(rows, { function(e) return nameKey(e.id) end, function(e) return e.how or "" end,
+        function(e) return e.each end, function(e) return e.worth end }, tab.sort3)
       bags:SetData(rows)
       btotal:SetText(coins(total))
     elseif i == 4 then
